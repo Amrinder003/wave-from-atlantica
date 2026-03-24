@@ -1,1 +1,0 @@
-C:\Users\User\Desktop\ShopChatbotServer\server_data
