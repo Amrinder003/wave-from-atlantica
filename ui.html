@@ -420,7 +420,7 @@ a{color:inherit;text-decoration:none}
   <div class="nav-right">
     <div class="nav-srv">
       <label for="srvUrl">Server</label>
-      <input id="srvUrl" value="http://127.0.0.1:8001"/>
+      <input id="srvUrl" value=""/>
       <div id="srvDot" class="sdot" title="Not checked"></div>
     </div>
     <button class="btn btn-o btn-sm nav-srvbtn" id="checkSrvBtn">Check</button>
@@ -843,7 +843,7 @@ a{color:inherit;text-decoration:none}
    STATE
 ═════════════════════════════════════════════ */
 const App = {
-  srv: localStorage.getItem('lm_srv') || 'http://127.0.0.1:8001',
+  srv: localStorage.getItem('lm_srv') || '',
   shopId: localStorage.getItem('lm_shop') || '',
   shopData: null,
   shopPage: 1,
