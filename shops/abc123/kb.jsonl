@@ -1,0 +1,4 @@
+{"type": "shop", "text": "Shop ID: abc123\nShop Name: Singh Electronics\nAddress: Batala, Punjab\nOverview: We sell phone chargers, earbuds, and mobile accessories.\nPhone: +91-9876543210\nHours: 10 AM - 8 PM"}
+{"type": "product", "text": "Shop ID: abc123\nProduct ID: p001\nProduct: Bluetooth Earbuds\nOverview: Wireless earbuds with noise isolation.\nPrice: ₹1299\nImages: /shops/abc123/images/HutImage.png"}
+{"type": "product", "text": "Shop ID: abc123\nProduct ID: p002\nProduct: 20W Fast Charger\nOverview: Supports fast charging for modern smartphones.\nPrice: ₹499\nImages: charger1.jpg"}
+{"type": "product", "text": "Shop ID: abc123\nProduct ID: p003\nProduct: White Pen\nOverview: Smooth white ink pen for dark paper.\nPrice: ₹99\nImages: /shops/abc123/images/Shoes.png"}

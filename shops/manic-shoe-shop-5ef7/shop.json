@@ -1,0 +1,35 @@
+{
+  "shop": {
+    "name": "Manic Shoe Shop",
+    "address": "xy street",
+    "overview": "",
+    "phone": "552455245252435",
+    "hours": ""
+  },
+  "products": [
+    {
+      "product_id": "002",
+      "name": "sneakers",
+      "overview": "aa",
+      "price": "Rs 5000",
+      "stock": "in",
+      "variants": "",
+      "images": [
+        "/shops/manic-shoe-shop-5ef7/images/813e84b772ee44d18944bfaece640838.jpg"
+      ],
+      "image_count": 1
+    },
+    {
+      "product_id": "p001",
+      "name": "Black Shoes",
+      "overview": "Leather Shoes",
+      "price": "Rs 5000",
+      "stock": "in",
+      "variants": "",
+      "images": [
+        "/shops/manic-shoe-shop-5ef7/images/3fbeed5b98d44362a4ba59fb8e8afbe0.png"
+      ],
+      "image_count": 1
+    }
+  ]
+}

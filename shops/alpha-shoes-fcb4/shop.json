@@ -1,0 +1,20 @@
+{
+  "shop": {
+    "name": "Alpha shoes",
+    "address": "Ludhiana, Punjab",
+    "overview": "We sell branded shoes. Features - Great sILK AND LEATHER SHOES, DURABLE AND Comfortable",
+    "phone": "",
+    "hours": ""
+  },
+  "products": [
+    {
+      "product_id": "p001",
+      "name": "Black Shoes",
+      "overview": "Rajasthan Special polished leather",
+      "price": "Rs 5000",
+      "images": [
+        "/shops/alpha-shoes-fcb4/images/Shoes.png"
+      ]
+    }
+  ]
+}

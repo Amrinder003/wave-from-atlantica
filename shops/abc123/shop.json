@@ -1,0 +1,38 @@
+{
+  "shop": {
+    "name": "Singh Electronics",
+    "address": "Batala, Punjab",
+    "overview": "We sell phone chargers, earbuds, and mobile accessories.",
+    "phone": "+91-9876543210",
+    "hours": "10 AM - 8 PM"
+  },
+  "products": [
+    {
+      "product_id": "p001",
+      "name": "Bluetooth Earbuds",
+      "overview": "Wireless earbuds with noise isolation.",
+      "price": "₹1299",
+      "images": [
+        "/shops/abc123/images/HutImage.png"
+      ]
+    },
+    {
+      "product_id": "p002",
+      "name": "20W Fast Charger",
+      "overview": "Supports fast charging for modern smartphones.",
+      "price": "₹499",
+      "images": [
+        "charger1.jpg"
+      ]
+    },
+    {
+      "product_id": "p003",
+      "name": "White Pen",
+      "overview": "Smooth white ink pen for dark paper.",
+      "price": "₹99",
+      "images": [
+        "/shops/abc123/images/Shoes.png"
+      ]
+    }
+  ]
+}

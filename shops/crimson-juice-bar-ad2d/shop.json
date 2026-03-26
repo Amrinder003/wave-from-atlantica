@@ -1,0 +1,29 @@
+{
+  "shop": {
+    "name": "Crimson Juice bar",
+    "address": "Kolkata, West Bengal",
+    "overview": "We sell multiple flavoured juice. shakes and drinks",
+    "phone": "",
+    "hours": ""
+  },
+  "products": [
+    {
+      "product_id": "p002",
+      "name": "Mango Shake",
+      "overview": "This is medium glass Delicious Mango Shake. We use fresh mangoes to make juice.",
+      "price": "Rs 50",
+      "images": [
+        "/shops/crimson-juice-bar-ad2d/images/Mango shake.jfif"
+      ]
+    },
+    {
+      "product_id": "p001",
+      "name": "Mix Juice",
+      "overview": "This is medium glass Mix Juice",
+      "price": "Rs 50",
+      "images": [
+        "/shops/crimson-juice-bar-ad2d/images/Juice.jfif"
+      ]
+    }
+  ]
+}
