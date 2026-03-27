@@ -78,7 +78,7 @@ SMTP_HOST         = os.environ.get("SMTP_HOST", "")
 SMTP_PORT         = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER         = os.environ.get("SMTP_USER", "")
 SMTP_PASS         = os.environ.get("SMTP_PASS", "")
-EMAIL_FROM        = os.environ.get("EMAIL_FROM", "Wave <noreply@wavefromatlantica.app>")
+EMAIL_FROM        = os.environ.get("EMAIL_FROM", f"Wave <{SMTP_USER}>") if SMTP_USER else os.environ.get("EMAIL_FROM", "Wave <noreply@wavefromatlantica.app>")
 APP_BASE_URL      = os.environ.get("APP_BASE_URL", "http://localhost:8001")
 
 SECRET_KEY        = os.environ.get("SECRET_KEY", secrets.token_hex(32))
@@ -347,25 +347,39 @@ def require_verified(user: sqlite3.Row):
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # EMAIL
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-def send_email(to: str, subject: str, html_body: str):
-    if not SMTP_HOST or not SMTP_USER:
-        print(f"[EMAIL SKIP] To={to} Subject={subject}")
-        return
+def send_email(to: str, subject: str, html_body: str) -> Tuple[bool, str]:
+    missing = []
+    if not SMTP_HOST: missing.append("SMTP_HOST")
+    if not SMTP_USER: missing.append("SMTP_USER")
+    if not SMTP_PASS: missing.append("SMTP_PASS")
+    if missing:
+        err = f"Email is not configured. Missing: {', '.join(missing)}"
+        print(f"[EMAIL ERROR] {err}")
+        return False, err
+
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = EMAIL_FROM
+        msg["From"] = EMAIL_FROM or f"Wave <{SMTP_USER}>"
         msg["To"] = to
-        msg.attach(MIMEText(html_body, "html"))
-        ctx = ssl.create_default_context()
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
-            s.ehlo(); s.starttls(context=ctx); s.ehlo()
-            s.login(SMTP_USER, SMTP_PASS)
-            s.sendmail(SMTP_USER, to, msg.as_string())
-    except Exception as e:
-        print(f"[EMAIL ERROR] {e}")
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-def send_verification_email(email: str, user_id: int, bg: BackgroundTasks):
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as s:
+            s.ehlo()
+            s.starttls(context=ctx)
+            s.ehlo()
+            s.login(SMTP_USER, SMTP_PASS)
+            s.sendmail(SMTP_USER, [to], msg.as_string())
+
+        print(f"[EMAIL SENT] To={to} Subject={subject}")
+        return True, ""
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"
+        print(f"[EMAIL ERROR] {err}")
+        return False, err
+
+def send_verification_email(email: str, user_id: int) -> Tuple[bool, str]:
     token = new_token()
     exp = int(time.time()) + VERIFY_TTL
     con = db()
@@ -373,7 +387,7 @@ def send_verification_email(email: str, user_id: int, bg: BackgroundTasks):
                 (token, user_id, exp))
     con.commit(); con.close()
 
-    link = f"{APP_BASE_URL}/auth/verify-email?token={token}"
+    link = f"{APP_BASE_URL.rstrip('/')}/auth/verify-email?token={token}"
     html = f"""
     <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;background:#f0f7f9;border-radius:12px;">
       <h2 style="color:#0284c7">Verify your Wave email</h2>
@@ -384,11 +398,11 @@ def send_verification_email(email: str, user_id: int, bg: BackgroundTasks):
       </a>
       <p style="color:#94a3b8;font-size:12px">Link expires in 24 hours. If you didn't sign up, ignore this.</p>
     </div>"""
-    bg.add_task(send_email, email, "Verify your Wave account", html)
+    return send_email(email, "Verify your Wave account", html)
 
-def send_reset_email(email: str, user_id: int, bg: BackgroundTasks):
+def send_reset_email(email: str, user_id: int) -> Tuple[bool, str]:
     token = new_token()
-    exp = int(time.time()) + 3600  
+    exp = int(time.time()) + 3600
     con = db()
     con.execute("INSERT OR REPLACE INTO password_resets(token,user_id,expires_at) VALUES(?,?,?)",
                 (token, user_id, exp))
@@ -405,7 +419,7 @@ def send_reset_email(email: str, user_id: int, bg: BackgroundTasks):
       </a>
       <p style="color:#94a3b8;font-size:12px">Link expires in 1 hour. If you didn't request this, ignore it.</p>
     </div>"""
-    bg.add_task(send_email, email, "Reset your Wave password", html)
+    return send_email(email, "Reset your Wave password", html)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # LLM 
@@ -750,7 +764,7 @@ def health():
 # ROUTES — Auth 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 @app.post("/auth/register")
-def register(body: RegisterReq, bg: BackgroundTasks):
+def register(body: RegisterReq):
     email = body.email.strip().lower()
     if not email or "@" not in email:
         raise HTTPException(400, "Invalid email address")
@@ -769,11 +783,14 @@ def register(body: RegisterReq, bg: BackgroundTasks):
     user = con.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
     con.close()
 
-    send_verification_email(email, user["id"], bg)
+    email_sent, email_error = send_verification_email(email, user["id"])
     token = create_session(user["id"])
     return {"ok": True, "token": token, "email": email,
             "display_name": user["display_name"], "email_verified": False,
-            "role": "customer", "message": "Account created! Check your email to verify."}
+            "role": "customer",
+            "verification_email_sent": email_sent,
+            "verification_error": email_error if not email_sent else "",
+            "message": "Account created! Check your email to verify." if email_sent else "Account created, but verification email could not be sent."}
 
 
 @app.post("/auth/login")
@@ -843,20 +860,26 @@ def verify_email_link(token: str, request: Request):
 
 
 @app.post("/auth/resend-verification")
-def resend_verification(authorization: Optional[str] = Header(None), bg: BackgroundTasks = None):
+def resend_verification(authorization: Optional[str] = Header(None)):
     user = get_user(authorization)
-    if user["email_verified"]: return {"ok": True, "message": "Already verified"}
-    send_verification_email(user["email"], user["id"], bg)
+    if user["email_verified"]:
+        return {"ok": True, "message": "Already verified"}
+    email_sent, email_error = send_verification_email(user["email"], user["id"])
+    if not email_sent:
+        raise HTTPException(500, f"Verification email could not be sent: {email_error}")
     return {"ok": True, "message": "Verification email sent"}
 
 
 @app.post("/auth/forgot-password")
-def forgot_password(body: ForgotPasswordReq, bg: BackgroundTasks):
+def forgot_password(body: ForgotPasswordReq):
     email = body.email.strip().lower()
     con = db()
     user = con.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
     con.close()
-    if user: send_reset_email(email, user["id"], bg)
+    if user:
+        email_sent, email_error = send_reset_email(email, user["id"])
+        if not email_sent:
+            print(f"[RESET EMAIL ERROR] {email_error}")
     return {"ok": True, "message": "If that email exists, a reset link has been sent."}
 
 
