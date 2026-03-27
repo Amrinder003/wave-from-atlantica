@@ -1681,7 +1681,31 @@ async function handleDeepLink(){
 /* ═════════════════════════════════════════════
    INIT
 ═════════════════════════════════════════════ */
+/* ═════════════════════════════════════════════
+   INIT & SUPABASE AUTH CATCHER
+═════════════════════════════════════════════ */
+async function handleHashAuth() {
+  if (window.location.hash.includes("access_token=")) {
+    const params = new URLSearchParams(window.location.hash.substring(1));
+    const token = params.get("access_token");
+    if (token) {
+      window.location.hash = ""; // clear hash from URL
+      App.user = { token: token };
+      localStorage.setItem('lm_user', JSON.stringify(App.user));
+      try {
+        const d = await api('/auth/me', { auth: true });
+        saveUser({...d, token});
+        toast('Email verified & logged in!', '', 'ok');
+      } catch(e) {
+        clearUser();
+      }
+    }
+  }
+}
+
 async function init(){
+  await handleHashAuth(); // <--- Catches Supabase Email Link
+  
   $('srvUrl').value=App.srv;
   renderUserUI();renderFilePrev([]);renderChatSide([]);renderCQchips([]);updateCartBadge();
   await checkServer();
