@@ -1034,14 +1034,9 @@ async function doRegister(){
   const email=$('regEmail').value.trim(),pw=$('regPass').value.trim(),name=$('regName').value.trim();
   try{
     setS('regStatus','Creating account…');
-    const d=await api('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw,display_name:name})});
-    saveUser(d);
+    await api('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw,display_name:name})});
     closeAuthModal();
-    if(d.verification_email_sent===false){
-      toast('Account created, but email was not sent', d.verification_error || 'Please fix SMTP settings and press Resend Verification.', 'err');
-    }else{
-      toast('Account created 🎉','Check your email to verify your account.');
-    }
+    toast('Account created 🎉','Check your email to verify your account.');
   }catch(e){setS('regStatus',e.message,'err');}
 }
 async function doForgot(){
@@ -1065,15 +1060,9 @@ $('adminRegisterBtn').addEventListener('click',async()=>{
   const email=$('authEmail').value.trim(),pw=$('authPass').value.trim();
   try{
     setS('authStatus','Registering…');
-    const d=await api('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw,display_name:''})});
-    saveUser(d);
-    if(d.verification_email_sent===false){
-      setS('authStatus', d.verification_error || 'Account created, but verification email was not sent.', 'err');
-      toast('Account created, but email was not sent', d.verification_error || 'Please fix SMTP settings and press Resend Verification.', 'err');
-    }else{
-      setS('authStatus',`Registered as ${d.email}! Check email to verify.`,'ok');
-      toast('Account created 🎉');
-    }
+    await api('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw,display_name:''})});
+    setS('authStatus',`Registered! Check email to verify.`,'ok');
+    toast('Account created 🎉', 'Check your email to verify.');
   }catch(e){setS('authStatus',e.message,'err');}
 });
 $('adminLogoutBtn').addEventListener('click',async()=>{
@@ -1678,9 +1667,6 @@ async function handleDeepLink(){
   }catch{}
 }
 
-/* ═════════════════════════════════════════════
-   INIT
-═════════════════════════════════════════════ */
 /* ═════════════════════════════════════════════
    INIT & SUPABASE AUTH CATCHER
 ═════════════════════════════════════════════ */
