@@ -1,6 +1,5 @@
 """
 Wave API  v4.0 — Supabase Edition (Stable)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
 from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Form
@@ -48,7 +47,7 @@ SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
 APP_BASE_URL      = os.environ.get("APP_BASE_URL", "http://localhost:8001").strip()
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in environment variables.")
+    print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY.")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL else None
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -127,7 +126,7 @@ def get_user(auth: Optional[str]):
         prof_res = supabase.table("profiles").select("*").eq("id", user.id).execute()
         prof = prof_res.data[0] if prof_res.data else {}
         return user, prof
-    except Exception as e:
+    except Exception:
         raise HTTPException(401, "Session expired or invalid")
 
 def require_verified(user):
@@ -317,7 +316,7 @@ def build_context(shop: dict, picked: List[Dict], all_rows: List) -> str:
             lines.append(f'• {p["name"]} | Price: {p.get("price","N/A")} | Stock: {p.get("stock","in")}{img_part}')
     return "\n".join(lines)
 
-SHOP_ASSISTANT_SYSTEM = """You are a helpful sales assistant. Answer based ONLY on the shop context provided. Be warm and concise. Use markdown. Mention price/stock if known."""
+SHOP_ASSISTANT_SYSTEM = """You are a friendly, knowledgeable sales assistant. Answer based ONLY on the shop context provided. Be warm and concise. Use markdown. Mention price and stock status when relevant."""
 
 def fallback_answer(shop: dict, picked: List[Dict], q: str) -> str:
     if is_greeting(q): return f"Hi! Welcome to **{shop['name']}**! Ask me about our products, or say 'show all products'."
@@ -615,6 +614,33 @@ def admin_delete_shop(shop_id: str, authorization: Optional[str] = Header(None))
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
     supabase.table("shops").delete().eq("shop_id", shop_id).execute()
+    shutil.rmtree(os.path.join(SHOPS_DIR, shop_id), ignore_errors=True)
+    return {"ok": True}
+
+@app.post("/admin/shop/{shop_id}/product")
+def admin_upsert_product(shop_id: str, product: Product, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    check_shop_owner(user.id, shop_id)
+    pid = slug(product.product_id, 60)
+    if not product.name.strip(): raise HTTPException(400, "Product name required")
+    
+    existing = supabase.table("products").select("images").eq("shop_id", shop_id).eq("product_id", pid).execute().data
+    imgs = dedup(product.images or [])
+    if existing and not imgs: imgs = existing[0].get("images", [])
+    
+    data = {"name": product.name.strip(), "overview": product.overview, "price": product.price, "stock": product.stock, "variants": product.variants, "images": imgs, "updated_at": "now()"}
+    if existing: supabase.table("products").update(data).eq("shop_id", shop_id).eq("product_id", pid).execute()
+    else: supabase.table("products").insert({**data, "shop_id": shop_id, "product_id": pid}).execute()
+    
+    rebuild_kb(shop_id)
+    return {"ok": True, "product_id": pid}
+
+@app.delete("/admin/shop/{shop_id}/product/{product_id}")
+def admin_delete_product(shop_id: str, product_id: str, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    check_shop_owner(user.id, shop_id)
+    supabase.table("products").delete().eq("shop_id", shop_id).eq("product_id", product_id).execute()
+    rebuild_kb(shop_id)
     return {"ok": True}
 
 @app.post("/admin/shop/{shop_id}/product-with-images")
@@ -646,15 +672,7 @@ def admin_product_with_images(
     else: supabase.table("products").insert({**data, "shop_id": shop_id, "product_id": pid}).execute()
     
     rebuild_kb(shop_id)
-    return {"ok": True, "product_id": pid}
-
-@app.delete("/admin/shop/{shop_id}/product/{product_id}")
-def admin_delete_product(shop_id: str, product_id: str, authorization: Optional[str] = Header(None)):
-    user, prof = get_user(authorization)
-    check_shop_owner(user.id, shop_id)
-    supabase.table("products").delete().eq("shop_id", shop_id).eq("product_id", product_id).execute()
-    rebuild_kb(shop_id)
-    return {"ok": True}
+    return {"ok": True, "product_id": pid, "images": merged}
 
 @app.delete("/admin/shop/{shop_id}/product/{product_id}/image")
 def admin_delete_image(shop_id: str, product_id: str, image_path: str = Query(...), authorization: Optional[str] = Header(None)):
@@ -677,6 +695,13 @@ def admin_delete_image(shop_id: str, product_id: str, image_path: str = Query(..
     supabase.table("products").update({"images": new_imgs, "updated_at": "now()"}).eq("shop_id", shop_id).eq("product_id", product_id).execute()
     rebuild_kb(shop_id)
     return {"ok": True, "remaining": len(new_imgs)}
+
+@app.post("/admin/shop/{shop_id}/rebuild-kb")
+def admin_rebuild_kb(shop_id: str, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    check_shop_owner(user.id, shop_id)
+    rebuild_kb(shop_id)
+    return {"ok": True}
 
 @app.get("/admin/shop/{shop_id}/analytics")
 def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] = Header(None)):
