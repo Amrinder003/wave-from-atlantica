@@ -1,13 +1,6 @@
 """
 Wave API  v4.0 — Supabase Edition
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Environment variables (set in Railway):
-  OPENROUTER_API_KEY=sk-or-...          
-  OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct:free   
-  SUPABASE_URL=https://xxx.supabase.co
-  SUPABASE_SERVICE_KEY=eyJ...
-  APP_BASE_URL=https://your-app.railway.app   
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
 from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Form
@@ -46,18 +39,14 @@ os.makedirs(SHOPS_DIR, exist_ok=True)
 PAGE_SIZE         = 24                   
 ALLOWED_IMG_EXTS  = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".jif"}
 
-OPENROUTER_KEY    = os.environ.get("OPENROUTER_API_KEY", "")
+OPENROUTER_KEY    = os.environ.get("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_MODEL  = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
 OPENROUTER_URL    = "https://openrouter.ai/api/v1/chat/completions"
-OLLAMA_URL        = os.environ.get("OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
-OLLAMA_MODEL      = os.environ.get("CHAT_MODEL", "llama3.2:3b")
 
-SUPABASE_URL      = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_KEY", "")
-APP_BASE_URL      = os.environ.get("APP_BASE_URL", "http://localhost:8001")
+SUPABASE_URL      = os.environ.get("SUPABASE_URL", "").strip()
+SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+APP_BASE_URL      = os.environ.get("APP_BASE_URL", "http://localhost:8001").strip()
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY.")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL else None
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -89,10 +78,6 @@ class LoginReq(BaseModel):
 
 class ForgotPasswordReq(BaseModel):
     email: str
-
-class ResetPasswordReq(BaseModel):
-    token: str
-    new_password: str
 
 class UpdateProfileReq(BaseModel):
     display_name: str = ""
@@ -140,7 +125,7 @@ def get_user(auth: Optional[str]):
         prof_data = supabase.table("profiles").select("*").eq("id", user.id).execute().data
         prof = prof_data[0] if prof_data else {}
         return user, prof
-    except Exception as e:
+    except Exception:
         raise HTTPException(401, "Session expired or invalid")
 
 def require_verified(user):
@@ -151,36 +136,23 @@ def require_verified(user):
 # LLM 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 def llm_chat(system: str, user: str, max_tokens: int = 400) -> str:
+    if not OPENROUTER_KEY:
+        raise ValueError("Missing LLM API Key")
+        
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
-    if OPENROUTER_KEY:
-        try:
-            r = requests.post(
-                OPENROUTER_URL,
-                headers={
-                    "Authorization": f"Bearer {OPENROUTER_KEY}", 
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": APP_BASE_URL,
-                    "X-Title": "Wave from Atlantica"
-                },
-                json={"model": OPENROUTER_MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": 0.2},
-                timeout=60,
-            )
-            r.raise_for_status()
-            return (r.json()["choices"][0]["message"]["content"] or "").strip()
-        except Exception as e:
-            print(f"[OpenRouter error] {e} - falling back to Ollama")
-            
-    try:
-        r = requests.post(
-            OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "messages": messages, "stream": False,
-                  "options": {"temperature": 0.2, "num_predict": max_tokens}},
-            timeout=120,
-        )
-        r.raise_for_status()
-        return ((r.json().get("message") or {}).get("content") or "").strip()
-    except Exception as e:
-        raise HTTPException(503, f"LLM unavailable: {e}")
+    r = requests.post(
+        OPENROUTER_URL,
+        headers={
+            "Authorization": f"Bearer {OPENROUTER_KEY}", 
+            "Content-Type": "application/json",
+            "HTTP-Referer": APP_BASE_URL,
+            "X-Title": "Wave from Atlantica"
+        },
+        json={"model": OPENROUTER_MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": 0.2},
+        timeout=60,
+    )
+    r.raise_for_status()
+    return (r.json()["choices"][0]["message"]["content"] or "").strip()
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # HELPERS
@@ -217,8 +189,13 @@ def save_images(shop_id: str, files: List[UploadFile]) -> List[str]:
         if ext not in ALLOWED_IMG_EXTS: raise HTTPException(400, f"Unsupported type: {ext}")
         name = f"{uuid.uuid4().hex}{norm_ext(ext)}"
         path = f"{shop_id}/{name}"
-        supabase.storage.from_("product-images").upload(path, f.file.read(), {"content-type": f.content_type})
-        out.append(supabase.storage.from_("product-images").get_public_url(path))
+        
+        try:
+            supabase.storage.from_("product-images").upload(path, f.file.read(), {"content-type": f.content_type})
+            out.append(supabase.storage.from_("product-images").get_public_url(path))
+        except Exception as e:
+            print(f"[Supabase Storage Error] {e}")
+            raise HTTPException(500, "Failed to save image. Did you run the SQL query to create the 'product-images' bucket in Supabase?")
     return out
 
 def serialize_product(row: dict, req: Request = None, user_id: str = None) -> Dict[str, Any]:
@@ -269,7 +246,7 @@ def rebuild_kb(shop_id: str):
     write_shop_json(shop_id)
     if HAS_RAG:
         try: _build_kb(os.path.join(SHOPS_DIR, shop_id))
-        except Exception as e: print(f"[KB] {e}")
+        except Exception: pass
 
 # ── Chat helpers ──
 def wants_all_images(q: str) -> bool:
@@ -333,7 +310,7 @@ def fallback_answer(shop: dict, picked: List[Dict], all_rows: List, q: str) -> s
         if top.get("images"): s += f"\n![{top['name']}]({top['images'][0]})"
         if len(picked) > 1: s += "\n\nYou may also like: " + ", ".join(p["name"] for p in picked[1:4])
         return s
-    return "I couldn't find a match. Try asking 'show all products' to see everything we have."
+    return "I couldn't find a specific match, but I can help you explore our products! Try asking 'show all products'."
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — System
@@ -343,10 +320,10 @@ def serve_ui():
     with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
 
 @app.get("/")
-def root(): return {"status": "running", "version": "4.0 Supabase", "rag": HAS_RAG}
+def root(): return {"status": "running", "version": "4.1 Supabase"}
 
 @app.get("/health")
-def health(): return {"ok": True, "model": OPENROUTER_MODEL}
+def health(): return {"ok": True}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Auth 
@@ -366,7 +343,7 @@ def login(body: LoginReq):
         user = res.user
         prof = supabase.table("profiles").select("*").eq("id", user.id).execute().data[0]
         return {"ok": True, "token": res.session.access_token, "email": user.email, "display_name": prof.get("display_name", ""), "avatar_url": prof.get("avatar_url", ""), "email_verified": user.email_confirmed_at is not None, "role": prof.get("role", "customer")}
-    except Exception as e:
+    except Exception:
         raise HTTPException(401, "Invalid email or password")
 
 @app.get("/auth/me")
@@ -412,12 +389,16 @@ def update_profile(body: UpdateProfileReq, authorization: Optional[str] = Header
 def upload_avatar(authorization: Optional[str] = Header(None), avatar: UploadFile = File(...)):
     user, prof = get_user(authorization)
     if not avatar.filename: raise HTTPException(400, "No file provided")
-    ext = norm_ext(os.path.splitext(avatar.filename.lower())[1])
-    path = f"avatars/user_{user.id}_{uuid.uuid4().hex[:8]}{ext}"
-    supabase.storage.from_("product-images").upload(path, avatar.file.read(), {"content-type": avatar.content_type})
-    url = supabase.storage.from_("product-images").get_public_url(path)
-    supabase.table("profiles").update({"avatar_url": url}).eq("id", user.id).execute()
-    return {"ok": True, "avatar_url": url}
+    try:
+        ext = norm_ext(os.path.splitext(avatar.filename.lower())[1])
+        path = f"avatars/user_{user.id}_{uuid.uuid4().hex[:8]}{ext}"
+        supabase.storage.from_("product-images").upload(path, avatar.file.read(), {"content-type": avatar.content_type})
+        url = supabase.storage.from_("product-images").get_public_url(path)
+        supabase.table("profiles").update({"avatar_url": url}).eq("id", user.id).execute()
+        return {"ok": True, "avatar_url": url}
+    except Exception as e:
+        print(f"Avatar Upload Error: {e}")
+        raise HTTPException(500, "Avatar upload failed. Is your storage bucket configured?")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Customer
@@ -571,18 +552,18 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
             answer = llm_chat(SHOP_ASSISTANT_SYSTEM, f"SHOP CONTEXT:\n{build_context(shop, prod_rows, True, prod_rows)}\n\nCUSTOMER:\n{q}", 500)
             return {"answer": answer, "products": [serialize_product(p, request) for p in prod_rows[:8]], "meta": {"llm_used": True, "source": "list"}}
         except Exception as e: 
-            print(f"[Chat Exception] Fallback triggered: {e}")
+            print(f"[Chat LLM Exception] {e}") # Silently log, don't show user
             pass
 
     try:
         answer = llm_chat(SHOP_ASSISTANT_SYSTEM, f"SHOP CONTEXT:\n{build_context(shop, picked, False, prod_rows)}\n\nCUSTOMER:\n{q}", 350)
         llm_used = True
     except Exception as e:
-        print(f"[Chat Exception] Fallback triggered: {e}")
+        print(f"[Chat LLM Exception] {e}") # Silently log, don't show user
         answer = fallback_answer(shop, abs_picked, prod_rows, q)
         llm_used = False
 
-    return {"answer": answer, "products": abs_picked, "meta": {"llm_used": llm_used, "source": source, "model": OPENROUTER_MODEL if (llm_used and OPENROUTER_KEY) else OPENROUTER_MODEL, "suggestions": [f"Tell me more about {p['name']}" for p in abs_picked[:2]] + ["Show all products", "What's in stock?"]}}
+    return {"answer": answer, "products": abs_picked, "meta": {"llm_used": llm_used, "source": source, "model": OPENROUTER_MODEL if llm_used else "None", "suggestions": [f"Tell me more about {p['name']}" for p in abs_picked[:2]] + ["Show all products", "What's in stock?"] if llm_used else []}}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Admin
@@ -693,7 +674,9 @@ def admin_delete_image(shop_id: str, product_id: str, image_path: str = Query(..
     if not row: raise HTTPException(404, "Product not found")
     
     img_name = os.path.basename(image_path.rstrip("/"))
-    supabase.storage.from_("product-images").remove([f"{shop_id}/{img_name}"])
+    try:
+        supabase.storage.from_("product-images").remove([f"{shop_id}/{img_name}"])
+    except Exception: pass
     
     new_imgs = [u for u in row[0].get("images", []) if os.path.basename(u) != img_name]
     supabase.table("products").update({"images": new_imgs, "updated_at": "now()"}).eq("shop_id", shop_id).eq("product_id", product_id).execute()
