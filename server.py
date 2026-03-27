@@ -49,6 +49,8 @@ ALLOWED_IMG_EXTS  = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".jif"}
 OPENROUTER_KEY    = os.environ.get("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL  = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
 OPENROUTER_URL    = "https://openrouter.ai/api/v1/chat/completions"
+OLLAMA_URL        = os.environ.get("OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
+OLLAMA_MODEL      = os.environ.get("CHAT_MODEL", "llama3.2:3b")
 
 SUPABASE_URL      = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_KEY", "")
@@ -154,15 +156,31 @@ def llm_chat(system: str, user: str, max_tokens: int = 400) -> str:
         try:
             r = requests.post(
                 OPENROUTER_URL,
-                headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_KEY}", 
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": APP_BASE_URL,
+                    "X-Title": "Wave from Atlantica"
+                },
                 json={"model": OPENROUTER_MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": 0.2},
                 timeout=60,
             )
             r.raise_for_status()
             return (r.json()["choices"][0]["message"]["content"] or "").strip()
         except Exception as e:
-            print(f"[OpenRouter error] {e}")
-    raise HTTPException(503, "LLM unavailable")
+            print(f"[OpenRouter error] {e} - falling back to Ollama")
+            
+    try:
+        r = requests.post(
+            OLLAMA_URL,
+            json={"model": OLLAMA_MODEL, "messages": messages, "stream": False,
+                  "options": {"temperature": 0.2, "num_predict": max_tokens}},
+            timeout=120,
+        )
+        r.raise_for_status()
+        return ((r.json().get("message") or {}).get("content") or "").strip()
+    except Exception as e:
+        raise HTTPException(503, f"LLM unavailable: {e}")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # HELPERS
@@ -552,12 +570,15 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
         try:
             answer = llm_chat(SHOP_ASSISTANT_SYSTEM, f"SHOP CONTEXT:\n{build_context(shop, prod_rows, True, prod_rows)}\n\nCUSTOMER:\n{q}", 500)
             return {"answer": answer, "products": [serialize_product(p, request) for p in prod_rows[:8]], "meta": {"llm_used": True, "source": "list"}}
-        except Exception: pass
+        except Exception as e: 
+            print(f"[Chat Exception] Fallback triggered: {e}")
+            pass
 
     try:
         answer = llm_chat(SHOP_ASSISTANT_SYSTEM, f"SHOP CONTEXT:\n{build_context(shop, picked, False, prod_rows)}\n\nCUSTOMER:\n{q}", 350)
         llm_used = True
-    except Exception:
+    except Exception as e:
+        print(f"[Chat Exception] Fallback triggered: {e}")
         answer = fallback_answer(shop, abs_picked, prod_rows, q)
         llm_used = False
 
