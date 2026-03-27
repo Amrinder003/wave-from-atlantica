@@ -207,7 +207,7 @@ def serialize_product(row: dict, req: Request = None, user_id: str = None) -> Di
     rv = supabase.table("reviews").select("rating").eq("shop_id", row["shop_id"]).eq("product_id", row["product_id"]).execute().data
     is_fav = False
     if user_id:
-        is_fav = len(supabase.table("favourites").select("1").eq("user_id", user_id).eq("shop_id", row["shop_id"]).eq("product_id", row["product_id"]).execute().data) > 0
+        is_fav = len(supabase.table("favourites").select("shop_id").eq("user_id", user_id).eq("shop_id", row["shop_id"]).eq("product_id", row["product_id"]).execute().data) > 0
     return {
         "product_id": row["product_id"], "shop_id": row["shop_id"], "name": row["name"],
         "overview": row.get("overview", ""), "price": row.get("price", ""),
@@ -222,8 +222,8 @@ def shop_stats(shop_id: str) -> Dict:
     with_imgs = sum(1 for p in prods if p.get("images"))
     imgs = sum(len(p.get("images", [])) for p in prods)
     since = int(time.time()) - 86400 * 30
-    chats = len(supabase.table("analytics").select("1").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", f"to_timestamp({since})").execute().data)
-    views = len(supabase.table("analytics").select("1").eq("shop_id", shop_id).eq("event", "view").gte("created_at", f"to_timestamp({since})").execute().data)
+    chats = len(supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", f"to_timestamp({since})").execute().data)
+    views = len(supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "view").gte("created_at", f"to_timestamp({since})").execute().data)
     rvs = supabase.table("reviews").select("rating").eq("shop_id", shop_id).execute().data
     avg_r = sum(r["rating"] for r in rvs)/len(rvs) if rvs else 0
     return {"product_count": len(prods), "products_with_images": with_imgs, "image_count": imgs, "chat_hits_30d": chats, "product_views_30d": views, "avg_rating": round(avg_r, 1)}
@@ -351,8 +351,8 @@ def login(body: LoginReq):
 def auth_me(authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     shops = supabase.table("shops").select("shop_id, name").eq("owner_user_id", user.id).execute().data
-    fav_count = len(supabase.table("favourites").select("1").eq("user_id", user.id).execute().data)
-    rev_count = len(supabase.table("reviews").select("1").eq("user_id", user.id).execute().data)
+    fav_count = len(supabase.table("favourites").select("shop_id").eq("user_id", user.id).execute().data)
+    rev_count = len(supabase.table("reviews").select("id").eq("user_id", user.id).execute().data)
     return {
         "ok": True, "user_id": user.id, "email": user.email,
         "display_name": prof.get("display_name", ""),
@@ -364,7 +364,6 @@ def auth_me(authorization: Optional[str] = Header(None)):
 
 @app.post("/auth/logout")
 def logout(authorization: Optional[str] = Header(None)):
-    # Supabase handles stateless JWTs, frontend drops token
     return {"ok": True}
 
 @app.post("/auth/resend-verification")
@@ -405,7 +404,7 @@ def upload_avatar(authorization: Optional[str] = Header(None), avatar: UploadFil
 def toggle_favourite(shop_id: str, product_id: str, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     require_verified(user)
-    exists = len(supabase.table("favourites").select("1").eq("user_id", user.id).eq("shop_id", shop_id).eq("product_id", product_id).execute().data) > 0
+    exists = len(supabase.table("favourites").select("shop_id").eq("user_id", user.id).eq("shop_id", shop_id).eq("product_id", product_id).execute().data) > 0
     if exists: supabase.table("favourites").delete().eq("user_id", user.id).eq("shop_id", shop_id).eq("product_id", product_id).execute()
     else: supabase.table("favourites").insert({"user_id": user.id, "shop_id": shop_id, "product_id": product_id}).execute()
     return {"ok": True, "saved": not exists}
@@ -430,7 +429,7 @@ def post_review(shop_id: str, product_id: str, body: ReviewReq, authorization: O
     user, prof = get_user(authorization)
     require_verified(user)
     if not body.body.strip(): raise HTTPException(400, "Review cannot be empty")
-    if not supabase.table("products").select("1").eq("shop_id", shop_id).eq("product_id", product_id).execute().data: raise HTTPException(404, "Product not found")
+    if not supabase.table("products").select("product_id").eq("shop_id", shop_id).eq("product_id", product_id).execute().data: raise HTTPException(404, "Product not found")
     try: supabase.table("reviews").insert({"shop_id": shop_id, "product_id": product_id, "user_id": user.id, "rating": body.rating, "body": body.body.strip()}).execute()
     except Exception: supabase.table("reviews").update({"rating": body.rating, "body": body.body.strip()}).eq("shop_id", shop_id).eq("product_id", product_id).eq("user_id", user.id).execute()
     return {"ok": True, "message": "Review saved"}
@@ -494,7 +493,6 @@ def search_global(request: Request, q: str = Query(...), page: int = Query(1, ge
 
 @app.get("/public/top-products")
 def top_products(request: Request, limit: int = Query(12, le=40), category: str = Query("")):
-    # Simulated top products since complex JOINs are best done in SQL views
     q = supabase.table("products").select("*, shops!inner(name, category)").neq("stock", "out")
     if category: q = q.ilike("shops.category", category)
     rows = q.limit(limit).execute().data
@@ -565,7 +563,7 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
 # ROUTES — Admin
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 def check_shop_owner(user_id: str, shop_id: str):
-    if not supabase.table("shops").select("1").eq("shop_id", shop_id).eq("owner_user_id", user_id).execute().data:
+    if not supabase.table("shops").select("shop_id").eq("shop_id", shop_id).eq("owner_user_id", user_id).execute().data:
         raise HTTPException(404, "Not found or not yours")
 
 @app.post("/admin/create-shop")
@@ -575,7 +573,7 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     shop = body.shop
     if not shop.name.strip() or not shop.address.strip(): raise HTTPException(400, "Shop name and address required")
     sid = slug(body.shop_id) if body.shop_id else gen_shop_id(shop.name)
-    if supabase.table("shops").select("1").eq("shop_id", sid).execute().data: raise HTTPException(409, "shop_id already exists")
+    if supabase.table("shops").select("shop_id").eq("shop_id", sid).execute().data: raise HTTPException(409, "shop_id already exists")
     
     supabase.table("shops").insert({"shop_id": sid, "owner_user_id": user.id, "name": shop.name.strip(), "address": shop.address.strip(), "overview": shop.overview, "phone": shop.phone, "hours": shop.hours, "category": shop.category, "whatsapp": shop.whatsapp}).execute()
     supabase.table("profiles").update({"role": "shopkeeper"}).eq("id", user.id).execute()
@@ -709,7 +707,7 @@ def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] =
     daily = []
     for d in range(13, -1, -1):
         s = now - 86400 * (d + 1); e = now - 86400 * d
-        c = len(supabase.table("analytics").select("1").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", f"to_timestamp({s})").lt("created_at", f"to_timestamp({e})").execute().data)
+        c = len(supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", f"to_timestamp({s})").lt("created_at", f"to_timestamp({e})").execute().data)
         daily.append({"date": datetime.fromtimestamp(e, tz=timezone.utc).strftime("%b %d"), "chats": c})
         
     return {"ok": True, "shop_id": shop_id, "days": days, "totals": totals, "top_products": top, "daily_chats": daily}
