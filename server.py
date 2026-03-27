@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import os, re, json, time, uuid, shutil
+from datetime import datetime, timezone
 import requests
 from typing import Any, Dict, List, Optional
 from supabase import create_client, Client
@@ -221,9 +222,12 @@ def shop_stats(shop_id: str) -> Dict:
     prods = supabase.table("products").select("images").eq("shop_id", shop_id).execute().data
     with_imgs = sum(1 for p in prods if p.get("images"))
     imgs = sum(len(p.get("images", [])) for p in prods)
+    
     since = int(time.time()) - 86400 * 30
-    chats = len(supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", f"to_timestamp({since})").execute().data)
-    views = len(supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "view").gte("created_at", f"to_timestamp({since})").execute().data)
+    since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
+    
+    chats = len(supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", since_iso).execute().data)
+    views = len(supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "view").gte("created_at", since_iso).execute().data)
     rvs = supabase.table("reviews").select("rating").eq("shop_id", shop_id).execute().data
     avg_r = sum(r["rating"] for r in rvs)/len(rvs) if rvs else 0
     return {"product_count": len(prods), "products_with_images": with_imgs, "image_count": imgs, "chat_hits_30d": chats, "product_views_30d": views, "avg_rating": round(avg_r, 1)}
@@ -686,14 +690,16 @@ def admin_rebuild_kb(shop_id: str, authorization: Optional[str] = Header(None)):
 def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
-    since = int(time.time()) - 86400 * max(1, min(days, 365))
     
-    evs = supabase.table("analytics").select("event").eq("shop_id", shop_id).gte("created_at", f"to_timestamp({since})").execute().data
+    since = int(time.time()) - 86400 * max(1, min(days, 365))
+    since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
+    
+    evs = supabase.table("analytics").select("event").eq("shop_id", shop_id).gte("created_at", since_iso).execute().data
     totals = {"chat": 0, "shop_view": 0, "view": 0}
     for e in evs:
         if e["event"] in totals: totals[e["event"]] += 1
         
-    top_data = supabase.table("analytics").select("product_id").eq("shop_id", shop_id).eq("event", "view").gte("created_at", f"to_timestamp({since})").execute().data
+    top_data = supabase.table("analytics").select("product_id").eq("shop_id", shop_id).eq("event", "view").gte("created_at", since_iso).execute().data
     counts = {}
     for d in top_data:
         if d["product_id"]: counts[d["product_id"]] = counts.get(d["product_id"], 0) + 1
@@ -703,11 +709,13 @@ def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] =
         t["name"] = p[0]["name"] if p else t["product_id"]
 
     now = int(time.time())
-    from datetime import datetime, timezone
     daily = []
     for d in range(13, -1, -1):
         s = now - 86400 * (d + 1); e = now - 86400 * d
-        c = len(supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", f"to_timestamp({s})").lt("created_at", f"to_timestamp({e})").execute().data)
+        s_iso = datetime.fromtimestamp(s, tz=timezone.utc).isoformat()
+        e_iso = datetime.fromtimestamp(e, tz=timezone.utc).isoformat()
+        
+        c = len(supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", s_iso).lt("created_at", e_iso).execute().data)
         daily.append({"date": datetime.fromtimestamp(e, tz=timezone.utc).strftime("%b %d"), "chats": c})
         
     return {"ok": True, "shop_id": shop_id, "days": days, "totals": totals, "top_products": top, "daily_chats": daily}
