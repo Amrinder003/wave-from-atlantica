@@ -1,12 +1,11 @@
 """
-LocalMarket API  v4.0
+Wave API  v4.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Environment variables (create a .env file or set in Railway/Render):
 
   # ── LLM ──────────────────────────────────────────────────────────
-  OPENROUTER_API_KEY=sk-or-...          # Get free key at openrouter.ai
-  OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct:free   # or any free model
-  # If OPENROUTER_API_KEY is not set, falls back to local Ollama:
+  OPENROUTER_API_KEY=sk-or-...          
+  OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct:free   
   OLLAMA_CHAT_URL=http://127.0.0.1:11434/api/chat
   CHAT_MODEL=llama3.2:3b
 
@@ -14,14 +13,14 @@ Environment variables (create a .env file or set in Railway/Render):
   SMTP_HOST=smtp.gmail.com
   SMTP_PORT=587
   SMTP_USER=your@gmail.com
-  SMTP_PASS=your_app_password        # Gmail: 16-char app password
-  EMAIL_FROM=LocalMarket <your@gmail.com>
-  APP_BASE_URL=https://your-app.railway.app   # used for verify links
+  SMTP_PASS=your_app_password        
+  EMAIL_FROM=Wave <your@gmail.com>
+  APP_BASE_URL=https://your-app.railway.app   
 
   # ── SUPABASE (optional — leave blank to use SQLite) ─────────────
   SUPABASE_URL=https://xxx.supabase.co
   SUPABASE_SERVICE_KEY=eyJ...
-  USE_SUPABASE_STORAGE=false         # set true to store images in Supabase
+  USE_SUPABASE_STORAGE=false         
 
   # ── SECURITY ─────────────────────────────────────────────────────
   SECRET_KEY=change-me-to-a-random-64-char-string
@@ -39,14 +38,12 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Any, Dict, List, Optional, Tuple
 
-# ── optional: load .env if python-dotenv is installed ──
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
 
-# ── optional: RAG modules (not required, graceful fallback) ──
 try:
     from retrieval_chat import retrieve as _retrieve
     from build_kb import build_kb as _build_kb
@@ -61,27 +58,27 @@ except ImportError:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SERVER_DIR        = os.path.dirname(os.path.abspath(__file__))
 SHOPS_DIR         = os.path.join(SERVER_DIR, "shops")
+AVATARS_DIR       = os.path.join(SERVER_DIR, "avatars")
 os.makedirs(SHOPS_DIR, exist_ok=True)
+os.makedirs(AVATARS_DIR, exist_ok=True)
 
 DB_PATH           = os.path.join(SERVER_DIR, "app.db")
-TOKEN_TTL         = 60 * 60 * 24 * 30   # 30 days
-VERIFY_TTL        = 60 * 60 * 24        # 24 hours for email verification
+TOKEN_TTL         = 60 * 60 * 24 * 30   
+VERIFY_TTL        = 60 * 60 * 24        
 ALLOWED_IMG_EXTS  = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".jif"}
-PAGE_SIZE         = 24                   # products per page
+PAGE_SIZE         = 24                   
 
-# LLM — OpenRouter first, Ollama fallback
 OPENROUTER_KEY    = os.environ.get("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL  = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
 OPENROUTER_URL    = "https://openrouter.ai/api/v1/chat/completions"
 OLLAMA_URL        = os.environ.get("OLLAMA_CHAT_URL", "http://127.0.0.1:11434/api/chat")
 OLLAMA_MODEL      = os.environ.get("CHAT_MODEL", "llama3.2:3b")
 
-# Email
 SMTP_HOST         = os.environ.get("SMTP_HOST", "")
 SMTP_PORT         = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER         = os.environ.get("SMTP_USER", "")
 SMTP_PASS         = os.environ.get("SMTP_PASS", "")
-EMAIL_FROM        = os.environ.get("EMAIL_FROM", "LocalMarket <noreply@localmarket.app>")
+EMAIL_FROM        = os.environ.get("EMAIL_FROM", "Wave <noreply@wavefromatlantica.app>")
 APP_BASE_URL      = os.environ.get("APP_BASE_URL", "http://localhost:8001")
 
 SECRET_KEY        = os.environ.get("SECRET_KEY", secrets.token_hex(32))
@@ -92,7 +89,7 @@ mimetypes.add_type("image/jpeg", ".jif")
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # APP
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-app = FastAPI(title="LocalMarket API", version="4.0")
+app = FastAPI(title="Wave API", version="4.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -103,9 +100,10 @@ app.add_middleware(
 )
 
 app.mount("/shops", StaticFiles(directory=SHOPS_DIR), name="shops")
+app.mount("/avatars", StaticFiles(directory=AVATARS_DIR), name="avatars")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# DATABASE — SQLite with Supabase Postgres migration path
+# DATABASE 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 def db() -> sqlite3.Connection:
     con = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -125,7 +123,7 @@ def init_db():
         pass_hash    TEXT NOT NULL,
         display_name TEXT DEFAULT '',
         avatar_url   TEXT DEFAULT '',
-        role         TEXT DEFAULT 'customer',   -- 'customer' | 'shopkeeper' | 'admin'
+        role         TEXT DEFAULT 'customer',   
         email_verified INTEGER DEFAULT 0,
         created_at   INTEGER NOT NULL
     )""")
@@ -213,7 +211,6 @@ def init_db():
         created_at INTEGER NOT NULL
     )""")
 
-    # Safe migrations for existing databases
     for stmt in [
         "ALTER TABLE users ADD COLUMN display_name TEXT DEFAULT ''",
         "ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''",
@@ -233,7 +230,6 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_an_shop ON analytics(shop_id, created_at)")
     con.commit()
     con.close()
-
 
 init_db()
 
@@ -352,7 +348,6 @@ def require_verified(user: sqlite3.Row):
 # EMAIL
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 def send_email(to: str, subject: str, html_body: str):
-    """Send email via SMTP. Silently skips if SMTP not configured."""
     if not SMTP_HOST or not SMTP_USER:
         print(f"[EMAIL SKIP] To={to} Subject={subject}")
         return
@@ -380,20 +375,20 @@ def send_verification_email(email: str, user_id: int, bg: BackgroundTasks):
 
     link = f"{APP_BASE_URL}/auth/verify-email?token={token}"
     html = f"""
-    <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px">
-      <h2 style="color:#c94f14">Verify your LocalMarket email</h2>
-      <p>Thanks for signing up! Click the button below to verify your email address.</p>
+    <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;background:#f0f7f9;border-radius:12px;">
+      <h2 style="color:#0284c7">Verify your Wave email</h2>
+      <p style="color:#334155;">Thanks for signing up! Click the button below to verify your email address.</p>
       <a href="{link}" style="display:inline-block;margin:20px 0;padding:12px 24px;
-         background:#c94f14;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">
+         background:#0284c7;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">
         Verify Email
       </a>
-      <p style="color:#888;font-size:12px">Link expires in 24 hours. If you didn't sign up, ignore this.</p>
+      <p style="color:#94a3b8;font-size:12px">Link expires in 24 hours. If you didn't sign up, ignore this.</p>
     </div>"""
-    bg.add_task(send_email, email, "Verify your LocalMarket account", html)
+    bg.add_task(send_email, email, "Verify your Wave account", html)
 
 def send_reset_email(email: str, user_id: int, bg: BackgroundTasks):
     token = new_token()
-    exp = int(time.time()) + 3600  # 1 hour
+    exp = int(time.time()) + 3600  
     con = db()
     con.execute("INSERT OR REPLACE INTO password_resets(token,user_id,expires_at) VALUES(?,?,?)",
                 (token, user_id, exp))
@@ -401,22 +396,21 @@ def send_reset_email(email: str, user_id: int, bg: BackgroundTasks):
 
     link = f"{APP_BASE_URL.rstrip('/')}/reset-password?token={token}"
     html = f"""
-    <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px">
-      <h2 style="color:#c94f14">Reset your password</h2>
-      <p>We received a request to reset your LocalMarket password.</p>
+    <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;background:#f0f7f9;border-radius:12px;">
+      <h2 style="color:#0284c7">Reset your password</h2>
+      <p style="color:#334155;">We received a request to reset your Wave password.</p>
       <a href="{link}" style="display:inline-block;margin:20px 0;padding:12px 24px;
-         background:#c94f14;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">
+         background:#0284c7;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">
         Reset Password
       </a>
-      <p style="color:#888;font-size:12px">Link expires in 1 hour. If you didn't request this, ignore it.</p>
+      <p style="color:#94a3b8;font-size:12px">Link expires in 1 hour. If you didn't request this, ignore it.</p>
     </div>"""
-    bg.add_task(send_email, email, "Reset your LocalMarket password", html)
+    bg.add_task(send_email, email, "Reset your Wave password", html)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# LLM — OpenRouter + Ollama fallback
+# LLM 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 def llm_chat(system: str, user: str, max_tokens: int = 400) -> str:
-    """Try OpenRouter first; fall back to Ollama if no key or error."""
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
     if OPENROUTER_KEY:
@@ -427,7 +421,7 @@ def llm_chat(system: str, user: str, max_tokens: int = 400) -> str:
                     "Authorization": f"Bearer {OPENROUTER_KEY}",
                     "Content-Type": "application/json",
                     "HTTP-Referer": APP_BASE_URL,
-                    "X-Title": "LocalMarket",
+                    "X-Title": "Wave from Atlantica",
                 },
                 json={
                     "model": OPENROUTER_MODEL,
@@ -444,7 +438,6 @@ def llm_chat(system: str, user: str, max_tokens: int = 400) -> str:
         except Exception as e:
             print(f"[OpenRouter error] {e} — falling back to Ollama")
 
-    # Ollama fallback
     try:
         r = requests.post(
             OLLAMA_URL,
@@ -523,7 +516,6 @@ def serialize_product(row: sqlite3.Row, req: Optional[Request] = None, user_id: 
     if req: imgs = [abs_url(req, u) for u in imgs]
     cols = row.keys() if hasattr(row, "keys") else []
 
-    # avg rating
     con = db()
     rv = con.execute(
         "SELECT AVG(rating) as avg, COUNT(*) as n FROM reviews WHERE shop_id=? AND product_id=?",
@@ -680,7 +672,6 @@ def build_context(shop: sqlite3.Row, picked: List[Dict], include_all: bool, all_
             img_line = ""
             imgs = p.get("images") or []
             if imgs:
-                # Use markdown image — UI renders it as a real photo
                 img_line = f' | Photo: ![{p["name"]}]({imgs[0]})'
             lines.append(
                 f'• {p["name"]} | Price: {p.get("price","N/A")} | Stock: {p.get("stock","in")} | {p.get("overview","")}{img_line}'
@@ -756,7 +747,7 @@ def health():
             "model": OPENROUTER_MODEL if OPENROUTER_KEY else OLLAMA_MODEL}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ROUTES — Auth (customer + shopkeeper, unified)
+# ROUTES — Auth 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 @app.post("/auth/register")
 def register(body: RegisterReq, bg: BackgroundTasks):
@@ -796,6 +787,7 @@ def login(body: LoginReq):
     token = create_session(user["id"])
     return {"ok": True, "token": token, "email": email,
             "display_name": user["display_name"] or "",
+            "avatar_url": user["avatar_url"] or "",
             "email_verified": bool(user["email_verified"]),
             "role": user["role"]}
 
@@ -831,7 +823,6 @@ def logout(authorization: Optional[str] = Header(None)):
 
 @app.get("/auth/verify-email")
 def verify_email_link(token: str, request: Request):
-    """Handles the link clicked in the verification email."""
     con = db()
     row = con.execute(
         "SELECT * FROM email_verifications WHERE token=? AND used=0 AND expires_at>?",
@@ -843,12 +834,11 @@ def verify_email_link(token: str, request: Request):
     con.execute("UPDATE users SET email_verified=1 WHERE id=?", (row["user_id"],))
     con.execute("UPDATE email_verifications SET used=1 WHERE token=?", (token,))
     con.commit(); con.close()
-    # Redirect to UI
     return HTMLResponse(f"""
     <html><head><meta http-equiv="refresh" content="3;url={APP_BASE_URL}/ui"></head>
-    <body style="font-family:sans-serif;text-align:center;padding:60px">
-      <h2 style="color:#1a6e42">✅ Email verified!</h2>
-      <p>Redirecting you back to LocalMarket…</p>
+    <body style="font-family:sans-serif;text-align:center;padding:60px;background:#f0f7f9;">
+      <h2 style="color:#0284c7">✅ Email verified!</h2>
+      <p style="color:#334155;">Redirecting you back to Wave…</p>
     </body></html>""")
 
 
@@ -867,7 +857,6 @@ def forgot_password(body: ForgotPasswordReq, bg: BackgroundTasks):
     user = con.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
     con.close()
     if user: send_reset_email(email, user["id"], bg)
-    # Always return ok — don't reveal if email exists
     return {"ok": True, "message": "If that email exists, a reset link has been sent."}
 
 
@@ -894,6 +883,32 @@ def update_profile(body: UpdateProfileReq, authorization: Optional[str] = Header
     con.execute("UPDATE users SET display_name=? WHERE id=?", (body.display_name.strip(), user["id"]))
     con.commit(); con.close()
     return {"ok": True}
+
+@app.post("/auth/profile/avatar")
+def upload_avatar(authorization: Optional[str] = Header(None), avatar: UploadFile = File(...)):
+    user = get_user(authorization)
+    if not avatar or not avatar.filename: 
+        raise HTTPException(400, "No file provided")
+    
+    ext = os.path.splitext(avatar.filename.lower())[1]
+    if ext not in ALLOWED_IMG_EXTS:
+        raise HTTPException(400, f"Unsupported image type: {ext}")
+    
+    ext = norm_ext(ext)
+    file_name = f"user_{user['id']}_{uuid.uuid4().hex[:8]}{ext}"
+    file_path = os.path.join(AVATARS_DIR, file_name)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(avatar.file, buffer)
+        
+    final_url = f"/avatars/{file_name}"
+    
+    con = db()
+    con.execute("UPDATE users SET avatar_url=? WHERE id=?", (final_url, user["id"]))
+    con.commit()
+    con.close()
+    
+    return {"ok": True, "avatar_url": final_url}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Customer: Favourites
@@ -957,7 +972,6 @@ def post_review(shop_id: str, product_id: str, body: ReviewReq,
     require_verified(user)
     if not body.body.strip(): raise HTTPException(400, "Review cannot be empty")
     con = db()
-    # Check product exists
     if not con.execute("SELECT 1 FROM products WHERE shop_id=? AND product_id=?",
                        (shop_id, product_id)).fetchone():
         con.close(); raise HTTPException(404, "Product not found")
@@ -968,7 +982,6 @@ def post_review(shop_id: str, product_id: str, body: ReviewReq,
         )
         con.commit()
     except sqlite3.IntegrityError:
-        # Update existing review
         con.execute("UPDATE reviews SET rating=?, body=?, created_at=? WHERE shop_id=? AND product_id=? AND user_id=?",
                     (body.rating, body.body.strip(), int(time.time()), shop_id, product_id, user["id"]))
         con.commit()
@@ -1020,20 +1033,18 @@ def public_shop(shop_id: str, request: Request,
     ).fetchone()
     if not shop: con.close(); raise HTTPException(404, "Shop not found")
 
-    # Get user_id if logged in
     user_id = None
     if authorization:
         try: user_id = get_user(authorization)["id"]
         except Exception: pass
 
-    # Build product query
     q = "SELECT * FROM products WHERE shop_id=?"
     params: List = [shop_id]
     if stock in ("in", "low", "out"):
         q += " AND stock=?"; params.append(stock)
     if sort == "price-asc":   q += " ORDER BY CAST(REPLACE(REPLACE(price,'$',''),'Rs','') AS REAL) ASC"
     elif sort == "price-desc": q += " ORDER BY CAST(REPLACE(REPLACE(price,'$',''),'Rs','') AS REAL) DESC"
-    elif sort == "rating":     q += " ORDER BY updated_at DESC"  # approximate
+    elif sort == "rating":     q += " ORDER BY updated_at DESC"  
     else:                      q += " ORDER BY updated_at DESC"
 
     all_prods = con.execute(q, params).fetchall()
@@ -1113,7 +1124,6 @@ def search_global(request: Request, q: str = Query(...),
 
 @app.get("/public/top-products")
 def top_products(request: Request, limit: int = Query(12, le=40), category: str = Query("")):
-    """Top-rated products across all shops — shown on home page."""
     con = db()
     if category:
         rows = con.execute(
@@ -1177,7 +1187,6 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
                 "products": cards, "meta": {"llm_used": False, "source": "greeting",
                 "suggestions": ["What products do you have?","Show all products","Show me your best product"]}}
 
-    # Retrieve matching products
     picked = rank_products(prod_rows, q)
     source = "keyword"
     if not picked and HAS_RAG:
@@ -1263,7 +1272,6 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         "INSERT INTO shops(shop_id,owner_user_id,name,address,overview,phone,hours,category,whatsapp,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
         (sid, user["id"], shop.name, shop.address, shop.overview, shop.phone, shop.hours, shop.category, shop.whatsapp, now)
     )
-    # Upgrade role to shopkeeper
     con.execute("UPDATE users SET role='shopkeeper' WHERE id=? AND role='customer'", (user["id"],))
     con.commit(); con.close()
     ensure_dirs(sid); rebuild_kb(sid)
