@@ -1,5 +1,5 @@
 """
-Wave API  v4.0 — Supabase Edition (Stable & Fixed)
+Wave API  v4.0 — Supabase Edition (Stable & Fixed Chat)
 """
 
 from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Form
@@ -206,15 +206,20 @@ def serialize_product(row: dict, user_id: str = None) -> Dict[str, Any]:
         except: imgs = []
     if not isinstance(imgs, list): imgs = []
     
-    # Safe gets to prevent KeyError if data is incomplete
     shop_id = row.get("shop_id", "")
     prod_id = row.get("product_id", "")
     
-    rv = supabase.table("reviews").select("rating").eq("shop_id", shop_id).eq("product_id", prod_id).execute().data
+    try:
+        rv = supabase.table("reviews").select("rating").eq("shop_id", shop_id).eq("product_id", prod_id).execute().data
+    except:
+        rv = []
+        
     is_fav = False
     if user_id:
-        favs = supabase.table("favourites").select("shop_id").eq("user_id", user_id).eq("shop_id", shop_id).eq("product_id", prod_id).execute().data
-        is_fav = len(favs) > 0
+        try:
+            favs = supabase.table("favourites").select("shop_id").eq("user_id", user_id).eq("shop_id", shop_id).eq("product_id", prod_id).execute().data
+            is_fav = len(favs) > 0
+        except: pass
         
     return {
         "product_id": prod_id, "shop_id": shop_id, "name": row.get("name", ""),
@@ -288,6 +293,12 @@ def is_list_intent(q: str) -> bool:
     qn = norm_text(q)
     return any(t in qn for t in ["what do you sell","what products","what items","what do you have","show products","product list","catalog","menu","inventory","show all products","list products","all products"])
 
+def wants_all_images(q: str) -> bool:
+    qn = norm_text(q)
+    if "gallery" in qn: return True
+    if "all" not in qn and "every" not in qn: return False
+    return any(v in qn for v in ["image","images","photo","photos","picture","pictures"])
+
 def rank_products(products: List[Dict], q: str) -> List[Dict]:
     qn = norm_text(q); qt = set(re.findall(r"[a-z0-9]+", qn))
     scored = []
@@ -303,7 +314,6 @@ def rank_products(products: List[Dict], q: str) -> List[Dict]:
             if isinstance(imgs, str):
                 try: imgs = json.loads(imgs)
                 except: imgs = []
-            # Added shop_id here to prevent 500 error during serialization!
             scored.append((s, {
                 "shop_id": r.get("shop_id", ""),
                 "product_id": r["product_id"], 
@@ -453,20 +463,25 @@ def get_favourites(request: Request, authorization: Optional[str] = Header(None)
 
 @app.get("/public/reviews/{shop_id}/{product_id}")
 def get_reviews(shop_id: str, product_id: str):
-    # Fixed PostgREST Join issue by manually looking up user display names
-    rows = supabase.table("reviews").select("*").eq("shop_id", shop_id).eq("product_id", product_id).order("created_at", desc=True).execute().data
-    out = []
-    for r in rows:
-        author_name = "User"
-        if r.get("user_id"):
-            prof = supabase.table("profiles").select("display_name").eq("id", r["user_id"]).execute().data
-            if prof and prof[0].get("display_name"):
-                author_name = prof[0]["display_name"]
-        out.append({
-            "id": r["id"], "rating": r["rating"], "body": r["body"], 
-            "author": author_name, "created_at": r["created_at"]
-        })
-    return {"ok": True, "reviews": out}
+    try:
+        rows = supabase.table("reviews").select("*").eq("shop_id", shop_id).eq("product_id", product_id).order("created_at", desc=True).execute().data
+        out = []
+        for r in rows:
+            author_name = "User"
+            if r.get("user_id"):
+                try:
+                    prof = supabase.table("profiles").select("display_name").eq("id", r["user_id"]).execute().data
+                    if prof and prof[0].get("display_name"):
+                        author_name = prof[0]["display_name"]
+                except: pass
+            out.append({
+                "id": r["id"], "rating": r["rating"], "body": r["body"], 
+                "author": author_name, "created_at": r.get("created_at", "")
+            })
+        return {"ok": True, "reviews": out}
+    except Exception as e:
+        print(f"Reviews Error: {e}")
+        return {"ok": True, "reviews": []}
 
 @app.post("/customer/review/{shop_id}/{product_id}")
 def post_review(shop_id: str, product_id: str, body: ReviewReq, authorization: Optional[str] = Header(None)):
@@ -522,7 +537,7 @@ def public_shop(shop_id: str, request: Request, sort: str = Query("default"), st
         "ok": True, "shop_id": shop_id, "shop": shop_res.data[0],
         "products": ser_prods,
         "stats": shop_stats(shop_id),
-        "suggested_questions": ["What products do you have?", "Show all products", "What's in stock?", "Show me your best product"]
+        "suggested_questions": ["What products do you have?", "Show all products", "What's in stock?", "Show me your best product", "Show all images"]
     }
 
 @app.get("/public/search")
@@ -573,12 +588,47 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
     picked = rank_products(prod_rows, q)
     abs_picked = [serialize_product(p) for p in picked[:4]]
 
+    # 1. Shortcut: Show Images
+    if wants_all_images(q):
+        gallery = []
+        for r in prod_rows:
+            imgs = r.get("images", [])
+            if isinstance(imgs, str):
+                try: imgs = json.loads(imgs)
+                except: imgs = []
+            gallery.extend(imgs)
+        if gallery:
+            ans = f"Here are all photos from **{shop['name']}**:\n" + "\n".join(f"![Image]({url})" for url in gallery[:40])
+        else:
+            ans = "This shop hasn't uploaded any product photos yet."
+        return {"answer": ans, "products": abs_picked, "meta": {"llm_used": False}}
+
+    # 2. Shortcut: Greeting
+    if is_greeting(q):
+        return {"answer": f"Hi! Welcome to **{shop['name']}**! Ask me about our products, or say 'show all products'.", "products": abs_picked, "meta": {"llm_used": False}}
+
+    # 3. Handle Full Catalog Requests safely
+    if is_list_intent(q):
+        picked = prod_rows
+        abs_picked = [serialize_product(p) for p in prod_rows[:8]]
+
     try:
         ans = llm_chat(SHOP_ASSISTANT_SYSTEM, f"CONTEXT:\n{build_context(shop, picked, prod_rows)}\n\nCUSTOMER: {q}")
         return {"answer": ans, "products": abs_picked, "meta": {"llm_used": True}}
     except Exception as e:
-        print(f"[Chat Exception] Fallback: {e}")
-        return {"answer": fallback_answer(shop, picked, q), "products": abs_picked, "meta": {"llm_used": False, "reason": str(e)}}
+        err_msg = str(e)
+        if hasattr(e, "response") and getattr(e, "response") is not None:
+            err_msg += f" | {e.response.text}"
+            
+        print(f"[Chat LLM Exception] Fallback triggered: {err_msg}")
+        
+        if is_list_intent(q):
+            ans = f"Here's what's available at **{shop['name']}**:\n" + "\n".join(f"• {r['name']} — {r.get('price','')} *({r.get('stock','in')})*" for r in prod_rows[:30])
+        else:
+            ans = fallback_answer(shop, picked, q)
+            
+        ans = f"*(AI Error: {err_msg})*\n\n" + ans
+        return {"answer": ans, "products": abs_picked, "meta": {"llm_used": False, "reason": err_msg}}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Admin 
