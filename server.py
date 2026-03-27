@@ -1,8 +1,5 @@
 """
-Wave API  v4.0 — Supabase Edition (Fully Async / Responsive UI)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Requires: fastapi, uvicorn, standard, supabase, python-multipart, requests, postgrest-py (async capable version included in supabase-py)
-Environment variables: OPENROUTER_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY, APP_BASE_URL
+Wave API  v4.0 — Supabase Edition (Fully Async & Restored)
 """
 
 from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Form
@@ -22,8 +19,14 @@ try:
 except ImportError:
     pass
 
-# Mock HAS_RAG for simpler integration if vector search files aren't present
-HAS_RAG = False
+try:
+    from retrieval_chat import retrieve as _retrieve
+    from build_kb import build_kb as _build_kb
+    HAS_RAG = True
+except ImportError:
+    HAS_RAG = False
+    def _retrieve(*a, **k): return {"matches": []}
+    def _build_kb(*a, **k): pass
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # CONFIG & SUPABASE
@@ -46,7 +49,6 @@ APP_BASE_URL      = os.environ.get("APP_BASE_URL", "http://localhost:8001").stri
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY.")
 
-# Configure supabase-py to use async client. postgrest-py >= 0.10.0 handles this well.
 opts = ClientOptions(postgrest_client_timeout=60)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts) if SUPABASE_URL else None
 
@@ -110,7 +112,7 @@ class ReviewReq(BaseModel):
     body: str
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# AUTH HELPERS (converted to async)
+# AUTH HELPERS 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 def bearer(auth: Optional[str]) -> str:
     if not auth: raise HTTPException(401, "Missing Authorization header")
@@ -121,12 +123,8 @@ def bearer(auth: Optional[str]) -> str:
 async def get_user(auth: Optional[str]):
     token = bearer(auth)
     try:
-        # supabase-py's auth.get_user is blocking, but we can call it in a thread if needed.
-        # Newer versions might be async capable.
         res = supabase.auth.get_user(token)
         user = res.user
-        
-        # Async DB lookup
         prof_res = await supabase.table("profiles").select("*").eq("id", user.id).execute()
         prof_data = prof_res.data
         prof = prof_data[0] if prof_data else {}
@@ -140,7 +138,7 @@ def require_verified(user):
         raise HTTPException(403, "Email not verified. Check your inbox.")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# LLM (Using loop.run_in_executor to avoid blocking on requests)
+# LLM 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 def _blocking_llm_chat(system: str, user: str, max_tokens: int):
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -161,12 +159,11 @@ def _blocking_llm_chat(system: str, user: str, max_tokens: int):
 async def async_llm_chat(system: str, user: str, max_tokens: int = 400) -> str:
     if not OPENROUTER_KEY:
         raise ValueError("LLM API Key Missing")
-        
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, _blocking_llm_chat, system, user, max_tokens)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# HELPERS (converted to async where necessary)
+# HELPERS 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 def norm_text(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip().lower())
@@ -192,8 +189,6 @@ def dedup(items: List[str]) -> List[str]:
         if v and v not in seen: seen.add(v); out.append(v)
     return out
 
-# save_images uses blocking supabase.storage.upload. In a production async environment,
-# we would prefer an aiohttp-based supabase client.
 def _blocking_upload_image(shop_id: str, file_content, filename, content_type):
     path = f"{shop_id}/{filename}"
     supabase.storage.from_("product-images").upload(path, file_content, {"content-type": content_type})
@@ -208,20 +203,16 @@ async def async_save_images(shop_id: str, files: List[UploadFile]) -> List[str]:
         if ext not in ALLOWED_IMG_EXTS: raise HTTPException(400, f"Unsupported image type: {ext}")
         
         name = f"{uuid.uuid4().hex}{norm_ext(ext)}"
-        
         try:
-            # We must await the read before passing content to thread
             content = await f.read()
             if not content: continue
-            
-            # Offload blocking upload to thread
             url = await loop.run_in_executor(None, _blocking_upload_image, shop_id, content, name, f.content_type)
             out.append(url)
         except Exception as e:
             print(f"[Supabase Storage Error] {e}")
-            raise HTTPException(500, f"Failed to save image. Please verify Supabase Storage bucket 'product-images' exists. Error: {str(e)}")
+            raise HTTPException(500, f"Failed to save image. Please verify Supabase Storage bucket 'product-images' exists.")
         finally:
-            await f.close() # Ensure file is closed
+            await f.close() 
     return out
 
 async def serialize_product(row: dict, req: Request = None, user_id: str = None) -> Dict[str, Any]:
@@ -234,7 +225,6 @@ async def serialize_product(row: dict, req: Request = None, user_id: str = None)
     shop_id = row["shop_id"]
     prod_id = row["product_id"]
     
-    # We could make these parallel if needed, but simple await is fine for now
     rv_res = await supabase.table("reviews").select("rating").eq("shop_id", shop_id).eq("product_id", prod_id).execute()
     rv = rv_res.data
     
@@ -253,11 +243,9 @@ async def serialize_product(row: dict, req: Request = None, user_id: str = None)
     }
 
 async def shop_stats(shop_id: str) -> Dict:
-    # Concurrent fetches for efficiency - THIS FIXES THE SLOW LOADING LAG
     prods_task = supabase.table("products").select("images").eq("shop_id", shop_id).execute()
     rvs_task = supabase.table("reviews").select("rating").eq("shop_id", shop_id).execute()
     
-    # Views and chats require a ISO 8601 date string
     since = int(time.time()) - 86400 * 30
     since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
     
@@ -267,7 +255,6 @@ async def shop_stats(shop_id: str) -> Dict:
     try:
         results = await asyncio.gather(prods_task, rvs_task, chats_task, views_task)
     except Exception as e:
-        print(f"[Stats Async gather error] {e}")
         return {"product_count": 0, "avg_rating": 0, "error": True}
 
     prods = results[0].data
@@ -276,8 +263,6 @@ async def shop_stats(shop_id: str) -> Dict:
     views = results[3].data
 
     with_imgs = sum(1 for p in prods if p.get("images"))
-    
-    # Ensure avg_rating calculation handles division by zero
     avg_r = sum(r["rating"] for r in rvs)/len(rvs) if rvs else 0
     
     return {
@@ -304,7 +289,6 @@ async def async_rebuild_kb(shop_id: str):
     prods_res = await supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute()
     prods = prods_res.data
     
-    # Basic data structure for local use
     p_serialized = []
     for p in prods:
         imgs = p.get("images", [])
@@ -322,14 +306,12 @@ async def async_rebuild_kb(shop_id: str):
     d = os.path.join(SHOPS_DIR, shop_id)
     os.makedirs(d, exist_ok=True)
     
-    # Blocking write in thread
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, lambda: json.dump(obj, open(os.path.join(d, "shop.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=2))
-    
     if HAS_RAG:
         await loop.run_in_executor(None, _blocking_rebuild_kb, shop_id, SHOPS_DIR)
 
-# ── Chat helpers (mostly logic, can stay sync) ──
+# ── Chat helpers ──
 def is_greeting(q: str) -> bool:
     return norm_text(q) in {"hi","hello","hey","hii","hlo","good morning","good evening","good afternoon"}
 
@@ -411,7 +393,6 @@ async def login(body: LoginReq):
     try:
         res = supabase.auth.sign_in_with_password({"email": body.email, "password": body.password})
         user = res.user
-        
         prof_res = await supabase.table("profiles").select("*").eq("id", user.id).execute()
         prof_data = prof_res.data
         prof = prof_data[0] if prof_data else {}
@@ -423,7 +404,6 @@ async def login(body: LoginReq):
 async def auth_me(authorization: Optional[str] = Header(None)):
     user, prof = await get_user(authorization)
     
-    # Run requests concurrently
     shops_task = supabase.table("shops").select("shop_id, name").eq("owner_user_id", user.id).execute()
     fav_task = supabase.table("favourites").select("shop_id").eq("user_id", user.id).execute()
     rev_task = supabase.table("reviews").select("id").eq("user_id", user.id).execute()
@@ -455,15 +435,8 @@ async def upload_avatar(authorization: Optional[str] = Header(None), avatar: Upl
     try:
         ext = norm_ext(os.path.splitext(avatar.filename.lower())[1])
         filename = f"user_{user.id}_{uuid.uuid4().hex[:8]}{ext}"
-        path = f"avatars/{filename}"
-        
         content = await avatar.read()
-        url = await loop.run_in_executor(None, _blocking_upload_image, "avatars_bucket", content, filename, avatar.content_type)
-        
-        # Note: 'avatars_bucket' should be a bucket that exists and has avatars/ prefix or similar. 
-        # Simpler: just use 'product-images' bucket for everything during prototyping.
         url = await loop.run_in_executor(None, _blocking_upload_image, "avatars", content, filename, avatar.content_type)
-        
         await supabase.table("profiles").update({"avatar_url": url}).eq("id", user.id).execute()
         return {"ok": True, "avatar_url": url}
     except Exception as e:
@@ -480,7 +453,6 @@ async def public_shops(category: Optional[str] = None):
     rows_res = await q.execute()
     rows = rows_res.data
     
-    # Gather stats for ALL shops concurrently - major speed up
     stats_tasks = [shop_stats(r["shop_id"]) for r in rows]
     all_stats = await asyncio.gather(*stats_tasks)
     
@@ -489,46 +461,60 @@ async def public_shops(category: Optional[str] = None):
     return {"ok": True, "shops": rows}
 
 @app.get("/public/shop/{shop_id}")
-async def public_shop(shop_id: str, request: Request, sort: str = Query("default"), authorization: Optional[str] = Header(None)):
+async def public_shop(shop_id: str, request: Request, sort: str = Query("default"), stock: str = Query(""), authorization: Optional[str] = Header(None)):
     shop_res = await supabase.table("shops").select("*").eq("shop_id", shop_id).execute()
     if not shop_res.data: raise HTTPException(404, "Shop not found")
     
-    # We fetch user_id async if token present
     user_id = None
     if authorization:
         try: user_id_res, _ = await get_user(authorization); user_id = user_id_res.id
         except: pass
         
-    prods_res = await supabase.table("products").select("*").eq("shop_id", shop_id).execute()
-    all_prods = prods_res.data
+    q = supabase.table("products").select("*").eq("shop_id", shop_id)
+    if stock in ("in", "low", "out"): q = q.eq("stock", stock)
+    all_prods = (await q.execute()).data
     
-    # Simple sort logic
     if sort == "price-asc": all_prods.sort(key=lambda x: float(re.sub(r'[^\d.]', '', x.get("price") or "0") or 0))
     elif sort == "price-desc": all_prods.sort(key=lambda x: float(re.sub(r'[^\d.]', '', x.get("price") or "0") or 0), reverse=True)
     else: all_prods.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
     
     await track(shop_id, "shop_view")
     
-    # Serialize concurrently
     ser_prods = await asyncio.gather(*[serialize_product(p, request, user_id) for p in all_prods[:100]])
     
     return {
         "ok": True, "shop_id": shop_id, "shop": shop_res.data[0],
-        "products": ser_prods
+        "products": ser_prods,
+        "stats": await shop_stats(shop_id),
+        "suggested_questions": ["What products do you have?", "Show all products", "What's in stock?", "Show me your best product"]
     }
 
+@app.get("/public/search")
+async def search_shop(request: Request, shop_id: str = Query(...), q: str = Query(...), limit: int = Query(24, le=100)):
+    qn = (q or "").strip()
+    if not qn: return {"ok": True, "shop_id": shop_id, "q": q, "results": [], "total": 0}
+    rows = (await supabase.table("products").select("*").eq("shop_id", shop_id).or_(f"name.ilike.%{qn}%,overview.ilike.%{qn}%").order("updated_at", desc=True).execute()).data
+    return {"ok": True, "shop_id": shop_id, "q": q, "results": await asyncio.gather(*[serialize_product(r, request) for r in rows[:limit]]), "total": len(rows)}
+
+@app.get("/public/search/global")
+async def search_global(request: Request, q: str = Query(...), limit: int = Query(24, le=60)):
+    qn = (q or "").strip()
+    if not qn: return {"ok": True, "q": q, "results": [], "total": 0}
+    rows = (await supabase.table("products").select("*, shops(name, address, whatsapp)").or_(f"name.ilike.%{qn}%,overview.ilike.%{qn}%").order("updated_at", desc=True).execute()).data
+    
+    results = await asyncio.gather(*[serialize_product(r, request) for r in rows[:limit]])
+    for r, prod in zip(rows[:limit], results):
+        prod["shop_name"] = r.get("shops", {}).get("name", "")
+        prod["shop_address"] = r.get("shops", {}).get("address", "")
+    return {"ok": True, "q": q, "results": results, "total": len(rows)}
+
 @app.get("/public/top-products")
-async def top_products(request: Request, limit: int = Query(24, le=60)):
+async def top_products(request: Request, limit: int = Query(24, le=60), category: str = Query("")):
     q = supabase.table("products").select("*, shops!inner(name, category)").neq("stock", "out")
-    res = await q.limit(limit).execute()
-    rows = res.data
+    if category: q = q.ilike("shops.category", category)
+    rows = (await q.limit(limit).execute()).data
     
-    # Serialize concurrently
-    ser_tasks = []
-    for r in rows:
-        ser_tasks.append(serialize_product(r, request))
-    results = await asyncio.gather(*ser_tasks)
-    
+    results = await asyncio.gather(*[serialize_product(r, request) for r in rows])
     for r, prod in zip(rows, results):
         prod["shop_name"] = r.get("shops", {}).get("name", "")
     return {"ok": True, "products": results}
@@ -550,7 +536,6 @@ async def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Qu
     prod_rows = prods_res.data
 
     picked = rank_products(prod_rows, q)
-    # Concurrent serialization for top relevant products
     abs_picked = await asyncio.gather(*[serialize_product(p, request) for p in picked[:4]])
 
     try:
@@ -579,10 +564,8 @@ async def create_shop(body: CreateShopReq, authorization: Optional[str] = Header
     if exists_res.data: raise HTTPException(409, "shop_id already exists")
     
     await supabase.table("shops").insert({"shop_id": sid, "owner_user_id": user.id, "name": shop.name.strip(), "address": shop.address.strip(), "overview": shop.overview, "phone": shop.phone, "hours": shop.hours, "category": shop.category, "whatsapp": shop.whatsapp}).execute()
-    
     await supabase.table("profiles").update({"role": "shopkeeper"}).eq("id", user.id).execute()
     
-    # KB update in background
     asyncio.create_task(async_rebuild_kb(sid))
     return {"ok": True, "shop_id": sid}
 
@@ -592,7 +575,6 @@ async def my_shops(authorization: Optional[str] = Header(None)):
     shops_res = await supabase.table("shops").select("*").eq("owner_user_id", user.id).order("created_at", desc=True).execute()
     rows = shops_res.data
     
-    # Gather stats concurrently
     stats_tasks = [shop_stats(r["shop_id"]) for r in rows]
     all_stats = await asyncio.gather(*stats_tasks)
     
@@ -629,7 +611,6 @@ async def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optiona
 async def admin_delete_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     user, prof = await get_user(authorization)
     await check_shop_owner(user.id, shop_id)
-    # Analytics will cascade delete if schema set up correctly. If not, manual delete needed.
     await supabase.table("shops").delete().eq("shop_id", shop_id).execute()
     return {"ok": True}
 
@@ -669,10 +650,31 @@ async def admin_product_with_images(
 async def admin_delete_product(shop_id: str, product_id: str, authorization: Optional[str] = Header(None)):
     user, prof = await get_user(authorization)
     await check_shop_owner(user.id, shop_id)
-    # Cascase delete favourites and reviews
     await supabase.table("products").delete().eq("shop_id", shop_id).eq("product_id", product_id).execute()
     asyncio.create_task(async_rebuild_kb(shop_id))
     return {"ok": True}
+
+@app.delete("/admin/shop/{shop_id}/product/{product_id}/image")
+async def admin_delete_image(shop_id: str, product_id: str, image_path: str = Query(...), authorization: Optional[str] = Header(None)):
+    user, prof = await get_user(authorization)
+    await check_shop_owner(user.id, shop_id)
+    
+    row = (await supabase.table("products").select("images").eq("shop_id", shop_id).eq("product_id", product_id).execute()).data
+    if not row: raise HTTPException(404, "Product not found")
+    
+    img_name = os.path.basename(image_path.rstrip("/"))
+    try: supabase.storage.from_("product-images").remove([f"{shop_id}/{img_name}"])
+    except Exception: pass
+    
+    current_imgs = row[0].get("images", [])
+    if isinstance(current_imgs, str):
+        try: current_imgs = json.loads(current_imgs)
+        except: current_imgs = []
+        
+    new_imgs = [u for u in current_imgs if os.path.basename(u) != img_name]
+    await supabase.table("products").update({"images": new_imgs, "updated_at": "now()"}).eq("shop_id", shop_id).eq("product_id", product_id).execute()
+    asyncio.create_task(async_rebuild_kb(shop_id))
+    return {"ok": True, "remaining": len(new_imgs)}
 
 @app.get("/admin/shop/{shop_id}/analytics")
 async def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] = Header(None)):
@@ -699,4 +701,52 @@ async def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[
         p_res = await supabase.table("products").select("name").eq("shop_id", shop_id).eq("product_id", t["product_id"]).execute()
         t["name"] = p_res.data[0]["name"] if p_res.data else t["product_id"]
 
-    return {"ok": True, "totals": totals, "top_products": top}
+    now = int(time.time())
+    daily = []
+    for d in range(13, -1, -1):
+        s = now - 86400 * (d + 1); e = now - 86400 * d
+        s_iso = datetime.fromtimestamp(s, tz=timezone.utc).isoformat()
+        e_iso = datetime.fromtimestamp(e, tz=timezone.utc).isoformat()
+        
+        c = len((await supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", s_iso).lt("created_at", e_iso).execute()).data)
+        daily.append({"date": datetime.fromtimestamp(e, tz=timezone.utc).strftime("%b %d"), "chats": c})
+        
+    return {"ok": True, "totals": totals, "top_products": top, "daily_chats": daily}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ROUTES — Customer Interactions (Reviews/Favs)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@app.get("/public/reviews/{shop_id}/{product_id}")
+async def get_reviews(shop_id: str, product_id: str):
+    # For a fully decoupled Supabase schema, a join requires explicit foreign keys.
+    # We will do a simple manual join for safety since profiles might not be strictly linked via Supabase relations in all setups.
+    rows = (await supabase.table("reviews").select("*").eq("shop_id", shop_id).eq("product_id", product_id).order("created_at", desc=True).execute()).data
+    
+    out = []
+    for r in rows:
+        author_name = "User"
+        if r.get("user_id"):
+            prof = (await supabase.table("profiles").select("display_name").eq("id", r["user_id"]).execute()).data
+            if prof and prof[0].get("display_name"):
+                author_name = prof[0]["display_name"]
+        out.append({"id": r["id"], "rating": r["rating"], "body": r["body"], "author": author_name, "created_at": r["created_at"]})
+        
+    return {"ok": True, "reviews": out}
+
+@app.post("/customer/review/{shop_id}/{product_id}")
+async def post_review(shop_id: str, product_id: str, body: ReviewReq, authorization: Optional[str] = Header(None)):
+    user, prof = await get_user(authorization)
+    require_verified(user)
+    if not body.body.strip(): raise HTTPException(400, "Review cannot be empty")
+    
+    prod_check = await supabase.table("products").select("product_id").eq("shop_id", shop_id).eq("product_id", product_id).execute()
+    if not prod_check.data: raise HTTPException(404, "Product not found")
+    
+    # Upsert logic
+    existing = await supabase.table("reviews").select("id").eq("shop_id", shop_id).eq("product_id", product_id).eq("user_id", user.id).execute()
+    if existing.data:
+        await supabase.table("reviews").update({"rating": body.rating, "body": body.body.strip(), "created_at": "now()"}).eq("id", existing.data[0]["id"]).execute()
+    else:
+        await supabase.table("reviews").insert({"shop_id": shop_id, "product_id": product_id, "user_id": user.id, "rating": body.rating, "body": body.body.strip()}).execute()
+        
+    return {"ok": True, "message": "Review saved"}
