@@ -1,5 +1,5 @@
 """
-Wave API  v4.0 — Supabase Edition (Stable)
+Wave API  v4.0 — Supabase Edition (Stable & Fixed)
 """
 
 from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Form
@@ -206,14 +206,18 @@ def serialize_product(row: dict, user_id: str = None) -> Dict[str, Any]:
         except: imgs = []
     if not isinstance(imgs, list): imgs = []
     
-    rv = supabase.table("reviews").select("rating").eq("shop_id", row["shop_id"]).eq("product_id", row["product_id"]).execute().data
+    # Safe gets to prevent KeyError if data is incomplete
+    shop_id = row.get("shop_id", "")
+    prod_id = row.get("product_id", "")
+    
+    rv = supabase.table("reviews").select("rating").eq("shop_id", shop_id).eq("product_id", prod_id).execute().data
     is_fav = False
     if user_id:
-        favs = supabase.table("favourites").select("shop_id").eq("user_id", user_id).eq("shop_id", row["shop_id"]).eq("product_id", row["product_id"]).execute().data
+        favs = supabase.table("favourites").select("shop_id").eq("user_id", user_id).eq("shop_id", shop_id).eq("product_id", prod_id).execute().data
         is_fav = len(favs) > 0
         
     return {
-        "product_id": row["product_id"], "shop_id": row["shop_id"], "name": row["name"],
+        "product_id": prod_id, "shop_id": shop_id, "name": row.get("name", ""),
         "overview": row.get("overview", ""), "price": row.get("price", ""),
         "stock": row.get("stock", "in"), "variants": row.get("variants", ""),
         "images": imgs, "image_count": len(imgs),
@@ -299,7 +303,16 @@ def rank_products(products: List[Dict], q: str) -> List[Dict]:
             if isinstance(imgs, str):
                 try: imgs = json.loads(imgs)
                 except: imgs = []
-            scored.append((s, {"product_id": r["product_id"], "name": r["name"], "overview": r.get("overview",""), "price": r.get("price",""), "stock": r.get("stock","in"), "images": imgs}))
+            # Added shop_id here to prevent 500 error during serialization!
+            scored.append((s, {
+                "shop_id": r.get("shop_id", ""),
+                "product_id": r["product_id"], 
+                "name": r["name"], 
+                "overview": r.get("overview",""), 
+                "price": r.get("price",""), 
+                "stock": r.get("stock","in"), 
+                "images": imgs
+            }))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [p for _, p in scored]
 
@@ -440,8 +453,20 @@ def get_favourites(request: Request, authorization: Optional[str] = Header(None)
 
 @app.get("/public/reviews/{shop_id}/{product_id}")
 def get_reviews(shop_id: str, product_id: str):
-    rows = supabase.table("reviews").select("*, profiles(display_name)").eq("shop_id", shop_id).eq("product_id", product_id).order("created_at", desc=True).execute().data
-    return {"ok": True, "reviews": [{"id": r["id"], "rating": r["rating"], "body": r["body"], "author": r["profiles"].get("display_name") or "User", "created_at": r["created_at"]} for r in rows]}
+    # Fixed PostgREST Join issue by manually looking up user display names
+    rows = supabase.table("reviews").select("*").eq("shop_id", shop_id).eq("product_id", product_id).order("created_at", desc=True).execute().data
+    out = []
+    for r in rows:
+        author_name = "User"
+        if r.get("user_id"):
+            prof = supabase.table("profiles").select("display_name").eq("id", r["user_id"]).execute().data
+            if prof and prof[0].get("display_name"):
+                author_name = prof[0]["display_name"]
+        out.append({
+            "id": r["id"], "rating": r["rating"], "body": r["body"], 
+            "author": author_name, "created_at": r["created_at"]
+        })
+    return {"ok": True, "reviews": out}
 
 @app.post("/customer/review/{shop_id}/{product_id}")
 def post_review(shop_id: str, product_id: str, body: ReviewReq, authorization: Optional[str] = Header(None)):
