@@ -325,6 +325,8 @@ def shop_stats(shop_id: str) -> Dict:
     
     return {
         "product_count": len(prods), 
+        "image_count": imgs,
+        "products_with_images": with_imgs,
         "chat_hits_30d": len(chats), 
         "shop_views_30d": len(shop_views),
         "product_views_30d": len(product_views), 
