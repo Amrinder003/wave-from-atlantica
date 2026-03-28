@@ -430,6 +430,26 @@ def is_budget_query(q: str) -> bool:
     qn = norm_text(q)
     return extract_budget_limit(q) is not None and any(t in qn for t in ["below", "under", "less", "cheap", "budget", "dollar", "$", "within", "upto", "up to"])
 
+def is_location_query(q: str) -> bool:
+    qn = norm_text(q)
+    return any(t in qn for t in ["where", "location", "located", "address", "find you"])
+
+def is_hours_query(q: str) -> bool:
+    qn = norm_text(q)
+    return any(t in qn for t in ["hours", "open", "opening", "closing", "close time", "when are you open"])
+
+def is_contact_query(q: str) -> bool:
+    qn = norm_text(q)
+    return any(t in qn for t in ["phone", "contact", "call", "whatsapp", "number"])
+
+def is_stock_query(q: str) -> bool:
+    qn = norm_text(q)
+    return any(t in qn for t in ["in stock", "available", "availability", "what's in stock", "what is in stock", "instock"])
+
+def is_cheapest_query(q: str) -> bool:
+    qn = norm_text(q)
+    return any(t in qn for t in ["cheapest", "lowest price", "least expensive", "most affordable", "budget friendly"])
+
 def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     limit = extract_budget_limit(q)
     if limit is None:
@@ -472,6 +492,113 @@ def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[D
         "answer": "\n".join(lines),
         "products": serialize_products_bulk(top),
         "meta": {"llm_used": False, "reason": "budget_filter", "suggestions": suggestions},
+    }
+
+def answer_shop_info_query(shop: dict, q: str) -> Optional[Dict[str, Any]]:
+    suggestions = ["Show all products", "What's in stock?", "What are your prices?"]
+    if is_location_query(q):
+        address = (shop.get("address") or "").strip()
+        if address:
+            return {
+                "answer": f"**{shop['name']}** is located at **{address}**.",
+                "products": [],
+                "meta": {"llm_used": False, "reason": "shop_location", "suggestions": suggestions},
+            }
+    if is_hours_query(q):
+        hours = (shop.get("hours") or "").strip()
+        if hours:
+            return {
+                "answer": f"**{shop['name']}** is open: **{hours}**.",
+                "products": [],
+                "meta": {"llm_used": False, "reason": "shop_hours", "suggestions": suggestions},
+            }
+    if is_contact_query(q):
+        parts = []
+        phone = (shop.get("phone") or "").strip()
+        whatsapp = (shop.get("whatsapp") or "").strip()
+        if phone:
+            parts.append(f"Phone: **{phone}**")
+        if whatsapp:
+            parts.append(f"WhatsApp: **{whatsapp}**")
+        if parts:
+            return {
+                "answer": f"Here is how you can reach **{shop['name']}**:\n" + "\n".join(f"• {part}" for part in parts),
+                "products": [],
+                "meta": {"llm_used": False, "reason": "shop_contact", "suggestions": suggestions},
+            }
+    return None
+
+def answer_stock_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
+    if not is_stock_query(q):
+        return None
+
+    matches = []
+    for row in prod_rows:
+        stock = str(row.get("stock", "in") or "in").strip().lower()
+        if stock == "out":
+            continue
+        matches.append({
+            "shop_id": row.get("shop_id", ""),
+            "product_id": row.get("product_id", ""),
+            "name": row.get("name", ""),
+            "overview": row.get("overview", ""),
+            "price": row.get("price", ""),
+            "stock": row.get("stock", "in"),
+            "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
+        })
+
+    if not matches:
+        return {
+            "answer": f"I couldn't find any in-stock products at **{shop['name']}** right now.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "stock_filter", "suggestions": ["Show all products", "Do you restock often?"]},
+        }
+
+    top = matches[:6]
+    lines = [f"Here {'is' if len(top)==1 else 'are'} the products currently in stock at **{shop['name']}**:"]
+    for item in top:
+        price = item.get("price") or "Price not listed"
+        lines.append(f"• **{item['name']}** — {price} *({item.get('stock', 'in')})*")
+    if len(matches) > len(top):
+        lines.append(f"\nThere are **{len(matches)}** in-stock products in total.")
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_products_bulk(top),
+        "meta": {"llm_used": False, "reason": "stock_filter", "suggestions": ["Show all products", "What are your prices?", "Do you have anything cheaper?"]},
+    }
+
+def answer_cheapest_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
+    if not is_cheapest_query(q):
+        return None
+
+    ranked = []
+    for row in prod_rows:
+        value = parse_price_value(row.get("price", ""))
+        if value is None:
+            continue
+        ranked.append({
+            "shop_id": row.get("shop_id", ""),
+            "product_id": row.get("product_id", ""),
+            "name": row.get("name", ""),
+            "overview": row.get("overview", ""),
+            "price": row.get("price", ""),
+            "stock": row.get("stock", "in"),
+            "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
+            "_price_value": value,
+        })
+
+    if not ranked:
+        return None
+
+    ranked.sort(key=lambda item: (item["_price_value"], item["name"].lower()))
+    top = ranked[:6]
+    lines = [f"These are the lowest-priced items I found at **{shop['name']}**:"]
+    for item in top:
+        lines.append(f"• **{item['name']}** — {item.get('price', 'Price not listed')} *({item.get('stock', 'in')})*")
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_products_bulk(top),
+        "meta": {"llm_used": False, "reason": "cheapest_filter", "suggestions": ["Do you have anything below 5 dollars?", "What's in stock?", "Show all products"]},
     }
 
 def rank_products(products: List[Dict], q: str) -> List[Dict]:
@@ -541,6 +668,23 @@ def build_chat_suggestions(q: str, shop: dict, picked: List[Dict]) -> List[str]:
     if "address" not in qn and shop.get("address"):
         suggestions.append("Where is this shop located?")
     return dedup(suggestions)[:4]
+
+def fallback_answer_v2(shop: dict, picked: List[Dict], q: str) -> str:
+    if is_greeting(q):
+        return f"Hi! Welcome to **{shop['name']}**! Ask me about our products, or say 'show all products'."
+    if picked:
+        top = picked[0]
+        lines = [
+            f"I found a likely match at **{shop['name']}**:",
+            "",
+            f"**{top['name']}** - {top.get('price','Price not listed')} *({top.get('stock','in')})*",
+        ]
+        if top.get("overview"):
+            lines.append(str(top["overview"])[:160])
+        if top.get("images"):
+            lines.append(f"![{top['name']}]({top['images'][0]})")
+        return "\n".join(lines)
+    return f"I couldn't find a direct match at **{shop['name']}**. Try asking **show all products**, **what's in stock**, or **do you have anything below 10 dollars**."
 
 def fallback_answer(shop: dict, picked: List[Dict], q: str) -> str:
     if is_greeting(q): return f"Hi! Welcome to **{shop['name']}**! Ask me about our products, or say 'show all products'."
@@ -823,9 +967,21 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
     
     prod_rows = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
 
+    info_answer = answer_shop_info_query(shop, q)
+    if info_answer is not None:
+        return info_answer
+
     budget_answer = answer_budget_query(shop, prod_rows, q)
     if budget_answer is not None:
         return budget_answer
+
+    stock_answer = answer_stock_query(shop, prod_rows, q)
+    if stock_answer is not None:
+        return stock_answer
+
+    cheapest_answer = answer_cheapest_query(shop, prod_rows, q)
+    if cheapest_answer is not None:
+        return cheapest_answer
 
     picked = rank_products(prod_rows, q)
     abs_picked = serialize_products_bulk(picked[:4])
@@ -871,7 +1027,7 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
         if is_list_intent(q):
             ans = f"Here's what's available at **{shop['name']}**:\n" + "\n".join(f"• {r['name']} — {r.get('price','')} *({r.get('stock','in')})*" for r in prod_rows[:30])
         else:
-            ans = fallback_answer(shop, picked, q)
+            ans = fallback_answer_v2(shop, picked, q)
 
         return {
             "answer": ans,
