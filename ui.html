@@ -1170,6 +1170,9 @@ async function openPD(p,mode,sid,sname){
   App.curProd=p;App.curSid=sid||p.shop_id||App.shopId;App.curSname=sname||p.shop_name||'';
   App.pdVariant='';App.pdStar=0;
   const imgs=(p.images||[]).map(absUrl).filter(Boolean);
+  if(App.curSid&&p.product_id){
+    api(`/public/track-view/${encodeURIComponent(App.curSid)}/${encodeURIComponent(p.product_id)}`,{method:'POST'}).catch(()=>{});
+  }
 
   $('pdShopLnk').style.display=App.curSname?'inline-flex':'none';
   $('pdShopLnkName').textContent=App.curSname||'';
@@ -1401,7 +1404,7 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
       s.address?`<span class="shop-hdr-chip">📍 ${esc(s.address)}</span>`:'',
       s.hours?`<span class="shop-hdr-chip">🕐 ${esc(s.hours)}</span>`:'',
       s.phone?`<span class="shop-hdr-chip">📞 ${esc(s.phone)}</span>`:'',
-      `<span class="shop-hdr-chip">${d.products?.length||0} products</span>`,
+      `<span class="shop-hdr-chip">${d.pagination?.total ?? d.products?.length ?? 0} products</span>`,
       s.category?`<span class="shop-hdr-chip">🏷 ${esc(s.category)}</span>`:'',
       (st.avg_rating>0)?`<span class="shop-hdr-chip">★ ${st.avg_rating}</span>`:''
     ].join('');
@@ -1414,10 +1417,12 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
     const chips=$('shopQchips');chips.innerHTML='';
     (d.suggested_questions||[]).forEach(q=>{const b=document.createElement('button');b.className='qchip';b.textContent=q;b.addEventListener('click',()=>openChatFor(shopId,s.name,q));chips.appendChild(b);});
 
-    $('shopProdCount').textContent=`${d.products?.length||0} product${d.products?.length!==1?'s':''}`;
+    const total=d.pagination?.total ?? d.products?.length ?? 0;
+    $('shopProdCount').textContent=`${total} product${total!==1?'s':''}`;
     fillGrid($('shopProdGrid'),d.products||[],{mode:'browse',showShop:false});
+    buildPagination($('shopPagination'),d.pagination,p=>openShopPage(shopId,p,$('shopSort').value,App.shopStock));
 
-    $('chatSN').textContent=s.name;$('chatSM').textContent=`${s.address||''} · ${d.products?.length||0} products`;
+    $('chatSN').textContent=s.name;$('chatSM').textContent=`${s.address||''} · ${d.pagination?.total ?? d.products?.length ?? 0} products`;
     renderCQchips(d.suggested_questions);
   }catch(e){toast('Failed to load shop',e.message,'err');}
 }
@@ -1425,14 +1430,17 @@ $('shopSrchBtn').addEventListener('click',doShopSearch);
 $('shopSrchIn').addEventListener('keydown',e=>{if(e.key==='Enter')doShopSearch();});
 $('shopSort').addEventListener('change',()=>openShopPage(App.shopId,1,$('shopSort').value,App.shopStock));
 $('stockFilterList').addEventListener('change',e=>{App.shopStock=e.target.value||'';openShopPage(App.shopId,1,$('shopSort').value,App.shopStock);});
+async function loadShopSearchPage(q,page=1){
+  const d=await api(`/public/search?shop_id=${encodeURIComponent(App.shopId)}&q=${encodeURIComponent(q)}&page=${page}&limit=40`);
+  $('shopProdCount').textContent=`${d.total||0} results for "${q}"`;
+  fillGrid($('shopProdGrid'),d.results||[],{mode:'browse',showShop:false});
+  buildPagination($('shopPagination'),d.pagination,p=>loadShopSearchPage(q,p));
+}
 async function doShopSearch(){
   const q=$('shopSrchIn').value.trim();
   if(!q){openShopPage(App.shopId,1,$('shopSort').value,App.shopStock);return;}
   try{
-    const d=await api(`/public/search?shop_id=${encodeURIComponent(App.shopId)}&q=${encodeURIComponent(q)}&limit=40`);
-    $('shopProdCount').textContent=`${d.total||0} results for "${q}"`;
-    fillGrid($('shopProdGrid'),d.results||[],{mode:'browse',showShop:false});
-    $('shopPagination').innerHTML='';
+    await loadShopSearchPage(q,1);
   }catch(e){toast('Search failed',e.message,'err');}
 }
 

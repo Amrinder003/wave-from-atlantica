@@ -3,8 +3,7 @@ Wave API  v4.0 — Supabase Edition (Stable & Fixed Chat)
 """
 
 from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Form
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import os, re, json, time, uuid, shutil
@@ -45,10 +44,11 @@ OPENROUTER_URL    = "https://openrouter.ai/api/v1/chat/completions"
 SUPABASE_URL      = os.environ.get("SUPABASE_URL", "").strip()
 SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
 APP_BASE_URL      = os.environ.get("APP_BASE_URL", "http://localhost:8001").strip()
+CORS_ORIGINS      = [o.strip() for o in os.environ.get("CORS_ORIGINS", APP_BASE_URL).split(",") if o.strip()]
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY.")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL else None
+supabase: Optional[Client] = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # APP
@@ -57,13 +57,11 @@ app = FastAPI(title="Wave API", version="4.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=CORS_ORIGINS or ["http://localhost:8001"],
+    allow_credentials="*" not in CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.mount("/shops", StaticFiles(directory=SHOPS_DIR), name="shops")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # PYDANTIC MODELS
@@ -133,6 +131,11 @@ def require_verified(user):
     if not user.email_confirmed_at:
         raise HTTPException(403, "Email not verified. Check your inbox.")
 
+def require_supabase() -> Client:
+    if supabase is None:
+        raise HTTPException(503, "Server is missing Supabase configuration.")
+    return supabase
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # LLM 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -183,6 +186,7 @@ def dedup(items: List[str]) -> List[str]:
     return out
 
 def save_images(shop_id: str, files: List[UploadFile]) -> List[str]:
+    sb = require_supabase()
     out = []
     for f in files or []:
         if not f or not getattr(f, "filename", None): continue
@@ -192,8 +196,8 @@ def save_images(shop_id: str, files: List[UploadFile]) -> List[str]:
         path = f"{shop_id}/{name}"
         
         try:
-            supabase.storage.from_("product-images").upload(path, f.file.read(), {"content-type": f.content_type})
-            out.append(supabase.storage.from_("product-images").get_public_url(path))
+            sb.storage.from_("product-images").upload(path, f.file.read(), {"content-type": f.content_type})
+            out.append(sb.storage.from_("product-images").get_public_url(path))
         except Exception as e:
             print(f"[Supabase Storage Error] {e}")
             raise HTTPException(500, "Failed to upload image. Ensure the 'product-images' bucket is created and public in Supabase.")
@@ -231,29 +235,53 @@ def serialize_product(row: dict, user_id: str = None) -> Dict[str, Any]:
     }
 
 def shop_stats(shop_id: str) -> Dict:
-    prods = supabase.table("products").select("images").eq("shop_id", shop_id).execute().data
+    sb = require_supabase()
+    prods = sb.table("products").select("images").eq("shop_id", shop_id).execute().data
     with_imgs = sum(1 for p in prods if p.get("images"))
     imgs = sum(len(p.get("images", [])) for p in prods)
     
     since = int(time.time()) - 86400 * 30
     since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
     
-    chats = supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", since_iso).execute().data
-    views = supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "view").gte("created_at", since_iso).execute().data
-    rvs = supabase.table("reviews").select("rating").eq("shop_id", shop_id).execute().data
+    chats = sb.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", since_iso).execute().data
+    shop_views = sb.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "shop_view").gte("created_at", since_iso).execute().data
+    product_views = sb.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "view").gte("created_at", since_iso).execute().data
+    rvs = sb.table("reviews").select("rating").eq("shop_id", shop_id).execute().data
     
     avg_r = sum(r["rating"] for r in rvs)/len(rvs) if rvs else 0
     
     return {
         "product_count": len(prods), 
         "chat_hits_30d": len(chats), 
-        "product_views_30d": len(views), 
+        "shop_views_30d": len(shop_views),
+        "product_views_30d": len(product_views), 
         "avg_rating": round(avg_r, 1)
     }
 
 def track(shop_id: str, event: str, product_id: Optional[str] = None):
+    if supabase is None:
+        return
     try: supabase.table("analytics").insert({"shop_id": shop_id, "product_id": product_id, "event": event}).execute()
     except Exception: pass
+
+def paginate_list(items: List[Any], page: int, page_size: int = PAGE_SIZE) -> Dict[str, Any]:
+    total = len(items)
+    page_size = max(1, page_size)
+    pages = max((total + page_size - 1) // page_size, 1)
+    page = max(1, min(page, pages))
+    start = (page - 1) * page_size
+    end = start + page_size
+    return {
+        "items": items[start:end],
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "pages": pages,
+            "total": total,
+            "has_prev": page > 1,
+            "has_next": page < pages,
+        },
+    }
 
 def rebuild_kb(shop_id: str):
     shop = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
@@ -363,6 +391,17 @@ def root(): return {"status": "running", "version": "4.1 Supabase"}
 @app.get("/health")
 def health(): return {"ok": True}
 
+@app.get("/shops/{shop_id}/images/{filename}")
+def serve_shop_image(shop_id: str, filename: str):
+    ext = norm_ext(os.path.splitext(filename)[1])
+    if ext not in ALLOWED_IMG_EXTS:
+        raise HTTPException(404, "File not found")
+    safe_shop_id = slug(shop_id, 60)
+    image_path = os.path.join(SHOPS_DIR, safe_shop_id, "images", os.path.basename(filename))
+    if not os.path.isfile(image_path):
+        raise HTTPException(404, "Image not found")
+    return FileResponse(image_path)
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Auth
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -426,14 +465,15 @@ def update_profile(body: UpdateProfileReq, authorization: Optional[str] = Header
 @app.post("/auth/profile/avatar")
 def upload_avatar(authorization: Optional[str] = Header(None), avatar: UploadFile = File(...)):
     user, prof = get_user(authorization)
+    sb = require_supabase()
     if not avatar.filename: raise HTTPException(400, "No file provided")
     try:
         ext = norm_ext(os.path.splitext(avatar.filename.lower())[1])
         filename = f"user_{user.id}_{uuid.uuid4().hex[:8]}{ext}"
         path = f"avatars/{filename}"
-        supabase.storage.from_("product-images").upload(path, avatar.file.read(), {"content-type": avatar.content_type})
-        url = supabase.storage.from_("product-images").get_public_url(path)
-        supabase.table("profiles").update({"avatar_url": url}).eq("id", user.id).execute()
+        sb.storage.from_("product-images").upload(path, avatar.file.read(), {"content-type": avatar.content_type})
+        url = sb.storage.from_("product-images").get_public_url(path)
+        sb.table("profiles").update({"avatar_url": url}).eq("id", user.id).execute()
         return {"ok": True, "avatar_url": url}
     except Exception as e:
         raise HTTPException(500, f"Avatar upload failed: {str(e)}")
@@ -483,6 +523,11 @@ def get_reviews(shop_id: str, product_id: str):
         print(f"Reviews Error: {e}")
         return {"ok": True, "reviews": []}
 
+@app.post("/public/track-view/{shop_id}/{product_id}")
+def track_product_view(shop_id: str, product_id: str):
+    track(shop_id, "view", product_id)
+    return {"ok": True}
+
 @app.post("/customer/review/{shop_id}/{product_id}")
 def post_review(shop_id: str, product_id: str, body: ReviewReq, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
@@ -512,7 +557,7 @@ def public_shops(category: Optional[str] = None):
     return {"ok": True, "shops": rows}
 
 @app.get("/public/shop/{shop_id}")
-def public_shop(shop_id: str, request: Request, sort: str = Query("default"), stock: str = Query(""), authorization: Optional[str] = Header(None)):
+def public_shop(shop_id: str, request: Request, sort: str = Query("default"), stock: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
     shop_res = supabase.table("shops").select("*").eq("shop_id", shop_id).execute()
     if not shop_res.data: raise HTTPException(404, "Shop not found")
     
@@ -531,44 +576,49 @@ def public_shop(shop_id: str, request: Request, sort: str = Query("default"), st
     
     track(shop_id, "shop_view")
     
-    ser_prods = [serialize_product(p, user_id) for p in all_prods[:100]]
+    paged = paginate_list(all_prods, page, limit)
+    ser_prods = [serialize_product(p, user_id) for p in paged["items"]]
     
     return {
         "ok": True, "shop_id": shop_id, "shop": shop_res.data[0],
         "products": ser_prods,
+        "pagination": paged["pagination"],
         "stats": shop_stats(shop_id),
         "suggested_questions": ["What products do you have?", "Show all products", "What's in stock?", "Show me your best product", "Show all images"]
     }
 
 @app.get("/public/search")
-def search_shop(request: Request, shop_id: str = Query(...), q: str = Query(...), limit: int = Query(24, le=100)):
+def search_shop(request: Request, shop_id: str = Query(...), q: str = Query(...), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100)):
     qn = (q or "").strip()
-    if not qn: return {"ok": True, "shop_id": shop_id, "q": q, "results": [], "total": 0}
+    if not qn: return {"ok": True, "shop_id": shop_id, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
     rows = supabase.table("products").select("*").eq("shop_id", shop_id).or_(f"name.ilike.%{qn}%,overview.ilike.%{qn}%").order("updated_at", desc=True).execute().data
-    return {"ok": True, "shop_id": shop_id, "q": q, "results": [serialize_product(r) for r in rows[:limit]], "total": len(rows)}
+    paged = paginate_list(rows, page, limit)
+    return {"ok": True, "shop_id": shop_id, "q": q, "results": [serialize_product(r) for r in paged["items"]], "total": len(rows), "pagination": paged["pagination"]}
 
 @app.get("/public/search/global")
-def search_global(request: Request, q: str = Query(...), limit: int = Query(24, le=60)):
+def search_global(request: Request, q: str = Query(...), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60)):
     qn = (q or "").strip()
-    if not qn: return {"ok": True, "q": q, "results": [], "total": 0}
+    if not qn: return {"ok": True, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
     rows = supabase.table("products").select("*, shops(name, address, whatsapp)").or_(f"name.ilike.%{qn}%,overview.ilike.%{qn}%").order("updated_at", desc=True).execute().data
     
-    results = [serialize_product(r) for r in rows[:limit]]
-    for r, prod in zip(rows[:limit], results):
+    paged = paginate_list(rows, page, limit)
+    results = [serialize_product(r) for r in paged["items"]]
+    for r, prod in zip(paged["items"], results):
         prod["shop_name"] = r.get("shops", {}).get("name", "")
         prod["shop_address"] = r.get("shops", {}).get("address", "")
-    return {"ok": True, "q": q, "results": results, "total": len(rows)}
+    return {"ok": True, "q": q, "results": results, "total": len(rows), "pagination": paged["pagination"]}
 
 @app.get("/public/top-products")
-def top_products(request: Request, limit: int = Query(24, le=60), category: str = Query("")):
+def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60), category: str = Query("")):
     q = supabase.table("products").select("*, shops!inner(name, category)").neq("stock", "out")
     if category: q = q.ilike("shops.category", f"%{category}%")
-    rows = q.limit(limit).execute().data
+    rows = q.execute().data
     
-    results = [serialize_product(r) for r in rows]
-    for r, prod in zip(rows, results):
+    paged = paginate_list(rows, page, limit)
+    results = [serialize_product(r) for r in paged["items"]]
+    for r, prod in zip(paged["items"], results):
         prod["shop_name"] = r.get("shops", {}).get("name", "")
-    return {"ok": True, "products": results}
+    return {"ok": True, "products": results, "pagination": paged["pagination"]}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Chat 
@@ -614,7 +664,7 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
 
     try:
         ans = llm_chat(SHOP_ASSISTANT_SYSTEM, f"CONTEXT:\n{build_context(shop, picked, prod_rows)}\n\nCUSTOMER: {q}")
-        return {"answer": ans, "products": abs_picked, "meta": {"llm_used": True}}
+        return {"answer": ans, "products": abs_picked, "meta": {"llm_used": True, "model": OPENROUTER_MODEL}}
     except Exception as e:
         err_msg = str(e)
         if hasattr(e, "response") and getattr(e, "response") is not None:
@@ -626,9 +676,12 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
             ans = f"Here's what's available at **{shop['name']}**:\n" + "\n".join(f"• {r['name']} — {r.get('price','')} *({r.get('stock','in')})*" for r in prod_rows[:30])
         else:
             ans = fallback_answer(shop, picked, q)
-            
-        ans = f"*(AI Error: {err_msg})*\n\n" + ans
-        return {"answer": ans, "products": abs_picked, "meta": {"llm_used": False, "reason": err_msg}}
+
+        return {
+            "answer": ans,
+            "products": abs_picked,
+            "meta": {"llm_used": False, "reason": "fallback_after_llm_error"}
+        }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Admin 
