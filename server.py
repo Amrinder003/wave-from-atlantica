@@ -403,6 +403,77 @@ def wants_all_images(q: str) -> bool:
     if "all" not in qn and "every" not in qn: return False
     return any(v in qn for v in ["image","images","photo","photos","picture","pictures"])
 
+def parse_price_value(price: str) -> Optional[float]:
+    raw = str(price or "").strip().lower()
+    if not raw:
+        return None
+    cleaned = raw.replace(",", "")
+    m = re.search(r"(\d+(?:\.\d+)?)", cleaned)
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except Exception:
+        return None
+
+def extract_budget_limit(q: str) -> Optional[float]:
+    qn = norm_text(q)
+    m = re.search(r"(?:below|under|less than|cheaper than|upto|up to|within)\s+\$?\s*(\d+(?:\.\d+)?)", qn)
+    if m:
+        return float(m.group(1))
+    m = re.search(r"\$+\s*(\d+(?:\.\d+)?)\s*(?:or less|or below|or under)?", qn)
+    if m and any(t in qn for t in ["below", "under", "less", "cheap", "budget", "dollar", "$"]):
+        return float(m.group(1))
+    return None
+
+def is_budget_query(q: str) -> bool:
+    qn = norm_text(q)
+    return extract_budget_limit(q) is not None and any(t in qn for t in ["below", "under", "less", "cheap", "budget", "dollar", "$", "within", "upto", "up to"])
+
+def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
+    limit = extract_budget_limit(q)
+    if limit is None:
+        return None
+
+    matches = []
+    for row in prod_rows:
+        value = parse_price_value(row.get("price", ""))
+        if value is None or value > limit:
+            continue
+        enriched = {
+            "shop_id": row.get("shop_id", ""),
+            "product_id": row.get("product_id", ""),
+            "name": row.get("name", ""),
+            "overview": row.get("overview", ""),
+            "price": row.get("price", ""),
+            "stock": row.get("stock", "in"),
+            "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
+            "_price_value": value,
+        }
+        matches.append(enriched)
+
+    matches.sort(key=lambda item: (item["_price_value"], item["name"].lower()))
+    suggestions = ["Show all products", "What's in stock?", "Do you have anything cheaper?"]
+
+    if not matches:
+        return {
+            "answer": f"I couldn't find any items at **{shop['name']}** priced below **{limit:g}**.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "budget_filter", "suggestions": suggestions},
+        }
+
+    top = matches[:6]
+    lines = [f"Here {'is' if len(top)==1 else 'are'} the items at **{shop['name']}** priced below **{limit:g}**:"]
+    for item in top:
+        lines.append(f"• **{item['name']}** — {item.get('price','Price not listed')} *({item.get('stock','in')})*")
+    if len(matches) > len(top):
+        lines.append(f"\nThere are **{len(matches)}** matching products in total.")
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_products_bulk(top),
+        "meta": {"llm_used": False, "reason": "budget_filter", "suggestions": suggestions},
+    }
+
 def rank_products(products: List[Dict], q: str) -> List[Dict]:
     qn = norm_text(q); qt = set(re.findall(r"[a-z0-9]+", qn))
     scored = []
@@ -751,6 +822,10 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
     shop = shop_res.data[0]
     
     prod_rows = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
+
+    budget_answer = answer_budget_query(shop, prod_rows, q)
+    if budget_answer is not None:
+        return budget_answer
 
     picked = rank_products(prod_rows, q)
     abs_picked = serialize_products_bulk(picked[:4])
