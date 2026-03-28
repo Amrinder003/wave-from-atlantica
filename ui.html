@@ -1036,15 +1036,17 @@ function clearUser(){App.user=null;localStorage.removeItem('lm_user');renderUser
 function renderUserUI(){
   const u=App.user;
   if(u){
+    const safeEmail=u.email||'';
+    const safeName=u.display_name||safeEmail.split('@')[0]||'Guest';
     $('profileIcon').textContent=u.display_name?u.display_name[0].toUpperCase():'👤';
     $('profileLbl').textContent=u.display_name||'Me';
-    $('profileName').textContent=u.display_name||u.email.split('@')[0];
-    $('profileEmail').textContent=u.email;
+    $('profileName').textContent=safeName;
+    $('profileEmail').textContent=safeEmail;
     $('profileAvatar').textContent=u.display_name?u.display_name[0].toUpperCase():'👤';
     $('profileVerifyWarn').style.display=u.email_verified?'none':'flex';
-    $('authBadge').textContent=u.display_name||u.email;
+    $('authBadge').textContent=u.display_name||safeEmail||'Signed in';
     $('authBadge').className='badge g';
-    setS('authStatus',`Logged in as ${u.email}`,'ok');
+    setS('authStatus',safeEmail?`Logged in as ${safeEmail}`:'Signed in','ok');
   }else{
     $('profileIcon').textContent='👤';
     $('profileLbl').textContent='Account';
@@ -1592,6 +1594,7 @@ $('refreshMyShops').addEventListener('click',loadMyShops);
 App.adminShopId=null;
 
 function refreshWorkspaceHeader(shop=null,stats={}){
+  if(!$('workspaceTitle')||!$('workspaceDesc')||!$('wkStatus')||!$('wkProducts')||!$('wkChats')||!$('wkRating')) return;
   $('workspaceTitle').textContent=shop?.name||'Select a shop to manage';
   $('workspaceDesc').textContent=shop
     ? `${shop.address||'No address yet'}${shop.category?` · ${shop.category}`:''}. Update the storefront, manage products, upload images, and preview the live customer view from one place.`
@@ -1622,6 +1625,7 @@ async function loadAdminShop(shopId){
   }catch(e){setS('shopStatus',e.message,'err');toast('Load failed',e.message,'err');}
 }
 function renderAdminProds(prods){
+  if(!$('adminPGrid')||!$('adminPBadge')) return;
   const q=$('adminProdSearch')?.value.trim().toLowerCase()||'';
   const filtered=q?prods.filter(p=>`${p.name||''} ${p.overview||''} ${p.product_id||''}`.toLowerCase().includes(q)):prods;
   const n=filtered.length;$('adminPBadge').textContent=`${n}`;
@@ -1698,13 +1702,13 @@ $('saveProdBtn').addEventListener('click',saveProd);
 $('deleteProdBtn').addEventListener('click',deleteProd);
 $('clearProdBtn').addEventListener('click',clearProdForm);
 $('prodFiles').addEventListener('change',()=>renderFilePrev([...$('prodFiles').files]));
-$('adminProdSearch').addEventListener('input',()=>renderAdminProds(App.adminProducts||[]));
-$('startNewProductBtn').addEventListener('click',()=>{
+if($('adminProdSearch')) $('adminProdSearch').addEventListener('input',()=>renderAdminProds(App.adminProducts||[]));
+if($('startNewProductBtn')) $('startNewProductBtn').addEventListener('click',()=>{
   switchAdminSub('shopeditor');
   clearProdForm();
-  $('prodName').focus();
+  $('prodName')?.focus();
 });
-$('openLiveShopBtn').addEventListener('click',()=>{
+if($('openLiveShopBtn')) $('openLiveShopBtn').addEventListener('click',()=>{
   const shopId=App.adminShopId||$('shopId').value.trim();
   if(!shopId)return toast('Load a shop first','','err');
   openShopPage(shopId);
