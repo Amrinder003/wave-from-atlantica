@@ -310,8 +310,9 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None) -> List[Dict[
 def shop_stats(shop_id: str) -> Dict:
     sb = require_supabase()
     prods = sb.table("products").select("images").eq("shop_id", shop_id).execute().data
-    with_imgs = sum(1 for p in prods if p.get("images"))
-    imgs = sum(len(p.get("images", [])) for p in prods)
+    normalized_images = [normalize_image_list(shop_id, p.get("images", [])) for p in prods]
+    with_imgs = sum(1 for images in normalized_images if images)
+    imgs = sum(len(images) for images in normalized_images)
     
     since = int(time.time()) - 86400 * 30
     since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
@@ -661,7 +662,11 @@ def public_shops(category: Optional[str] = None):
     if category: q = q.ilike("category", f"%{category}%")
     rows = q.execute().data
     for r in rows:
-        r["stats"] = shop_stats(r["shop_id"])
+        try:
+            r["stats"] = shop_stats(r["shop_id"])
+        except Exception as e:
+            print(f"[Shop Stats Warning] {r.get('shop_id')}: {e}")
+            r["stats"] = {"product_count": 0, "image_count": 0, "products_with_images": 0, "chat_hits_30d": 0, "shop_views_30d": 0, "product_views_30d": 0, "avg_rating": 0}
     return {"ok": True, "shops": rows}
 
 @app.get("/public/shop/{shop_id}")
