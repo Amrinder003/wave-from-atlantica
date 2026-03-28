@@ -185,6 +185,30 @@ def dedup(items: List[str]) -> List[str]:
         if v and v not in seen: seen.add(v); out.append(v)
     return out
 
+def normalize_image_ref(shop_id: str, value: str) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if re.match(r"^https?://", raw, re.I):
+        return raw
+    if raw.startswith("/shops/"):
+        parts = [p for p in raw.split("/") if p]
+        if len(parts) >= 4 and parts[2] == "images":
+            return f"/shops/{parts[1]}/images/{os.path.basename(parts[-1])}"
+    if raw.startswith("/"):
+        return raw
+    return f"/shops/{shop_id}/images/{os.path.basename(raw)}"
+
+def normalize_image_list(shop_id: str, images: Any) -> List[str]:
+    if isinstance(images, str):
+        try:
+            images = json.loads(images)
+        except Exception:
+            images = [images]
+    if not isinstance(images, list):
+        images = []
+    return dedup([normalize_image_ref(shop_id, img) for img in images if str(img or "").strip()])
+
 def save_images(shop_id: str, files: List[UploadFile]) -> List[str]:
     sb = require_supabase()
     out = []
@@ -204,14 +228,9 @@ def save_images(shop_id: str, files: List[UploadFile]) -> List[str]:
     return out
 
 def serialize_product(row: dict, user_id: str = None) -> Dict[str, Any]:
-    imgs = row.get("images", [])
-    if isinstance(imgs, str):
-        try: imgs = json.loads(imgs)
-        except: imgs = []
-    if not isinstance(imgs, list): imgs = []
-    
     shop_id = row.get("shop_id", "")
     prod_id = row.get("product_id", "")
+    imgs = normalize_image_list(shop_id, row.get("images", []))
     
     try:
         rv = supabase.table("reviews").select("rating").eq("shop_id", shop_id).eq("product_id", prod_id).execute().data
@@ -233,6 +252,60 @@ def serialize_product(row: dict, user_id: str = None) -> Dict[str, Any]:
         "avg_rating": round(sum(r["rating"] for r in rv)/len(rv) if rv else 0, 1),
         "review_count": len(rv), "is_favourite": is_fav,
     }
+
+def serialize_products_bulk(rows: List[dict], user_id: str = None) -> List[Dict[str, Any]]:
+    if not rows:
+        return []
+
+    pairs = {(str(r.get("shop_id", "")), str(r.get("product_id", ""))) for r in rows if r.get("shop_id") and r.get("product_id")}
+    shop_ids = sorted({shop_id for shop_id, _ in pairs})
+    product_ids = sorted({product_id for _, product_id in pairs})
+
+    review_map: Dict[tuple, List[int]] = {}
+    if shop_ids and product_ids and supabase is not None:
+        try:
+            review_rows = supabase.table("reviews").select("shop_id, product_id, rating").in_("shop_id", shop_ids).in_("product_id", product_ids).execute().data
+            for review in review_rows:
+                key = (str(review.get("shop_id", "")), str(review.get("product_id", "")))
+                if key in pairs:
+                    review_map.setdefault(key, []).append(int(review.get("rating", 0)))
+        except Exception:
+            review_map = {}
+
+    fav_set = set()
+    if user_id and shop_ids and product_ids and supabase is not None:
+        try:
+            fav_rows = supabase.table("favourites").select("shop_id, product_id").eq("user_id", user_id).in_("shop_id", shop_ids).in_("product_id", product_ids).execute().data
+            fav_set = {
+                (str(fav.get("shop_id", "")), str(fav.get("product_id", "")))
+                for fav in fav_rows
+                if (str(fav.get("shop_id", "")), str(fav.get("product_id", ""))) in pairs
+            }
+        except Exception:
+            fav_set = set()
+
+    out: List[Dict[str, Any]] = []
+    for row in rows:
+        shop_id = str(row.get("shop_id", ""))
+        product_id = str(row.get("product_id", ""))
+        key = (shop_id, product_id)
+        ratings = review_map.get(key, [])
+        imgs = normalize_image_list(shop_id, row.get("images", []))
+        out.append({
+            "product_id": product_id,
+            "shop_id": shop_id,
+            "name": row.get("name", ""),
+            "overview": row.get("overview", ""),
+            "price": row.get("price", ""),
+            "stock": row.get("stock", "in"),
+            "variants": row.get("variants", ""),
+            "images": imgs,
+            "image_count": len(imgs),
+            "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else 0,
+            "review_count": len(ratings),
+            "is_favourite": key in fav_set,
+        })
+    return out
 
 def shop_stats(shop_id: str) -> Dict:
     sb = require_supabase()
@@ -338,10 +411,7 @@ def rank_products(products: List[Dict], q: str) -> List[Dict]:
         if qt & ht: s += len(qt & ht) * 1.4
         if qn and qn in hay: s += 5
         if s > 0: 
-            imgs = r.get("images", [])
-            if isinstance(imgs, str):
-                try: imgs = json.loads(imgs)
-                except: imgs = []
+            imgs = normalize_image_list(r.get("shop_id", ""), r.get("images", []))
             scored.append((s, {
                 "shop_id": r.get("shop_id", ""),
                 "product_id": r["product_id"], 
@@ -354,7 +424,7 @@ def rank_products(products: List[Dict], q: str) -> List[Dict]:
     scored.sort(key=lambda x: x[0], reverse=True)
     return [p for _, p in scored]
 
-def build_context(shop: dict, picked: List[Dict], all_rows: List) -> str:
+def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Optional[List[str]] = None) -> str:
     lines = [f"Shop: {shop['name']}", f"Address: {shop.get('address','')}"]
     if shop.get("phone"): lines.append(f"Phone: {shop['phone']}")
     if shop.get("hours"): lines.append(f"Hours: {shop['hours']}")
@@ -365,9 +435,38 @@ def build_context(shop: dict, picked: List[Dict], all_rows: List) -> str:
         for p in picked[:6]:
             img_part = f' | Photo: ![{p["name"]}]({p["images"][0]})' if p.get("images") else ""
             lines.append(f'• {p["name"]} | Price: {p.get("price","N/A")} | Stock: {p.get("stock","in")}{img_part}')
+    if rag_chunks:
+        lines.append("\nKnowledge base notes:")
+        for chunk in rag_chunks[:4]:
+            lines.append(chunk.strip())
     return "\n".join(lines)
 
-SHOP_ASSISTANT_SYSTEM = """You are a friendly, knowledgeable sales assistant. Answer based ONLY on the shop context provided. Be warm and concise. Use markdown. Mention price and stock status when relevant."""
+SHOP_ASSISTANT_SYSTEM = """You are the live shopping assistant for a local marketplace shop.
+Answer using ONLY the supplied shop context.
+Be concise, warm, and professional.
+Mention price and stock when available.
+If the user asks what the shop sells, summarize first and then list examples.
+If information is missing, say so clearly and suggest a useful follow-up question.
+Use simple markdown.
+"""
+
+def build_chat_suggestions(q: str, shop: dict, picked: List[Dict]) -> List[str]:
+    suggestions: List[str] = []
+    qn = norm_text(q)
+    if picked:
+        top = picked[0]
+        suggestions.extend([
+            f"What is the price of {top['name']}?",
+            f"Show me photos of {top['name']}",
+            f"Do you have more like {top['name']}?",
+        ])
+    else:
+        suggestions.extend(["Show all products", "What's in stock?", "What are your prices?"])
+    if "hour" not in qn and shop.get("hours"):
+        suggestions.append("What are your opening hours?")
+    if "address" not in qn and shop.get("address"):
+        suggestions.append("Where is this shop located?")
+    return dedup(suggestions)[:4]
 
 def fallback_answer(shop: dict, picked: List[Dict], q: str) -> str:
     if is_greeting(q): return f"Hi! Welcome to **{shop['name']}**! Ask me about our products, or say 'show all products'."
@@ -389,7 +488,13 @@ def serve_ui():
 def root(): return {"status": "running", "version": "4.1 Supabase"}
 
 @app.get("/health")
-def health(): return {"ok": True}
+def health():
+    return {
+        "ok": True,
+        "model": OPENROUTER_MODEL if OPENROUTER_KEY else None,
+        "rag_enabled": HAS_RAG,
+        "supabase_configured": supabase is not None,
+    }
 
 @app.get("/shops/{shop_id}/images/{filename}")
 def serve_shop_image(shop_id: str, filename: str):
@@ -495,10 +600,11 @@ def toggle_favourite(shop_id: str, product_id: str, authorization: Optional[str]
 def get_favourites(request: Request, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     favs = supabase.table("favourites").select("shop_id, product_id").eq("user_id", user.id).order("created_at", desc=True).execute().data
-    out = []
+    product_rows = []
     for f in favs:
         p = supabase.table("products").select("*").eq("shop_id", f["shop_id"]).eq("product_id", f["product_id"]).execute().data
-        if p: out.append(serialize_product(p[0], user.id))
+        if p: product_rows.append(p[0])
+    out = serialize_products_bulk(product_rows, user.id)
     return {"ok": True, "favourites": out}
 
 @app.get("/public/reviews/{shop_id}/{product_id}")
@@ -577,7 +683,7 @@ def public_shop(shop_id: str, request: Request, sort: str = Query("default"), st
     track(shop_id, "shop_view")
     
     paged = paginate_list(all_prods, page, limit)
-    ser_prods = [serialize_product(p, user_id) for p in paged["items"]]
+    ser_prods = serialize_products_bulk(paged["items"], user_id)
     
     return {
         "ok": True, "shop_id": shop_id, "shop": shop_res.data[0],
@@ -593,7 +699,7 @@ def search_shop(request: Request, shop_id: str = Query(...), q: str = Query(...)
     if not qn: return {"ok": True, "shop_id": shop_id, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
     rows = supabase.table("products").select("*").eq("shop_id", shop_id).or_(f"name.ilike.%{qn}%,overview.ilike.%{qn}%").order("updated_at", desc=True).execute().data
     paged = paginate_list(rows, page, limit)
-    return {"ok": True, "shop_id": shop_id, "q": q, "results": [serialize_product(r) for r in paged["items"]], "total": len(rows), "pagination": paged["pagination"]}
+    return {"ok": True, "shop_id": shop_id, "q": q, "results": serialize_products_bulk(paged["items"]), "total": len(rows), "pagination": paged["pagination"]}
 
 @app.get("/public/search/global")
 def search_global(request: Request, q: str = Query(...), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60)):
@@ -602,7 +708,7 @@ def search_global(request: Request, q: str = Query(...), page: int = Query(1, ge
     rows = supabase.table("products").select("*, shops(name, address, whatsapp)").or_(f"name.ilike.%{qn}%,overview.ilike.%{qn}%").order("updated_at", desc=True).execute().data
     
     paged = paginate_list(rows, page, limit)
-    results = [serialize_product(r) for r in paged["items"]]
+    results = serialize_products_bulk(paged["items"])
     for r, prod in zip(paged["items"], results):
         prod["shop_name"] = r.get("shops", {}).get("name", "")
         prod["shop_address"] = r.get("shops", {}).get("address", "")
@@ -615,7 +721,7 @@ def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Quer
     rows = q.execute().data
     
     paged = paginate_list(rows, page, limit)
-    results = [serialize_product(r) for r in paged["items"]]
+    results = serialize_products_bulk(paged["items"])
     for r, prod in zip(paged["items"], results):
         prod["shop_name"] = r.get("shops", {}).get("name", "")
     return {"ok": True, "products": results, "pagination": paged["pagination"]}
@@ -636,35 +742,39 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
     prod_rows = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
 
     picked = rank_products(prod_rows, q)
-    abs_picked = [serialize_product(p) for p in picked[:4]]
+    abs_picked = serialize_products_bulk(picked[:4])
+    rag = {"chunks": [], "matches": []}
+    if HAS_RAG and not is_greeting(q):
+        try:
+            rag = _retrieve(shop_id, q, top_k=4) or {"chunks": [], "matches": []}
+        except Exception as rag_err:
+            print(f"[Chat RAG Warning] {rag_err}")
+    suggestions = build_chat_suggestions(q, shop, picked)
 
     # 1. Shortcut: Show Images
     if wants_all_images(q):
         gallery = []
         for r in prod_rows:
-            imgs = r.get("images", [])
-            if isinstance(imgs, str):
-                try: imgs = json.loads(imgs)
-                except: imgs = []
-            gallery.extend(imgs)
+            gallery.extend(normalize_image_list(shop_id, r.get("images", [])))
         if gallery:
             ans = f"Here are all photos from **{shop['name']}**:\n" + "\n".join(f"![Image]({url})" for url in gallery[:40])
         else:
             ans = "This shop hasn't uploaded any product photos yet."
-        return {"answer": ans, "products": abs_picked, "meta": {"llm_used": False}}
+        return {"answer": ans, "products": abs_picked, "meta": {"llm_used": False, "suggestions": suggestions}}
 
     # 2. Shortcut: Greeting
     if is_greeting(q):
-        return {"answer": f"Hi! Welcome to **{shop['name']}**! Ask me about our products, or say 'show all products'.", "products": abs_picked, "meta": {"llm_used": False}}
+        return {"answer": f"Hi! Welcome to **{shop['name']}**! Ask me about products, prices, stock, opening hours, or say 'show all products'.", "products": abs_picked, "meta": {"llm_used": False, "suggestions": suggestions}}
 
     # 3. Handle Full Catalog Requests safely
     if is_list_intent(q):
         picked = prod_rows
-        abs_picked = [serialize_product(p) for p in prod_rows[:8]]
+        abs_picked = serialize_products_bulk(prod_rows[:8])
+        suggestions = build_chat_suggestions(q, shop, picked)
 
     try:
-        ans = llm_chat(SHOP_ASSISTANT_SYSTEM, f"CONTEXT:\n{build_context(shop, picked, prod_rows)}\n\nCUSTOMER: {q}")
-        return {"answer": ans, "products": abs_picked, "meta": {"llm_used": True, "model": OPENROUTER_MODEL}}
+        ans = llm_chat(SHOP_ASSISTANT_SYSTEM, f"CONTEXT:\n{build_context(shop, picked, prod_rows, rag.get('chunks', []))}\n\nCUSTOMER: {q}")
+        return {"answer": ans, "products": abs_picked, "meta": {"llm_used": True, "model": OPENROUTER_MODEL, "suggestions": suggestions, "rag_matches": len(rag.get('matches', []))}}
     except Exception as e:
         err_msg = str(e)
         if hasattr(e, "response") and getattr(e, "response") is not None:
@@ -680,7 +790,7 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
         return {
             "answer": ans,
             "products": abs_picked,
-            "meta": {"llm_used": False, "reason": "fallback_after_llm_error"}
+            "meta": {"llm_used": False, "reason": "fallback_after_llm_error", "suggestions": suggestions, "rag_matches": len(rag.get('matches', []))}
         }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -726,7 +836,7 @@ def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     prods = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
     stats = shop_stats(shop_id)
     
-    ser_prods = [serialize_product(p) for p in prods]
+    ser_prods = serialize_products_bulk(prods)
     return {"ok": True, "shop_id": shop_id, "data": {"shop": shop, "products": ser_prods, "stats": stats}}
 
 @app.put("/admin/shop/{shop_id}")

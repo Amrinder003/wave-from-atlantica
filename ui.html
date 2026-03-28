@@ -878,6 +878,8 @@ function esc(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function absUrl(p){
   if(!p) return '';
   if(/^https?:\/\//i.test(p)) return p;
+  const m=String(p).match(/^\/shops\/([^/]+)\/images\/([^/?#]+)/i);
+  if(m) return `${App.srv}/shops/${encodeURIComponent(m[1])}/images/${encodeURIComponent(m[2])}`;
   return `${App.srv}${p.startsWith('/')?'':'/'}${p}`;
 }
 function setS(id,m,t=''){const el=$(id);if(!el)return;el.textContent=m||'';el.className='stxt '+t;}
@@ -888,7 +890,12 @@ function toast(title,text='',type='ok'){
   setTimeout(()=>{el.style.transition='.2s';el.style.opacity='0';setTimeout(()=>el.remove(),220);},3000);
 }
 function starsHtml(r,n=5,sz=14){let h='';for(let i=1;i<=n;i++)h+=`<span class="star${i<=Math.round(r)?' on':''}" style="font-size:${sz}px">★</span>`;return h;}
-function formatDate(ts){if(!ts)return '';const d=new Date(ts*1000);return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});}
+function formatDate(ts){
+  if(!ts)return '';
+  const d=typeof ts==='number'?new Date(ts*1000):new Date(ts);
+  if(Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+}
 
 /* ═════════════════════════════════════════════
    API
@@ -902,7 +909,7 @@ async function api(path,opts={}){
     if(!r.ok)throw new Error(d?.detail||d?.message||`Error ${r.status}`);
     return d;
   }catch(e){
-    if(e.name==='TypeError')throw new Error('Cannot reach server. Is server.py running?');
+    if(e.name==='TypeError')throw new Error('Cannot reach the service right now. Please try again.');
     throw e;
   }
 }
