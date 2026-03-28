@@ -501,33 +501,33 @@ a{color:inherit;text-decoration:none}
 
 <header class="nav">
   <div class="nav-logo" onclick="goHome()">
-    <div class="nav-logo-mark">🌊</div>
+    <div class="nav-logo-mark">W</div>
     <div class="nav-logo-text">Wave <br><em style="font-size: 10px; color: #0284c7; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-top: -4px;">from Atlantica</em></div>
   </div>
   <div class="nav-search">
-    <input id="navSrchIn" placeholder="Search products, shops…"/>
-    <button class="nav-search-btn" id="navSrchBtn">🔍 Search</button>
+    <input id="navSrchIn" placeholder="Search products, shops..."/>
+    <button class="nav-search-btn" id="navSrchBtn">Search</button>
   </div>
   <div class="nav-right">
     <div class="nav-cart-wrap">
-      <button class="nav-btn" id="cartBtn"><span class="ni">🛒</span><span class="nb-lbl">Cart</span></button>
+      <button class="nav-btn" id="cartBtn"><span class="ni">Bag</span><span class="nb-lbl">Cart</span></button>
       <span id="cartBadge" class="nav-cart-n off">0</span>
     </div>
-    <button class="nav-btn" onclick="showPage('admin')"><span class="ni">🔧</span><span class="nb-lbl">Shop</span></button>
-    <button class="nav-btn" id="profileBtn"><span class="ni" id="profileIcon">👤</span><span class="nb-lbl" id="profileLbl">Account</span></button>
+    <button class="nav-btn" onclick="showPage('admin')"><span class="ni">HQ</span><span class="nb-lbl">Shop</span></button>
+    <button class="nav-btn" id="profileBtn"><span class="ni" id="profileIcon">Me</span><span class="nb-lbl" id="profileLbl">Account</span></button>
   </div>
 </header>
 
 <nav class="subnav" id="catSubnav">
   <button class="snav on" data-cat="">All</button>
-  <button class="snav" data-cat="Food">🍜 Food</button>
-  <button class="snav" data-cat="Electronics">📱 Electronics</button>
-  <button class="snav" data-cat="Clothing">👗 Clothing</button>
-  <button class="snav" data-cat="Home">🏠 Home</button>
-  <button class="snav" data-cat="Beauty">💄 Beauty</button>
-  <button class="snav" data-cat="Sports">⚽ Sports</button>
-  <button class="snav" data-cat="Books">📚 Books</button>
-  <button class="snav" data-cat="Other">📦 Other</button>
+  <button class="snav" data-cat="Food">Food</button>
+  <button class="snav" data-cat="Electronics">Electronics</button>
+  <button class="snav" data-cat="Clothing">Clothing</button>
+  <button class="snav" data-cat="Home">Home</button>
+  <button class="snav" data-cat="Beauty">Beauty</button>
+  <button class="snav" data-cat="Sports">Sports</button>
+  <button class="snav" data-cat="Books">Books</button>
+  <button class="snav" data-cat="Other">Other</button>
 </nav>
 
 <div id="pg-home" class="page show">
@@ -564,7 +564,7 @@ a{color:inherit;text-decoration:none}
     </section>
     <div id="srchBar" class="srch-bar" style="display:none">
       <div class="srch-title" id="srchTitle">Results</div>
-      <span class="srch-clear" id="srchClear">✕ Clear</span>
+      <span class="srch-clear" id="srchClear">Clear</span>
     </div>
     <div id="srchResultGrid" class="pgrid" style="display:none"></div>
     <div id="srchPagination" style="display:none"></div>
@@ -578,7 +578,7 @@ a{color:inherit;text-decoration:none}
         </div>
       </div>
       <div id="homeShopGrid" class="shop-grid">
-        <div class="empty"><div class="ei">⏳</div><div class="et">Loading shops…</div></div>
+        <div class="empty"><div class="ei">...</div><div class="et">Loading shops...</div></div>
       </div>
     </section>
 
@@ -597,11 +597,11 @@ a{color:inherit;text-decoration:none}
 </div>
 
 <div id="pg-shop" class="page">
-  <div class="breadcrumb"><button onclick="goHome()">Home</button><span class="sep">›</span><span id="shopBreadName">Shop</span></div>
+  <div class="breadcrumb"><button onclick="goHome()">Home</button><span class="sep">/</span><span id="shopBreadName">Shop</span></div>
   <div class="shop-header">
     <div class="shop-hdr-inner">
       <div>
-        <div class="shop-hdr-name" id="shopHdrName">Loading…</div>
+        <div class="shop-hdr-name" id="shopHdrName">Loading...</div>
         <div class="shop-hdr-chips" id="shopHdrChips"></div>
         <div class="shop-hdr-desc" id="shopHdrDesc"></div>
       </div>
@@ -630,15 +630,15 @@ a{color:inherit;text-decoration:none}
     <div class="shop-main">
       <div class="shop-toolbar">
         <div class="shop-search-box">
-          <input id="shopSrchIn" placeholder="Search in this shop…"/>
-          <button class="shop-search-btn" id="shopSrchBtn">🔍</button>
+          <input id="shopSrchIn" placeholder="Search in this shop..."/>
+          <button class="shop-search-btn" id="shopSrchBtn">Go</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span id="shopProdCount" style="font-size:13px;color:var(--ink3)"></span>
           <select class="sort-sel" id="shopSort">
             <option value="">Sort: Default</option>
-            <option value="price-asc">Price: Low → High</option>
-            <option value="price-desc">Price: High → Low</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
           </select>
         </div>
       </div>
@@ -663,13 +663,13 @@ a{color:inherit;text-decoration:none}
         </div>
       </div>
       <div id="chatMsgs" class="chat-msgs">
-        <div class="empty"><div class="ei">💬</div><div class="et">Open a shop and click <strong>Chat with Shop</strong> to start.</div></div>
+        <div class="empty"><div class="ei">Chat</div><div class="et">Open a shop and click <strong>Chat with Shop</strong> to start.</div></div>
       </div>
       <div class="chat-composer">
         <div id="cqChips" class="cqchips"></div>
         <div class="compose-row">
-          <textarea id="chatIn" placeholder="Ask about products, availability, prices… (Enter to send)" rows="1"></textarea>
-          <button id="sendChatBtn" class="btn btn-A">Send ↗</button>
+          <textarea id="chatIn" placeholder="Ask about products, availability, or prices... (Enter to send)" rows="1"></textarea>
+          <button id="sendChatBtn" class="btn btn-A">Send</button>
         </div>
       </div>
     </div>
@@ -687,14 +687,14 @@ a{color:inherit;text-decoration:none}
           <div class="chat-side-lbl">Prompt Ideas</div>
           <div id="chatPromptList" class="chat-prompt-list">
             <button class="chat-prompt" onclick="sendPreset('Show all products')">Show all products</button>
-            <button class="chat-prompt" onclick="sendPreset('What\\'s in stock?')">What's in stock?</button>
+            <button class="chat-prompt" onclick="sendPreset('What products are in stock?')">What's in stock?</button>
             <button class="chat-prompt" onclick="sendPreset('Do you have anything below 10 dollars?')">Anything below 10 dollars?</button>
           </div>
         </div>
         <div>
           <div class="chat-side-lbl">Suggested Products</div>
           <div id="chatSideGrid" class="chat-side-grid">
-            <div class="empty" style="grid-column:1/-1"><div class="ei">✨</div><div class="et">Products appear after you ask.</div></div>
+            <div class="empty" style="grid-column:1/-1"><div class="ei">Info</div><div class="et">Products appear after you ask.</div></div>
           </div>
         </div>
       </div>
@@ -704,9 +704,9 @@ a{color:inherit;text-decoration:none}
 
 <div id="pg-favs" class="page">
   <div class="fav-page">
-    <div class="sec-head"><div class="sec-title">❤️ My Favourites</div></div>
+    <div class="sec-head"><div class="sec-title">My Favorites</div></div>
     <div id="favGrid" class="pgrid">
-      <div class="empty" style="grid-column:1/-1"><div class="ei">❤️</div><div class="et">Login and heart a product to save it here.</div></div>
+      <div class="empty" style="grid-column:1/-1"><div class="ei">Save</div><div class="et">Login and save a product to see it here.</div></div>
     </div>
   </div>
 </div>
@@ -715,12 +715,12 @@ a{color:inherit;text-decoration:none}
   <div class="admin-wrap">
     <aside class="admin-nav">
       <div class="anav-lbl">Account</div>
-      <button class="anav-btn on" data-sub="account"><span class="ai">👤</span>Login / Register</button>
+      <button class="anav-btn on" data-sub="account"><span class="ai">ID</span>Login / Register</button>
       <div class="anav-lbl">Manage</div>
-      <button class="anav-btn" data-sub="myshops"><span class="ai">🏪</span>My Shops</button>
-      <button class="anav-btn" data-sub="shopeditor"><span class="ai">🧭</span>Current Shop</button>
+      <button class="anav-btn" data-sub="myshops"><span class="ai">SH</span>My Shops</button>
+      <button class="anav-btn" data-sub="shopeditor"><span class="ai">ED</span>Current Shop</button>
       <div class="anav-lbl">Insights</div>
-      <button class="anav-btn" data-sub="analytics"><span class="ai">📊</span>Analytics</button>
+      <button class="anav-btn" data-sub="analytics"><span class="ai">AN</span>Analytics</button>
     </aside>
     <div class="admin-main">
       <div id="sub-account" class="asub on">
@@ -742,7 +742,7 @@ a{color:inherit;text-decoration:none}
       </div>
       <div id="sub-myshops" class="asub">
         <div class="card">
-          <div class="card-head"><div class="card-title">My Shops</div><button id="refreshMyShops" class="btn btn-g btn-sm">↻ Refresh</button></div>
+          <div class="card-head"><div class="card-title">My Shops</div><button id="refreshMyShops" class="btn btn-g btn-sm">Refresh</button></div>
           <div class="card-body fstack">
             <div id="myShopsList" class="a-shop-list"><div class="empty"><div class="ei">🔐</div><div class="et">Login to see your shops</div></div></div>
             <div id="myShopsStatus" class="stxt"></div>
@@ -1570,8 +1570,8 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
   App.shopId=shopId;App.shopPage=page;App.shopSort=sort;App.shopStock=stock;save();
   showPage('shop');
   $('shopBreadName').textContent=shopId;
-  $('shopHdrName').textContent='Loading…';$('shopHdrChips').innerHTML='';$('shopHdrDesc').textContent='';$('shopHdrActions').innerHTML='';
-  $('shopProdGrid').innerHTML=`<div class="empty"><div class="ei">⏳</div><div class="et">Loading…</div></div>`;
+  $('shopHdrName').textContent='Loading...';$('shopHdrChips').innerHTML='';$('shopHdrDesc').textContent='';$('shopHdrActions').innerHTML='';
+  $('shopProdGrid').innerHTML=`<div class="empty"><div class="ei">...</div><div class="et">Loading...</div></div>`;
   $('shopQchips').innerHTML='';$('shopSrchIn').value='';$('shopSort').value=sort||'';
   document.querySelector('input[name="stk"][value=""]').checked=true;
 
@@ -1581,18 +1581,18 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
     const s=d.shop,st=d.stats||{};
     $('shopBreadName').textContent=s.name;$('shopHdrName').textContent=s.name;
     $('shopHdrChips').innerHTML=[
-      s.address?`<span class="shop-hdr-chip">📍 ${esc(s.address)}</span>`:'',
-      s.hours?`<span class="shop-hdr-chip">🕐 ${esc(s.hours)}</span>`:'',
-      s.phone?`<span class="shop-hdr-chip">📞 ${esc(s.phone)}</span>`:'',
+      s.address?`<span class="shop-hdr-chip">${esc(s.address)}</span>`:'',
+      s.hours?`<span class="shop-hdr-chip">${esc(s.hours)}</span>`:'',
+      s.phone?`<span class="shop-hdr-chip">${esc(s.phone)}</span>`:'',
       `<span class="shop-hdr-chip">${d.pagination?.total ?? d.products?.length ?? 0} products</span>`,
-      s.category?`<span class="shop-hdr-chip">🏷 ${esc(s.category)}</span>`:'',
-      (st.avg_rating>0)?`<span class="shop-hdr-chip">★ ${st.avg_rating}</span>`:''
+      s.category?`<span class="shop-hdr-chip">${esc(s.category)}</span>`:'',
+      (st.avg_rating>0)?`<span class="shop-hdr-chip">Rating ${st.avg_rating}</span>`:''
     ].join('');
     $('shopHdrDesc').textContent=s.overview||'';
     $('shopHdrActions').innerHTML=`
-      <button class="btn btn-A btn-sm" onclick="openChatFor('${esc(shopId)}','${esc(s.name)}','')">💬 Chat</button>
-      <button class="btn btn-o btn-sm" style="border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.8)" onclick="openChatFor('${esc(shopId)}','${esc(s.name)}','Show all images')">🖼 Photos</button>
-      ${s.whatsapp?`<a href="https://wa.me/${(s.whatsapp||'').replace(/[^0-9]/g,'')}" target="_blank" class="btn btn-gr btn-sm">📱 WhatsApp</a>`:''}`;
+      <button class="btn btn-A btn-sm" onclick="openChatFor('${esc(shopId)}','${esc(s.name)}','')">Chat with Shop</button>
+      <button class="btn btn-o btn-sm" style="border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.8)" onclick="openChatFor('${esc(shopId)}','${esc(s.name)}','Show all images')">View Photos</button>
+      ${s.whatsapp?`<a href="https://wa.me/${(s.whatsapp||'').replace(/[^0-9]/g,'')}" target="_blank" class="btn btn-gr btn-sm">WhatsApp</a>`:''}`;
 
     const chips=$('shopQchips');chips.innerHTML='';
     (d.suggested_questions||[]).forEach(q=>{const b=document.createElement('button');b.className='qchip';b.textContent=q;b.addEventListener('click',()=>openChatFor(shopId,s.name,q));chips.appendChild(b);});
@@ -1616,7 +1616,7 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
     fillGrid($('shopProdGrid'),d.products||[],{mode:'browse',showShop:false});
     buildPagination($('shopPagination'),d.pagination,p=>openShopPage(shopId,p,$('shopSort').value,App.shopStock));
 
-    $('chatSN').textContent=s.name;$('chatSM').textContent=`${s.address||''} · ${d.pagination?.total ?? d.products?.length ?? 0} products`;
+    $('chatSN').textContent=s.name;$('chatSM').textContent=`${s.address||''} ? ${d.pagination?.total ?? d.products?.length ?? 0} products`;
     renderCQchips(d.suggested_questions);
     renderChatPromptList(d.suggested_questions);
     renderChatFacts(s,st,d.pagination?.total ?? d.products?.length ?? 0);
