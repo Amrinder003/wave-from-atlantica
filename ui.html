@@ -1595,6 +1595,7 @@ App.adminShopId=null;
 
 function refreshWorkspaceHeader(shop=null,stats={}){
   if(!$('workspaceTitle')||!$('workspaceDesc')||!$('wkStatus')||!$('wkProducts')||!$('wkChats')||!$('wkRating')) return;
+  const ratingNum=Number(stats?.avg_rating);
   $('workspaceTitle').textContent=shop?.name||'Select a shop to manage';
   $('workspaceDesc').textContent=shop
     ? `${shop.address||'No address yet'}${shop.category?` · ${shop.category}`:''}. Update the storefront, manage products, upload images, and preview the live customer view from one place.`
@@ -1602,7 +1603,7 @@ function refreshWorkspaceHeader(shop=null,stats={}){
   $('wkStatus').textContent=shop?.shop_id||'No shop loaded';
   $('wkProducts').textContent=String(stats.product_count??0);
   $('wkChats').textContent=String(stats.chat_hits_30d??0);
-  $('wkRating').textContent=((stats.avg_rating??0).toFixed?stats.avg_rating.toFixed(1):String(stats.avg_rating??0));
+  $('wkRating').textContent=Number.isFinite(ratingNum)?ratingNum.toFixed(1):'0.0';
 }
 
 async function loadAdminShop(shopId){

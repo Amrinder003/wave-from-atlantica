@@ -487,6 +487,10 @@ def fallback_answer(shop: dict, picked: List[Dict], q: str) -> str:
 def serve_ui():
     with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
 
+@app.get("/favicon.ico")
+def favicon():
+    raise HTTPException(204)
+
 @app.get("/")
 def root(): return {"status": "running", "version": "4.1 Supabase"}
 
