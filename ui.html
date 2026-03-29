@@ -456,6 +456,30 @@ a{color:inherit;text-decoration:none}
 .workspace-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(340px,.9fr);gap:16px}
 @media(max-width:1080px){.workspace-grid{grid-template-columns:1fr}}
 .workspace-stack{display:grid;gap:16px}
+.shop-admin-view{display:none;gap:16px}
+.shop-admin-view.on{display:grid}
+.owner-shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.owner-shop-card{border:1px solid rgba(191,174,149,.34);border-radius:24px;background:linear-gradient(180deg,rgba(255,251,244,.98),rgba(249,241,231,.9));box-shadow:var(--s1);padding:20px;display:grid;gap:14px;text-align:left;cursor:pointer;transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease}
+.owner-shop-card:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(48,33,15,.12);border-color:rgba(185,97,40,.32)}
+.owner-shop-card-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.owner-shop-card-name{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.04em;line-height:1.05}
+.owner-shop-card-meta{font-size:12px;color:var(--ink4);margin-top:6px}
+.owner-shop-card-overview{font-size:13px;color:var(--ink3);line-height:1.65}
+.owner-shop-card-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.owner-shop-card-stat{padding:12px;border-radius:16px;background:rgba(255,255,255,.72);border:1px solid rgba(191,174,149,.28)}
+.owner-shop-card-stat-k{font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.06em}
+.owner-shop-card-stat-v{font-family:'Sora',sans-serif;font-size:16px;font-weight:800;margin-top:4px}
+.owner-shop-card-go{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--A2)}
+.owner-detail-card{overflow:hidden}
+.owner-detail-card-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:22px 22px 10px}
+.owner-detail-name{font-family:'Sora',sans-serif;font-size:30px;font-weight:800;line-height:1;letter-spacing:-.05em}
+.owner-detail-meta{margin-top:8px;font-size:13px;color:var(--ink4)}
+.owner-detail-overview{padding:0 22px 22px;font-size:14px;color:var(--ink3);line-height:1.75;max-width:900px}
+@media(max-width:720px){
+  .owner-shop-card-stats{grid-template-columns:1fr}
+  .owner-detail-card-top{display:grid}
+  .owner-detail-name{font-size:24px}
+}
 .product-manager-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .product-manager-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .mini-search{width:min(280px,100%);padding:8px 12px;border:1px solid var(--bd);border-radius:var(--r2);background:var(--sf2);font-size:13px;outline:none}
@@ -719,8 +743,7 @@ a{color:inherit;text-decoration:none}
       <div class="anav-lbl">Account</div>
       <button class="anav-btn on" data-sub="account"><span class="ai">ID</span>Login / Register</button>
       <div class="anav-lbl">Manage</div>
-      <button class="anav-btn" data-sub="myshops"><span class="ai">SH</span>My Shops</button>
-      <button class="anav-btn" data-sub="shopeditor"><span class="ai">ED</span>Current Shop</button>
+      <button class="anav-btn" data-sub="shops"><span class="ai">SH</span>Shops</button>
       <div class="anav-lbl">Insights</div>
       <button class="anav-btn" data-sub="analytics"><span class="ai">AN</span>Analytics</button>
     </aside>
@@ -742,132 +765,172 @@ a{color:inherit;text-decoration:none}
           </div>
         </div>
       </div>
-      <div id="sub-myshops" class="asub">
-        <div class="card">
-          <div class="card-head"><div class="card-title">My Shops</div><button id="refreshMyShops" class="btn btn-g btn-sm">Refresh</button></div>
-          <div class="card-body fstack">
-            <div id="myShopsList" class="a-shop-list"><div class="empty"><div class="ei">🔐</div><div class="et">Login to see your shops</div></div></div>
-            <div id="myShopsStatus" class="stxt"></div>
+      <div id="sub-shops" class="asub">
+        <div id="shopsLandingView" data-shop-view="landing" class="shop-admin-view on">
+          <div class="card">
+            <div class="workspace-hero">
+              <div class="workspace-copy">
+                <div class="workspace-kicker">Shops Workspace</div>
+                <div class="workspace-title">Run your storefront from one clean workspace.</div>
+                <div class="workspace-desc">Create your shop, keep the public details sharp, and manage products from the same place without switching between disconnected admin tabs.</div>
+              </div>
+              <div class="workspace-actions">
+                <button id="ownerCreateShopBtn" class="btn btn-A btn-sm">+ Create Shop</button>
+                <button id="refreshMyShops" class="btn btn-g btn-sm">Refresh</button>
+              </div>
+            </div>
+          </div>
+          <div id="ownerShopGrid" class="owner-shop-grid">
+            <div class="empty"><div class="ei">🔐</div><div class="et">Login to see your shops</div></div>
+          </div>
+          <div id="myShopsStatus" class="stxt"></div>
+        </div>
+
+        <div id="shopDetailView" data-shop-view="detail" class="shop-admin-view">
+          <div class="card">
+            <div class="workspace-hero">
+              <div class="workspace-copy">
+                <div class="workspace-kicker">Shop Overview</div>
+                <div id="workspaceTitle" class="workspace-title">Select a shop to manage</div>
+                <div id="workspaceDesc" class="workspace-desc">Open one of your shops to manage it here.</div>
+              </div>
+              <div class="workspace-actions">
+                <button id="detailBackBtn" class="btn btn-g btn-sm">← Back to Shops</button>
+                <button id="detailEditShopBtn" class="btn btn-o btn-sm">Edit Shop</button>
+                <button id="detailOpenLiveShopBtn" class="btn btn-o btn-sm">Open Live Shop</button>
+                <button id="detailAddProductBtn" class="btn btn-A btn-sm">+ Add Product</button>
+              </div>
+            </div>
+            <div id="workspaceStats" class="workspace-stats">
+              <div class="workspace-stat"><div class="workspace-stat-label">Status</div><div id="wkStatus" class="workspace-stat-value">No shop loaded</div></div>
+              <div class="workspace-stat"><div class="workspace-stat-label">Products</div><div id="wkProducts" class="workspace-stat-value">0</div></div>
+              <div class="workspace-stat"><div class="workspace-stat-label">Chats / 30d</div><div id="wkChats" class="workspace-stat-value">0</div></div>
+              <div class="workspace-stat"><div class="workspace-stat-label">Rating</div><div id="wkRating" class="workspace-stat-value">0.0</div></div>
+            </div>
+          </div>
+          <div class="card owner-detail-card">
+            <div class="owner-detail-card-top">
+              <div>
+                <div id="ownerDetailName" class="owner-detail-name">Shop Name</div>
+                <div id="ownerDetailMeta" class="owner-detail-meta">Address · Category</div>
+              </div>
+              <div id="shopStats" class="stat-bar" style="display:none"></div>
+            </div>
+            <div id="ownerDetailOverview" class="owner-detail-overview">Shop overview appears here.</div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <div class="product-manager-head" style="width:100%">
+                <div>
+                  <div class="card-title">Products</div>
+                  <div class="fld-hint">Everything listed under this shop appears here. Tap a card to open the live product view.</div>
+                </div>
+                <div class="product-manager-tools">
+                  <input id="adminProdSearch" class="mini-search" placeholder="Search products by name or description"/>
+                  <span id="adminPBadge" class="badge">0</span>
+                </div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="adminPGrid" class="admin-pgrid"><div class="empty" style="grid-column:1/-1"><div class="ei">📦</div><div class="et">Load a shop first</div></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div class="card-title">Bulk CSV Import</div></div>
+            <div class="card-body">
+              <div class="csv-box">
+                <div class="csv-title">Import multiple products into this shop</div>
+                <div class="csv-hint">Columns: <code>product_id, name, price, overview, stock, variants</code>. Load a shop first, then upload your CSV file.</div>
+                <div class="btn-row">
+                  <input id="csvFile" type="file" accept=".csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
+                  <button id="importCsvBtn" class="btn btn-o btn-sm">Import</button>
+                  <button id="csvTplBtn" class="btn btn-g btn-sm">⬇ Template</button>
+                </div>
+                <div id="csvProg" class="csv-prog"><progress id="csvBar" max="100" value="0"></progress><div id="csvTxt" class="csv-pt"></div></div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      <div id="sub-shopeditor" class="asub">
-        <div class="card">
-          <div class="workspace-hero">
-            <div class="workspace-copy">
-              <div class="workspace-kicker">Shop Workspace</div>
-              <div id="workspaceTitle" class="workspace-title">Select a shop to manage</div>
-              <div id="workspaceDesc" class="workspace-desc">Everything for one shop lives here: details, products, images, CSV import, and a direct preview of the live storefront.</div>
-            </div>
-            <div class="workspace-actions">
-              <button id="createShopBtn" class="btn btn-A btn-sm">+ Create Shop</button>
-              <button id="openLiveShopBtn" class="btn btn-o btn-sm">Open Live Shop</button>
-              <button id="startNewProductBtn" class="btn btn-o btn-sm">+ New Product</button>
+
+        <div id="shopFormView" data-shop-view="shopform" class="shop-admin-view">
+          <div class="card">
+            <div class="workspace-hero">
+              <div class="workspace-copy">
+                <div class="workspace-kicker">Shop Setup</div>
+                <div id="shopFormTitle" class="workspace-title">Create your shop</div>
+                <div class="workspace-desc">Add the public details customers will see on your shop page and in chat.</div>
+              </div>
+              <div class="workspace-actions">
+                <button id="shopFormBackBtn" class="btn btn-g btn-sm">← Back</button>
+                <button id="createShopBtn" class="btn btn-A btn-sm">Create Shop</button>
+                <button id="saveShopBtn" class="btn btn-o btn-sm">Save Changes</button>
+              </div>
             </div>
           </div>
-          <div id="workspaceStats" class="workspace-stats">
-            <div class="workspace-stat"><div class="workspace-stat-label">Status</div><div id="wkStatus" class="workspace-stat-value">No shop loaded</div></div>
-            <div class="workspace-stat"><div class="workspace-stat-label">Products</div><div id="wkProducts" class="workspace-stat-value">0</div></div>
-            <div class="workspace-stat"><div class="workspace-stat-label">Chats / 30d</div><div id="wkChats" class="workspace-stat-value">0</div></div>
-            <div class="workspace-stat"><div class="workspace-stat-label">Rating</div><div id="wkRating" class="workspace-stat-value">0.0</div></div>
+          <div class="card">
+            <div class="card-body fstack">
+              <div class="fg3">
+                <div class="fld"><label>Shop ID</label><input id="shopId" placeholder="Auto-generated"/></div>
+                <div class="fld"><label>Shop Name</label><input id="shopName" placeholder="Maple Juice Bar"/></div>
+                <div class="fld"><label>WhatsApp (optional)</label><input id="shopWhatsapp" placeholder="+1 902-XXX-XXXX"/></div>
+              </div>
+              <div class="fg3">
+                <div class="fld"><label>Address</label><input id="shopAddress" placeholder="123 Main St"/></div>
+                <div class="fld"><label>Hours</label><input id="shopHours" placeholder="Mon–Sat 9 AM – 7 PM"/></div>
+                <div class="fld"><label>Category</label>
+                  <select id="shopCat"><option value="">Select…</option><option>Food</option><option>Electronics</option><option>Clothing</option><option>Home</option><option>Beauty</option><option>Sports</option><option>Books</option><option>Other</option></select>
+                </div>
+              </div>
+              <div class="fg2">
+                <div class="fld"><label>Phone</label><input id="shopPhone" placeholder="+1 902-XXX-XXXX"/></div>
+                <div class="fld"><label>Public Preview Tip</label><input value="Customers open the shop page and can browse products or chat instantly." readonly/></div>
+              </div>
+              <div class="fld"><label>About This Shop</label><textarea id="shopOverview" placeholder="Tell customers what makes your shop special…"></textarea></div>
+              <div class="btn-row">
+                <button id="rebuildKbBtn" class="btn btn-gr btn-sm">🔄 Rebuild KB</button>
+                <button id="deleteShopBtn" class="btn btn-r btn-sm">🗑 Delete Shop</button>
+              </div>
+              <div id="shopStatus" class="stxt"></div>
+            </div>
           </div>
         </div>
-        <div class="workspace-grid">
-          <div class="workspace-stack">
-            <div class="card">
-              <div class="card-head">
-                <div class="card-title">Shop Details</div>
-                <div class="btn-row">
-                  <button id="saveShopBtn" class="btn btn-o btn-sm">Save Changes</button>
-                  <button id="rebuildKbBtn" class="btn btn-gr btn-sm">🔄 Rebuild KB</button>
-                  <button id="deleteShopBtn" class="btn btn-r btn-sm">🗑 Delete</button>
-                </div>
+
+        <div id="productFormView" data-shop-view="productform" class="shop-admin-view">
+          <div class="card">
+            <div class="workspace-hero">
+              <div class="workspace-copy">
+                <div class="workspace-kicker">Product Editor</div>
+                <div id="productFormTitle" class="workspace-title">Add a product</div>
+                <div class="workspace-desc">Add a product under the current shop, upload images, and keep the product page ready for customers.</div>
               </div>
-              <div class="card-body fstack">
-                <div class="fg3">
-                  <div class="fld"><label>Shop ID</label><input id="shopId" placeholder="Auto-generated"/></div>
-                  <div class="fld"><label>Shop Name</label><input id="shopName" placeholder="Maple Juice Bar"/></div>
-                  <div class="fld"><label>WhatsApp (optional)</label><input id="shopWhatsapp" placeholder="+1 902-XXX-XXXX"/></div>
-                </div>
-                <div class="fg3">
-                  <div class="fld"><label>Address</label><input id="shopAddress" placeholder="123 Main St"/></div>
-                  <div class="fld"><label>Hours</label><input id="shopHours" placeholder="Mon–Sat 9 AM – 7 PM"/></div>
-                  <div class="fld"><label>Category</label>
-                    <select id="shopCat"><option value="">Select…</option><option>Food</option><option>Electronics</option><option>Clothing</option><option>Home</option><option>Beauty</option><option>Sports</option><option>Books</option><option>Other</option></select>
-                  </div>
-                </div>
-                <div class="fg2">
-                  <div class="fld"><label>Phone</label><input id="shopPhone" placeholder="+1 902-XXX-XXXX"/></div>
-                  <div class="fld"><label>Public Preview Tip</label><input value="Customers open the shop page and can browse products or chat instantly." readonly/></div>
-                </div>
-                <div class="fld"><label>About This Shop</label><textarea id="shopOverview" placeholder="Tell customers what makes your shop special…"></textarea></div>
-                <div id="shopStats" class="stat-bar" style="display:none"></div>
-                <div id="shopStatus" class="stxt"></div>
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-head">
-                <div class="product-manager-head" style="width:100%">
-                  <div>
-                    <div class="card-title">Products In This Shop</div>
-                    <div class="fld-hint">Browse, search, and edit products without leaving the current shop.</div>
-                  </div>
-                  <div class="product-manager-tools">
-                    <input id="adminProdSearch" class="mini-search" placeholder="Search products by name or description"/>
-                    <span id="adminPBadge" class="badge">0</span>
-                  </div>
-                </div>
-              </div>
-              <div class="card-body">
-                <div id="adminPGrid" class="admin-pgrid"><div class="empty" style="grid-column:1/-1"><div class="ei">📦</div><div class="et">Load a shop first</div></div></div>
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-head"><div class="card-title">Bulk CSV Import</div></div>
-              <div class="card-body">
-                <div class="csv-box">
-                  <div class="csv-title">Import multiple products into this shop</div>
-                  <div class="csv-hint">Columns: <code>product_id, name, price, overview, stock, variants</code>. Load a shop first, then upload your CSV file.</div>
-                  <div class="btn-row">
-                    <input id="csvFile" type="file" accept=".csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
-                    <button id="importCsvBtn" class="btn btn-o btn-sm">Import</button>
-                    <button id="csvTplBtn" class="btn btn-g btn-sm">⬇ Template</button>
-                  </div>
-                  <div id="csvProg" class="csv-prog"><progress id="csvBar" max="100" value="0"></progress><div id="csvTxt" class="csv-pt"></div></div>
-                </div>
+              <div class="workspace-actions">
+                <button id="productFormBackBtn" class="btn btn-g btn-sm">← Back to Shop</button>
+                <button id="saveProdBtn" class="btn btn-A btn-sm">💾 Save</button>
+                <button id="clearProdBtn" class="btn btn-o btn-sm">Clear</button>
+                <button id="deleteProdBtn" class="btn btn-r btn-sm">🗑 Delete</button>
               </div>
             </div>
           </div>
-          <div class="workspace-stack">
-            <div class="card product-editor-sticky">
-              <div class="card-head">
-                <div class="card-title">Product Editor</div>
-                <div class="btn-row">
-                  <button id="saveProdBtn" class="btn btn-A btn-sm">💾 Save</button>
-                  <button id="clearProdBtn" class="btn btn-g btn-sm">Clear</button>
-                  <button id="deleteProdBtn" class="btn btn-r btn-sm">🗑 Delete</button>
+          <div class="card">
+            <div class="card-body fstack">
+              <div class="fg3">
+                <div class="fld"><label>Product ID</label><input id="prodId" placeholder="p001"/></div>
+                <div class="fld"><label>Product Name</label><input id="prodName" placeholder="Mango Smoothie"/></div>
+                <div class="fld"><label>Price</label><input id="prodPrice" placeholder="Rs 499 or $4.99"/></div>
+              </div>
+              <div class="fg2">
+                <div class="fld"><label>Description</label><textarea id="prodOverview" placeholder="Ingredients, origin, what makes it special…"></textarea></div>
+                <div class="fstack">
+                  <div class="fld"><label>Stock Status</label><select id="prodStock"><option value="in">✅ In Stock</option><option value="low">⚠️ Low Stock</option><option value="out">❌ Out of Stock</option></select></div>
+                  <div class="fld"><label>Variants (comma-separated)</label><input id="prodVariants" placeholder="Small, Medium, Large"/></div>
                 </div>
               </div>
-              <div class="card-body fstack">
-                <div class="fg3">
-                  <div class="fld"><label>Product ID</label><input id="prodId" placeholder="p001"/></div>
-                  <div class="fld"><label>Product Name</label><input id="prodName" placeholder="Mango Smoothie"/></div>
-                  <div class="fld"><label>Price</label><input id="prodPrice" placeholder="Rs 499 or $4.99"/></div>
-                </div>
-                <div class="fg2">
-                  <div class="fld"><label>Description</label><textarea id="prodOverview" placeholder="Ingredients, origin, what makes it special…"></textarea></div>
-                  <div class="fstack">
-                    <div class="fld"><label>Stock Status</label><select id="prodStock"><option value="in">✅ In Stock</option><option value="low">⚠️ Low Stock</option><option value="out">❌ Out of Stock</option></select></div>
-                    <div class="fld"><label>Variants (comma-separated)</label><input id="prodVariants" placeholder="Small, Medium, Large"/></div>
-                  </div>
-                </div>
-                <div class="fg2">
-                  <div class="fld"><label>Add Images</label><input id="prodFiles" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.jfif"/><div class="fld-hint">PNG, JPG, WEBP. Images upload and save in one step.</div></div>
-                  <div><div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Preview</div><div id="filePreview" class="prev-grid"></div></div>
-                </div>
-                <div id="existImgsWrap" style="display:none"><div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Existing Images — click ✕ to remove</div><div id="existImgsMgr" class="img-mgr"></div></div>
-                <div id="productStatus" class="stxt"></div>
+              <div class="fg2">
+                <div class="fld"><label>Add Images</label><input id="prodFiles" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.jfif"/><div class="fld-hint">PNG, JPG, WEBP. Images upload and save in one step.</div></div>
+                <div><div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Preview</div><div id="filePreview" class="prev-grid"></div></div>
               </div>
+              <div id="existImgsWrap" style="display:none"><div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Existing Images — click ✕ to remove</div><div id="existImgsMgr" class="img-mgr"></div></div>
+              <div id="productStatus" class="stxt"></div>
             </div>
           </div>
         </div>
@@ -942,7 +1005,7 @@ a{color:inherit;text-decoration:none}
     </div>
     <div class="profile-menu">
       <button class="pm-btn" onclick="closeProfile();showPage('favs');loadFavourites()"><span class="pm-icon">❤️</span>My Favourites</button>
-      <button class="pm-btn" onclick="closeProfile();showPage('admin');switchAdminSub('myshops')"><span class="pm-icon">🏪</span>My Shops</button>
+      <button class="pm-btn" onclick="closeProfile();showPage('admin');switchAdminSub('shops')"><span class="pm-icon">🏪</span>My Shops</button>
       <button class="pm-btn" onclick="closeProfile();showPage('admin');switchAdminSub('account')"><span class="pm-icon">⚙️</span>Account Settings</button>
       <hr class="pm-sep"/>
       <button class="pm-btn danger" id="profileLogoutBtn"><span class="pm-icon">🚪</span>Sign Out</button>
@@ -1772,49 +1835,134 @@ function switchAdminSub(sub){
   document.querySelectorAll('.asub').forEach(el=>el.classList.toggle('on',el.id===`sub-${sub}`));
   document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.classList.toggle('on',b.dataset.sub===sub));
   if(sub==='analytics'&&App.adminShopId)loadAnalytics();
+  if(sub==='shops'){ showShopManagerView('landing'); if(tok()) loadMyShops(); }
 }
 document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.addEventListener('click',()=>switchAdminSub(b.dataset.sub)));
 
+function showShopManagerView(view){
+  document.querySelectorAll('[data-shop-view]').forEach(el=>el.classList.toggle('on',el.dataset.shopView===view));
+}
+
+function resetShopForm(){
+  ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp'].forEach(id=>$(id).value='');
+  $('shopCat').value='';
+  $('shopStats').style.display='none';
+  setS('shopStatus','');
+}
+
+function populateShopForm(shop=null){
+  resetShopForm();
+  if(!shop) return;
+  $('shopId').value=shop.shop_id||shop.shopId||App.adminShopId||'';
+  $('shopName').value=shop.name||'';
+  $('shopAddress').value=shop.address||'';
+  $('shopOverview').value=shop.overview||'';
+  $('shopPhone').value=shop.phone||'';
+  $('shopHours').value=shop.hours||'';
+  $('shopCat').value=shop.category||'';
+  $('shopWhatsapp').value=shop.whatsapp||'';
+}
+
+function openCreateShopView(){
+  if(!tok()) return toast('Login required','','err');
+  App.adminShopId=null;
+  resetShopForm();
+  $('shopFormTitle').textContent='Create your shop';
+  $('createShopBtn').style.display='';
+  $('saveShopBtn').style.display='none';
+  $('deleteShopBtn').style.display='none';
+  $('rebuildKbBtn').style.display='none';
+  switchAdminSub('shops');
+  showShopManagerView('shopform');
+  $('shopName')?.focus();
+}
+
+function openEditShopView(){
+  if(!App.adminShopData?.shop) return toast('Load a shop first','','err');
+  populateShopForm(App.adminShopData.shop);
+  $('shopFormTitle').textContent='Edit shop details';
+  $('createShopBtn').style.display='none';
+  $('saveShopBtn').style.display='';
+  $('deleteShopBtn').style.display='';
+  $('rebuildKbBtn').style.display='';
+  switchAdminSub('shops');
+  showShopManagerView('shopform');
+}
+
+function openProductForm(product=null){
+  if(!App.adminShopId) return toast('Load a shop first','','err');
+  switchAdminSub('shops');
+  showShopManagerView('productform');
+  if(product){
+    $('productFormTitle').textContent='Edit product';
+    loadProdIntoEditor(product, {skipView:true});
+  }else{
+    $('productFormTitle').textContent='Add a product';
+    clearProdForm();
+    $('prodName')?.focus();
+  }
+}
+
 async function loadMyShops(){
-  if(!tok()){$('myShopsList').innerHTML=`<div class="empty"><div class="ei">🔐</div><div class="et">Login first</div></div>`;return;}
-  try{const d=await api('/admin/my-shops',{auth:true});const shops=d.shops||[];const list=$('myShopsList');list.innerHTML='';
-    if(!shops.length){list.innerHTML=`<div class="empty"><div class="ei">🏪</div><div class="et">No shops yet. Create one!</div></div>`;return;}
-    shops.forEach(s=>{const b=document.createElement('button');b.className='a-shop-btn';b.innerHTML=`<div class="asn">${esc(s.name)}</div><div class="asm">${esc(s.shop_id)} · ${s.stats?.product_count??0} products</div>`;b.addEventListener('click',()=>{loadAdminShop(s.shop_id);switchAdminSub('shopeditor');});list.appendChild(b);});
-  }catch(e){$('myShopsList').innerHTML=`<div class="empty"><div class="ei">⚠️</div><div class="et">${esc(e.message)}</div></div>`;}
+  if(!tok()){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">🔐</div><div class="et">Login first</div></div>`;return;}
+  try{
+    const d=await api('/admin/my-shops',{auth:true});
+    const shops=d.shops||[];
+    App.adminShops=shops;
+    const grid=$('ownerShopGrid');grid.innerHTML='';
+    if(!shops.length){
+      grid.innerHTML=`<div class="card"><div class="card-body"><div class="empty"><div class="ei">🏪</div><div class="et">No shops yet. Create your first shop to start listing products.</div><button class="btn btn-A btn-sm empty-action" id="createFirstShopBtn">+ Create Shop</button></div></div></div>`;
+      $('createFirstShopBtn')?.addEventListener('click',openCreateShopView);
+      return;
+    }
+    shops.forEach(s=>{
+      const stats=s.stats||{};
+      const card=document.createElement('button');
+      card.className='owner-shop-card';
+      card.innerHTML=`<div class="owner-shop-card-top"><div><div class="owner-shop-card-name">${esc(s.name||s.shop_id)}</div><div class="owner-shop-card-meta">${esc(s.address||'Address coming soon')}${s.category?` · ${esc(s.category)}`:''}</div></div><span class="badge">${stats.product_count??0} products</span></div><div class="owner-shop-card-overview">${esc((s.overview||'Open this workspace to update your storefront, manage products, and keep the customer chat accurate.').slice(0,150))}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Products</div><div class="owner-shop-card-stat-v">${stats.product_count??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Chats / 30d</div><div class="owner-shop-card-stat-v">${stats.chat_hits_30d??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Rating</div><div class="owner-shop-card-stat-v">${Number(stats.avg_rating||0).toFixed(1)}</div></div></div><div class="owner-shop-card-go"><span>Open shop workspace</span><span>→</span></div>`;
+      card.addEventListener('click',()=>loadAdminShop(s.shop_id));
+      grid.appendChild(card);
+    });
+  }catch(e){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">⚠️</div><div class="et">${esc(e.message)}</div></div>`;}
 }
 $('refreshMyShops').addEventListener('click',loadMyShops);
 App.adminShopId=null;
+App.adminShopData=null;
+App.adminProducts=[];
+App.adminShops=[];
 
 function refreshWorkspaceHeader(shop=null,stats={}){
   if(!$('workspaceTitle')||!$('workspaceDesc')||!$('wkStatus')||!$('wkProducts')||!$('wkChats')||!$('wkRating')) return;
   const ratingNum=Number(stats?.avg_rating);
   $('workspaceTitle').textContent=shop?.name||'Select a shop to manage';
   $('workspaceDesc').textContent=shop
-    ? `${shop.address||'No address yet'}${shop.category?` · ${shop.category}`:''}. Update the storefront, manage products, upload images, and preview the live customer view from one place.`
-    : 'Everything for one shop lives here: details, products, images, CSV import, and a direct preview of the live storefront.';
+    ? `${shop.address||'No address yet'}${shop.category?` · ${shop.category}`:''}. Keep the storefront polished, manage products, and open the live customer view from one place.`
+    : 'Open one of your shops to manage its storefront and products.';
   $('wkStatus').textContent=shop?.shop_id||'No shop loaded';
   $('wkProducts').textContent=String(stats.product_count??0);
   $('wkChats').textContent=String(stats.chat_hits_30d??0);
   $('wkRating').textContent=Number.isFinite(ratingNum)?ratingNum.toFixed(1):'0.0';
+  if($('ownerDetailName')) $('ownerDetailName').textContent=shop?.name||'Shop Name';
+  if($('ownerDetailMeta')) $('ownerDetailMeta').textContent=shop ? `${shop.address||'No address yet'}${shop.category?` · ${shop.category}`:''}${shop.hours?` · ${shop.hours}`:''}` : 'Address · Category';
+  if($('ownerDetailOverview')) $('ownerDetailOverview').textContent=shop?.overview||'Add a stronger shop overview so customers and the chatbot both have better context.';
 }
 
 async function loadAdminShop(shopId){
   if(!tok())return toast('Login required','','err');
   App.adminShopId=shopId;
   try{const d=await api(`/admin/shop/${encodeURIComponent(shopId)}`,{auth:true});
+    App.adminShopData=d.data;
     const s=d.data.shop;
     $('adminProdSearch').value='';
-    $('shopId').value=shopId;$('shopName').value=s.name||'';$('shopAddress').value=s.address||'';
-    $('shopOverview').value=s.overview||'';$('shopPhone').value=s.phone||'';
-    $('shopHours').value=s.hours||'';$('shopCat').value=s.category||'';
-    $('shopWhatsapp').value=s.whatsapp||'';
+    populateShopForm({...s,shop_id:shopId});
     const st=d.data.stats||{};const el=$('shopStats');el.style.display='grid';
     el.innerHTML=[['Products',st.product_count??0],['Images',st.image_count??0],['Coverage',`${st.products_with_images??0}/${st.product_count??0}`],['Chats/30d',st.chat_hits_30d??0]].map(([l,v])=>`<div class="sbox"><div class="sbox-l">${esc(l)}</div><div class="sbox-v">${esc(v)}</div></div>`).join('');
     App.adminProducts=d.data.products||[];
     refreshWorkspaceHeader(s,st);
     renderAdminProds(App.adminProducts);
     setS('shopStatus',`Loaded ${shopId}`,'ok');
-    switchAdminSub('shopeditor');
+    switchAdminSub('shops');
+    showShopManagerView('detail');
   }catch(e){setS('shopStatus',e.message,'err');toast('Load failed',e.message,'err');}
 }
 function renderAdminProds(prods){
@@ -1824,8 +1972,8 @@ function renderAdminProds(prods){
   const n=filtered.length;$('adminPBadge').textContent=`${n}`;
   const g=$('adminPGrid');g.innerHTML='';
   if(!n){
-    g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">📦</div><div class="et">${q?'No matching products in this shop.':'No products yet for this shop.'}</div><button class="btn btn-A btn-sm empty-action" id="emptyNewProdBtn">+ Create first product</button></div>`;
-    $('emptyNewProdBtn')?.addEventListener('click',()=>{clearProdForm();$('prodName').focus();});
+    g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">📦</div><div class="et">${q?'No matching products in this shop.':'No products yet for this shop.'}</div><button class="btn btn-A btn-sm empty-action" id="emptyNewProdBtn">+ Add Product</button></div>`;
+    $('emptyNewProdBtn')?.addEventListener('click',()=>openProductForm());
     return;
   }
   filtered.forEach(p=>g.appendChild(makeCard(p,{mode:'admin',sid:App.adminShopId,sname:$('shopName')?.value||''})));
@@ -1845,8 +1993,19 @@ async function deleteShop(){
   if(!tok())return toast('Login required','','err');
   const shopId=$('shopId').value.trim();if(!shopId)return toast('No shop loaded','','err');
   if(!confirm(`Permanently delete shop "${shopId}" and ALL its products?`))return;
-  try{await api(`/admin/shop/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});toast('Shop deleted',shopId);setS('shopStatus','');$('shopStats').style.display='none';App.adminShopId=null;App.adminProducts=[];refreshWorkspaceHeader();renderAdminProds([]);clearProdForm();await loadMyShops();await loadAllShops();}catch(e){setS('shopStatus',e.message,'err');toast('Delete failed',e.message,'err');}
+  try{await api(`/admin/shop/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});toast('Shop deleted',shopId);setS('shopStatus','');$('shopStats').style.display='none';App.adminShopId=null;App.adminShopData=null;App.adminProducts=[];refreshWorkspaceHeader();renderAdminProds([]);clearProdForm();await loadMyShops();await loadAllShops();switchAdminSub('shops');showShopManagerView('landing');}catch(e){setS('shopStatus',e.message,'err');toast('Delete failed',e.message,'err');}
 }
+$('ownerCreateShopBtn').addEventListener('click',openCreateShopView);
+$('detailBackBtn').addEventListener('click',()=>showShopManagerView('landing'));
+$('detailEditShopBtn').addEventListener('click',openEditShopView);
+$('detailAddProductBtn').addEventListener('click',()=>openProductForm());
+$('detailOpenLiveShopBtn').addEventListener('click',()=>{
+  const shopId=App.adminShopId||$('shopId').value.trim();
+  if(!shopId)return toast('Load a shop first','','err');
+  openShopPage(shopId);
+});
+$('shopFormBackBtn').addEventListener('click',()=>showShopManagerView(App.adminShopId?'detail':'landing'));
+$('productFormBackBtn').addEventListener('click',()=>showShopManagerView('detail'));
 $('createShopBtn').addEventListener('click',createShop);
 $('saveShopBtn').addEventListener('click',saveShop);
 $('deleteShopBtn').addEventListener('click',deleteShop);
@@ -1857,19 +2016,19 @@ $('rebuildKbBtn').addEventListener('click',async()=>{
 });
 
 /* ── Product editor ── */
-function loadProdIntoEditor(p){
+function loadProdIntoEditor(p,{skipView=false}={}){
   $('prodId').value=p.product_id||'';$('prodName').value=p.name||'';$('prodPrice').value=p.price||'';
   $('prodOverview').value=p.overview||'';$('prodStock').value=p.stock||'in';$('prodVariants').value=p.variants||'';
   $('prodFiles').value='';renderFilePrev([]);
+  $('productFormTitle').textContent='Edit product';
   const imgs=(p.images||[]).map(absUrl).filter(Boolean);
   const mgr=$('existImgsMgr'),wrap=$('existImgsWrap');mgr.innerHTML='';
   if(imgs.length){wrap.style.display='block';imgs.forEach(url=>{const item=document.createElement('div');item.className='img-mg-item';item.innerHTML=`<img src="${esc(url)}" alt=""/><button class="img-mg-del">✕</button>`;item.querySelector('.img-mg-del').addEventListener('click',async()=>{const sid=$('shopId').value.trim(),pid=$('prodId').value.trim();if(!sid||!pid)return;try{await api(`/admin/shop/${encodeURIComponent(sid)}/product/${encodeURIComponent(pid)}/image?image_path=${encodeURIComponent(url)}`,{method:'DELETE',auth:true});item.remove();toast('Image removed ✓');}catch(e){toast('Remove failed',e.message,'err');}});mgr.appendChild(item);});}
   else{wrap.style.display='none';}
   setS('productStatus',`Editing: ${p.name}`,'ok');
-  switchAdminSub('shopeditor');
-  $('prodId').scrollIntoView({behavior:'smooth',block:'center'});
+  if(!skipView){switchAdminSub('shops');showShopManagerView('productform');$('prodId').scrollIntoView({behavior:'smooth',block:'center'});}
 }
-function clearProdForm(){['prodId','prodName','prodPrice','prodOverview','prodVariants'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);setS('productStatus','');}
+function clearProdForm(){['prodId','prodName','prodPrice','prodOverview','prodVariants'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);$('productFormTitle').textContent='Add a product';setS('productStatus','');}
 function renderFilePrev(files){const g=$('filePreview');g.innerHTML='';if(!files?.length){g.innerHTML=`<div style="font-size:11px;color:var(--ink4)">No files selected</div>`;return;}Array.from(files).forEach(f=>{const r=new FileReader();r.onload=()=>{const d=document.createElement('div');d.className='prev-item';d.innerHTML=`<img src="${r.result}" alt=""/>`;g.appendChild(d);};r.readAsDataURL(f);});}
 async function saveProd(){
   if(!tok())return toast('Login required','','err');
@@ -1881,14 +2040,14 @@ async function saveProd(){
   try{setS('productStatus',files.length?'Uploading…':'Saving…');
     if(files.length){const form=new FormData();form.append('product_id',pid);form.append('name',name);form.append('overview',overview);form.append('price',price);form.append('stock',stock);form.append('variants',variants);[...files].forEach(f=>form.append('images',f));await api(`/admin/shop/${encodeURIComponent(shopId)}/product-with-images`,{method:'POST',auth:true,body:form});}
     else{await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid,name,price,overview,stock,variants,images:[]})});}
-    toast('Product saved ✓',name);setS('productStatus','Saved.','ok');$('prodFiles').value='';renderFilePrev([]);await loadAdminShop(shopId);}
+    toast('Product saved ✓',name);setS('productStatus','Saved.','ok');$('prodFiles').value='';renderFilePrev([]);await loadAdminShop(shopId);showShopManagerView('detail');}
   catch(e){setS('productStatus',e.message,'err');toast('Save failed',e.message,'err');}
 }
 async function deleteProd(){
   if(!tok())return toast('Login required','','err');
   const shopId=$('shopId').value.trim(),pid=$('prodId').value.trim();if(!shopId||!pid)return;
   if(!confirm(`Delete product "${pid}"?`))return;
-  try{await api(`/admin/shop/${encodeURIComponent(shopId)}/product/${encodeURIComponent(pid)}`,{method:'DELETE',auth:true});toast('Deleted',pid);setS('productStatus','Deleted.','ok');clearProdForm();await loadAdminShop(shopId);}
+  try{await api(`/admin/shop/${encodeURIComponent(shopId)}/product/${encodeURIComponent(pid)}`,{method:'DELETE',auth:true});toast('Deleted',pid);setS('productStatus','Deleted.','ok');clearProdForm();await loadAdminShop(shopId);showShopManagerView('detail');}
   catch(e){setS('productStatus',e.message,'err');toast('Delete failed',e.message,'err');}
 }
 $('saveProdBtn').addEventListener('click',saveProd);
@@ -1896,16 +2055,6 @@ $('deleteProdBtn').addEventListener('click',deleteProd);
 $('clearProdBtn').addEventListener('click',clearProdForm);
 $('prodFiles').addEventListener('change',()=>renderFilePrev([...$('prodFiles').files]));
 if($('adminProdSearch')) $('adminProdSearch').addEventListener('input',()=>renderAdminProds(App.adminProducts||[]));
-if($('startNewProductBtn')) $('startNewProductBtn').addEventListener('click',()=>{
-  switchAdminSub('shopeditor');
-  clearProdForm();
-  $('prodName')?.focus();
-});
-if($('openLiveShopBtn')) $('openLiveShopBtn').addEventListener('click',()=>{
-  const shopId=App.adminShopId||$('shopId').value.trim();
-  if(!shopId)return toast('Load a shop first','','err');
-  openShopPage(shopId);
-});
 
 /* ── Analytics ── */
 async function loadAnalytics(){
