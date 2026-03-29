@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import os, re, json, time, uuid, shutil
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 import requests
 from typing import Any, Dict, List, Optional
 from supabase import create_client, Client
@@ -38,7 +39,10 @@ PAGE_SIZE         = 24
 ALLOWED_IMG_EXTS  = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".jif"}
 
 OPENROUTER_KEY    = os.environ.get("OPENROUTER_API_KEY", "").strip()
-OPENROUTER_MODEL  = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
+OPENROUTER_MODEL  = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4.1-mini").strip()
+OPENROUTER_FALLBACK_MODELS = [m.strip() for m in os.environ.get("OPENROUTER_FALLBACK_MODELS", "").split(",") if m.strip()]
+OPENROUTER_TEMPERATURE = float(os.environ.get("OPENROUTER_TEMPERATURE", "0.2") or 0.2)
+OPENROUTER_MAX_TOKENS = int(os.environ.get("OPENROUTER_MAX_TOKENS", "400") or 400)
 OPENROUTER_URL    = "https://openrouter.ai/api/v1/chat/completions"
 
 SUPABASE_URL      = os.environ.get("SUPABASE_URL", "").strip()
@@ -139,11 +143,23 @@ def require_supabase() -> Client:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # LLM 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-def llm_chat(system: str, user: str, max_tokens: int = 400) -> str:
+def llm_chat(system: str, user: str, max_tokens: Optional[int] = None) -> Dict[str, Any]:
     if not OPENROUTER_KEY:
         raise ValueError("Missing OPENROUTER_API_KEY in environment variables.")
-        
+
+    if max_tokens is None:
+        max_tokens = OPENROUTER_MAX_TOKENS
+
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    payload: Dict[str, Any] = {
+        "model": OPENROUTER_MODEL,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": OPENROUTER_TEMPERATURE,
+    }
+    if OPENROUTER_FALLBACK_MODELS:
+        payload["models"] = [OPENROUTER_MODEL, *OPENROUTER_FALLBACK_MODELS]
+
     r = requests.post(
         OPENROUTER_URL,
         headers={
@@ -152,11 +168,15 @@ def llm_chat(system: str, user: str, max_tokens: int = 400) -> str:
             "HTTP-Referer": APP_BASE_URL,
             "X-Title": "Wave from Atlantica"
         },
-        json={"model": OPENROUTER_MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": 0.2},
+        json=payload,
         timeout=60,
     )
     r.raise_for_status()
-    return (r.json()["choices"][0]["message"]["content"] or "").strip()
+    data = r.json()
+    return {
+        "content": (data["choices"][0]["message"]["content"] or "").strip(),
+        "model": data.get("model") or OPENROUTER_MODEL,
+    }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # HELPERS
@@ -403,6 +423,10 @@ def wants_all_images(q: str) -> bool:
     if "all" not in qn and "every" not in qn: return False
     return any(v in qn for v in ["image","images","photo","photos","picture","pictures"])
 
+def wants_product_image(q: str) -> bool:
+    qn = norm_text(q)
+    return any(v in qn for v in ["image", "images", "photo", "photos", "picture", "pictures", "pic"]) and not wants_all_images(q)
+
 def parse_price_value(price: str) -> Optional[float]:
     raw = str(price or "").strip().lower()
     if not raw:
@@ -607,6 +631,105 @@ def answer_cheapest_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional
         "answer": "\n".join(lines),
         "products": serialize_products_bulk(top),
         "meta": {"llm_used": False, "reason": "cheapest_filter", "suggestions": ["Do you have anything below 5 dollars?", "What's in stock?", "Show all products"]},
+    }
+
+def fuzzy_match_score(a: str, b: str) -> float:
+    a = norm_text(a)
+    b = norm_text(b)
+    if not a or not b:
+        return 0.0
+    if a == b:
+        return 1.0
+    return SequenceMatcher(None, a, b).ratio()
+
+def extract_candidate_phrases(q: str) -> List[str]:
+    qn = norm_text(q)
+    phrases = [qn]
+    patterns = [
+        r"(?:photo|picture|pic|image|images) of ([a-z0-9][a-z0-9 \-]{1,80})",
+        r"(?:show|see|find) (?:me )?(?:the )?(?:photo|picture|pic|image|images) (?:of )?([a-z0-9][a-z0-9 \-]{1,80})",
+        r"(?:price|cost) of ([a-z0-9][a-z0-9 \-]{1,80})",
+        r"(?:how much is|do you have) ([a-z0-9][a-z0-9 \-]{1,80})",
+    ]
+    for pat in patterns:
+        for m in re.finditer(pat, qn):
+            phrase = (m.group(1) or "").strip(" ?!.")
+            if phrase:
+                phrases.append(phrase)
+    cleaned = []
+    seen = set()
+    for phrase in phrases:
+        phrase = re.sub(r"\b(please|show|photo|picture|pic|image|images|of|the|a|an)\b", " ", phrase)
+        phrase = re.sub(r"\s+", " ", phrase).strip()
+        if phrase and phrase not in seen:
+            seen.add(phrase)
+            cleaned.append(phrase)
+    return cleaned[:6]
+
+def choose_chat_products(prod_rows: List[Dict], q: str, answer_text: str = "", prefer_images: bool = False, limit: int = 4) -> List[Dict]:
+    qn = norm_text(q)
+    an = norm_text(answer_text)
+    q_tokens = set(re.findall(r"[a-z0-9]+", qn))
+    phrases = extract_candidate_phrases(q)
+    ranked = []
+    for row in prod_rows:
+        name = (row.get("name") or "").strip()
+        if not name:
+            continue
+        imgs = normalize_image_list(row.get("shop_id", ""), row.get("images", []))
+        if prefer_images and not imgs:
+            continue
+        name_n = norm_text(name)
+        score = 0.0
+        if name_n and name_n in qn:
+            score += 12
+        if name_n and name_n in an:
+            score += 10
+        best_phrase = max((fuzzy_match_score(phrase, name_n) for phrase in phrases), default=0.0)
+        if best_phrase >= 0.92:
+            score += 11
+        elif best_phrase >= 0.82:
+            score += 7
+        elif best_phrase >= 0.72:
+            score += 4
+        row_tokens = set(re.findall(r"[a-z0-9]+", norm_text(f"{name} {row.get('overview','')} {row.get('product_id','')}")))
+        score += len(q_tokens & row_tokens) * 0.9
+        if imgs:
+            score += 0.5
+        if score > 0:
+            enriched = {
+                "shop_id": row.get("shop_id", ""),
+                "product_id": row.get("product_id", ""),
+                "name": name,
+                "overview": row.get("overview", ""),
+                "price": row.get("price", ""),
+                "stock": row.get("stock", "in"),
+                "images": imgs,
+                "_score": score,
+            }
+            ranked.append(enriched)
+    ranked.sort(key=lambda item: (item["_score"], len(item.get("images", []))), reverse=True)
+    return ranked[:limit]
+
+def answer_product_image_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
+    if not wants_product_image(q):
+        return None
+    matches = choose_chat_products(prod_rows, q, prefer_images=True, limit=4)
+    if not matches:
+        return {
+            "answer": f"I couldn't find a matching product photo at {shop_label(shop)} yet. Try asking with the product name or say **show all products**.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "product_image_missing", "suggestions": ["Show all products", "Show all images", "What's in stock?"]},
+        }
+    top = matches[0]
+    lines = [f"Here {'is' if len(matches)==1 else 'are'} the photo{'s' if len(matches)>1 else ''} I found from {shop_label(shop)}:"]
+    lines.append(f"- **{top['name']}** - {top.get('price','Price not listed')} *({top.get('stock','in')})*")
+    if len(matches) > 1:
+        lines.append(f"\nI also found **{len(matches)-1}** more matching product card{'s' if len(matches)-1 != 1 else ''} below.")
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_products_bulk(matches),
+        "meta": {"llm_used": False, "reason": "product_image", "suggestions": [f"What is the price of {top['name']}?", "Show all images", "Do you have more like this?"]},
     }
 
 def answer_price_lookup_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
@@ -918,6 +1041,8 @@ def health():
     return {
         "ok": True,
         "model": OPENROUTER_MODEL if OPENROUTER_KEY else None,
+        "fallback_models": OPENROUTER_FALLBACK_MODELS,
+        "temperature": OPENROUTER_TEMPERATURE if OPENROUTER_KEY else None,
         "rag_enabled": HAS_RAG,
         "supabase_configured": supabase is not None,
     }
@@ -1187,6 +1312,10 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
     if cheapest_answer is not None:
         return cheapest_answer
 
+    product_image_answer = answer_product_image_query(shop, prod_rows, q)
+    if product_image_answer is not None:
+        return product_image_answer
+
     picked = rank_products(prod_rows, q)
     abs_picked = serialize_products_bulk(picked[:4])
     rag = {"chunks": [], "matches": []}
@@ -1218,8 +1347,15 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
 
     try:
         system_prompt = SHOP_ASSISTANT_SYSTEM + "\n" + shop_voice_instructions(shop) + "\n" + shop_persona_instructions(shop) + "\n" + response_style_instructions(q)
-        ans = llm_chat(system_prompt, f"CONTEXT:\n{build_context(shop, picked, prod_rows, rag.get('chunks', []))}\n\nCUSTOMER: {q}")
-        return {"answer": ans, "products": abs_picked, "meta": {"llm_used": True, "model": OPENROUTER_MODEL, "suggestions": suggestions, "rag_matches": len(rag.get('matches', []))}}
+        llm_res = llm_chat(system_prompt, f"CONTEXT:\n{build_context(shop, picked, prod_rows, rag.get('chunks', []))}\n\nCUSTOMER: {q}")
+        attached = choose_chat_products(prod_rows, q, llm_res["content"], prefer_images=wants_product_image(q), limit=4)
+        if attached:
+            abs_picked = serialize_products_bulk(attached)
+        elif wants_product_image(q):
+            with_images = [p for p in picked if p.get("images")]
+            if with_images:
+                abs_picked = serialize_products_bulk(with_images[:4])
+        return {"answer": llm_res["content"], "products": abs_picked, "meta": {"llm_used": True, "model": llm_res.get("model") or OPENROUTER_MODEL, "suggestions": suggestions, "rag_matches": len(rag.get('matches', []))}}
     except Exception as e:
         err_msg = str(e)
         if hasattr(e, "response") and getattr(e, "response") is not None:

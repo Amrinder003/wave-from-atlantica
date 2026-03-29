@@ -46,14 +46,18 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
         overview = shop.get("overview", "")
         phone = shop.get("phone", "")
         hours = shop.get("hours", "")
+        category = shop.get("category", "")
+        whatsapp = shop.get("whatsapp", "")
 
         shop_text = (
             f"Shop ID: {shop_id}\n"
             f"Shop Name: {shop_name}\n"
+            f"Category: {category}\n"
             f"Address: {address}\n"
             f"Overview: {overview}\n"
             f"Phone: {phone}\n"
             f"Hours: {hours}\n"
+            f"WhatsApp: {whatsapp}\n"
         ).strip()
 
         chunks.append({"type": "shop", "text": shop_text})
@@ -63,6 +67,8 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
             name = p.get("name", "")
             pov = p.get("overview", "")
             price = p.get("price", "")
+            stock = p.get("stock", "")
+            variants = p.get("variants", "")
             images = p.get("images", [])
             if isinstance(images, list):
                 images_str = ", ".join(images)
@@ -75,6 +81,9 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
                 f"Product: {name}\n"
                 f"Overview: {pov}\n"
                 f"Price: {price}\n"
+                f"Stock: {stock}\n"
+                f"Variants: {variants}\n"
+                f"Shop Category: {category}\n"
                 f"Images: {images_str}\n"
             ).strip()
 
@@ -89,15 +98,19 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
     overview = shop_obj.get("overview", "")
     phone = shop_obj.get("phone", "")
     hours = shop_obj.get("hours", "")
+    category = shop_obj.get("category", "")
+    whatsapp = shop_obj.get("whatsapp", "")
     products = shop_obj.get("products", []) or []
 
     shop_text = (
         f"Shop ID: {old_shop_id}\n"
         f"Shop Name: {shop_name}\n"
+        f"Category: {category}\n"
         f"Address: {address}\n"
         f"Overview: {overview}\n"
         f"Phone: {phone}\n"
         f"Hours: {hours}\n"
+        f"WhatsApp: {whatsapp}\n"
     ).strip()
     chunks.append({"type": "shop", "text": shop_text})
 
@@ -106,6 +119,8 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
         name = p.get("name", "")
         pov = p.get("overview", "")
         price = p.get("price", "")
+        stock = p.get("stock", "")
+        variants = p.get("variants", "")
         images = p.get("images", [])
         if isinstance(images, list):
             images_str = ", ".join(images)
@@ -118,6 +133,9 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
             f"Product: {name}\n"
             f"Overview: {pov}\n"
             f"Price: {price}\n"
+            f"Stock: {stock}\n"
+            f"Variants: {variants}\n"
+            f"Shop Category: {category}\n"
             f"Images: {images_str}\n"
         ).strip()
         chunks.append({"type": "product", "text": prod_text})

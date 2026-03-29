@@ -16,6 +16,24 @@ def normalize(text: str) -> str:
     return text
 
 
+def tokenize(text: str) -> List[str]:
+    return re.findall(r"[a-z0-9]+", normalize(text))
+
+
+def lexical_overlap_score(question: str, text: str) -> float:
+    q_tokens = set(tokenize(question))
+    t_tokens = set(tokenize(text))
+    if not q_tokens or not t_tokens:
+        return 0.0
+    overlap = q_tokens & t_tokens
+    score = len(overlap) / max(len(q_tokens), 1)
+    qn = normalize(question)
+    tn = normalize(text)
+    if qn and qn in tn:
+        score += 0.35
+    return score
+
+
 def is_greeting(q: str) -> bool:
     qn = normalize(q)
     return qn in {"hi", "hello", "hey", "hii", "hlo", "good morning", "good evening"}
@@ -130,7 +148,9 @@ def retrieve(shop_folder: str, question: str, top_k: int = 5) -> Dict[str, Any]:
         emb = r.get("embedding", []) or []
         text = r.get("text", "") or ""
 
-        s = cosine(q_emb, emb) if emb else 0.0
+        semantic = cosine(q_emb, emb) if emb else 0.0
+        lexical = lexical_overlap_score(question, text)
+        s = semantic * 0.72 + lexical * 0.28
 
         # bias only a little
         if qtype == "product" and ctype == "product":
@@ -142,7 +162,7 @@ def retrieve(shop_folder: str, question: str, top_k: int = 5) -> Dict[str, Any]:
         if qtype == "shop" and ctype == "product":
             s *= 0.95
 
-        scored.append((s, {"type": ctype, "text": text}))
+        scored.append((s, {"type": ctype, "text": text, "semantic": float(semantic), "lexical": float(lexical)}))
 
     scored.sort(key=lambda x: x[0], reverse=True)
 
@@ -153,7 +173,7 @@ def retrieve(shop_folder: str, question: str, top_k: int = 5) -> Dict[str, Any]:
 
     best_score = kept[0][0] if kept else 0.0
     chunks = [c["text"] for (s, c) in kept]
-    matches = [{"score": float(s), "type": c["type"], "text": c["text"]} for (s, c) in kept]
+    matches = [{"score": float(s), "type": c["type"], "text": c["text"], "semantic": c["semantic"], "lexical": c["lexical"]} for (s, c) in kept]
 
     return {
         "best_score": float(best_score),

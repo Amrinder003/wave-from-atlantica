@@ -1730,7 +1730,7 @@ function addMsg(text,role='assistant',loading=false,products=[]){
 }
 function renderChatSide(prods){
   const g=$('chatSideGrid');g.innerHTML='';
-  if(!prods||!prods.length){g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Info</div><div class="et">Products appear after you ask.</div></div>`;return;}
+  if(!prods||!prods.length){g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Info</div><div class="et">Products and photos appear here after you ask. Tap a card to open the product.</div></div>`;return;}
   prods.forEach(p=>g.appendChild(makeCard(p,{mode:'chat',showShop:false})));
 }
 function autoSizeChatInput(){
