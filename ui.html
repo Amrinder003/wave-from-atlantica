@@ -303,17 +303,21 @@ a{color:inherit;text-decoration:none}
 /* ── AUTH MODAL ── */
 .auth-bg{position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);z-index:450;display:none;align-items:center;justify-content:center;padding:16px}
 .auth-bg.on{display:flex}
-.auth-box{background:var(--sf);border-radius:var(--r4);box-shadow:var(--s4);width:min(420px,100%);overflow:hidden;animation:pop .2s ease}
-.auth-head{padding:20px 22px 0;display:flex;align-items:center;justify-content:space-between}
-.auth-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800}
-.auth-close{font-size:18px;cursor:pointer;color:var(--ink3);padding:4px}
+.auth-box{background:linear-gradient(180deg,rgba(255,253,248,.99),rgba(246,239,227,.95));border-radius:32px;box-shadow:var(--s4);width:min(440px,100%);overflow:hidden;animation:pop .2s ease;border:1px solid rgba(191,174,149,.34)}
+.auth-head{padding:22px 24px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.auth-title{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.04em}
+.auth-close{font-size:20px;cursor:pointer;color:var(--ink3);padding:4px 8px;border-radius:999px;transition:.12s}
+.auth-close:hover{background:rgba(255,255,255,.8);color:var(--ink)}
 .auth-tabs{display:flex;border-bottom:1px solid var(--bd);margin:0 22px;gap:0}
 .auth-tab{padding:10px 16px;font-size:14px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;cursor:pointer;transition:.12s;margin-bottom:-1px}
 .auth-tab.on{color:var(--A);border-bottom-color:var(--A)}
-.auth-form{padding:20px 22px;display:flex;flex-direction:column;gap:12px}
+.auth-form{padding:18px 22px 22px;display:flex;flex-direction:column;gap:12px}
 .auth-panel{display:none}.auth-panel.on{display:flex;flex-direction:column;gap:12px}
+.auth-panel .btn + .btn{margin-top:-4px}
 .verify-notice{background:var(--Yp);border:1px solid rgba(217,119,6,.2);border-radius:var(--r2);padding:12px 14px;font-size:13px;color:var(--Y)}
 .verify-notice strong{display:block;font-weight:700;margin-bottom:3px}
+.auth-mini-link{font-size:12px;font-weight:700;color:var(--A2);text-align:center;cursor:pointer}
+.auth-mini-link:hover{text-decoration:underline}
 
 /* ── USER PROFILE PANEL ── */
 .profile-bg{position:fixed;inset:0;background:rgba(15,23,42,.4);backdrop-filter:blur(4px);z-index:420;display:none;align-items:flex-start;justify-content:flex-end;padding-top:70px}
@@ -330,6 +334,11 @@ a{color:inherit;text-decoration:none}
 .pm-btn .pm-icon{font-size:16px;flex-shrink:0;width:20px;text-align:center}
 .pm-sep{border:none;border-top:1px solid var(--bd);margin:4px 0}
 .pm-btn.danger{color:var(--R)}
+.account-shell{display:grid;gap:14px}
+.account-note{padding:14px 16px;border-radius:20px;background:linear-gradient(180deg,rgba(255,252,247,.98),rgba(248,241,231,.92));border:1px solid rgba(191,174,149,.3)}
+.account-note-kicker{font-size:10px;font-weight:800;color:var(--A2);text-transform:uppercase;letter-spacing:.08em}
+.account-note-title{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;line-height:1.15;margin-top:5px}
+.account-note-copy{font-size:13px;color:var(--ink3);line-height:1.65;margin-top:6px}
 
 /* ── FAVOURITES PAGE ── */
 .fav-page{max-width:1280px;margin:0 auto;padding:28px 20px 70px}
@@ -382,6 +391,8 @@ a{color:inherit;text-decoration:none}
 .admin-wrap{display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - var(--nh) - var(--sh))}
 @media(max-width:820px){.admin-wrap{grid-template-columns:1fr}}
 .admin-nav{border-right:1px solid var(--bd);background:var(--sf);padding:14px 10px;display:flex;flex-direction:column;gap:2px;position:sticky;top:calc(var(--nh) + var(--sh));height:calc(100vh - var(--nh) - var(--sh));overflow-y:auto}
+.admin-nav{scrollbar-width:none}
+.admin-nav::-webkit-scrollbar{display:none}
 .anav-lbl{font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.07em;padding:8px 8px 4px}
 .anav-btn{display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:12px;font-size:13px;font-weight:700;color:var(--ink2);transition:.11s;width:100%;text-align:left}
 .anav-btn:hover{background:rgba(255,250,242,.92);border-color:rgba(191,174,149,.34)}
@@ -418,24 +429,50 @@ a{color:inherit;text-decoration:none}
 .prev-item{width:54px;height:54px;border-radius:8px;overflow:hidden;border:1px solid var(--bd);background:var(--sf2)}
 .prev-item img{width:100%;height:100%;object-fit:contain;padding:4px}
 .admin-pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:9px}
+.admin-pgrid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.admin-pc{background:linear-gradient(180deg,rgba(255,252,247,.99),rgba(247,240,230,.94));border:1px solid rgba(191,174,149,.42);border-radius:24px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;box-shadow:0 14px 32px rgba(58,38,22,.08);transition:transform .16s,box-shadow .16s,border-color .16s}
+.admin-pc:hover{transform:translateY(-3px);box-shadow:0 20px 40px rgba(58,38,22,.12);border-color:rgba(162,76,46,.34)}
+.admin-pc-photo{width:100%;aspect-ratio:16/10;background:linear-gradient(135deg,#f2e7d7,#ead9bc);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.admin-pc-photo img{width:100%;height:100%;object-fit:cover}
+.admin-pc-badge{position:absolute;top:12px;left:12px;padding:5px 9px;border-radius:999px;background:rgba(31,27,22,.7);color:#fff;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.admin-pc-count{position:absolute;top:12px;right:12px;padding:5px 8px;border-radius:999px;background:rgba(255,250,242,.92);border:1px solid rgba(191,174,149,.35);font-size:10px;font-weight:800;color:var(--ink2)}
+.admin-pc-body{padding:16px;display:grid;gap:10px}
+.admin-pc-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.admin-pc-name{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;line-height:1.25;letter-spacing:-.03em}
+.admin-pc-price{font-family:'Sora',sans-serif;font-size:16px;font-weight:800;color:var(--A2);white-space:nowrap}
+.admin-pc-noprice{font-size:11px;color:var(--ink4);font-weight:700;white-space:nowrap}
+.admin-pc-meta{display:flex;flex-wrap:wrap;gap:7px}
+.admin-pc-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.82);border:1px solid rgba(191,174,149,.3);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2)}
+.admin-pc-desc{font-size:12px;color:var(--ink3);line-height:1.62;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-height:58px}
+.admin-pc-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:4px}
+.admin-pc-link{font-size:12px;font-weight:800;color:var(--A2)}
+.admin-pc-edit{font-size:11px;font-weight:800;color:var(--ink4);text-transform:uppercase;letter-spacing:.06em}
 .img-mgr{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px}
 .img-mg-item{position:relative;width:58px;height:58px}
 .img-mg-item img{width:100%;height:100%;object-fit:contain;border-radius:7px;border:1px solid var(--bd);background:var(--sf2);padding:3px}
 .img-mg-del{position:absolute;top:-5px;right:-5px;width:17px;height:17px;border-radius:99px;background:var(--R);color:#fff;font-size:10px;display:grid;place-items:center;cursor:pointer}
-.an-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:9px;margin-bottom:14px}
-.an-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r2);padding:13px}
-.an-icon{font-size:20px;margin-bottom:3px}
-.an-val{font-family:'Sora',sans-serif;font-size:22px;font-weight:800}
-.an-lbl{font-size:12px;color:var(--ink3)}
-.bar-wrap{display:flex;align-items:flex-end;gap:3px;height:68px;padding:0 2px;margin:8px 0}
+.an-shell{display:grid;gap:16px}
+.an-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.an-card{background:linear-gradient(180deg,rgba(255,252,247,.99),rgba(247,240,230,.94));border:1px solid rgba(191,174,149,.38);border-radius:22px;padding:16px;box-shadow:0 12px 28px rgba(58,38,22,.07)}
+.an-icon{font-size:22px;margin-bottom:6px}
+.an-val{font-family:'Sora',sans-serif;font-size:26px;font-weight:800;line-height:1}
+.an-lbl{font-size:12px;color:var(--ink3);margin-top:6px}
+.an-panels{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,.9fr);gap:16px}
+.an-panel{padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(255,252,247,.98),rgba(248,241,231,.92));border:1px solid rgba(191,174,149,.32)}
+.an-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px}
+.an-panel-kicker{font-size:10px;font-weight:800;color:var(--A2);text-transform:uppercase;letter-spacing:.08em}
+.an-panel-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;line-height:1.15;margin-top:4px}
+.an-panel-copy{font-size:13px;color:var(--ink3);line-height:1.65;margin-top:6px;max-width:580px}
+.an-trend-meta{font-size:12px;font-weight:700;color:var(--ink4)}
+.bar-wrap{display:flex;align-items:flex-end;gap:5px;height:180px;padding:8px 4px 0;margin:8px 0 0}
 .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
-.bar-fill{width:100%;border-radius:3px 3px 0 0;min-height:2px;background:var(--sf2)}
-.bar-fill.has{background:var(--A)}
-.bar-lbl{font-size:9px;color:var(--ink4);white-space:nowrap}
-.tp-list{display:flex;flex-direction:column;gap:5px}
-.tp-row{display:flex;align-items:center;gap:9px;padding:7px 10px;background:var(--sf2);border-radius:var(--r1);border:1px solid var(--bd)}
+.bar-fill{width:100%;border-radius:10px 10px 0 0;min-height:4px;background:rgba(255,255,255,.78);border:1px solid rgba(191,174,149,.24);border-bottom:none}
+.bar-fill.has{background:linear-gradient(180deg,#b25735,#8e3c21);border-color:rgba(142,60,33,.16)}
+.bar-lbl{font-size:10px;color:var(--ink4);white-space:nowrap;margin-top:6px}
+.tp-list{display:flex;flex-direction:column;gap:8px}
+.tp-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,.76);border-radius:16px;border:1px solid rgba(191,174,149,.28)}
 .tp-rank{font-family:'Sora',sans-serif;font-size:13px;font-weight:800;color:var(--A);width:20px;flex-shrink:0}
-.tp-name{font-size:13px;font-weight:600;flex:1}
+.tp-name{font-size:13px;font-weight:700;flex:1}
 .tp-views{font-size:12px;color:var(--ink3)}
 .csv-box{background:#eff6ff;border:1px solid rgba(37,99,235,.18);border-radius:var(--r2);padding:14px}
 .csv-title{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#1e40af;margin-bottom:5px}
@@ -443,50 +480,113 @@ a{color:inherit;text-decoration:none}
 .csv-prog{display:none;margin-top:8px}
 .csv-prog progress{width:100%;height:5px;accent-color:#1d4ed8}
 .csv-pt{font-size:11px;color:var(--ink3);margin-top:3px}
-.workspace-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:18px 18px;background:linear-gradient(135deg,#fff6ed,#f6dfd2 58%,#f4ece2);border-bottom:1px solid rgba(191,174,149,.34)}
+.workspace-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:22px 22px;background:linear-gradient(135deg,rgba(255,247,236,.98),rgba(247,224,205,.94) 54%,rgba(241,234,223,.92));border-bottom:1px solid rgba(191,174,149,.34);position:relative;overflow:hidden}
+.workspace-hero::after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:999px;background:radial-gradient(circle,rgba(178,87,53,.16),rgba(178,87,53,0));pointer-events:none}
 .workspace-copy{display:grid;gap:6px}
 .workspace-kicker{font-size:10px;font-weight:800;color:var(--A2);text-transform:uppercase;letter-spacing:.08em}
-.workspace-title{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;line-height:1.1;letter-spacing:-.04em}
-.workspace-desc{font-size:13px;color:var(--ink3);max-width:620px}
+.workspace-title{font-family:'Sora',sans-serif;font-size:24px;font-weight:800;line-height:1.05;letter-spacing:-.05em;max-width:720px}
+.workspace-desc{font-size:13px;color:var(--ink3);max-width:620px;line-height:1.65}
 .workspace-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.workspace-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;padding:14px 16px;background:rgba(255,253,248,.8)}
-.workspace-stat{padding:12px 12px;border-radius:16px;border:1px solid rgba(191,174,149,.34);background:rgba(255,250,242,.84)}
+.workspace-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:12px;padding:16px 18px;background:linear-gradient(180deg,rgba(255,252,247,.96),rgba(250,245,236,.82))}
+.workspace-stat{padding:14px 14px;border-radius:18px;border:1px solid rgba(191,174,149,.34);background:rgba(255,250,242,.9);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
 .workspace-stat-label{font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.06em}
-.workspace-stat-value{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;margin-top:4px}
+.workspace-stat-value{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;margin-top:4px}
 .workspace-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(340px,.9fr);gap:16px}
 @media(max-width:1080px){.workspace-grid{grid-template-columns:1fr}}
 .workspace-stack{display:grid;gap:16px}
 .shop-admin-view{display:none;gap:16px}
 .shop-admin-view.on{display:grid}
-.owner-shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
-.owner-shop-card{border:1px solid rgba(191,174,149,.34);border-radius:24px;background:linear-gradient(180deg,rgba(255,251,244,.98),rgba(249,241,231,.9));box-shadow:var(--s1);padding:20px;display:grid;gap:14px;text-align:left;cursor:pointer;transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease}
-.owner-shop-card:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(48,33,15,.12);border-color:rgba(185,97,40,.32)}
+.owner-detail-shell{display:grid;grid-template-columns:minmax(0,1.2fr) 320px;gap:16px;align-items:start}
+.owner-shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.owner-shop-card{border:1px solid rgba(191,174,149,.34);border-radius:28px;background:linear-gradient(180deg,rgba(255,251,244,.98),rgba(248,239,228,.92));box-shadow:0 14px 34px rgba(48,33,15,.08);padding:22px;display:grid;gap:16px;text-align:left;cursor:pointer;transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;position:relative;overflow:hidden}
+.owner-shop-card::after{content:"";position:absolute;inset:auto -30px -46px auto;width:130px;height:130px;border-radius:999px;background:radial-gradient(circle,rgba(2,132,199,.1),rgba(2,132,199,0));pointer-events:none}
+.owner-shop-card:hover{transform:translateY(-3px);box-shadow:0 22px 44px rgba(48,33,15,.13);border-color:rgba(185,97,40,.32)}
 .owner-shop-card-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-.owner-shop-card-name{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.04em;line-height:1.05}
+.owner-shop-card-name{font-family:'Sora',sans-serif;font-size:24px;font-weight:800;letter-spacing:-.05em;line-height:1.02}
 .owner-shop-card-meta{font-size:12px;color:var(--ink4);margin-top:6px}
-.owner-shop-card-overview{font-size:13px;color:var(--ink3);line-height:1.65}
+.owner-shop-card-overview{font-size:13px;color:var(--ink3);line-height:1.72;min-height:64px}
 .owner-shop-card-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.owner-shop-card-stat{padding:12px;border-radius:16px;background:rgba(255,255,255,.72);border:1px solid rgba(191,174,149,.28)}
+.owner-shop-card-stat{padding:13px;border-radius:18px;background:rgba(255,255,255,.76);border:1px solid rgba(191,174,149,.28)}
 .owner-shop-card-stat-k{font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.06em}
-.owner-shop-card-stat-v{font-family:'Sora',sans-serif;font-size:16px;font-weight:800;margin-top:4px}
-.owner-shop-card-go{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--A2)}
-.owner-detail-card{overflow:hidden}
-.owner-detail-card-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:22px 22px 10px}
-.owner-detail-name{font-family:'Sora',sans-serif;font-size:30px;font-weight:800;line-height:1;letter-spacing:-.05em}
-.owner-detail-meta{margin-top:8px;font-size:13px;color:var(--ink4)}
-.owner-detail-overview{padding:0 22px 22px;font-size:14px;color:var(--ink3);line-height:1.75;max-width:900px}
+.owner-shop-card-stat-v{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;margin-top:4px}
+.owner-shop-card-go{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--A2);padding-top:4px}
+.owner-detail-card{overflow:hidden;background:linear-gradient(135deg,rgba(255,250,244,.98),rgba(250,242,232,.92));position:relative}
+.owner-detail-card::after{content:"";position:absolute;right:-40px;top:-26px;width:180px;height:180px;border-radius:999px;background:radial-gradient(circle,rgba(2,132,199,.1),rgba(2,132,199,0));pointer-events:none}
+.owner-detail-card-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:28px 26px 12px}
+.owner-detail-name{font-family:'Sora',sans-serif;font-size:34px;font-weight:800;line-height:1;letter-spacing:-.06em;max-width:12ch}
+.owner-detail-meta{margin-top:9px;font-size:13px;color:var(--ink4);line-height:1.6}
+.owner-detail-overview{padding:0 26px 26px;font-size:14px;color:var(--ink3);line-height:1.82;max-width:900px}
+.owner-detail-tags{display:flex;flex-wrap:wrap;gap:8px;padding:0 26px 18px}
+.owner-detail-tag{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:rgba(255,255,255,.82);border:1px solid rgba(191,174,149,.34);font-size:11px;font-weight:700;color:var(--ink2)}
+.owner-side-stack{display:grid;gap:16px}
+.owner-side-card{padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(255,251,245,.98),rgba(247,239,228,.92));border:1px solid rgba(191,174,149,.34);box-shadow:0 12px 30px rgba(48,33,15,.07)}
+.owner-side-label{font-size:10px;font-weight:800;color:var(--ink4);text-transform:uppercase;letter-spacing:.08em}
+.owner-side-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;line-height:1.15;margin-top:6px}
+.owner-side-copy{font-size:13px;color:var(--ink3);line-height:1.72;margin-top:8px}
+.owner-side-actions{display:grid;gap:9px;margin-top:14px}
+.owner-side-actions .btn{justify-content:center}
+.owner-checklist{display:grid;gap:9px;margin-top:14px}
+.owner-check{display:flex;align-items:flex-start;gap:10px;padding:10px 11px;border-radius:16px;background:rgba(255,255,255,.72);border:1px solid rgba(191,174,149,.28)}
+.owner-check-mark{width:22px;height:22px;border-radius:999px;background:rgba(185,97,40,.12);color:var(--A2);display:grid;place-items:center;font-size:12px;font-weight:800;flex-shrink:0}
+.owner-check-copy{font-size:12px;color:var(--ink2);line-height:1.5}
+.owner-check-copy strong{display:block;font-size:12px;color:var(--ink);margin-bottom:2px}
+.owner-products-card .card-head{padding-bottom:6px}
+.owner-products-topline{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2);margin-bottom:6px}
+.owner-products-sub{font-size:13px;color:var(--ink3);line-height:1.65;max-width:620px}
+.setup-form{display:grid;gap:16px}
+.setup-section{padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(255,252,247,.98),rgba(248,241,231,.92));border:1px solid rgba(191,174,149,.32)}
+.setup-section-head{display:grid;gap:4px;margin-bottom:14px}
+.setup-section-kicker{font-size:10px;font-weight:800;color:var(--A2);text-transform:uppercase;letter-spacing:.08em}
+.setup-section-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;line-height:1.15}
+.setup-section-copy{font-size:13px;color:var(--ink3);line-height:1.65;max-width:720px}
+.setup-callout{padding:14px 16px;border-radius:20px;background:rgba(255,255,255,.76);border:1px solid rgba(191,174,149,.28);display:grid;gap:4px}
+.setup-callout-title{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)}
+.setup-callout-copy{font-size:13px;color:var(--ink2);line-height:1.62}
 @media(max-width:720px){
+  .owner-detail-shell{grid-template-columns:1fr}
   .owner-shop-card-stats{grid-template-columns:1fr}
   .owner-detail-card-top{display:grid}
-  .owner-detail-name{font-size:24px}
+  .owner-detail-name{font-size:26px}
 }
 .product-manager-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .product-manager-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .mini-search{width:min(280px,100%);padding:8px 12px;border:1px solid var(--bd);border-radius:var(--r2);background:var(--sf2);font-size:13px;outline:none}
 .mini-search:focus{border-color:var(--A);background:#fff;box-shadow:0 0 0 2px var(--Ag)}
+.owner-detail-card .sbox{background:rgba(255,255,255,.78)}
+.shop-admin-view .card{box-shadow:0 12px 28px rgba(48,33,15,.07)}
 .product-editor-sticky{position:sticky;top:calc(var(--nh) + var(--sh) + 14px)}
 @media(max-width:1080px){.product-editor-sticky{position:static}}
 .empty-action{margin-top:10px}
+@media(max-width:820px){
+  .admin-nav{position:sticky;top:calc(var(--nh) + var(--sh));height:auto;max-height:none;border-right:none;border-bottom:1px solid var(--bd);padding:10px 10px 8px;flex-direction:row;align-items:center;overflow-x:auto;overflow-y:hidden;gap:8px}
+  .anav-lbl{display:none}
+  .anav-btn{width:auto;min-width:max-content;padding:9px 12px;border:1px solid rgba(191,174,149,.28);background:rgba(255,252,247,.84)}
+  .admin-main{padding:14px}
+  .shop-admin-view{gap:14px}
+}
+@media(max-width:680px){
+  .workspace-hero{padding:18px 16px;display:grid;gap:12px}
+  .workspace-title{font-size:21px}
+  .workspace-desc{font-size:12px}
+  .workspace-actions{justify-content:flex-start}
+  .workspace-actions .btn{width:100%;justify-content:center}
+  .workspace-stats{grid-template-columns:1fr 1fr;padding:14px 14px}
+  .workspace-stat{padding:12px}
+  .workspace-stat-value{font-size:18px}
+  .owner-shop-grid{grid-template-columns:1fr}
+  .owner-shop-card{padding:18px;border-radius:22px}
+  .owner-shop-card-name{font-size:22px}
+  .owner-shop-card-overview{min-height:0}
+  .owner-detail-tags{padding:0 18px 14px}
+  .owner-detail-card-top{padding:20px 18px 10px}
+  .owner-detail-overview{padding:0 18px 20px;font-size:13px;line-height:1.72}
+  .setup-section{padding:16px}
+  .product-manager-tools{width:100%}
+  .product-manager-tools .mini-search{width:100%}
+  .card-head{padding:12px 14px;align-items:flex-start}
+  .card-body{padding:12px 14px}
+  .btn-row .btn{flex:1 1 100%;justify-content:center}
+}
 
 /* ── BUTTONS ── */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:14px;font-size:13px;font-weight:700;transition:.12s;border:1px solid transparent;white-space:nowrap;cursor:pointer}
@@ -751,15 +851,23 @@ a{color:inherit;text-decoration:none}
       <div id="sub-account" class="asub on">
         <div class="card">
           <div class="card-head"><div class="card-title">Account</div><span id="authBadge" class="badge y">Not logged in</span></div>
-          <div class="card-body fstack">
-            <div class="fg2">
+          <div class="card-body account-shell">
+            <div class="account-note">
+              <div class="account-note-kicker">Account Access</div>
+              <div class="account-note-title">Use one account to manage your shops.</div>
+              <div class="account-note-copy">Sign in to manage your storefront, resend verification emails, and keep account access secure.</div>
+            </div>
+            <div id="adminAuthFields" class="fg2">
               <div class="fld"><label>Email</label><input id="authEmail" type="email" placeholder="you@example.com"/></div>
               <div class="fld"><label>Password</label><input id="authPass" type="password" placeholder="Min 8 characters"/></div>
             </div>
-            <div class="btn-row">
+            <div id="adminGuestActions" class="btn-row">
               <button id="adminLoginBtn" class="btn btn-A btn-sm">Login</button>
               <button id="adminRegisterBtn" class="btn btn-o btn-sm">Register</button>
-              <button id="adminLogoutBtn" class="btn btn-g btn-sm">Logout</button>
+              <button id="adminForgotBtn" class="btn btn-g btn-sm">Reset Password</button>
+            </div>
+            <div id="adminUserActions" class="btn-row" style="display:none">
+              <button id="adminLogoutBtn" class="btn btn-g btn-sm">Sign Out</button>
             </div>
             <div id="authStatus" class="stxt"></div>
           </div>
@@ -780,8 +888,26 @@ a{color:inherit;text-decoration:none}
               </div>
             </div>
           </div>
+          <div class="card">
+            <div class="card-body">
+              <div class="fg3">
+                <div class="sbox">
+                  <div class="sbox-l">1. Create your shop</div>
+                  <div class="sbox-v">Add the public details customers will see.</div>
+                </div>
+                <div class="sbox">
+                  <div class="sbox-l">2. Add products</div>
+                  <div class="sbox-v">Build the catalog that powers browsing and chat.</div>
+                </div>
+                <div class="sbox">
+                  <div class="sbox-l">3. Open live shop</div>
+                  <div class="sbox-v">Check the public page exactly as customers see it.</div>
+                </div>
+              </div>
+            </div>
+          </div>
           <div id="ownerShopGrid" class="owner-shop-grid">
-            <div class="empty"><div class="ei">🔐</div><div class="et">Login to see your shops</div></div>
+            <div class="empty"><div class="ei">Login</div><div class="et">Sign in to see and manage your shops.</div></div>
           </div>
           <div id="myShopsStatus" class="stxt"></div>
         </div>
@@ -808,22 +934,60 @@ a{color:inherit;text-decoration:none}
               <div class="workspace-stat"><div class="workspace-stat-label">Rating</div><div id="wkRating" class="workspace-stat-value">0.0</div></div>
             </div>
           </div>
-          <div class="card owner-detail-card">
-            <div class="owner-detail-card-top">
-              <div>
-                <div id="ownerDetailName" class="owner-detail-name">Shop Name</div>
-                <div id="ownerDetailMeta" class="owner-detail-meta">Address · Category</div>
+          <div class="owner-detail-shell">
+            <div class="card owner-detail-card">
+              <div class="owner-detail-card-top">
+                <div>
+                  <div id="ownerDetailName" class="owner-detail-name">Shop Name</div>
+                  <div id="ownerDetailMeta" class="owner-detail-meta">Address · Category</div>
+                </div>
+                <div id="shopStats" class="stat-bar" style="display:none"></div>
               </div>
-              <div id="shopStats" class="stat-bar" style="display:none"></div>
+              <div id="ownerDetailTags" class="owner-detail-tags">
+                <div class="owner-detail-tag">Storefront</div>
+                <div class="owner-detail-tag">Products</div>
+                <div class="owner-detail-tag">Chat Ready</div>
+              </div>
+              <div id="ownerDetailOverview" class="owner-detail-overview">Shop overview appears here.</div>
             </div>
-            <div id="ownerDetailOverview" class="owner-detail-overview">Shop overview appears here.</div>
+            <div class="owner-side-stack">
+              <div class="owner-side-card">
+                <div class="owner-side-label">Quick Actions</div>
+                <div class="owner-side-title">Keep this shop live and complete.</div>
+                <div class="owner-side-copy">Use this panel for the actions owners reach for most often while updating the storefront.</div>
+                <div class="owner-side-actions">
+                  <button id="detailAddProductBtnSide" class="btn btn-A btn-sm">+ Add Product</button>
+                  <button id="detailEditShopBtnSide" class="btn btn-o btn-sm">Edit Shop Details</button>
+                  <button id="detailOpenLiveShopBtnSide" class="btn btn-g btn-sm">Open Live Shop</button>
+                </div>
+              </div>
+              <div class="owner-side-card">
+                <div class="owner-side-label">Quality Check</div>
+                <div class="owner-side-title">What customers notice first</div>
+                <div class="owner-checklist">
+                  <div class="owner-check">
+                    <div class="owner-check-mark">1</div>
+                    <div class="owner-check-copy"><strong>Strong overview</strong>Write a short description that explains what makes the shop worth visiting.</div>
+                  </div>
+                  <div class="owner-check">
+                    <div class="owner-check-mark">2</div>
+                    <div class="owner-check-copy"><strong>Real products</strong>Add product photos, prices, and stock so browsing and chat stay accurate.</div>
+                  </div>
+                  <div class="owner-check">
+                    <div class="owner-check-mark">3</div>
+                    <div class="owner-check-copy"><strong>Contact details</strong>Keep hours, address, phone, and WhatsApp current for direct customer questions.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="card">
+          <div class="card owner-products-card">
             <div class="card-head">
               <div class="product-manager-head" style="width:100%">
                 <div>
+                  <div class="owner-products-topline">Catalog</div>
                   <div class="card-title">Products</div>
-                  <div class="fld-hint">Everything listed under this shop appears here. Tap a card to open the live product view.</div>
+                  <div class="owner-products-sub">Everything listed under this shop appears here. Open a product to edit it, or use the search to find something quickly.</div>
                 </div>
                 <div class="product-manager-tools">
                   <input id="adminProdSearch" class="mini-search" placeholder="Search products by name or description"/>
@@ -868,27 +1032,52 @@ a{color:inherit;text-decoration:none}
             </div>
           </div>
           <div class="card">
-            <div class="card-body fstack">
-              <div class="fg3">
-                <div class="fld"><label>Shop ID</label><input id="shopId" placeholder="Auto-generated"/></div>
-                <div class="fld"><label>Shop Name</label><input id="shopName" placeholder="Maple Juice Bar"/></div>
-                <div class="fld"><label>WhatsApp (optional)</label><input id="shopWhatsapp" placeholder="+1 902-XXX-XXXX"/></div>
-              </div>
-              <div class="fg3">
-                <div class="fld"><label>Address</label><input id="shopAddress" placeholder="123 Main St"/></div>
-                <div class="fld"><label>Hours</label><input id="shopHours" placeholder="Mon–Sat 9 AM – 7 PM"/></div>
-                <div class="fld"><label>Category</label>
-                  <select id="shopCat"><option value="">Select…</option><option>Food</option><option>Electronics</option><option>Clothing</option><option>Home</option><option>Beauty</option><option>Sports</option><option>Books</option><option>Other</option></select>
+            <div class="card-body setup-form">
+              <div class="setup-section">
+                <div class="setup-section-head">
+                  <div class="setup-section-kicker">Step 1</div>
+                  <div class="setup-section-title">Core shop identity</div>
+                  <div class="setup-section-copy">Set the basics customers notice first on the shop page and in search results.</div>
+                </div>
+                <div class="fg3">
+                  <div class="fld"><label>Shop ID</label><input id="shopId" placeholder="Auto-generated"/><div class="fld-hint">Leave this blank to let the system create one for you.</div></div>
+                  <div class="fld"><label>Shop Name</label><input id="shopName" placeholder="Maple Juice Bar"/><div class="fld-hint">Use the public name exactly as you want customers to see it.</div></div>
+                  <div class="fld"><label>Category</label>
+                    <select id="shopCat"><option value="">Select...</option><option>Food</option><option>Electronics</option><option>Clothing</option><option>Home</option><option>Beauty</option><option>Sports</option><option>Books</option><option>Other</option></select>
+                    <div class="fld-hint">Category helps the storefront layout and chatbot tone stay relevant.</div>
+                  </div>
                 </div>
               </div>
-              <div class="fg2">
-                <div class="fld"><label>Phone</label><input id="shopPhone" placeholder="+1 902-XXX-XXXX"/></div>
-                <div class="fld"><label>Public Preview Tip</label><input value="Customers open the shop page and can browse products or chat instantly." readonly/></div>
+              <div class="setup-section">
+                <div class="setup-section-head">
+                  <div class="setup-section-kicker">Step 2</div>
+                  <div class="setup-section-title">Location and contact</div>
+                  <div class="setup-section-copy">These fields feed direct customer questions like where you are, when you are open, and how to contact you.</div>
+                </div>
+                <div class="fg3">
+                  <div class="fld"><label>Address</label><input id="shopAddress" placeholder="123 Main St"/><div class="fld-hint">Use the real address customers should visit.</div></div>
+                  <div class="fld"><label>Hours</label><input id="shopHours" placeholder="Mon-Sat 9 AM - 7 PM"/><div class="fld-hint">Keep this simple. The assistant uses it in direct answers.</div></div>
+                  <div class="fld"><label>WhatsApp (optional)</label><input id="shopWhatsapp" placeholder="+1 902-XXX-XXXX"/><div class="fld-hint">Used when customers ask how to contact the shop.</div></div>
+                </div>
+                <div class="fg2">
+                  <div class="fld"><label>Phone</label><input id="shopPhone" placeholder="+1 902-XXX-XXXX"/><div class="fld-hint">Optional, but useful for customer support questions.</div></div>
+                  <div class="setup-callout">
+                    <div class="setup-callout-title">Public preview</div>
+                    <div class="setup-callout-copy">Customers open the shop page, browse products, and can chat with the shop assistant immediately.</div>
+                  </div>
+                </div>
               </div>
-              <div class="fld"><label>About This Shop</label><textarea id="shopOverview" placeholder="Tell customers what makes your shop special…"></textarea></div>
+              <div class="setup-section">
+                <div class="setup-section-head">
+                  <div class="setup-section-kicker">Step 3</div>
+                  <div class="setup-section-title">Story and voice</div>
+                  <div class="setup-section-copy">A strong overview helps the shop page feel credible and gives the chatbot better context.</div>
+                </div>
+                <div class="fld"><label>About This Shop</label><textarea id="shopOverview" placeholder="Tell customers what makes your shop special..."></textarea><div class="fld-hint">A stronger overview improves both the shop page and the chatbot's answers.</div></div>
+              </div>
               <div class="btn-row">
-                <button id="rebuildKbBtn" class="btn btn-gr btn-sm">🔄 Rebuild KB</button>
-                <button id="deleteShopBtn" class="btn btn-r btn-sm">🗑 Delete Shop</button>
+                <button id="rebuildKbBtn" class="btn btn-gr btn-sm">Rebuild Knowledge</button>
+                <button id="deleteShopBtn" class="btn btn-r btn-sm">Delete Shop</button>
               </div>
               <div id="shopStatus" class="stxt"></div>
             </div>
@@ -905,31 +1094,52 @@ a{color:inherit;text-decoration:none}
               </div>
               <div class="workspace-actions">
                 <button id="productFormBackBtn" class="btn btn-g btn-sm">← Back to Shop</button>
-                <button id="saveProdBtn" class="btn btn-A btn-sm">💾 Save</button>
+                <button id="saveProdBtn" class="btn btn-A btn-sm">Save Product</button>
                 <button id="clearProdBtn" class="btn btn-o btn-sm">Clear</button>
-                <button id="deleteProdBtn" class="btn btn-r btn-sm">🗑 Delete</button>
+                <button id="deleteProdBtn" class="btn btn-r btn-sm">Delete</button>
               </div>
             </div>
           </div>
           <div class="card">
-            <div class="card-body fstack">
-              <div class="fg3">
-                <div class="fld"><label>Product ID</label><input id="prodId" placeholder="p001"/></div>
-                <div class="fld"><label>Product Name</label><input id="prodName" placeholder="Mango Smoothie"/></div>
-                <div class="fld"><label>Price</label><input id="prodPrice" placeholder="Rs 499 or $4.99"/></div>
-              </div>
-              <div class="fg2">
-                <div class="fld"><label>Description</label><textarea id="prodOverview" placeholder="Ingredients, origin, what makes it special…"></textarea></div>
-                <div class="fstack">
-                  <div class="fld"><label>Stock Status</label><select id="prodStock"><option value="in">✅ In Stock</option><option value="low">⚠️ Low Stock</option><option value="out">❌ Out of Stock</option></select></div>
-                  <div class="fld"><label>Variants (comma-separated)</label><input id="prodVariants" placeholder="Small, Medium, Large"/></div>
+            <div class="card-body setup-form">
+              <div class="setup-section">
+                <div class="setup-section-head">
+                  <div class="setup-section-kicker">Step 1</div>
+                  <div class="setup-section-title">Product basics</div>
+                  <div class="setup-section-copy">Start with the fields customers use to identify and compare the product.</div>
+                </div>
+                <div class="fg3">
+                  <div class="fld"><label>Product ID</label><input id="prodId" placeholder="p001"/><div class="fld-hint">Optional. Leave blank to auto-generate from the product name.</div></div>
+                  <div class="fld"><label>Product Name</label><input id="prodName" placeholder="Mango Smoothie"/><div class="fld-hint">Use the exact name customers will search for and see on the product card.</div></div>
+                  <div class="fld"><label>Price</label><input id="prodPrice" placeholder="Rs 499 or $4.99"/><div class="fld-hint">Keep the price format simple so search and chat read it clearly.</div></div>
                 </div>
               </div>
-              <div class="fg2">
-                <div class="fld"><label>Add Images</label><input id="prodFiles" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.jfif"/><div class="fld-hint">PNG, JPG, WEBP. Images upload and save in one step.</div></div>
-                <div><div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Preview</div><div id="filePreview" class="prev-grid"></div></div>
+              <div class="setup-section">
+                <div class="setup-section-head">
+                  <div class="setup-section-kicker">Step 2</div>
+                  <div class="setup-section-title">Details that improve recommendations</div>
+                  <div class="setup-section-copy">These fields help the storefront, search, and shop assistant explain the product properly.</div>
+                </div>
+                <div class="fg2">
+                  <div class="fld"><label>Description</label><textarea id="prodOverview" placeholder="Ingredients, origin, what makes it special..."></textarea><div class="fld-hint">A clear description improves recommendations, search, and chat answers.</div></div>
+                  <div class="fstack">
+                    <div class="fld"><label>Stock Status</label><select id="prodStock"><option value="in">In Stock</option><option value="low">Low Stock</option><option value="out">Out of Stock</option></select><div class="fld-hint">This is used directly on product cards and in chat responses.</div></div>
+                    <div class="fld"><label>Variants (comma-separated)</label><input id="prodVariants" placeholder="Small, Medium, Large"/><div class="fld-hint">Optional. Use this for size, flavor, color, or pack options.</div></div>
+                  </div>
+                </div>
               </div>
-              <div id="existImgsWrap" style="display:none"><div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Existing Images — click ✕ to remove</div><div id="existImgsMgr" class="img-mgr"></div></div>
+              <div class="setup-section">
+                <div class="setup-section-head">
+                  <div class="setup-section-kicker">Step 3</div>
+                  <div class="setup-section-title">Photos and presentation</div>
+                  <div class="setup-section-copy">Images make the product feel real and let chat show clickable product cards with photos.</div>
+                </div>
+                <div class="fg2">
+                  <div class="fld"><label>Add Images</label><input id="prodFiles" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.jfif"/><div class="fld-hint">PNG, JPG, WEBP. Images upload and save in one step.</div></div>
+                  <div><div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Preview</div><div id="filePreview" class="prev-grid"></div></div>
+                </div>
+                <div id="existImgsWrap" style="display:none"><div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Existing Images - click X to remove</div><div id="existImgsMgr" class="img-mgr"></div></div>
+              </div>
               <div id="productStatus" class="stxt"></div>
             </div>
           </div>
@@ -938,13 +1148,41 @@ a{color:inherit;text-decoration:none}
       <div id="sub-analytics" class="asub">
         <div class="card">
           <div class="card-head">
-            <div class="card-title">📊 Analytics</div>
+            <div>
+              <div class="owner-products-topline">Insights</div>
+              <div class="card-title">Analytics</div>
+            </div>
             <div class="btn-row">
               <select id="anDays" class="btn btn-o btn-sm" style="padding:5px 10px"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select>
-              <button id="refreshAnBtn" class="btn btn-o btn-sm">↻</button>
+              <button id="refreshAnBtn" class="btn btn-o btn-sm">Refresh</button>
             </div>
           </div>
-          <div class="card-body"><div id="anGrid" class="an-grid"></div><div id="anBars" class="bar-wrap"></div><div id="anTop" class="tp-list"></div></div>
+          <div class="card-body an-shell">
+            <div id="anGrid" class="an-grid"></div>
+            <div class="an-panels">
+              <div class="an-panel">
+                <div class="an-panel-head">
+                  <div>
+                    <div class="an-panel-kicker">Trend</div>
+                    <div class="an-panel-title">Conversation activity</div>
+                    <div class="an-panel-copy">See how chat activity moves over time for the currently selected shop.</div>
+                  </div>
+                  <div id="anTrendMeta" class="an-trend-meta">No data yet</div>
+                </div>
+                <div id="anBars" class="bar-wrap"></div>
+              </div>
+              <div class="an-panel">
+                <div class="an-panel-head">
+                  <div>
+                    <div class="an-panel-kicker">Top Products</div>
+                    <div class="an-panel-title">What customers open most</div>
+                    <div class="an-panel-copy">Use this to spot which products are attracting the most attention.</div>
+                  </div>
+                </div>
+                <div id="anTop" class="tp-list"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -955,18 +1193,18 @@ a{color:inherit;text-decoration:none}
   <div class="auth-box">
     <div class="auth-head">
       <div class="auth-title" id="authModalTitle">Sign In</div>
-      <div class="auth-close" id="authClose">✕</div>
+      <div class="auth-close" id="authClose">×</div>
     </div>
     <div class="auth-tabs">
       <button class="auth-tab on" data-atab="login">Sign In</button>
       <button class="auth-tab" data-atab="register">Create Account</button>
-      <button class="auth-tab" data-atab="forgot">Forgot Password</button>
     </div>
     <div class="auth-form">
       <div id="atab-login" class="auth-panel on">
         <div class="fld"><label>Email</label><input id="loginEmail" type="email" placeholder="you@example.com"/></div>
         <div class="fld"><label>Password</label><input id="loginPass" type="password" placeholder="Your password"/></div>
         <button id="loginSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Sign In</button>
+        <div id="forgotLinkBtn" class="auth-mini-link">Forgot Password?</div>
         <div id="loginStatus" class="stxt"></div>
       </div>
       <div id="atab-register" class="auth-panel">
@@ -979,7 +1217,15 @@ a{color:inherit;text-decoration:none}
       <div id="atab-forgot" class="auth-panel">
         <div class="fld"><label>Email address</label><input id="forgotEmail" type="email" placeholder="you@example.com"/></div>
         <button id="forgotSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Send Reset Link</button>
+        <button id="backToLoginBtn" class="btn btn-g btn-sm" style="width:100%;justify-content:center">Back to Sign In</button>
         <div id="forgotStatus" class="stxt"></div>
+      </div>
+      <div id="atab-reset" class="auth-panel">
+        <div class="verify-notice"><strong>Reset your password</strong>Enter a new password for your account. This screen opens from the email reset link.</div>
+        <div class="fld"><label>New password</label><input id="resetPass" type="password" placeholder="Use at least 8 characters"/></div>
+        <div class="fld"><label>Confirm password</label><input id="resetPass2" type="password" placeholder="Repeat the new password"/></div>
+        <button id="resetSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Update Password</button>
+        <div id="resetStatus" class="stxt"></div>
       </div>
     </div>
   </div>
@@ -989,7 +1235,7 @@ a{color:inherit;text-decoration:none}
   <div class="profile-panel">
     <div class="profile-head" style="position: relative;">
       <label style="cursor: pointer; position: relative;">
-        <div class="profile-avatar" id="profileAvatar" style="overflow: hidden;">👤</div>
+      <div class="profile-avatar" id="profileAvatar" style="overflow: hidden;">U</div>
         <input type="file" id="avatarUploadInp" accept="image/*" style="display: none;" />
         <div style="position: absolute; bottom: 0; right: -5px; background: var(--A); color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; box-shadow: var(--s1); border: 2px solid var(--sf);">+</div>
       </label>
@@ -997,31 +1243,31 @@ a{color:inherit;text-decoration:none}
         <div class="profile-name" id="profileName">Guest</div>
         <div class="profile-email" id="profileEmail"></div>
       </div>
-      <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="closeProfile()">✕</button>
+      <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="closeProfile()">×</button>
     </div>
     <div id="profileVerifyWarn" class="profile-verify-warn" style="display:none">
-      <span>⚠️ Email not verified</span>
+      <span>Email not verified</span>
       <button class="btn btn-o btn-sm" id="resendVerifyBtn">Resend email</button>
     </div>
     <div class="profile-menu">
-      <button class="pm-btn" onclick="closeProfile();showPage('favs');loadFavourites()"><span class="pm-icon">❤️</span>My Favourites</button>
-      <button class="pm-btn" onclick="closeProfile();showPage('admin');switchAdminSub('shops')"><span class="pm-icon">🏪</span>My Shops</button>
-      <button class="pm-btn" onclick="closeProfile();showPage('admin');switchAdminSub('account')"><span class="pm-icon">⚙️</span>Account Settings</button>
+      <button class="pm-btn" onclick="closeProfile();showPage('favs');loadFavourites()"><span class="pm-icon">FV</span>My Favourites</button>
+      <button class="pm-btn" onclick="closeProfile();showPage('admin');switchAdminSub('shops')"><span class="pm-icon">SH</span>Shops</button>
+      <button class="pm-btn" onclick="closeProfile();showPage('admin');switchAdminSub('account')"><span class="pm-icon">AC</span>Account Settings</button>
       <hr class="pm-sep"/>
-      <button class="pm-btn danger" id="profileLogoutBtn"><span class="pm-icon">🚪</span>Sign Out</button>
+      <button class="pm-btn danger" id="profileLogoutBtn"><span class="pm-icon">OUT</span>Sign Out</button>
     </div>
   </div>
 </div>
 
 <div id="pdBg" class="pd-bg">
   <div class="pd-box">
-    <button id="pdClose" class="pd-close">✕</button>
+    <button id="pdClose" class="pd-close">×</button>
     <div class="pd-gallery">
       <div id="pdImgArea" class="pd-img-area"><div class="pd-nophoto">📦</div></div>
       <div id="pdThumbs" class="pd-thumbs"></div>
     </div>
     <div class="pd-info">
-      <div id="pdShopLnk" class="pd-shop-lnk" style="display:none">🏪 <span id="pdShopLnkName"></span></div>
+      <div id="pdShopLnk" class="pd-shop-lnk" style="display:none">Shop <span id="pdShopLnkName"></span></div>
       <div id="pdPid" class="pd-pid"></div>
       <div id="pdName" class="pd-name"></div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -1040,10 +1286,10 @@ a{color:inherit;text-decoration:none}
         <div class="share-row"><input id="shareInp" class="share-inp" readonly/><button id="shareBtn" class="btn btn-o btn-sm">Copy</button></div>
       </div>
       <div class="pd-actions">
-        <button id="pdCartBtn" class="btn btn-A">🛒 Add to Cart</button>
-        <button id="pdFavBtn" class="btn btn-o">🤍 Save</button>
-        <button id="pdChatBtn" class="btn btn-o">💬 Ask Shop Assistant</button>
-        <button id="pdEditBtn" class="btn btn-g btn-sm" style="display:none">✏️ Edit</button>
+        <button id="pdCartBtn" class="btn btn-A">Add to Cart</button>
+        <button id="pdFavBtn" class="btn btn-o">Save</button>
+        <button id="pdChatBtn" class="btn btn-o">Ask Shop Assistant</button>
+        <button id="pdEditBtn" class="btn btn-g btn-sm" style="display:none">Edit</button>
       </div>
       <hr class="pd-hr"/>
       <div class="pd-lbl">Customer Reviews</div>
@@ -1063,8 +1309,8 @@ a{color:inherit;text-decoration:none}
 
 <div id="cartBg" class="cart-bg">
   <div class="cart-panel">
-    <div class="cart-head"><div class="cart-title">🛒 Your Cart</div><button id="cartClose" class="btn btn-g btn-sm">✕</button></div>
-    <div id="cartList" class="cart-list"><div class="cart-empty"><div class="ei">🛒</div><div>Cart is empty</div></div></div>
+    <div class="cart-head"><div class="cart-title">Your Cart</div><button id="cartClose" class="btn btn-g btn-sm">×</button></div>
+    <div id="cartList" class="cart-list"><div class="cart-empty"><div class="ei">Cart</div><div>Cart is empty</div></div></div>
     <div class="cart-foot">
       <div class="cart-tot-row"><span class="cart-tot-lbl">Total</span><span id="cartTotal" class="cart-tot-val">—</span></div>
       <button id="cartCheckout" class="btn btn-A" style="width:100%;justify-content:center">Checkout (coming soon)</button>
@@ -1073,7 +1319,7 @@ a{color:inherit;text-decoration:none}
   </div>
 </div>
 
-<div id="lboxBg" class="lbox-bg"><button id="lboxClose" class="lbox-x">✕</button><img id="lboxImg" src="" alt=""/></div>
+<div id="lboxBg" class="lbox-bg"><button id="lboxClose" class="lbox-x">×</button><img id="lboxImg" src="" alt=""/></div>
 <div id="toastStack" class="toast-stack"></div>
 
 <script>
@@ -1095,6 +1341,7 @@ const App = {
   srchPage: 1,
   activeCat: '',
   adminProducts: [],
+  recoveryToken: '',
 };
 const $=id=>document.getElementById(id);
 const norm=u=>(u||'').trim().replace(/\/$/,'');
@@ -1192,6 +1439,8 @@ function openAuthModal(tab='login'){
 }
 function closeAuthModal(){$('authBg').classList.remove('on');document.body.style.overflow='';}
 function switchAuthTab(tab){
+  $('authModalTitle').textContent=tab==='register'?'Create Account':tab==='forgot'?'Reset Password':tab==='reset'?'Choose a New Password':'Sign In';
+  $('authBg').querySelector('.auth-tabs').style.display=tab==='reset'?'none':'flex';
   $('authBg').querySelectorAll('.auth-tab').forEach(b=>b.classList.toggle('on',b.dataset.atab===tab));
   $('authBg').querySelectorAll('.auth-panel').forEach(p=>p.classList.toggle('on',p.id===`atab-${tab}`));
 }
@@ -1212,24 +1461,30 @@ function renderUserUI(){
   if(u){
     const safeEmail=u.email||'';
     const safeName=u.display_name||safeEmail.split('@')[0]||'Guest';
-    $('profileIcon').textContent=u.display_name?u.display_name[0].toUpperCase():'👤';
+    $('profileIcon').textContent=u.display_name?u.display_name[0].toUpperCase():'U';
     $('profileLbl').textContent=u.display_name||'Me';
     $('profileName').textContent=safeName;
     $('profileEmail').textContent=safeEmail;
-    $('profileAvatar').textContent=u.display_name?u.display_name[0].toUpperCase():'👤';
+    $('profileAvatar').textContent=u.display_name?u.display_name[0].toUpperCase():'U';
     $('profileVerifyWarn').style.display=u.email_verified?'none':'flex';
     $('authBadge').textContent=u.display_name||safeEmail||'Signed in';
     $('authBadge').className='badge g';
+    $('adminAuthFields').style.display='none';
+    $('adminGuestActions').style.display='none';
+    $('adminUserActions').style.display='flex';
     setS('authStatus',safeEmail?`Logged in as ${safeEmail}`:'Signed in','ok');
   }else{
-    $('profileIcon').textContent='👤';
+    $('profileIcon').textContent='U';
     $('profileLbl').textContent='Account';
     $('profileName').textContent='Guest';
     $('profileEmail').textContent='';
-    $('profileAvatar').textContent='👤';
+    $('profileAvatar').textContent='U';
     $('profileVerifyWarn').style.display='none';
     $('authBadge').textContent='Not logged in';
     $('authBadge').className='badge y';
+    $('adminAuthFields').style.display='grid';
+    $('adminGuestActions').style.display='flex';
+    $('adminUserActions').style.display='none';
     setS('authStatus','');
   }
 }
@@ -1247,22 +1502,37 @@ $('resendVerifyBtn').addEventListener('click',async()=>{
 
 async function doLogin(){
   const email=$('loginEmail').value.trim(),pw=$('loginPass').value.trim();
-  try{setS('loginStatus','Signing in…');const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});saveUser(d);closeAuthModal();toast('Welcome back!',d.display_name||d.email);await loadMyShops();}
+  try{setS('loginStatus','Signing in...');const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});saveUser(d);closeAuthModal();toast('Welcome back!',d.display_name||d.email);await loadMyShops();}
   catch(e){setS('loginStatus',e.message,'err');}
 }
 async function doRegister(){
   const email=$('regEmail').value.trim(),pw=$('regPass').value.trim(),name=$('regName').value.trim();
   try{
-    setS('regStatus','Creating account…');
+    setS('regStatus','Creating account...');
     await api('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw,display_name:name})});
-    closeAuthModal();
-    toast('Account created 🎉','Check your email to verify your account.');
+    setS('regStatus','Account created. Check your email for the verification link.','ok');
+    toast('Account created','Check your email to verify your account.');
   }catch(e){setS('regStatus',e.message,'err');}
 }
 async function doForgot(){
   const email=$('forgotEmail').value.trim();
-  try{setS('forgotStatus','Sending…');await api('/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});setS('forgotStatus','Reset link sent! Check your email.','ok');}
+  try{setS('forgotStatus','Sending...');await api('/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});setS('forgotStatus','Reset link sent. Check your email.','ok');}
   catch(e){setS('forgotStatus',e.message,'err');}
+}
+async function doResetPassword(){
+  const pw=$('resetPass').value.trim(),pw2=$('resetPass2').value.trim();
+  if(!App.recoveryToken) return setS('resetStatus','This reset link is no longer active. Request a new one.','err');
+  if(pw.length<8) return setS('resetStatus','Use at least 8 characters for the new password.','err');
+  if(pw!==pw2) return setS('resetStatus','Passwords do not match.','err');
+  try{
+    setS('resetStatus','Updating password...');
+    await api('/auth/update-password',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${App.recoveryToken}`},body:JSON.stringify({password:pw})});
+    App.recoveryToken='';
+    $('resetPass').value='';$('resetPass2').value='';
+    setS('resetStatus','Password updated. You can sign in now.','ok');
+    switchAuthTab('login');
+    toast('Password updated','Sign in with your new password.');
+  }catch(e){setS('resetStatus',e.message,'err');}
 }
 async function doLogout(){
   closeProfile();
@@ -1272,18 +1542,28 @@ async function doLogout(){
 $('loginSubmitBtn').addEventListener('click',doLogin);
 $('regSubmitBtn').addEventListener('click',doRegister);
 $('forgotSubmitBtn').addEventListener('click',doForgot);
+$('forgotLinkBtn').addEventListener('click',()=>{
+  $('forgotEmail').value=$('loginEmail').value.trim();
+  switchAuthTab('forgot');
+});
+$('backToLoginBtn').addEventListener('click',()=>switchAuthTab('login'));
+$('resetSubmitBtn').addEventListener('click',doResetPassword);
 $('adminLoginBtn').addEventListener('click',async()=>{
   const email=$('authEmail').value.trim(),pw=$('authPass').value.trim();
-  try{setS('authStatus','Signing in…');const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});saveUser(d);setS('authStatus',`Welcome, ${d.display_name||d.email}!`,'ok');toast('Logged in ✓');await loadMyShops();}catch(e){setS('authStatus',e.message,'err');}
+  try{setS('authStatus','Signing in...');const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});saveUser(d);setS('authStatus',`Welcome, ${d.display_name||d.email}!`,'ok');toast('Logged in');await loadMyShops();}catch(e){setS('authStatus',e.message,'err');}
 });
 $('adminRegisterBtn').addEventListener('click',async()=>{
   const email=$('authEmail').value.trim(),pw=$('authPass').value.trim();
   try{
-    setS('authStatus','Registering…');
+    setS('authStatus','Registering...');
     await api('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw,display_name:''})});
-    setS('authStatus',`Registered! Check email to verify.`,'ok');
-    toast('Account created 🎉', 'Check your email to verify.');
+    setS('authStatus','Registered. Check email to verify.','ok');
+    toast('Account created', 'Check your email to verify.');
   }catch(e){setS('authStatus',e.message,'err');}
+});
+$('adminForgotBtn').addEventListener('click',()=>{
+  $('forgotEmail').value=$('authEmail').value.trim();
+  openAuthModal('forgot');
 });
 $('adminLogoutBtn').addEventListener('click',async()=>{
   try{await api('/auth/logout',{method:'POST',auth:true});}catch{}
@@ -1337,6 +1617,35 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
   const stMap={in:'In Stock',low:'Low Stock',out:'Out of Stock'};
   const st=p.stock||'in';
   const isFav=!!(p.is_favourite);
+  const desc=p.overview?esc(p.overview):'Add a sharper description so customers and chat both understand this product better.';
+
+  if(mode==='admin'){
+    const art=document.createElement('article');art.className='admin-pc';
+    art.innerHTML=`
+      <div class="admin-pc-photo">
+        ${main?`<img src="${esc(main)}" alt="${esc(p.name)}" loading="lazy"/>`:`<div class="pc-nophoto">📦</div>`}
+        <div class="admin-pc-badge">${esc(stMap[st]||'In Stock')}</div>
+        <div class="admin-pc-count">${n?`${n} image${n===1?'':'s'}`:'No images'}</div>
+      </div>
+      <div class="admin-pc-body">
+        <div class="admin-pc-head">
+          <div class="admin-pc-name">${esc(p.name)}</div>
+          ${p.price?`<div class="admin-pc-price">${esc(p.price)}</div>`:`<div class="admin-pc-noprice">Price needed</div>`}
+        </div>
+        <div class="admin-pc-meta">
+          <div class="admin-pc-chip">${esc(p.product_id||'No ID')}</div>
+          <div class="admin-pc-chip">${n?`Photos ${n}`:'Add Photos'}</div>
+          ${(p.avg_rating>0)?`<div class="admin-pc-chip">Rating ${p.avg_rating.toFixed(1)}${p.review_count?` (${p.review_count})`:''}</div>`:`<div class="admin-pc-chip">No Reviews</div>`}
+        </div>
+        <div class="admin-pc-desc">${desc}</div>
+        <div class="admin-pc-actions">
+          <div class="admin-pc-link">Open and edit product</div>
+          <div class="admin-pc-edit">Manage</div>
+        </div>
+      </div>`;
+    art.addEventListener('click',()=>openPD(p,mode,shopId,shopName));
+    return art;
+  }
 
   const art=document.createElement('article');art.className='pc';
   art.innerHTML=`
@@ -1366,8 +1675,8 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
     if(!App.user){openAuthModal('login');toast('Sign in to save favourites','','err');return;}
     try{
       const d=await api(`/customer/favourite/${encodeURIComponent(shopId)}/${encodeURIComponent(p.product_id)}`,{method:'POST',auth:true});
-      favBtn.innerHTML=d.saved?'❤️':'🤍';favBtn.classList.toggle('saved',d.saved);
-      toast(d.saved?'Saved ❤️':'Removed from favourites');
+      favBtn.innerHTML=d.saved?'Saved':'Save';favBtn.classList.toggle('saved',d.saved);
+      toast(d.saved?'Saved':'Removed from favourites');
     }catch(e2){toast('Error',e2.message,'err');}
   });
   art.addEventListener('click',()=>openPD(p,mode,shopId,shopName));
@@ -1446,10 +1755,10 @@ async function openPD(p,mode,sid,sname){
   $('pdChatBtn').onclick=()=>{closePD();openChatFor(App.curSid,App.curSname,`Tell me about ${p.name}`);};
 
   const favBtn=$('pdFavBtn');
-  favBtn.textContent=p.is_favourite?'❤️ Saved':'🤍 Save';
+  favBtn.textContent=p.is_favourite?'Saved':'Save';
   favBtn.onclick=async()=>{
     if(!App.user){openAuthModal('login');return;}
-    try{const d=await api(`/customer/favourite/${encodeURIComponent(App.curSid)}/${encodeURIComponent(p.product_id)}`,{method:'POST',auth:true});favBtn.textContent=d.saved?'❤️ Saved':'🤍 Save';toast(d.saved?'Saved':'Removed');}
+    try{const d=await api(`/customer/favourite/${encodeURIComponent(App.curSid)}/${encodeURIComponent(p.product_id)}`,{method:'POST',auth:true});favBtn.textContent=d.saved?'Saved':'Save';toast(d.saved?'Saved':'Removed');}
     catch(e2){toast('Error',e2.message,'err');}
   };
 
@@ -1843,6 +2152,51 @@ function showShopManagerView(view){
   document.querySelectorAll('[data-shop-view]').forEach(el=>el.classList.toggle('on',el.dataset.shopView===view));
 }
 
+function setBtnBusy(id,busy,label='Working...'){
+  const btn=$(id);
+  if(!btn) return;
+  if(busy){
+    if(!btn.dataset.label) btn.dataset.label=btn.textContent;
+    btn.textContent=label;
+    btn.disabled=true;
+  }else{
+    if(btn.dataset.label) btn.textContent=btn.dataset.label;
+    btn.disabled=false;
+  }
+}
+
+function setFieldHint(id,msg,type=''){
+  const el=$(id);
+  if(!el) return;
+  el.textContent=msg||'';
+  el.className=`stxt${type?` ${type}`:''}`;
+}
+
+function syncProductEditorState(mode='create'){
+  const isEdit=mode==='edit';
+  if($('productFormTitle')) $('productFormTitle').textContent=isEdit?'Edit product':'Add a product';
+  if($('deleteProdBtn')) $('deleteProdBtn').style.display=isEdit?'':'none';
+  if($('clearProdBtn')) $('clearProdBtn').textContent=isEdit?'Reset Form':'Clear';
+}
+
+function validateShopForm(){
+  const name=$('shopName').value.trim();
+  const address=$('shopAddress').value.trim();
+  const category=$('shopCat').value.trim();
+  if(!name) return 'Enter a shop name customers will recognize.';
+  if(!address) return 'Enter the shop address customers should visit.';
+  if(!category) return 'Select the category that best matches this shop.';
+  return '';
+}
+
+function validateProductForm(){
+  const name=$('prodName').value.trim();
+  const price=$('prodPrice').value.trim();
+  if(!name) return 'Enter a product name customers can search for.';
+  if(!price) return 'Enter a product price.';
+  return '';
+}
+
 function resetShopForm(){
   ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp'].forEach(id=>$(id).value='');
   $('shopCat').value='';
@@ -1872,6 +2226,7 @@ function openCreateShopView(){
   $('saveShopBtn').style.display='none';
   $('deleteShopBtn').style.display='none';
   $('rebuildKbBtn').style.display='none';
+  setFieldHint('shopStatus','Start with the public details customers will see on the shop page.','');
   switchAdminSub('shops');
   showShopManagerView('shopform');
   $('shopName')?.focus();
@@ -1885,6 +2240,7 @@ function openEditShopView(){
   $('saveShopBtn').style.display='';
   $('deleteShopBtn').style.display='';
   $('rebuildKbBtn').style.display='';
+  setFieldHint('shopStatus','Update the public details, then save to refresh the storefront.','');
   switchAdminSub('shops');
   showShopManagerView('shopform');
 }
@@ -1894,24 +2250,26 @@ function openProductForm(product=null){
   switchAdminSub('shops');
   showShopManagerView('productform');
   if(product){
-    $('productFormTitle').textContent='Edit product';
+    syncProductEditorState('edit');
     loadProdIntoEditor(product, {skipView:true});
   }else{
-    $('productFormTitle').textContent='Add a product';
+    syncProductEditorState('create');
     clearProdForm();
+    setFieldHint('productStatus','Add the product details customers should see in the shop and chat.','');
     $('prodName')?.focus();
   }
 }
 
 async function loadMyShops(){
-  if(!tok()){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">🔐</div><div class="et">Login first</div></div>`;return;}
+  if(!tok()){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Login</div><div class="et">Sign in first to manage your shops.</div></div>`;setFieldHint('myShopsStatus','Sign in to create or manage shops.','');return;}
   try{
     const d=await api('/admin/my-shops',{auth:true});
     const shops=d.shops||[];
     App.adminShops=shops;
     const grid=$('ownerShopGrid');grid.innerHTML='';
     if(!shops.length){
-      grid.innerHTML=`<div class="card"><div class="card-body"><div class="empty"><div class="ei">🏪</div><div class="et">No shops yet. Create your first shop to start listing products.</div><button class="btn btn-A btn-sm empty-action" id="createFirstShopBtn">+ Create Shop</button></div></div></div>`;
+      grid.innerHTML=`<div class="card"><div class="card-body"><div class="empty"><div class="ei">Shop</div><div class="et">No shops yet. Create your first shop, then start adding products under it.</div><button class="btn btn-A btn-sm empty-action" id="createFirstShopBtn">+ Create Shop</button></div></div></div>`;
+      setFieldHint('myShopsStatus','You do not have a shop yet.','');
       $('createFirstShopBtn')?.addEventListener('click',openCreateShopView);
       return;
     }
@@ -1923,7 +2281,8 @@ async function loadMyShops(){
       card.addEventListener('click',()=>loadAdminShop(s.shop_id));
       grid.appendChild(card);
     });
-  }catch(e){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">⚠️</div><div class="et">${esc(e.message)}</div></div>`;}
+    setFieldHint('myShopsStatus',`${shops.length} shop${shops.length===1?'':'s'} ready to manage.`,'ok');
+  }catch(e){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Error</div><div class="et">${esc(e.message)}</div></div>`;setFieldHint('myShopsStatus','Could not load your shops.','err');}
 }
 $('refreshMyShops').addEventListener('click',loadMyShops);
 App.adminShopId=null;
@@ -1945,6 +2304,16 @@ function refreshWorkspaceHeader(shop=null,stats={}){
   if($('ownerDetailName')) $('ownerDetailName').textContent=shop?.name||'Shop Name';
   if($('ownerDetailMeta')) $('ownerDetailMeta').textContent=shop ? `${shop.address||'No address yet'}${shop.category?` · ${shop.category}`:''}${shop.hours?` · ${shop.hours}`:''}` : 'Address · Category';
   if($('ownerDetailOverview')) $('ownerDetailOverview').textContent=shop?.overview||'Add a stronger shop overview so customers and the chatbot both have better context.';
+  if($('ownerDetailTags')){
+    const tags = shop
+      ? [
+          shop.category||'General',
+          `${stats.product_count??0} products`,
+          shop.whatsapp||shop.phone ? 'Contact Ready' : 'Add Contact Details'
+        ]
+      : ['Storefront','Products','Chat Ready'];
+    $('ownerDetailTags').innerHTML = tags.map(t=>`<div class="owner-detail-tag">${esc(t)}</div>`).join('');
+  }
 }
 
 async function loadAdminShop(shopId){
@@ -1960,6 +2329,7 @@ async function loadAdminShop(shopId){
     App.adminProducts=d.data.products||[];
     refreshWorkspaceHeader(s,st);
     renderAdminProds(App.adminProducts);
+    setFieldHint('myShopsStatus',`Opened ${s.name||shopId}.`,'ok');
     setS('shopStatus',`Loaded ${shopId}`,'ok');
     switchAdminSub('shops');
     showShopManagerView('detail');
@@ -1972,7 +2342,7 @@ function renderAdminProds(prods){
   const n=filtered.length;$('adminPBadge').textContent=`${n}`;
   const g=$('adminPGrid');g.innerHTML='';
   if(!n){
-    g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">📦</div><div class="et">${q?'No matching products in this shop.':'No products yet for this shop.'}</div><button class="btn btn-A btn-sm empty-action" id="emptyNewProdBtn">+ Add Product</button></div>`;
+    g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Products</div><div class="et">${q?'No matching products in this shop.':'No products yet for this shop. Add your first product to make the storefront feel complete.'}</div><button class="btn btn-A btn-sm empty-action" id="emptyNewProdBtn">+ Add Product</button></div>`;
     $('emptyNewProdBtn')?.addEventListener('click',()=>openProductForm());
     return;
   }
@@ -1980,26 +2350,66 @@ function renderAdminProds(prods){
 }
 async function createShop(){
   if(!tok())return toast('Login required','','err');
+  const formErr=validateShopForm();
+  if(formErr){setS('shopStatus',formErr,'err');return toast('Shop details missing',formErr,'err');}
   const payload={shop_id:$('shopId').value.trim()||null,shop:{name:$('shopName').value.trim(),address:$('shopAddress').value.trim(),overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:$('shopHours').value.trim(),category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim()}};
-  try{setS('shopStatus','Creating…');const d=await api('/admin/create-shop',{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});toast('Shop created 🎉',d.shop_id);setS('shopStatus',`Created: ${d.shop_id}`,'ok');await loadMyShops();await loadAdminShop(d.shop_id);await loadAllShops();}catch(e){setS('shopStatus',e.message,'err');toast('Create failed',e.message,'err');}
+  try{
+    setBtnBusy('createShopBtn',true,'Creating...');
+    setS('shopStatus','Creating your shop...');
+    const d=await api('/admin/create-shop',{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    toast('Shop created',d.shop_id);
+    setS('shopStatus',`Shop created successfully as ${d.shop_id}.`,'ok');
+    await loadMyShops();
+    await loadAdminShop(d.shop_id);
+    await loadAllShops();
+  }catch(e){
+    setS('shopStatus',e.message,'err');
+    toast('Create failed',e.message,'err');
+  }finally{
+    setBtnBusy('createShopBtn',false);
+  }
 }
 async function saveShop(){
   if(!tok())return toast('Login required','','err');
   const shopId=$('shopId').value.trim();if(!shopId)return toast('No shop loaded','','err');
+  const formErr=validateShopForm();
+  if(formErr){setS('shopStatus',formErr,'err');return toast('Shop details missing',formErr,'err');}
   const payload={name:$('shopName').value.trim(),address:$('shopAddress').value.trim(),overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:$('shopHours').value.trim(),category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim()};
-  try{setS('shopStatus','Saving…');await api(`/admin/shop/${encodeURIComponent(shopId)}`,{method:'PUT',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});toast('Saved ✓');setS('shopStatus','Saved.','ok');await loadMyShops();await loadAllShops();await loadAdminShop(shopId);}catch(e){setS('shopStatus',e.message,'err');toast('Save failed',e.message,'err');}
+  try{
+    setBtnBusy('saveShopBtn',true,'Saving...');
+    setS('shopStatus','Saving shop changes...');
+    await api(`/admin/shop/${encodeURIComponent(shopId)}`,{method:'PUT',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    toast('Saved');
+    setS('shopStatus','Shop details saved successfully.','ok');
+    await loadMyShops();
+    await loadAllShops();
+    await loadAdminShop(shopId);
+  }catch(e){
+    setS('shopStatus',e.message,'err');
+    toast('Save failed',e.message,'err');
+  }finally{
+    setBtnBusy('saveShopBtn',false);
+  }
 }
 async function deleteShop(){
   if(!tok())return toast('Login required','','err');
   const shopId=$('shopId').value.trim();if(!shopId)return toast('No shop loaded','','err');
-  if(!confirm(`Permanently delete shop "${shopId}" and ALL its products?`))return;
+  const shopName=$('shopName').value.trim()||shopId;
+  if(!confirm(`Delete "${shopName}" and all of its products? This cannot be undone.`))return;
   try{await api(`/admin/shop/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});toast('Shop deleted',shopId);setS('shopStatus','');$('shopStats').style.display='none';App.adminShopId=null;App.adminShopData=null;App.adminProducts=[];refreshWorkspaceHeader();renderAdminProds([]);clearProdForm();await loadMyShops();await loadAllShops();switchAdminSub('shops');showShopManagerView('landing');}catch(e){setS('shopStatus',e.message,'err');toast('Delete failed',e.message,'err');}
 }
 $('ownerCreateShopBtn').addEventListener('click',openCreateShopView);
 $('detailBackBtn').addEventListener('click',()=>showShopManagerView('landing'));
 $('detailEditShopBtn').addEventListener('click',openEditShopView);
 $('detailAddProductBtn').addEventListener('click',()=>openProductForm());
+$('detailEditShopBtnSide').addEventListener('click',openEditShopView);
+$('detailAddProductBtnSide').addEventListener('click',()=>openProductForm());
 $('detailOpenLiveShopBtn').addEventListener('click',()=>{
+  const shopId=App.adminShopId||$('shopId').value.trim();
+  if(!shopId)return toast('Load a shop first','','err');
+  openShopPage(shopId);
+});
+$('detailOpenLiveShopBtnSide').addEventListener('click',()=>{
   const shopId=App.adminShopId||$('shopId').value.trim();
   if(!shopId)return toast('Load a shop first','','err');
   openShopPage(shopId);
@@ -2011,8 +2421,18 @@ $('saveShopBtn').addEventListener('click',saveShop);
 $('deleteShopBtn').addEventListener('click',deleteShop);
 $('rebuildKbBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a shop first','','err');
-  try{setS('shopStatus','Rebuilding…');await api(`/admin/shop/${encodeURIComponent(shopId)}/rebuild-kb`,{method:'POST',auth:true});setS('shopStatus','Rebuilt ✓','ok');toast('KB rebuilt ✓');}
-  catch(e){setS('shopStatus',e.message,'err');toast('Rebuild failed',e.message,'err');}
+  try{
+    setBtnBusy('rebuildKbBtn',true,'Rebuilding...');
+    setS('shopStatus','Refreshing shop knowledge for chat...');
+    await api(`/admin/shop/${encodeURIComponent(shopId)}/rebuild-kb`,{method:'POST',auth:true});
+    setS('shopStatus','Knowledge base rebuilt successfully.','ok');
+    toast('KB rebuilt');
+  }catch(e){
+    setS('shopStatus',e.message,'err');
+    toast('Rebuild failed',e.message,'err');
+  }finally{
+    setBtnBusy('rebuildKbBtn',false);
+  }
 });
 
 /* ── Product editor ── */
@@ -2020,7 +2440,7 @@ function loadProdIntoEditor(p,{skipView=false}={}){
   $('prodId').value=p.product_id||'';$('prodName').value=p.name||'';$('prodPrice').value=p.price||'';
   $('prodOverview').value=p.overview||'';$('prodStock').value=p.stock||'in';$('prodVariants').value=p.variants||'';
   $('prodFiles').value='';renderFilePrev([]);
-  $('productFormTitle').textContent='Edit product';
+  syncProductEditorState('edit');
   const imgs=(p.images||[]).map(absUrl).filter(Boolean);
   const mgr=$('existImgsMgr'),wrap=$('existImgsWrap');mgr.innerHTML='';
   if(imgs.length){wrap.style.display='block';imgs.forEach(url=>{const item=document.createElement('div');item.className='img-mg-item';item.innerHTML=`<img src="${esc(url)}" alt=""/><button class="img-mg-del">✕</button>`;item.querySelector('.img-mg-del').addEventListener('click',async()=>{const sid=$('shopId').value.trim(),pid=$('prodId').value.trim();if(!sid||!pid)return;try{await api(`/admin/shop/${encodeURIComponent(sid)}/product/${encodeURIComponent(pid)}/image?image_path=${encodeURIComponent(url)}`,{method:'DELETE',auth:true});item.remove();toast('Image removed ✓');}catch(e){toast('Remove failed',e.message,'err');}});mgr.appendChild(item);});}
@@ -2028,27 +2448,51 @@ function loadProdIntoEditor(p,{skipView=false}={}){
   setS('productStatus',`Editing: ${p.name}`,'ok');
   if(!skipView){switchAdminSub('shops');showShopManagerView('productform');$('prodId').scrollIntoView({behavior:'smooth',block:'center'});}
 }
-function clearProdForm(){['prodId','prodName','prodPrice','prodOverview','prodVariants'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);$('productFormTitle').textContent='Add a product';setS('productStatus','');}
+function clearProdForm(){['prodId','prodName','prodPrice','prodOverview','prodVariants'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');setS('productStatus','');}
 function renderFilePrev(files){const g=$('filePreview');g.innerHTML='';if(!files?.length){g.innerHTML=`<div style="font-size:11px;color:var(--ink4)">No files selected</div>`;return;}Array.from(files).forEach(f=>{const r=new FileReader();r.onload=()=>{const d=document.createElement('div');d.className='prev-item';d.innerHTML=`<img src="${r.result}" alt=""/>`;g.appendChild(d);};r.readAsDataURL(f);});}
 async function saveProd(){
   if(!tok())return toast('Login required','','err');
   const shopId=$('shopId').value.trim(),name=$('prodName').value.trim(),price=$('prodPrice').value.trim(),overview=$('prodOverview').value.trim();
   let pid=$('prodId').value.trim();
-  if(!shopId||!name)return toast('Missing fields','Load a shop and enter at least a product name.','err');
+  if(!shopId)return toast('Load a shop first','','err');
+  const formErr=validateProductForm();
+  if(formErr){setS('productStatus',formErr,'err');return toast('Product details missing',formErr,'err');}
   if(!pid){pid=slugify(name);$('prodId').value=pid;}
   const files=$('prodFiles').files,stock=$('prodStock').value,variants=$('prodVariants').value;
-  try{setS('productStatus',files.length?'Uploading…':'Saving…');
+  try{
+    setBtnBusy('saveProdBtn',true,files.length?'Uploading...':'Saving...');
+    setS('productStatus',files.length?'Uploading product images and saving details...':'Saving product details...');
     if(files.length){const form=new FormData();form.append('product_id',pid);form.append('name',name);form.append('overview',overview);form.append('price',price);form.append('stock',stock);form.append('variants',variants);[...files].forEach(f=>form.append('images',f));await api(`/admin/shop/${encodeURIComponent(shopId)}/product-with-images`,{method:'POST',auth:true,body:form});}
     else{await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid,name,price,overview,stock,variants,images:[]})});}
-    toast('Product saved ✓',name);setS('productStatus','Saved.','ok');$('prodFiles').value='';renderFilePrev([]);await loadAdminShop(shopId);showShopManagerView('detail');}
-  catch(e){setS('productStatus',e.message,'err');toast('Save failed',e.message,'err');}
+    toast('Product saved',name);
+    setS('productStatus',`Product "${name}" saved successfully.`,'ok');
+    $('prodFiles').value='';
+    renderFilePrev([]);
+    await loadAdminShop(shopId);
+    showShopManagerView('detail');
+  }catch(e){
+    setS('productStatus',e.message,'err');
+    toast('Save failed',e.message,'err');
+  }finally{
+    setBtnBusy('saveProdBtn',false);
+  }
 }
 async function deleteProd(){
   if(!tok())return toast('Login required','','err');
   const shopId=$('shopId').value.trim(),pid=$('prodId').value.trim();if(!shopId||!pid)return;
-  if(!confirm(`Delete product "${pid}"?`))return;
-  try{await api(`/admin/shop/${encodeURIComponent(shopId)}/product/${encodeURIComponent(pid)}`,{method:'DELETE',auth:true});toast('Deleted',pid);setS('productStatus','Deleted.','ok');clearProdForm();await loadAdminShop(shopId);showShopManagerView('detail');}
+  const prodName=$('prodName').value.trim()||pid;
+  if(!confirm(`Delete "${prodName}" from this shop? This cannot be undone.`))return;
+  try{
+    setBtnBusy('deleteProdBtn',true,'Deleting...');
+    await api(`/admin/shop/${encodeURIComponent(shopId)}/product/${encodeURIComponent(pid)}`,{method:'DELETE',auth:true});
+    toast('Deleted',pid);
+    setS('productStatus','Product deleted successfully.','ok');
+    clearProdForm();
+    await loadAdminShop(shopId);
+    showShopManagerView('detail');
+  }
   catch(e){setS('productStatus',e.message,'err');toast('Delete failed',e.message,'err');}
+  finally{setBtnBusy('deleteProdBtn',false);}
 }
 $('saveProdBtn').addEventListener('click',saveProd);
 $('deleteProdBtn').addEventListener('click',deleteProd);
@@ -2063,8 +2507,10 @@ async function loadAnalytics(){
   try{const d=await api(`/admin/shop/${encodeURIComponent(shopId)}/analytics?days=${days}`,{auth:true});
     const t=d.totals||{};$('anGrid').innerHTML=[['💬','Chat questions',t.chat||0],['👁','Shop views',t.shop_view||0],['📦','Product views',t.view||0],['📊','Total',(t.chat||0)+(t.shop_view||0)+(t.view||0)]].map(([i,l,v])=>`<div class="an-card"><div class="an-icon">${i}</div><div class="an-val">${v}</div><div class="an-lbl">${l}</div></div>`).join('');
     const daily=d.daily_chats||[],mx=Math.max(...daily.map(x=>x.chats),1);
-    $('anBars').innerHTML=daily.map(x=>`<div class="bar-col"><div class="bar-fill${x.chats?' has':''}" style="height:${Math.max(2,Math.round((x.chats/mx)*62))}px" title="${x.date}: ${x.chats}"></div><div class="bar-lbl">${(x.date||'').split(' ')[1]||''}</div></div>`).join('');
-    const tp=d.top_products||[];$('anTop').innerHTML=tp.length?tp.map((p,i)=>`<div class="tp-row"><span class="tp-rank">#${i+1}</span><span class="tp-name">${esc(p.name||p.product_id)}</span><span class="tp-views">${p.views} views</span></div>`).join(''):'<div style="font-size:13px;color:var(--ink3)">No views yet.</div>';
+    const totalChats=daily.reduce((sum,row)=>sum+(row.chats||0),0);
+    if($('anTrendMeta')) $('anTrendMeta').textContent=daily.length?`${totalChats} chats in ${days} days`:'No chat data yet';
+    $('anBars').innerHTML=daily.map(x=>`<div class="bar-col"><div class="bar-fill${x.chats?' has':''}" style="height:${Math.max(8,Math.round((x.chats/mx)*148))}px" title="${x.date}: ${x.chats}"></div><div class="bar-lbl">${(x.date||'').split(' ')[1]||''}</div></div>`).join('');
+    const tp=d.top_products||[];$('anTop').innerHTML=tp.length?tp.map((p,i)=>`<div class="tp-row"><span class="tp-rank">#${i+1}</span><span class="tp-name">${esc(p.name||p.product_id)}</span><span class="tp-views">${p.views} views</span></div>`).join(''):'<div style="font-size:13px;color:var(--ink3)">No product activity yet.</div>';
   }catch{}
 }
 $('refreshAnBtn').addEventListener('click',loadAnalytics);
@@ -2079,10 +2525,14 @@ $('importCsvBtn').addEventListener('click',async()=>{
   if(!rows.length)return toast('CSV is empty','','err');
   const prog=$('csvProg'),bar=$('csvBar'),txt=$('csvTxt');prog.style.display='block';bar.value=0;
   let done=0,failed=0;
+  setBtnBusy('importCsvBtn',true,'Importing...');
+  txt.textContent=`Preparing import for ${rows.length} rows...`;
   for(const row of rows){const vals=row.split(',').map(v=>v.trim().replace(/^"|"$/g,''));const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');
     try{await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||`p${Date.now()}`,name:obj.name||'Unnamed',price:obj.price||'',overview:obj.overview||'',stock:obj.stock||'in',variants:obj.variants||'',images:[]})});done++;}catch{failed++;}
     bar.value=Math.round(((done+failed)/rows.length)*100);txt.textContent=`${done+failed}/${rows.length} (${failed} failed)`;await new Promise(r=>setTimeout(r,100));
   }
+  txt.textContent=`Import complete: ${done} imported, ${failed} failed.`;
+  setBtnBusy('importCsvBtn',false);
   toast(`Import complete`,`${done} imported, ${failed} failed`);await loadAdminShop(shopId);
   setTimeout(()=>prog.style.display='none',3000);
 });
@@ -2106,14 +2556,21 @@ async function handleHashAuth() {
   if (window.location.hash.includes("access_token=")) {
     const params = new URLSearchParams(window.location.hash.substring(1));
     const token = params.get("access_token");
+    const type = params.get("type") || "";
     if (token) {
       window.location.hash = ""; // clear hash from URL
+      if(type === 'recovery'){
+        App.recoveryToken = token;
+        openAuthModal('reset');
+        setS('resetStatus','Choose a new password to finish resetting your account.','');
+        return;
+      }
       App.user = { token: token };
       localStorage.setItem('lm_user', JSON.stringify(App.user));
       try {
         const d = await api('/auth/me', { auth: true });
         saveUser({...d, token});
-        toast('Email verified & logged in!', '', 'ok');
+        toast('Email verified','You are now signed in.','ok');
       } catch(e) {
         clearUser();
       }

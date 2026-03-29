@@ -82,6 +82,9 @@ class LoginReq(BaseModel):
 class ForgotPasswordReq(BaseModel):
     email: str
 
+class ResetPasswordReq(BaseModel):
+    password: str
+
 class UpdateProfileReq(BaseModel):
     display_name: str = ""
 
@@ -139,6 +142,29 @@ def require_supabase() -> Client:
     if supabase is None:
         raise HTTPException(503, "Server is missing Supabase configuration.")
     return supabase
+
+def ui_redirect_url() -> str:
+    base = (APP_BASE_URL or "http://localhost:8001").strip().rstrip("/")
+    return base if base.endswith("/ui") else f"{base}/ui"
+
+def supabase_auth_headers(token: Optional[str] = None) -> Dict[str, str]:
+    api_key = SUPABASE_KEY or ""
+    auth_token = token or api_key
+    return {
+        "apikey": api_key,
+        "Authorization": f"Bearer {auth_token}",
+        "Content-Type": "application/json",
+    }
+
+def supabase_auth_post(path: str, payload: Dict[str, Any], token: Optional[str] = None) -> None:
+    url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/{path.lstrip('/')}"
+    res = requests.post(url, headers=supabase_auth_headers(token), json=payload, timeout=20)
+    if res.status_code >= 400:
+        try:
+            detail = res.json().get("msg") or res.json().get("error_description") or res.json().get("message")
+        except Exception:
+            detail = res.text or "Supabase auth request failed"
+        raise HTTPException(400, detail)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # LLM 
@@ -1064,8 +1090,16 @@ def serve_shop_image(shop_id: str, filename: str):
 @app.post("/auth/register")
 def register(body: RegisterReq):
     try:
-        res = supabase.auth.sign_up({"email": body.email, "password": body.password, "options": {"data": {"display_name": body.display_name.strip()}}})
-        return {"ok": True, "message": "Account created! Check your email to verify."}
+        require_supabase()
+        supabase.auth.sign_up({
+            "email": body.email.strip(),
+            "password": body.password,
+            "options": {
+                "data": {"display_name": body.display_name.strip()},
+                "email_redirect_to": ui_redirect_url(),
+            },
+        })
+        return {"ok": True, "message": "Account created. Check your email to verify your address."}
     except Exception as e:
         raise HTTPException(400, str(e))
 
@@ -1102,15 +1136,46 @@ def logout(authorization: Optional[str] = Header(None)): return {"ok": True}
 def resend_verification(authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     if user.email_confirmed_at: return {"ok": True, "message": "Already verified"}
-    try: supabase.auth.resend({"type": "signup", "email": user.email})
-    except Exception: pass
+    try:
+        supabase_auth_post("resend", {
+            "type": "signup",
+            "email": user.email,
+            "options": {"email_redirect_to": ui_redirect_url()},
+        })
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(400, "Could not resend the verification email right now.")
     return {"ok": True, "message": "Verification email sent"}
 
 @app.post("/auth/forgot-password")
 def forgot_password(body: ForgotPasswordReq):
-    try: supabase.auth.reset_password_for_email(body.email.strip(), options={"redirect_to": f"{APP_BASE_URL}/ui"})
-    except Exception: pass
+    try:
+        supabase_auth_post("recover", {
+            "email": body.email.strip(),
+            "redirect_to": ui_redirect_url(),
+        })
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(400, "Could not send the reset link right now.")
     return {"ok": True, "message": "If that email exists, a reset link has been sent."}
+
+@app.post("/auth/update-password")
+def update_password(body: ResetPasswordReq, authorization: Optional[str] = Header(None)):
+    token = bearer(authorization)
+    password = (body.password or "").strip()
+    if len(password) < 8:
+        raise HTTPException(400, "Use at least 8 characters for the new password.")
+    url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/user"
+    res = requests.put(url, headers=supabase_auth_headers(token), json={"password": password}, timeout=20)
+    if res.status_code >= 400:
+        try:
+            detail = res.json().get("msg") or res.json().get("error_description") or res.json().get("message")
+        except Exception:
+            detail = res.text or "Could not update password."
+        raise HTTPException(400, detail)
+    return {"ok": True, "message": "Password updated successfully."}
 
 @app.put("/auth/profile")
 def update_profile(body: UpdateProfileReq, authorization: Optional[str] = Header(None)):
