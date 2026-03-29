@@ -537,7 +537,7 @@ a{color:inherit;text-decoration:none}
         <div class="hero-copy">
           <div class="hero-kicker">Shop Local With AI</div>
           <div class="hero-title">Browse neighborhood shops and ask each one like you are already inside the store.</div>
-          <div class="hero-text">Wave gives every shop its own live assistant, product catalog, and storefront. Search across Atlantica, open a shop, and get direct answers on prices, availability, photos, and what fits your budget.</div>
+          <div class="hero-text">Wave gives every shop its own live assistant, product catalog, and storefront. Search across Atlantica, open a shop, and get direct answers about price, stock, photos, hours, and what fits your budget.</div>
           <div class="hero-actions">
             <button class="btn btn-A" onclick="document.getElementById('shopsSection').scrollIntoView({behavior:'smooth'})">Explore Shops</button>
             <button class="btn btn-o" onclick="showPage('chat')">Open Chat</button>
@@ -545,7 +545,7 @@ a{color:inherit;text-decoration:none}
           <div class="hero-note">
             <span>Real shop-specific answers</span>
             <span>Browse by category</span>
-            <span>Ask budget questions directly</span>
+            <span>Ask direct budget questions</span>
           </div>
         </div>
       </div>
@@ -601,7 +601,7 @@ a{color:inherit;text-decoration:none}
   <div class="shop-header">
     <div class="shop-hdr-inner">
       <div>
-        <div class="shop-hdr-name" id="shopHdrName">Loading...</div>
+        <div class="shop-hdr-name" id="shopHdrName">Loading shop...</div>
         <div class="shop-hdr-chips" id="shopHdrChips"></div>
         <div class="shop-hdr-desc" id="shopHdrDesc"></div>
       </div>
@@ -655,7 +655,7 @@ a{color:inherit;text-decoration:none}
       <div class="chat-topbar">
         <div class="chat-status" style="cursor:pointer" onclick="if(App.shopId)openShopPage(App.shopId)">
           <div id="chatSN" class="chat-sn">No shop selected</div>
-          <div id="chatSM" class="chat-sm">Open a shop and click "Chat with Shop"</div>
+          <div id="chatSM" class="chat-sm">Open a shop to view products and start a conversation</div>
         </div>
         <div class="btn-row" style="margin-left:auto">
           <span id="chatMeta" class="badge">Ready</span>
@@ -678,7 +678,7 @@ a{color:inherit;text-decoration:none}
         <div class="chat-side-card">
           <div class="chat-side-lbl">Assistant Context</div>
           <div class="chat-side-title">Ask like you are already inside the shop.</div>
-          <div class="chat-side-copy">Try direct shopping questions about price, stock, hours, contact details, or the cheapest products in the store.</div>
+          <div class="chat-side-copy">Ask direct shopping questions about price, stock, hours, contact details, product photos, or the cheapest products in the shop.</div>
           <div id="chatShopFacts" class="chat-side-facts">
             <div class="chat-side-fact"><div class="chat-side-fact-k">Status</div><div class="chat-side-fact-v">Open a shop to load live context</div></div>
           </div>
@@ -688,6 +688,8 @@ a{color:inherit;text-decoration:none}
           <div id="chatPromptList" class="chat-prompt-list">
             <button class="chat-prompt" onclick="sendPreset('Show all products')">Show all products</button>
             <button class="chat-prompt" onclick="sendPreset('What products are in stock?')">What's in stock?</button>
+            <button class="chat-prompt" onclick="sendPreset('What are your opening hours?')">Opening hours</button>
+            <button class="chat-prompt" onclick="sendPreset('What do you recommend?')">What do you recommend?</button>
             <button class="chat-prompt" onclick="sendPreset('Do you have anything below 10 dollars?')">Anything below 10 dollars?</button>
           </div>
         </div>
@@ -977,7 +979,7 @@ a{color:inherit;text-decoration:none}
       <div class="pd-actions">
         <button id="pdCartBtn" class="btn btn-A">🛒 Add to Cart</button>
         <button id="pdFavBtn" class="btn btn-o">🤍 Save</button>
-        <button id="pdChatBtn" class="btn btn-o">💬 Ask AI</button>
+        <button id="pdChatBtn" class="btn btn-o">💬 Ask Shop Assistant</button>
         <button id="pdEditBtn" class="btn btn-g btn-sm" style="display:none">✏️ Edit</button>
       </div>
       <hr class="pd-hr"/>
@@ -1470,6 +1472,7 @@ $('lboxBg').addEventListener('click',e=>{if(e.target===$('lboxBg')){$('lboxBg').
 function renderTxt(text){
   const imgExt=/\.(png|jpg|jpeg|webp|gif|jfif)(\?\S*)?$/i;
   let t=text;
+  t=t.replace(/\r\n/g,'\n');
   t=t.replace(/!\[([^\]]*)\]\(((?:https?:\/\/|\/)\S+?)\)/g,(_,_alt,url)=>'\x00IMG:'+url.trim()+'\x00');
   t=t.replace(/(https?:\/\/\S+)/g,url=>imgExt.test(url)?'\x00IMG:'+url.trim()+'\x00':url);
   t=t.replace(/(\/shops\/\S+)/g,path=>imgExt.test(path)?'\x00IMG:'+path.trim()+'\x00':path);
@@ -1477,7 +1480,10 @@ function renderTxt(text){
   let html='';
   parts.forEach((part,i)=>{
     if(i%2===0){
-      html+=esc(part).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/^• /gm,'&bull; ');
+      html+=esc(part)
+        .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+        .replace(/^(?:[-•]) /gm,'&bull; ')
+        .replace(/^([A-Z][A-Za-z ]+):$/gm,'<strong>$1</strong>');
     }else{
       const url=absUrl(part);const eu=esc(url);
       html+=`<br><img src="${eu}" alt="product image" class="inline-img" data-lb="${eu}" loading="lazy" onerror="this.style.display='none'"/>`;
@@ -1570,8 +1576,8 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
   App.shopId=shopId;App.shopPage=page;App.shopSort=sort;App.shopStock=stock;save();
   showPage('shop');
   $('shopBreadName').textContent=shopId;
-  $('shopHdrName').textContent='Loading...';$('shopHdrChips').innerHTML='';$('shopHdrDesc').textContent='';$('shopHdrActions').innerHTML='';
-  $('shopProdGrid').innerHTML=`<div class="empty"><div class="ei">...</div><div class="et">Loading...</div></div>`;
+  $('shopHdrName').textContent='Loading shop...';$('shopHdrChips').innerHTML='';$('shopHdrDesc').textContent='';$('shopHdrActions').innerHTML='';
+  $('shopProdGrid').innerHTML=`<div class="empty"><div class="ei">...</div><div class="et">Loading products...</div></div>`;
   $('shopQchips').innerHTML='';$('shopSrchIn').value='';$('shopSort').value=sort||'';
   document.querySelector('input[name="stk"][value=""]').checked=true;
 
@@ -1616,7 +1622,8 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
     fillGrid($('shopProdGrid'),d.products||[],{mode:'browse',showShop:false});
     buildPagination($('shopPagination'),d.pagination,p=>openShopPage(shopId,p,$('shopSort').value,App.shopStock));
 
-    $('chatSN').textContent=s.name;$('chatSM').textContent=`${s.address||''} ? ${d.pagination?.total ?? d.products?.length ?? 0} products`;
+    const chatSummary=[s.address||'', `${d.pagination?.total ?? d.products?.length ?? 0} products`].filter(Boolean).join(' · ');
+    $('chatSN').textContent=s.name;$('chatSM').textContent=chatSummary || 'Ask about products, pricing, hours, or availability';
     renderCQchips(d.suggested_questions);
     renderChatPromptList(d.suggested_questions);
     renderChatFacts(s,st,d.pagination?.total ?? d.products?.length ?? 0);
@@ -1651,7 +1658,7 @@ function renderChatPromptList(qs){
   const wrap=$('chatPromptList');
   if(!wrap) return;
   wrap.innerHTML='';
-  (qs?.length?qs:['Show all products','What\'s in stock?','Do you have anything below 10 dollars?']).slice(0,4).forEach(q=>{
+  (qs?.length?qs:['Show all products','What\'s in stock?','What do you recommend?','Do you have anything below 10 dollars?']).slice(0,4).forEach(q=>{
     const b=document.createElement('button');
     b.className='chat-prompt';
     b.textContent=q;
@@ -1666,9 +1673,31 @@ function renderChatFacts(shop={},stats={},productCount=0){
     ['Shop',shop.name],
     ['Products',String(productCount||0)],
     ['Hours',shop.hours||'Ask the shop'],
-    ['Address',shop.address||'Location not listed']
+    ['Address',shop.address||'Location not listed'],
+    ['Chat',stats?.chat_hits_30d!=null?`${stats.chat_hits_30d} chats / 30d`:'Ask about products, price, or stock']
   ] : [['Status','Open a shop to load live context']];
   wrap.innerHTML=facts.map(([k,v])=>`<div class="chat-side-fact"><div class="chat-side-fact-k">${esc(k)}</div><div class="chat-side-fact-v">${esc(v)}</div></div>`).join('');
+}
+function buildChatWelcome(sid,sname){
+  const shop=App.shopData?.shop||{};
+  const shopName=sname||shop.name||sid;
+  const bits=[];
+  if(shop.category) bits.push(`${shop.category} shop`);
+  if(shop.address) bits.push(shop.address);
+  const summary=bits.length ? `You are chatting with a ${bits.join(' · ')}.` : 'Ask naturally like you are already in the shop.';
+  const brandNote=shop.overview ? `${shop.overview.slice(0,140)}${shop.overview.length>140?'...':''}` : 'Ask about products, prices, stock, opening hours, or recommendations.';
+  return `Welcome to **${shopName}**.
+
+${summary}
+
+${brandNote}
+
+Good starters:
+- **Show all products**
+- **What's in stock?**
+- **What are your opening hours?**
+- **What do you recommend?**
+- **Do you have anything below 10 dollars?**`;
 }
 function openChatFor(sid,sname,preset){
   App.shopId=sid;save();
@@ -1676,7 +1705,7 @@ function openChatFor(sid,sname,preset){
   showPage('chat');
   if(!App.chatHistory?.length){
     $('chatMsgs').innerHTML='';
-    addMsg(`You are now chatting with **${sname||sid}**.\n\nAsk about products, prices, availability, opening hours, or your budget. Try: **show all products** or **do you have anything below 10 dollars?**`,'assistant');
+    addMsg(buildChatWelcome(sid,sname),'assistant');
   }
   if(preset){$('chatIn').value=preset;sendChatMsg();}
 }
@@ -1685,9 +1714,9 @@ function addMsg(text,role='assistant',loading=false,products=[]){
   const msgs=$('chatMsgs');
   if(msgs.querySelector('.empty'))msgs.innerHTML='';
   const row=document.createElement('div');row.className=`msg ${role}`;
-  const av=document.createElement('div');av.className='msg-av';av.textContent=role==='user'?'👤':'🛍';
+  const av=document.createElement('div');av.className='msg-av';av.textContent=role==='user'?'You':'Shop';
   row.appendChild(av);
-  if(loading){const bub=document.createElement('div');bub.className='bubble thinking';bub.innerHTML=`Thinking <span class="dots"><span></span><span></span><span></span></span>`;row.appendChild(bub);}
+  if(loading){const bub=document.createElement('div');bub.className='bubble thinking';bub.innerHTML=`Thinking... <span class="dots"><span></span><span></span><span></span></span>`;row.appendChild(bub);}
   else{
     const col=document.createElement('div');col.style.cssText='display:flex;flex-direction:column;gap:8px;min-width:0;max-width:min(78%,580px)';
     const bub=document.createElement('div');bub.className='bubble';bub.style.maxWidth='100%';
@@ -1701,7 +1730,7 @@ function addMsg(text,role='assistant',loading=false,products=[]){
 }
 function renderChatSide(prods){
   const g=$('chatSideGrid');g.innerHTML='';
-  if(!prods||!prods.length){g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">✨</div><div class="et">Products appear after you ask.</div></div>`;return;}
+  if(!prods||!prods.length){g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Info</div><div class="et">Products appear after you ask.</div></div>`;return;}
   prods.forEach(p=>g.appendChild(makeCard(p,{mode:'chat',showShop:false})));
 }
 function autoSizeChatInput(){
@@ -1713,7 +1742,7 @@ function autoSizeChatInput(){
 function sendPreset(q){$('chatIn').value=q;sendChatMsg();}
 async function sendChatMsg(){
   const sid=App.shopId,q=$('chatIn').value.trim();
-  if(!sid)return toast('Open a shop first','Go to Home → click a shop → Chat','err');
+  if(!sid)return toast('Open a shop first','Go to Home, open a shop, then tap Chat with Shop.','err');
   if(!q)return;
   $('sendChatBtn').disabled=true;
   addMsg(q,'user');$('chatIn').value='';autoSizeChatInput();
@@ -1725,16 +1754,16 @@ async function sendChatMsg(){
     App.chatHistory.push({q,a:d.answer});
     renderChatSide(prods);
     const m=d.meta||{};
-    $('chatMeta').textContent=m.llm_used?`🤖 ${m.model||'AI'}`:'⚡ Smart Search';
+    $('chatMeta').textContent=m.llm_used?'Shop Assistant':'Quick Answer';
     if(m.suggestions?.length){renderCQchips(m.suggestions);renderChatPromptList(m.suggestions);}
-  }catch(e){lr.remove();addMsg(`Sorry — ${e.message}`,'assistant');$('chatMeta').textContent='Error';}
+  }catch(e){lr.remove();addMsg(`Sorry - ${e.message}`,'assistant');$('chatMeta').textContent='Error';}
   $('sendChatBtn').disabled=false;
 }
 $('sendChatBtn').addEventListener('click',sendChatMsg);
 $('chatIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMsg();}});
 $('chatIn').addEventListener('input',autoSizeChatInput);
 $('clearChatBtn').addEventListener('click',renderChatPromptList);
-$('clearChatBtn').addEventListener('click',()=>{App.chatHistory=[];$('chatMeta').textContent='Ready';renderChatSide([]);$('chatMsgs').innerHTML=`<div class="empty"><div class="ei">💬</div><div class="et">Open a shop and click <strong>Chat with Shop</strong> to start.</div></div>`;});
+$('clearChatBtn').addEventListener('click',()=>{App.chatHistory=[];$('chatMeta').textContent='Ready';renderChatSide([]);$('chatMsgs').innerHTML=`<div class="empty"><div class="ei">Chat</div><div class="et">Open a shop and click <strong>Chat with Shop</strong> to start.</div></div>`;});
 
 /* ═════════════════════════════════════════════
    ADMIN

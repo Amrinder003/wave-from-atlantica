@@ -450,6 +450,14 @@ def is_cheapest_query(q: str) -> bool:
     qn = norm_text(q)
     return any(t in qn for t in ["cheapest", "lowest price", "least expensive", "most affordable", "budget friendly"])
 
+def is_recommendation_query(q: str) -> bool:
+    qn = norm_text(q)
+    return any(t in qn for t in ["recommend", "suggest", "best", "popular", "top pick", "top picks", "good option", "good options"])
+
+def is_price_lookup_query(q: str) -> bool:
+    qn = norm_text(q)
+    return any(t in qn for t in ["how much", "price of", "price for", "cost of", "cost for"])
+
 def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     limit = extract_budget_limit(q)
     if limit is None:
@@ -477,13 +485,13 @@ def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[D
 
     if not matches:
         return {
-            "answer": f"I couldn't find any items at **{shop['name']}** priced below **{limit:g}**.",
+            "answer": f"I couldn't find anything at {shop_label(shop)} priced below **{limit:g}**.",
             "products": [],
             "meta": {"llm_used": False, "reason": "budget_filter", "suggestions": suggestions},
         }
 
     top = matches[:6]
-    lines = [f"Here {'is' if len(top)==1 else 'are'} the items at **{shop['name']}** priced below **{limit:g}**:"]
+    lines = [f"Here {'is' if len(top)==1 else 'are'} what I found at {shop_label(shop)} under **{limit:g}**:"]
     for item in top:
         lines.append(f"• **{item['name']}** — {item.get('price','Price not listed')} *({item.get('stock','in')})*")
     if len(matches) > len(top):
@@ -500,7 +508,7 @@ def answer_shop_info_query(shop: dict, q: str) -> Optional[Dict[str, Any]]:
         address = (shop.get("address") or "").strip()
         if address:
             return {
-                "answer": f"**{shop['name']}** is located at **{address}**.",
+                "answer": f"You can find {shop_label(shop)} at **{address}**.",
                 "products": [],
                 "meta": {"llm_used": False, "reason": "shop_location", "suggestions": suggestions},
             }
@@ -508,7 +516,7 @@ def answer_shop_info_query(shop: dict, q: str) -> Optional[Dict[str, Any]]:
         hours = (shop.get("hours") or "").strip()
         if hours:
             return {
-                "answer": f"**{shop['name']}** is open: **{hours}**.",
+                "answer": f"{shop_label(shop)} is open **{hours}**.",
                 "products": [],
                 "meta": {"llm_used": False, "reason": "shop_hours", "suggestions": suggestions},
             }
@@ -522,7 +530,7 @@ def answer_shop_info_query(shop: dict, q: str) -> Optional[Dict[str, Any]]:
             parts.append(f"WhatsApp: **{whatsapp}**")
         if parts:
             return {
-                "answer": f"Here is how you can reach **{shop['name']}**:\n" + "\n".join(f"• {part}" for part in parts),
+                "answer": f"Here is the best way to reach {shop_label(shop)}:\n" + "\n".join(f"- {part}" for part in parts),
                 "products": [],
                 "meta": {"llm_used": False, "reason": "shop_contact", "suggestions": suggestions},
             }
@@ -549,16 +557,16 @@ def answer_stock_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Di
 
     if not matches:
         return {
-            "answer": f"I couldn't find any in-stock products at **{shop['name']}** right now.",
+            "answer": f"I don't see any in-stock products at {shop_label(shop)} right now.",
             "products": [],
             "meta": {"llm_used": False, "reason": "stock_filter", "suggestions": ["Show all products", "Do you restock often?"]},
         }
 
     top = matches[:6]
-    lines = [f"Here {'is' if len(top)==1 else 'are'} the products currently in stock at **{shop['name']}**:"]
+    lines = [f"Here {'is' if len(top)==1 else 'are'} what {shop_label(shop)} currently has in stock:"]
     for item in top:
         price = item.get("price") or "Price not listed"
-        lines.append(f"• **{item['name']}** — {price} *({item.get('stock', 'in')})*")
+        lines.append(f"- **{item['name']}** - {price} *({item.get('stock', 'in')})*")
     if len(matches) > len(top):
         lines.append(f"\nThere are **{len(matches)}** in-stock products in total.")
     return {
@@ -592,13 +600,87 @@ def answer_cheapest_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional
 
     ranked.sort(key=lambda item: (item["_price_value"], item["name"].lower()))
     top = ranked[:6]
-    lines = [f"These are the lowest-priced items I found at **{shop['name']}**:"]
+    lines = [f"These are the lowest-priced items I found at {shop_label(shop)}:"]
     for item in top:
-        lines.append(f"• **{item['name']}** — {item.get('price', 'Price not listed')} *({item.get('stock', 'in')})*")
+        lines.append(f"- **{item['name']}** - {item.get('price', 'Price not listed')} *({item.get('stock', 'in')})*")
     return {
         "answer": "\n".join(lines),
         "products": serialize_products_bulk(top),
         "meta": {"llm_used": False, "reason": "cheapest_filter", "suggestions": ["Do you have anything below 5 dollars?", "What's in stock?", "Show all products"]},
+    }
+
+def answer_price_lookup_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
+    if not is_price_lookup_query(q):
+        return None
+    picked = rank_products(prod_rows, q)
+    if not picked:
+        return None
+    top = picked[0]
+    price = top.get("price") or "Price not listed"
+    stock = top.get("stock") or "in"
+    answer = f"{shop_label(shop)} has **{top['name']}** listed at **{price}**"
+    if stock:
+        answer += f" and it is currently **{stock}**."
+    else:
+        answer += "."
+    return {
+        "answer": answer,
+        "products": serialize_products_bulk([top]),
+        "meta": {"llm_used": False, "reason": "price_lookup", "suggestions": [f"Show me photos of {top['name']}", f"Do you have more like {top['name']}?", "What's in stock?"]},
+    }
+
+def answer_recommendation_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
+    if not is_recommendation_query(q):
+        return None
+
+    budget = extract_budget_limit(q)
+    candidates = []
+    for row in prod_rows:
+        stock = str(row.get("stock", "in") or "in").strip().lower()
+        if stock == "out":
+            continue
+        price_value = parse_price_value(row.get("price", ""))
+        if budget is not None and price_value is not None and price_value > budget:
+            continue
+        candidates.append(row)
+
+    if not candidates:
+        return {
+            "answer": f"I could not find a good in-stock recommendation at {shop_label(shop)} for that request.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "recommendation_empty", "suggestions": ["Show all products", "What's in stock?", "Do you have anything cheaper?"]},
+        }
+
+    ranked = rank_products(candidates, q)
+    if not ranked:
+        ranked = rank_products(candidates, shop.get("category", "")) or [
+            {
+                "shop_id": row.get("shop_id", ""),
+                "product_id": row.get("product_id", ""),
+                "name": row.get("name", ""),
+                "overview": row.get("overview", ""),
+                "price": row.get("price", ""),
+                "stock": row.get("stock", "in"),
+                "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
+            }
+            for row in candidates
+        ]
+
+    top = ranked[:4]
+    opener = f"Here are a few good options from {shop_label(shop)}:"
+    if budget is not None:
+        opener = f"Here are a few good options from {shop_label(shop)} under **{budget:g}**:"
+    lines = [opener]
+    for item in top:
+        line = f"- **{item['name']}** - {item.get('price', 'Price not listed')} *({item.get('stock', 'in')})*"
+        overview = (item.get("overview") or "").strip()
+        if overview:
+            line += f"\n  {overview[:120]}"
+        lines.append(line)
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_products_bulk(top),
+        "meta": {"llm_used": False, "reason": "recommendation", "suggestions": build_chat_suggestions(q, shop, top)},
     }
 
 def rank_products(products: List[Dict], q: str) -> List[Dict]:
@@ -629,13 +711,21 @@ def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Op
     lines = [f"Shop: {shop['name']}", f"Address: {shop.get('address','')}"]
     if shop.get("phone"): lines.append(f"Phone: {shop['phone']}")
     if shop.get("hours"): lines.append(f"Hours: {shop['hours']}")
+    if shop.get("category"): lines.append(f"Category: {shop['category']}")
+    if shop.get("whatsapp"): lines.append(f"WhatsApp: {shop['whatsapp']}")
     if shop.get("overview"): lines.append(f"About: {shop['overview']}")
     lines.append(f"Total products: {len(all_rows)}")
     if picked:
         lines.append("\nRelevant products:")
         for p in picked[:6]:
             img_part = f' | Photo: ![{p["name"]}]({p["images"][0]})' if p.get("images") else ""
-            lines.append(f'• {p["name"]} | Price: {p.get("price","N/A")} | Stock: {p.get("stock","in")}{img_part}')
+            lines.append(f'- {p["name"]} | Price: {p.get("price","N/A")} | Stock: {p.get("stock","in")}{img_part}')
+    elif all_rows:
+        lines.append("\nSample products from this shop:")
+        for row in all_rows[:8]:
+            imgs = normalize_image_list(row.get("shop_id", ""), row.get("images", []))
+            img_part = f' | Photo: ![{row.get("name","Product")}]({imgs[0]})' if imgs else ""
+            lines.append(f'- {row.get("name","Product")} | Price: {row.get("price","N/A")} | Stock: {row.get("stock","in")}{img_part}')
     if rag_chunks:
         lines.append("\nKnowledge base notes:")
         for chunk in rag_chunks[:4]:
@@ -649,11 +739,80 @@ Mention price and stock when available.
 If the user asks what the shop sells, summarize first and then list examples.
 If information is missing, say so clearly and suggest a useful follow-up question.
 Use simple markdown.
+Prefer short sections or bullets over long paragraphs.
+If you mention products, format them as clean bullets with name, price, and stock when available.
+Sound natural and conversational, not robotic or overly salesy.
+Do not say things like "based on the provided context" or "I found a likely match" unless necessary.
+When answering simple customer questions, speak like a real shop assistant would.
+Do not mention being an AI, model, chatbot, or system unless the user directly asks.
+Prefer clear direct answers over meta explanations.
+If the customer asks for a recommendation, suggest a few suitable products from the shop and briefly say why.
+If the customer asks a broad question, answer naturally as a helpful shopkeeper would, but stay grounded in the shop context.
+If the customer asks something unrelated to the shop, reply briefly and politely in a human tone without pretending the shop has facts you do not have.
 """
+
+def shop_voice_instructions(shop: dict) -> str:
+    category = norm_text(shop.get("category", ""))
+    if "food" in category or "bakery" in category or "cafe" in category or "restaurant" in category:
+        return "Tone: friendly and appetite-oriented. Keep it warm, casual, and simple."
+    if "electronics" in category:
+        return "Tone: clear, helpful, and confident. Explain practical differences without sounding technical unless asked."
+    if "clothing" in category or "fashion" in category:
+        return "Tone: friendly and style-aware. Keep it relaxed and helpful."
+    if "beauty" in category:
+        return "Tone: warm, reassuring, and polished."
+    if "books" in category:
+        return "Tone: thoughtful, calm, and helpful."
+    if "sports" in category:
+        return "Tone: energetic, clear, and practical."
+    return "Tone: warm, natural, and helpful."
+
+def shop_persona_instructions(shop: dict) -> str:
+    name = (shop.get("name") or "This shop").strip()
+    category = norm_text(shop.get("category", ""))
+    overview = (shop.get("overview") or "").strip()
+    lines = [f"Shop identity: {name}."]
+    if overview:
+        lines.append(f"Brand notes: {overview[:220]}")
+    if "food" in category or "bakery" in category or "cafe" in category or "restaurant" in category:
+        lines.append("Voice style: welcoming, fresh, and easygoing. Make food suggestions sound appetizing without overdoing it.")
+    elif "electronics" in category:
+        lines.append("Voice style: practical, reliable, and clear. Help customers choose with simple explanations.")
+    elif "clothing" in category or "fashion" in category:
+        lines.append("Voice style: stylish, relaxed, and helpful. Guide customers without sounding pushy.")
+    elif "beauty" in category:
+        lines.append("Voice style: polished, reassuring, and friendly.")
+    elif "books" in category:
+        lines.append("Voice style: thoughtful, calm, and inviting.")
+    elif "sports" in category:
+        lines.append("Voice style: upbeat, practical, and motivating.")
+    else:
+        lines.append("Voice style: local, warm, and personable.")
+    lines.append("Keep the personality subtle. Sound like a real shopkeeper, not a character.")
+    return "\n".join(lines)
+
+def response_style_instructions(q: str) -> str:
+    qn = norm_text(q)
+    if is_recommendation_query(qn) or any(t in qn for t in ["affordable", "budget", "gift", "best", "popular"]):
+        return (
+            "Response format: start with one short natural sentence, then list up to 4 product bullets. "
+            "Each bullet should include name, price, stock, and a short reason it fits."
+        )
+    if is_list_intent(qn):
+        return (
+            "Response format: start with one short summary sentence, then list products as bullets with name, "
+            "price, and stock. Keep it tidy and easy to scan."
+        )
+    if is_price_lookup_query(qn) or is_budget_query(qn) or is_cheapest_query(qn):
+        return "Response format: answer directly in 1 to 4 lines. Put the exact price or budget result first."
+    if is_location_query(qn) or is_hours_query(qn) or is_contact_query(qn):
+        return "Response format: answer directly and briefly in 1 to 3 lines."
+    return "Response format: give a short direct answer first. Use bullets only if they clearly help."
 
 def build_chat_suggestions(q: str, shop: dict, picked: List[Dict]) -> List[str]:
     suggestions: List[str] = []
     qn = norm_text(q)
+    category = (shop.get("category") or "").strip()
     if picked:
         top = picked[0]
         suggestions.extend([
@@ -663,19 +822,33 @@ def build_chat_suggestions(q: str, shop: dict, picked: List[Dict]) -> List[str]:
         ])
     else:
         suggestions.extend(["Show all products", "What's in stock?", "What are your prices?"])
+    if category:
+        suggestions.append(f"What are your best {category.lower()} products?")
+        suggestions.append(f"Show me your most popular {category.lower()} items")
     if "hour" not in qn and shop.get("hours"):
         suggestions.append("What are your opening hours?")
     if "address" not in qn and shop.get("address"):
         suggestions.append("Where is this shop located?")
     return dedup(suggestions)[:4]
 
+def shop_label(shop: dict) -> str:
+    return f"**{shop['name']}**"
+
 def fallback_answer_v2(shop: dict, picked: List[Dict], q: str) -> str:
     if is_greeting(q):
-        return f"Hi! Welcome to **{shop['name']}**! Ask me about our products, or say 'show all products'."
+        category = (shop.get("category") or "").strip().lower()
+        opener = "Hi"
+        if "food" in category or "bakery" in category or "cafe" in category:
+            opener = "Hi there"
+        elif "electronics" in category:
+            opener = "Hello"
+        elif "clothing" in category or "fashion" in category:
+            opener = "Hey"
+        return f"{opener}! Welcome to {shop_label(shop)}. Ask me about products, prices, stock, hours, or just say **show all products**."
     if picked:
         top = picked[0]
         lines = [
-            f"I found a likely match at **{shop['name']}**:",
+            f"This looks like a good match from {shop_label(shop)}:",
             "",
             f"**{top['name']}** - {top.get('price','Price not listed')} *({top.get('stock','in')})*",
         ]
@@ -684,7 +857,7 @@ def fallback_answer_v2(shop: dict, picked: List[Dict], q: str) -> str:
         if top.get("images"):
             lines.append(f"![{top['name']}]({top['images'][0]})")
         return "\n".join(lines)
-    return f"I couldn't find a direct match at **{shop['name']}**. Try asking **show all products**, **what's in stock**, or **do you have anything below 10 dollars**."
+    return f"I couldn't find a clear match at {shop_label(shop)}. Try **show all products**, **what's in stock**, or **do you have anything below 10 dollars**."
 
 def fallback_answer(shop: dict, picked: List[Dict], q: str) -> str:
     if is_greeting(q): return f"Hi! Welcome to **{shop['name']}**! Ask me about our products, or say 'show all products'."
@@ -694,6 +867,37 @@ def fallback_answer(shop: dict, picked: List[Dict], q: str) -> str:
         if top.get("images"): s += f"\n![{top['name']}]({top['images'][0]})"
         return s
     return "I couldn't find a direct match. Try asking 'show all products' to see everything we have."
+
+def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
+    suggestions = build_chat_suggestions("show all products", shop, prod_rows)
+    if not prod_rows:
+        return {
+            "answer": f"{shop_label(shop)} has not added any products yet.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "catalog_empty", "suggestions": suggestions},
+        }
+
+    top = prod_rows[:10]
+    category = (shop.get("category") or "").strip()
+    intro = f"Here is what you can browse at {shop_label(shop)}:"
+    if category:
+        intro = f"Here is a quick look at the {category.lower()} items available at {shop_label(shop)}:"
+    lines = [intro]
+    for item in top:
+        price = item.get("price") or "Price not listed"
+        stock = item.get("stock") or "in"
+        overview = (item.get("overview") or "").strip()
+        detail = f"- **{item.get('name','Product')}** - {price} *({stock})*"
+        if overview:
+            detail += f"\n  {overview[:120]}"
+        lines.append(detail)
+    if len(prod_rows) > len(top):
+        lines.append(f"\nThere are **{len(prod_rows)}** products in total. Ask if you want something specific.")
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_products_bulk(top[:8]),
+        "meta": {"llm_used": False, "reason": "catalog_list", "suggestions": suggestions},
+    }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — System
@@ -1010,12 +1214,11 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
 
     # 3. Handle Full Catalog Requests safely
     if is_list_intent(q):
-        picked = prod_rows
-        abs_picked = serialize_products_bulk(prod_rows[:8])
-        suggestions = build_chat_suggestions(q, shop, picked)
+        return answer_catalog_query(shop, prod_rows)
 
     try:
-        ans = llm_chat(SHOP_ASSISTANT_SYSTEM, f"CONTEXT:\n{build_context(shop, picked, prod_rows, rag.get('chunks', []))}\n\nCUSTOMER: {q}")
+        system_prompt = SHOP_ASSISTANT_SYSTEM + "\n" + shop_voice_instructions(shop) + "\n" + shop_persona_instructions(shop) + "\n" + response_style_instructions(q)
+        ans = llm_chat(system_prompt, f"CONTEXT:\n{build_context(shop, picked, prod_rows, rag.get('chunks', []))}\n\nCUSTOMER: {q}")
         return {"answer": ans, "products": abs_picked, "meta": {"llm_used": True, "model": OPENROUTER_MODEL, "suggestions": suggestions, "rag_matches": len(rag.get('matches', []))}}
     except Exception as e:
         err_msg = str(e)
@@ -1024,10 +1227,7 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
             
         print(f"[Chat LLM Exception] Fallback triggered: {err_msg}")
         
-        if is_list_intent(q):
-            ans = f"Here's what's available at **{shop['name']}**:\n" + "\n".join(f"• {r['name']} — {r.get('price','')} *({r.get('stock','in')})*" for r in prod_rows[:30])
-        else:
-            ans = fallback_answer_v2(shop, picked, q)
+        ans = fallback_answer_v2(shop, picked, q)
 
         return {
             "answer": ans,
