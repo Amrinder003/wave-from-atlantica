@@ -902,6 +902,14 @@ a{color:inherit;text-decoration:none}
       <div class="srch-title" id="srchTitle">Results</div>
       <span class="srch-clear" id="srchClear">Clear</span>
     </div>
+    <div id="srchAttrFilterBar" class="shop-filter-bar" style="display:none;margin-top:12px">
+      <div class="fld"><label>Product Detail</label><select id="srchAttrKey"></select></div>
+      <div class="fld"><label>Contains</label><input id="srchAttrValue" placeholder="Filter results by ingredient, color, size, warranty..."/></div>
+      <div class="shop-filter-actions">
+        <button id="srchAttrApply" class="btn btn-o btn-sm">Apply</button>
+        <button id="srchAttrClear" class="btn btn-g btn-sm">Clear</button>
+      </div>
+    </div>
     <div id="srchResultGrid" class="pgrid" style="display:none"></div>
     <div id="srchPagination" style="display:none"></div>
 
@@ -937,6 +945,14 @@ a{color:inherit;text-decoration:none}
           <div class="section-kicker">Marketplace Picks</div>
           <div class="sec-title" id="featuredTitle">All Products</div>
           <div class="sec-sub" id="featuredSub"></div>
+        </div>
+      </div>
+      <div id="featuredAttrFilterBar" class="shop-filter-bar" style="display:none;margin-bottom:14px">
+        <div class="fld"><label>Product Detail</label><select id="featuredAttrKey"></select></div>
+        <div class="fld"><label>Contains</label><input id="featuredAttrValue" placeholder="Filter by ingredient, color, size, warranty..."/></div>
+        <div class="shop-filter-actions">
+          <button id="featuredAttrApply" class="btn btn-o btn-sm">Apply</button>
+          <button id="featuredAttrClear" class="btn btn-g btn-sm">Clear</button>
         </div>
       </div>
       <div id="featuredGrid" class="pgrid"></div>
@@ -1690,6 +1706,7 @@ const App = {
   viewerCurrency: '',
   shopFilters: {country_code:'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false},
   shopAttrFilter: {key:'',value:''},
+  marketAttrFilter: {key:'',value:'',category:''},
   ownerFilters: {country:'',region:'',city:'',quality:''},
 };
 const $=id=>document.getElementById(id);
@@ -1961,6 +1978,28 @@ function renderShopAttributeFilter(category=''){
   keySel.value=App.shopAttrFilter.key||'';
   valInp.value=App.shopAttrFilter.value||'';
 }
+function renderMarketAttributeFilter(category='', target='featured'){
+  const bar=$(target==='search'?'srchAttrFilterBar':'featuredAttrFilterBar');
+  const keySel=$(target==='search'?'srchAttrKey':'featuredAttrKey');
+  const valInp=$(target==='search'?'srchAttrValue':'featuredAttrValue');
+  if(!bar||!keySel||!valInp) return;
+  const schema=PRODUCT_ATTRIBUTE_SCHEMA[category]||[];
+  if(!schema.length){
+    bar.style.display='none';
+    if(App.marketAttrFilter.category===category || !category) App.marketAttrFilter={key:'',value:'',category};
+    keySel.innerHTML='';
+    valInp.value='';
+    return;
+  }
+  if(App.marketAttrFilter.category!==category){
+    App.marketAttrFilter={key:'',value:'',category};
+  }
+  if(App.marketAttrFilter.key && !schema.some(([key])=>key===App.marketAttrFilter.key)) App.marketAttrFilter.key='';
+  bar.style.display='grid';
+  keySel.innerHTML='<option value="">Any detail</option>'+schema.map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('');
+  keySel.value=App.marketAttrFilter.key||'';
+  valInp.value=App.marketAttrFilter.value||'';
+}
 function collectShopFilters(){
   App.shopFilters={
     country_code:$('shopFilterCountry')?.value||'',
@@ -2093,7 +2132,7 @@ function showPage(pg){
   if(pg!=='chat') setChatMobileSide(false);
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function goHome(){App.activeCat='';highlightCat('');showPage('home');}
+function goHome(){App.activeCat='';App.marketAttrFilter={key:'',value:'',category:''};highlightCat('');showPage('home');}
 
 /* ═════════════════════════════════════════════
    SERVER CHECK
@@ -2119,7 +2158,9 @@ if($('srvUrl')) $('srvUrl').addEventListener('change',()=>{App.srv=norm($('srvUr
 $('catSubnav').addEventListener('click',e=>{
   const b=e.target.closest('.snav');if(!b)return;
   $('catSubnav').querySelectorAll('.snav').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on');App.activeCat=b.dataset.cat;
+  b.classList.add('on');
+  if(App.activeCat!==b.dataset.cat) App.marketAttrFilter={key:'',value:'',category:b.dataset.cat||''};
+  App.activeCat=b.dataset.cat;
   renderHomeShops();loadFeatured();
 });
 function highlightCat(cat){$('catSubnav').querySelectorAll('.snav').forEach(b=>b.classList.toggle('on',b.dataset.cat===cat));}
@@ -2591,17 +2632,35 @@ async function doSearch(page=1){
   $('shopsSection').style.display='none';$('featuredSection').style.display='none';
   $('srchResultGrid').innerHTML='';$('srchPagination').innerHTML='';
   try{
-    const d=await api(withViewerCurrency(`/public/search/global?q=${encodeURIComponent(q)}&page=${page}&limit=24`));
+    const attrParams=[];
+    if(App.marketAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.marketAttrFilter.key)}`);
+    if(App.marketAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.marketAttrFilter.value)}`);
+    const d=await api(withViewerCurrency(`/public/search/global?q=${encodeURIComponent(q)}&page=${page}&limit=24${attrParams.length?`&${attrParams.join('&')}`:''}`));
     $('srchTitle').textContent=`"${q}" — ${d.total||0} results`;
     const prods=(d.results||[]).map(p=>({...p,_shopId:p.shop_id,_shopName:p.shop_name}));
+    const categories=[...new Set(prods.map(p=>p.shop_category||p.category||'').filter(Boolean))];
+    renderMarketAttributeFilter(categories.length===1?categories[0]:'','search');
     fillGrid($('srchResultGrid'),prods,{mode:'browse',showShop:true});
     buildPagination($('srchPagination'),d.pagination,p=>doSearch(p));
   }catch(e){toast('Search failed',e.message,'err');}
 }
 $('navSrchBtn').addEventListener('click',()=>doSearch(1));
 $('navSrchIn').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch(1);});
+$('srchAttrApply')?.addEventListener('click',()=>{
+  App.marketAttrFilter={key:$('srchAttrKey')?.value||'',value:$('srchAttrValue')?.value.trim()||'',category:App.marketAttrFilter.category||''};
+  doSearch(1);
+});
+$('srchAttrClear')?.addEventListener('click',()=>{
+  App.marketAttrFilter={key:'',value:'',category:App.marketAttrFilter.category||''};
+  if($('srchAttrKey')) $('srchAttrKey').value='';
+  if($('srchAttrValue')) $('srchAttrValue').value='';
+  doSearch(1);
+});
+$('srchAttrValue')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('srchAttrApply')?.click();}});
 $('srchClear').addEventListener('click',()=>{
+  App.marketAttrFilter={key:'',value:'',category:''};
   $('navSrchIn').value='';$('srchBar').style.display='none';
+  $('srchAttrFilterBar').style.display='none';
   $('srchResultGrid').style.display='none';$('srchPagination').style.display='none';
   $('shopsSection').style.display='block';$('featuredSection').style.display='block';
 });
@@ -2639,12 +2698,27 @@ async function loadFeatured(page=1){
   $('featuredTitle').textContent=cat?`Top ${cat} Products`:'Top Rated Products';
   $('featuredGrid').innerHTML=`<div class="empty"><div class="ei">⏳</div><div class="et">Loading…</div></div>`;
   try{
-    const d=await api(withViewerCurrency(`/public/top-products?limit=24${cat?`&category=${encodeURIComponent(cat)}`:''}` ));
+    renderMarketAttributeFilter(cat,'featured');
+    const attrParams=[];
+    if(App.marketAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.marketAttrFilter.key)}`);
+    if(App.marketAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.marketAttrFilter.value)}`);
+    const d=await api(withViewerCurrency(`/public/top-products?limit=24${cat?`&category=${encodeURIComponent(cat)}`:''}${attrParams.length?`&${attrParams.join('&')}`:''}` ));
     const prods=d.products||[];
-    $('featuredSub').textContent=`${prods.length} products found`;
+    $('featuredSub').textContent=`${prods.length} products found${App.marketAttrFilter?.value?` matching ${App.marketAttrFilter.value}`:''}`;
     fillGrid($('featuredGrid'),prods,{mode:'browse',showShop:true});
   }catch(e){$('featuredGrid').innerHTML=`<div class="empty"><div class="ei">⚠️</div><div class="et">${esc(e.message)}</div></div>`;}
 }
+$('featuredAttrApply')?.addEventListener('click',()=>{
+  App.marketAttrFilter={key:$('featuredAttrKey')?.value||'',value:$('featuredAttrValue')?.value.trim()||'',category:App.activeCat||''};
+  loadFeatured(1);
+});
+$('featuredAttrClear')?.addEventListener('click',()=>{
+  App.marketAttrFilter={key:'',value:'',category:App.activeCat||''};
+  if($('featuredAttrKey')) $('featuredAttrKey').value='';
+  if($('featuredAttrValue')) $('featuredAttrValue').value='';
+  loadFeatured(1);
+});
+$('featuredAttrValue')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('featuredAttrApply')?.click();}});
 
 /* ═════════════════════════════════════════════
    FAVOURITES PAGE

@@ -2086,11 +2086,13 @@ def search_shop(request: Request, shop_id: str = Query(...), q: str = Query(...)
     return {"ok": True, "shop_id": shop_id, "q": q, "results": serialize_products_bulk(paged["items"], None, shop_map, currency), "total": len(rows), "pagination": paged["pagination"]}
 
 @app.get("/public/search/global")
-def search_global(request: Request, q: str = Query(...), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60)):
+def search_global(request: Request, q: str = Query(...), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60)):
     qn = (q or "").strip()
     if not qn: return {"ok": True, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
     rows = supabase.table("products").select("*, shops(name, category, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").order("updated_at", desc=True).execute().data
     rows = [row for row in rows if product_matches_query(row, qn, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""))]
+    if attr_key or attr_value:
+        rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value)]
     
     paged = paginate_list(rows, page, limit)
     shop_map = {}
@@ -2101,13 +2103,16 @@ def search_global(request: Request, q: str = Query(...), currency: str = Query("
     for r, prod in zip(paged["items"], results):
         prod["shop_name"] = r.get("shops", {}).get("name", "")
         prod["shop_address"] = normalize_shop_record(r.get("shops", {}) or {}).get("address", "")
+        prod["shop_category"] = normalize_shop_record(r.get("shops", {}) or {}).get("category", "")
     return {"ok": True, "q": q, "results": results, "total": len(rows), "pagination": paged["pagination"]}
 
 @app.get("/public/top-products")
-def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60), category: str = Query(""), currency: str = Query("")):
+def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60), category: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query("")):
     q = supabase.table("products").select("*, shops!inner(name, category, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").neq("stock", "out")
     if category: q = q.ilike("shops.category", f"%{category}%")
     rows = q.execute().data
+    if attr_key or attr_value:
+        rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value)]
     
     paged = paginate_list(rows, page, limit)
     shop_map = {}
@@ -2117,6 +2122,7 @@ def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Quer
     results = serialize_products_bulk(paged["items"], None, shop_map, currency)
     for r, prod in zip(paged["items"], results):
         prod["shop_name"] = r.get("shops", {}).get("name", "")
+        prod["shop_category"] = normalize_shop_record(r.get("shops", {}) or {}).get("category", "")
     return {"ok": True, "products": results, "pagination": paged["pagination"]}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
