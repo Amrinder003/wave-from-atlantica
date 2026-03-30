@@ -1,5 +1,6 @@
 alter table if exists public.shops
   add column if not exists formatted_address text,
+  add column if not exists shop_slug text,
   add column if not exists hours_structured jsonb,
   add column if not exists timezone_name text,
   add column if not exists country_code text,
@@ -22,6 +23,7 @@ alter table if exists public.shops
 alter table if exists public.products
   add column if not exists price_amount numeric(12,2),
   add column if not exists stock_quantity integer,
+  add column if not exists product_slug text,
   add column if not exists variant_data jsonb,
   add column if not exists variant_matrix jsonb,
   add column if not exists attribute_data jsonb,
@@ -35,9 +37,17 @@ update public.shops
 set currency_code = coalesce(nullif(currency_code, ''), 'USD')
 where coalesce(currency_code, '') = '';
 
+update public.shops
+set shop_slug = lower(regexp_replace(coalesce(name, shop_id, 'shop'), '[^a-zA-Z0-9]+', '-', 'g'))
+where coalesce(shop_slug, '') = '';
+
 update public.products
 set currency_code = coalesce(nullif(currency_code, ''), 'USD')
 where coalesce(currency_code, '') = '';
+
+update public.products
+set product_slug = lower(regexp_replace(coalesce(name, product_id, 'product'), '[^a-zA-Z0-9]+', '-', 'g'))
+where coalesce(product_slug, '') = '';
 
 update public.products
 set price_amount = nullif(regexp_replace(coalesce(price, ''), '[^0-9.]', '', 'g'), '')::numeric
@@ -70,3 +80,11 @@ create index if not exists order_requests_shop_id_created_at_idx
 
 alter table if exists public.order_requests
   add column if not exists customer_email text;
+
+create unique index if not exists shops_shop_slug_key
+  on public.shops(shop_slug)
+  where coalesce(shop_slug, '') <> '';
+
+create unique index if not exists products_shop_id_product_slug_key
+  on public.products(shop_id, product_slug)
+  where coalesce(product_slug, '') <> '';

@@ -425,6 +425,34 @@ def gen_product_id(name: str) -> str:
     base = re.sub(r"[^a-z0-9]+", "-", norm_text(name)).strip("-")[:24]
     return f"prd-{base}-{uuid.uuid4().hex[:5]}" if base else f"prd-{uuid.uuid4().hex[:8]}"
 
+def slug_base(value: str, fallback: str = "item", max_len: int = 60) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", norm_text(value)).strip("-")
+    return (base or fallback)[:max_len]
+
+def unique_shop_slug(name: str, ignore_shop_id: str = "") -> str:
+    base = slug_base(name, "shop", 50)
+    candidate = base
+    for i in range(20):
+        q = supabase.table("shops").select("shop_id").eq("shop_slug", candidate)
+        rows = q.execute().data or []
+        if not rows or all(str(r.get("shop_id", "")) == str(ignore_shop_id or "") for r in rows):
+            return candidate
+        suffix = f"-{i+2}"
+        candidate = f"{base[:max(1, 50-len(suffix))]}{suffix}"
+    return f"{base[:40]}-{uuid.uuid4().hex[:6]}"
+
+def unique_product_slug(shop_id: str, name: str, ignore_product_id: str = "") -> str:
+    base = slug_base(name, "product", 50)
+    candidate = base
+    for i in range(20):
+        q = supabase.table("products").select("product_id").eq("shop_id", shop_id).eq("product_slug", candidate)
+        rows = q.execute().data or []
+        if not rows or all(str(r.get("product_id", "")) == str(ignore_product_id or "") for r in rows):
+            return candidate
+        suffix = f"-{i+2}"
+        candidate = f"{base[:max(1, 50-len(suffix))]}{suffix}"
+    return f"{base[:40]}-{uuid.uuid4().hex[:6]}"
+
 def norm_ext(ext: str) -> str:
     return ".jpg" if ext.lower() in {".jfif", ".jif"} else ext.lower()
 
@@ -504,7 +532,7 @@ def serialize_product(row: dict, user_id: str = None, shop: Optional[Dict[str, A
     variant_data = normalize_variant_data(row.get("variant_data") or row.get("variants", ""), shop_id)
     variant_matrix = normalize_variant_matrix(row.get("variant_matrix", []), variant_data, shop_id)
     return {
-        "product_id": prod_id, "shop_id": shop_id, "name": row.get("name", ""),
+        "product_id": prod_id, "product_slug": row.get("product_slug") or slug_base(row.get("name") or prod_id or "product", "product", 50), "shop_id": shop_id, "shop_slug": shop_row.get("shop_slug", ""), "name": row.get("name", ""),
         "overview": row.get("overview", ""), **price_fields,
         "stock": row.get("stock", "in"), "stock_quantity": row.get("stock_quantity"),
         "variants": row.get("variants", "") or summarize_variant_data(variant_data),
@@ -572,7 +600,9 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Opt
         variant_matrix = normalize_variant_matrix(row.get("variant_matrix", []), variant_data, shop_id)
         out.append({
             "product_id": product_id,
+            "product_slug": row.get("product_slug") or slug_base(row.get("name") or product_id or "product", "product", 50),
             "shop_id": shop_id,
+            "shop_slug": shop_row.get("shop_slug", ""),
             "name": row.get("name", ""),
             "overview": row.get("overview", ""),
             **get_display_price_fields(row, shop_row, viewer_currency),
@@ -746,6 +776,7 @@ def build_formatted_address(data: Dict[str, Any]) -> str:
 
 def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(row or {})
+    out["shop_slug"] = (out.get("shop_slug") or slug_base(out.get("name") or out.get("shop_id") or "shop", "shop", 50)).strip()
     out["country_code"] = clean_code(out.get("country_code", ""))
     out["country_name"] = (out.get("country_name") or country_meta(out.get("country_code", "")).get("name", "")).strip()
     out["currency_code"] = clean_currency(out.get("currency_code") or currency_for_country(out.get("country_code", "")))
@@ -767,6 +798,17 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
         out["delivery_fee"] = None
     out["pickup_notes"] = (out.get("pickup_notes") or "").strip()
     return out
+
+def resolve_shop_by_ref(shop_ref: str) -> Dict[str, Any]:
+    ref = str(shop_ref or "").strip()
+    if not ref:
+        raise HTTPException(404, "Shop not found")
+    rows = supabase.table("shops").select("*").eq("shop_id", ref).limit(1).execute().data or []
+    if not rows:
+        rows = supabase.table("shops").select("*").eq("shop_slug", ref).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Shop not found")
+    return normalize_shop_record(rows[0])
 
 def validate_postal_code(country_code: str, postal_code: str) -> bool:
     value = (postal_code or "").strip()
@@ -2074,6 +2116,14 @@ def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
 def serve_ui():
     with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
 
+@app.get("/shop/{shop_ref}", response_class=HTMLResponse)
+def serve_shop_ui(shop_ref: str):
+    with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
+
+@app.get("/product/{shop_ref}/{product_ref}", response_class=HTMLResponse)
+def serve_product_ui(shop_ref: str, product_ref: str):
+    with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
+
 @app.get("/favicon.ico")
 def favicon():
     raise HTTPException(204)
@@ -2425,11 +2475,10 @@ def public_address_search(q: str = Query(..., min_length=3), country: str = Quer
         print(f"[Address Search Warning] {e}")
         return {"ok": True, "suggestions": [], "provider": "error"}
 
-@app.get("/public/shop/{shop_id}")
-def public_shop(shop_id: str, request: Request, sort: str = Query("default"), stock: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
-    shop_res = supabase.table("shops").select("*").eq("shop_id", shop_id).execute()
-    if not shop_res.data: raise HTTPException(404, "Shop not found")
-    shop_row = normalize_shop_record(shop_res.data[0])
+@app.get("/public/shop/{shop_ref}")
+def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), stock: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
+    shop_row = resolve_shop_by_ref(shop_ref)
+    shop_id = shop_row["shop_id"]
     
     user_id = None
     if authorization:
@@ -2452,7 +2501,7 @@ def public_shop(shop_id: str, request: Request, sort: str = Query("default"), st
     ser_prods = serialize_products_bulk(paged["items"], user_id, {shop_id: shop_row}, currency)
     
     return {
-        "ok": True, "shop_id": shop_id, "shop": shop_row,
+        "ok": True, "shop_id": shop_id, "shop_slug": shop_row.get("shop_slug", ""), "shop": shop_row,
         "products": ser_prods,
         "pagination": paged["pagination"],
         "stats": shop_stats(shop_id),
@@ -2462,22 +2511,23 @@ def public_shop(shop_id: str, request: Request, sort: str = Query("default"), st
 @app.get("/public/search")
 def search_shop(request: Request, shop_id: str = Query(...), q: str = Query(...), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100)):
     qn = (q or "").strip()
-    if not qn: return {"ok": True, "shop_id": shop_id, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
-    shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
-    shop_map = {shop_id: normalize_shop_record(shop_rows[0])} if shop_rows else {}
-    shop_row = shop_map.get(shop_id, {})
-    rows = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
+    resolved_shop = resolve_shop_by_ref(shop_id)
+    real_shop_id = resolved_shop["shop_id"]
+    if not qn: return {"ok": True, "shop_id": real_shop_id, "shop_slug": resolved_shop.get("shop_slug", ""), "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
+    shop_map = {real_shop_id: resolved_shop}
+    shop_row = shop_map.get(real_shop_id, {})
+    rows = supabase.table("products").select("*").eq("shop_id", real_shop_id).order("updated_at", desc=True).execute().data
     rows = [row for row in rows if product_matches_query(row, qn, shop_row.get("category", ""))]
     if attr_key or attr_value:
         rows = [row for row in rows if matches_attribute_filter(row, shop_row.get("category", ""), attr_key, attr_value)]
     paged = paginate_list(rows, page, limit)
-    return {"ok": True, "shop_id": shop_id, "q": q, "results": serialize_products_bulk(paged["items"], None, shop_map, currency), "total": len(rows), "pagination": paged["pagination"]}
+    return {"ok": True, "shop_id": real_shop_id, "shop_slug": resolved_shop.get("shop_slug", ""), "q": q, "results": serialize_products_bulk(paged["items"], None, shop_map, currency), "total": len(rows), "pagination": paged["pagination"]}
 
 @app.get("/public/search/global")
 def search_global(request: Request, q: str = Query(...), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60)):
     qn = (q or "").strip()
     if not qn: return {"ok": True, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
-    rows = supabase.table("products").select("*, shops(name, category, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").order("updated_at", desc=True).execute().data
+    rows = supabase.table("products").select("*, shops(name, shop_slug, category, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").order("updated_at", desc=True).execute().data
     rows = [row for row in rows if product_matches_query(row, qn, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""))]
     if attr_key or attr_value:
         rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value)]
@@ -2496,7 +2546,7 @@ def search_global(request: Request, q: str = Query(...), attr_key: str = Query("
 
 @app.get("/public/top-products")
 def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60), category: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query("")):
-    q = supabase.table("products").select("*, shops!inner(name, category, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").neq("stock", "out")
+    q = supabase.table("products").select("*, shops!inner(name, shop_slug, category, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").neq("stock", "out")
     if category: q = q.ilike("shops.category", f"%{category}%")
     rows = q.execute().data
     if attr_key or attr_value:
@@ -2520,11 +2570,9 @@ def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Quer
 def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(...), currency: str = Query("")):
     q = (q or "").strip()
     if not q: raise HTTPException(400, "Missing q")
+    shop = resolve_shop_by_ref(shop_id)
+    shop_id = shop["shop_id"]
     track(shop_id, "chat")
-
-    shop_res = supabase.table("shops").select("*").eq("shop_id", shop_id).execute()
-    if not shop_res.data: return {"answer": "Shop not found.", "products": [], "meta": {"llm_used": False}}
-    shop = normalize_shop_record(shop_res.data[0])
     
     raw_prod_rows = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
     prod_rows = []
@@ -2623,6 +2671,7 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     require_verified(user)
     shop = validate_shop_payload(body.shop)
     sid = gen_shop_id(shop["name"])
+    shop_slug = unique_shop_slug(shop["name"])
     for _ in range(5):
         exists_res = supabase.table("shops").select("shop_id").eq("shop_id", sid).execute()
         if not exists_res.data:
@@ -2633,6 +2682,7 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     
     supabase.table("shops").insert({
         "shop_id": sid,
+        "shop_slug": shop_slug,
         "owner_user_id": user.id,
         "name": shop["name"].strip(),
         "address": shop["address"],
@@ -2788,8 +2838,10 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
     shop = validate_shop_payload(body)
+    shop_slug = unique_shop_slug(shop["name"], shop_id)
     supabase.table("shops").update({
         "name": shop["name"].strip(),
+        "shop_slug": shop_slug,
         "address": shop["address"],
         "formatted_address": shop["formatted_address"],
         "country_code": shop["country_code"],
@@ -2960,6 +3012,7 @@ def admin_upsert_product(shop_id: str, product: Product, authorization: Optional
         else:
             raise HTTPException(500, "Could not generate a unique product ID")
     data = normalize_product_payload(product, shop)
+    data["product_slug"] = unique_product_slug(shop_id, product.name, pid if existing else "")
     imgs = data["images"]
     if existing and not imgs: imgs = existing[0].get("images", [])
     data["images"] = imgs
@@ -3063,6 +3116,7 @@ async def admin_product_with_images(
         attribute_data=parsed_attribute_data,
         images=merged,
     ), shop)
+    data["product_slug"] = unique_product_slug(shop_id, name.strip(), pid if existing else "")
     if existing: supabase.table("products").update(data).eq("shop_id", shop_id).eq("product_id", pid).execute()
     else: supabase.table("products").insert({**data, "shop_id": shop_id, "product_id": pid}).execute()
     

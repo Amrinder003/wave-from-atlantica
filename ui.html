@@ -1904,6 +1904,22 @@ const App = {
 };
 const $=id=>document.getElementById(id);
 const norm=u=>(u||'').trim().replace(/\/$/,'');
+function appUiRootPath(){
+  return '/ui';
+}
+function buildShopPublicPath(shopRef=''){
+  return `/shop/${encodeURIComponent(String(shopRef||'').trim())}`;
+}
+function buildProductPublicPath(shopRef='', productRef=''){
+  return `/product/${encodeURIComponent(String(shopRef||'').trim())}/${encodeURIComponent(String(productRef||'').trim())}`;
+}
+function setPublicPath(path, replace=false){
+  try{
+    const target=String(path||'').trim()||appUiRootPath();
+    if(`${location.pathname}${location.search}`===target) return;
+    history[replace?'replaceState':'pushState']({},'',target);
+  }catch{}
+}
 function resolveSrv(v=''){
   const raw=norm(v);
   const origin=norm(window.location.origin);
@@ -2697,7 +2713,7 @@ function showPage(pg){
   if(pg!=='chat') setChatMobileSide(false);
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function goHome(){App.activeCat='';App.marketAttrFilter={key:'',value:'',category:''};highlightCat('');showPage('home');}
+function goHome(){App.activeCat='';App.marketAttrFilter={key:'',value:'',category:''};highlightCat('');showPage('home');setPublicPath(appUiRootPath());}
 
 /* ═════════════════════════════════════════════
    SERVER CHECK
@@ -3227,6 +3243,7 @@ $('requestBannerDismissBtn')?.addEventListener('click',()=>{localStorage.setItem
 ═════════════════════════════════════════════ */
 function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
   const shopId=sid||p._shopId||p.shop_id||App.shopId||'';
+  const shopRef=p.shop_slug||p._shopRef||shopId;
   const shopName=sname||p._shopName||p.shop_name||App.shopData?.shop?.name||'';
   const imgs=(p.images||[]).map(absUrl).filter(Boolean);
   const main=imgs[0]||'';
@@ -3291,7 +3308,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
       <div class="pc-stock ${st}">${stMap[st]}</div>
       ${p.overview?`<div style="font-size:12px;color:var(--ink3);margin-top:7px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.overview)}</div>`:''}
       ${attrPreview?`<div class="pc-attr">${esc(attrPreview)}</div>`:''}
-      ${showShop&&shopName?`<div class="pc-shop">🏪 <span class="pc-shop-link" data-sid="${esc(shopId)}">${esc(shopName)}</span></div>`:''}
+      ${showShop&&shopName?`<div class="pc-shop">🏪 <span class="pc-shop-link" data-sid="${esc(shopRef)}">${esc(shopName)}</span></div>`:''}
       ${(p.product_views>0)?`<div class="pc-views">${p.product_views} view${p.product_views===1?'':'s'}</div>`:''}
       ${(p.avg_rating>0)?`<div class="pc-rating">${starsHtml(p.avg_rating,5,11)} <span>${p.avg_rating.toFixed(1)}</span>${p.review_count?` (${p.review_count})`:''}</div>`:''}
     </div>`;
@@ -3348,6 +3365,9 @@ function buildPagination(container,pagination,onPageClick){
 ═════════════════════════════════════════════ */
 async function openPD(p,mode,sid,sname){
   App.curProd=p;App.curSid=sid||p.shop_id||App.shopId;App.curSname=sname||p.shop_name||'';
+  const shopRef=App.shopData?.shop?.shop_slug||sid||p.shop_slug||p.shop_id||App.shopId;
+  const productRef=p.product_slug||p.product_id;
+  if(shopRef && productRef) setPublicPath(buildProductPublicPath(shopRef,productRef));
   App.pdVariant='';App.pdStar=0;App.pdVariantSelection={};
   const baseImgs=(p.images||[]).map(absUrl).filter(Boolean);
   const imgs=baseImgs;
@@ -3505,7 +3525,7 @@ async function openPD(p,mode,sid,sname){
     else{vw.style.display='none';}
   }
 
-  const url=`${location.href.split('#')[0]}#p:${App.curSid}:${p.product_id}`;
+  const url=`${location.origin}${buildProductPublicPath(shopRef,productRef)}`;
   $('shareInp').value=url;
   $('shareBtn').onclick=()=>navigator.clipboard.writeText(url).then(()=>toast('Link copied!'));
   $('pdCartBtn').disabled=p.stock==='out';
@@ -3584,7 +3604,7 @@ async function submitReview(){
     await loadPDReviews();
   }catch(e){setS('revStatus',e.message,'err');}
 }
-function closePD(){$('pdBg').classList.remove('on');document.body.style.overflow='';}
+function closePD(){$('pdBg').classList.remove('on');if(location.pathname.startsWith('/product/')){const shopRef=App.shopData?.shop?.shop_slug||App.curSid||App.shopId;if(shopRef) setPublicPath(buildShopPublicPath(shopRef),true);}document.body.style.overflow='';}
 $('pdClose').addEventListener('click',closePD);
 $('pdBg').addEventListener('click',e=>{if(e.target===$('pdBg'))closePD();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePD();closeCart();}});
@@ -3691,7 +3711,7 @@ function renderHomeShops(){
     <div class="shop-card-body"><div class="shop-card-name">${esc(s.name)}</div><div class="shop-card-addr">📍 ${esc(s.address||'Address coming soon')}</div>
     <div class="shop-card-overview">${esc((s.overview||'Local products, direct shop chat, and quick browsing in one storefront.').slice(0,120))}</div>
     <div class="shop-card-foot"><span class="sc-chip a">${s.stats?.product_count??0} products</span>${(s.stats?.avg_rating>0)?`<span class="sc-chip g">★ ${s.stats.avg_rating}</span>`:''}<span class="sc-chip d">${s.stats?.chat_hits_30d??0} chats / 30d</span>${s.is_open_now?`<span class="sc-chip g">Open now</span>`:''}</div></div>`;
-    card.addEventListener('click',()=>openShopPage(s.shop_id));
+    card.addEventListener('click',()=>openShopPage(s.shop_slug||s.shop_id));
     grid.appendChild(card);
   });
 }
@@ -3755,6 +3775,8 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
     if(App.shopAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.shopAttrFilter.value)}`);
     const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(shopId)}?page=${page}&sort=${sort}&stock=${stock}${attrParams.length?`&${attrParams.join('&')}`:''}`),{auth:!!tok()});
     App.shopData=d;
+    App.shopId=d.shop_slug||d.shop_id||shopId;save();
+    setPublicPath(buildShopPublicPath(d.shop_slug||d.shop_id||shopId), location.pathname.startsWith('/product/'));
     const s=d.shop,st=d.stats||{};
     renderShopAttributeFilter(s.category||'');
     $('shopBreadName').textContent=s.name;$('shopHdrName').textContent=s.name;
@@ -4736,7 +4758,7 @@ $('importCsvBtn').addEventListener('click',async()=>{
     try{
       let variantData=[]; try{variantData=obj.variant_data_json?JSON.parse(obj.variant_data_json):[];}catch{}
       let variantMatrix=[]; try{variantMatrix=obj.variant_matrix_json?JSON.parse(obj.variant_matrix_json):[];}catch{}
-      await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||`p${Date.now()}`,name:obj.name||'Unnamed',price:obj.price||'',price_amount:row.numeric,currency_code:$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',overview:obj.overview||'',stock:obj.stock||'in',stock_quantity:row.qty,variants:obj.variants||variantSummary(variantData),variant_data:variantData,variant_matrix:variantMatrix,attribute_data:row.attr||{},images:[]})});
+      await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||'',name:obj.name||'Unnamed',price:obj.price||'',price_amount:row.numeric,currency_code:$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',overview:obj.overview||'',stock:obj.stock||'in',stock_quantity:row.qty,variants:obj.variants||variantSummary(variantData),variant_data:variantData,variant_matrix:variantMatrix,attribute_data:row.attr||{},images:[]})});
       done++;
     }catch(e){
       failed++;
@@ -4752,14 +4774,43 @@ $('importCsvBtn').addEventListener('click',async()=>{
 });
 
 /* ═════════════════════════════════════════════
-   DEEP LINK  #p:shopId:productId
+   PUBLIC PATH DEEP LINKS
 ═════════════════════════════════════════════ */
-async function handleDeepLink(){
-  const m=location.hash.match(/^#p:([^:]+):(.+)$/);if(!m)return;
-  const[,sid,pid]=m;
-  try{const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(sid)}`));App.shopId=sid;App.shopData=d;save();
-    const p=(d.products||[]).find(x=>x.product_id===pid);
-    if(p)openPD(p,'browse',sid,d.shop?.name);
+async function handlePathDeepLink(){
+  const path=location.pathname||'';
+  let shopRef='', productRef='';
+  let m=path.match(/^\/product\/([^/]+)\/([^/]+)\/?$/);
+  if(m){
+    shopRef=decodeURIComponent(m[1]||'');
+    productRef=decodeURIComponent(m[2]||'');
+  }else{
+    m=path.match(/^\/shop\/([^/]+)\/?$/);
+    if(m){
+      shopRef=decodeURIComponent(m[1]||'');
+    }else{
+      const hm=location.hash.match(/^#p:([^:]+):(.+)$/);
+      if(hm){
+        shopRef=hm[1];
+        productRef=hm[2];
+      }else{
+        return;
+      }
+    }
+  }
+  try{
+    const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(shopRef)}`));
+    App.shopId=d.shop_slug||d.shop_id||shopRef;
+    App.shopData=d;
+    save();
+    if(productRef){
+      const p=(d.products||[]).find(x=>x.product_id===productRef || x.product_slug===productRef);
+      if(p){
+        showPage('shop');
+        openPD(p,'browse',d.shop_id||shopRef,d.shop?.name);
+        return;
+      }
+    }
+    await openShopPage(d.shop_slug||d.shop_id||shopRef);
   }catch{}
 }
 
@@ -4878,13 +4929,14 @@ async function init(){
   if(App.shopId){
     try{const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(App.shopId)}`));App.shopData=d;$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}catch{}
   }
-  await handleDeepLink();
+  await handlePathDeepLink();
 }
 $('shopFilterApply')?.addEventListener('click',()=>{loadAllShops();toggleShopFilters(false);});
 $('shopFilterClear')?.addEventListener('click',()=>{clearShopFilters();loadAllShops();toggleShopFilters(false);});
 $('shopFilterToggleBtn')?.addEventListener('click',()=>toggleShopFilters());
 $('shopFilterOpenNow')?.addEventListener('change',()=>{if($('shopFilterOpenNow').checked){$('shopFilterDay').value='';$('shopFilterTime').value='';}});
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshRequestNotification(); });
+window.addEventListener('popstate',()=>{handlePathDeepLink().catch(()=>{});});
 init();
 </script>
 </body>
