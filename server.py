@@ -10,7 +10,7 @@ import os, re, json, time, uuid, shutil
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 import requests
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from supabase import create_client, Client
 
 try:
@@ -44,6 +44,9 @@ OPENROUTER_FALLBACK_MODELS = [m.strip() for m in os.environ.get("OPENROUTER_FALL
 OPENROUTER_TEMPERATURE = float(os.environ.get("OPENROUTER_TEMPERATURE", "0.2") or 0.2)
 OPENROUTER_MAX_TOKENS = int(os.environ.get("OPENROUTER_MAX_TOKENS", "400") or 400)
 OPENROUTER_URL    = "https://openrouter.ai/api/v1/chat/completions"
+MAPBOX_TOKEN      = os.environ.get("MAPBOX_TOKEN", "").strip()
+FX_API_BASE       = os.environ.get("FX_API_BASE", "https://api.frankfurter.dev/v2").strip().rstrip("/")
+FX_CACHE_SECONDS  = int(os.environ.get("FX_CACHE_SECONDS", "21600") or 21600)
 
 SUPABASE_URL      = os.environ.get("SUPABASE_URL", "").strip()
 SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
@@ -53,6 +56,25 @@ CORS_ORIGINS      = [o.strip() for o in os.environ.get("CORS_ORIGINS", APP_BASE_
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY.")
 supabase: Optional[Client] = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+FX_CACHE: Dict[Tuple[str, str], Dict[str, Any]] = {}
+
+COUNTRY_META: Dict[str, Dict[str, Any]] = {
+    "AU": {"name": "Australia", "currency": "AUD", "postal_regex": r"^\d{4}$"},
+    "BD": {"name": "Bangladesh", "currency": "BDT", "postal_regex": r"^\d{4}$"},
+    "CA": {"name": "Canada", "currency": "CAD", "postal_regex": r"^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$"},
+    "DE": {"name": "Germany", "currency": "EUR", "postal_regex": r"^\d{5}$"},
+    "FR": {"name": "France", "currency": "EUR", "postal_regex": r"^\d{5}$"},
+    "GB": {"name": "United Kingdom", "currency": "GBP", "postal_regex": r"^[A-Za-z]{1,2}\d[A-Za-z\d]?\s?\d[A-Za-z]{2}$"},
+    "IE": {"name": "Ireland", "currency": "EUR", "postal_regex": r"^[A-Za-z]\d{2}\s?[A-Za-z0-9]{4}$"},
+    "IN": {"name": "India", "currency": "INR", "postal_regex": r"^\d{6}$"},
+    "NZ": {"name": "New Zealand", "currency": "NZD", "postal_regex": r"^\d{4}$"},
+    "PK": {"name": "Pakistan", "currency": "PKR", "postal_regex": r"^\d{5}$"},
+    "QA": {"name": "Qatar", "currency": "QAR", "postal_regex": r"^\d{3,4}$"},
+    "SA": {"name": "Saudi Arabia", "currency": "SAR", "postal_regex": r"^\d{5}$"},
+    "SG": {"name": "Singapore", "currency": "SGD", "postal_regex": r"^\d{6}$"},
+    "US": {"name": "United States", "currency": "USD", "postal_regex": r"^\d{5}(?:-\d{4})?$"},
+    "AE": {"name": "United Arab Emirates", "currency": "AED", "postal_regex": r"^[A-Za-z0-9 -]{3,10}$"},
+}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # APP
@@ -90,18 +112,31 @@ class UpdateProfileReq(BaseModel):
 
 class ShopInfo(BaseModel):
     name: str
-    address: str
+    address: str = ""
     overview: str = ""
     phone: str = ""
     hours: str = ""
     category: str = ""
     whatsapp: str = ""
+    country_code: str = ""
+    country_name: str = ""
+    region: str = ""
+    city: str = ""
+    postal_code: str = ""
+    street_line1: str = ""
+    street_line2: str = ""
+    formatted_address: str = ""
+    currency_code: str = ""
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class Product(BaseModel):
     product_id: str = Field(..., description="e.g. p001")
     name: str
     overview: str = ""
     price: str = ""
+    price_amount: Optional[float] = Field(default=None, ge=0)
+    currency_code: str = ""
     stock: str = "in"
     variants: str = ""
     images: List[str] = []
@@ -273,10 +308,12 @@ def save_images(shop_id: str, files: List[UploadFile]) -> List[str]:
             raise HTTPException(500, "Failed to upload image. Ensure the 'product-images' bucket is created and public in Supabase.")
     return out
 
-def serialize_product(row: dict, user_id: str = None) -> Dict[str, Any]:
+def serialize_product(row: dict, user_id: str = None, shop: Optional[Dict[str, Any]] = None, viewer_currency: str = "") -> Dict[str, Any]:
     shop_id = row.get("shop_id", "")
     prod_id = row.get("product_id", "")
     imgs = normalize_image_list(shop_id, row.get("images", []))
+    shop_row = normalize_shop_record(shop or {})
+    price_fields = get_display_price_fields(row, shop_row, viewer_currency)
     
     try:
         rv = supabase.table("reviews").select("rating").eq("shop_id", shop_id).eq("product_id", prod_id).execute().data
@@ -296,7 +333,7 @@ def serialize_product(row: dict, user_id: str = None) -> Dict[str, Any]:
         
     return {
         "product_id": prod_id, "shop_id": shop_id, "name": row.get("name", ""),
-        "overview": row.get("overview", ""), "price": row.get("price", ""),
+        "overview": row.get("overview", ""), **price_fields,
         "stock": row.get("stock", "in"), "variants": row.get("variants", ""),
         "images": imgs, "image_count": len(imgs),
         "product_views": len(product_views),
@@ -304,7 +341,7 @@ def serialize_product(row: dict, user_id: str = None) -> Dict[str, Any]:
         "review_count": len(rv), "is_favourite": is_fav,
     }
 
-def serialize_products_bulk(rows: List[dict], user_id: str = None) -> List[Dict[str, Any]]:
+def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Optional[Dict[str, Dict[str, Any]]] = None, viewer_currency: str = "") -> List[Dict[str, Any]]:
     if not rows:
         return []
 
@@ -356,7 +393,7 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None) -> List[Dict[
             "shop_id": shop_id,
             "name": row.get("name", ""),
             "overview": row.get("overview", ""),
-            "price": row.get("price", ""),
+            **get_display_price_fields(row, normalize_shop_record((shop_map or {}).get(shop_id, {})), viewer_currency),
             "stock": row.get("stock", "in"),
             "variants": row.get("variants", ""),
             "images": imgs,
@@ -430,6 +467,7 @@ def paginate_list(items: List[Any], page: int, page_size: int = PAGE_SIZE) -> Di
 def rebuild_kb(shop_id: str):
     shop = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
     if not shop: return
+    shop_row = normalize_shop_record(shop[0])
     
     prods = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
     
@@ -441,10 +479,11 @@ def rebuild_kb(shop_id: str):
             except: imgs = []
         p_serialized.append({
             "product_id": p["product_id"], "name": p["name"], "overview": p.get("overview", ""),
-            "price": p.get("price", ""), "stock": p.get("stock", "in"), "images": imgs
+            "price": get_display_price_fields(p, shop_row).get("price_native") or p.get("price", ""),
+            "stock": p.get("stock", "in"), "images": imgs
         })
     
-    obj = {"shop": {k: shop[0].get(k, "") for k in ("name","address","overview","phone","hours","category")},
+    obj = {"shop": {k: shop_row.get(k, "") for k in ("name","address","overview","phone","hours","category","country_code","region","city","postal_code","street_line1","street_line2","currency_code")},
            "products": p_serialized}
            
     d = os.path.join(SHOPS_DIR, shop_id)
@@ -487,6 +526,159 @@ def parse_price_value(price: str) -> Optional[float]:
         return float(m.group(1))
     except Exception:
         return None
+
+def clean_code(value: str) -> str:
+    return re.sub(r"[^A-Za-z]", "", str(value or "").upper())[:2]
+
+def clean_currency(value: str) -> str:
+    return re.sub(r"[^A-Za-z]", "", str(value or "").upper())[:3]
+
+def country_meta(country_code: str) -> Dict[str, Any]:
+    return COUNTRY_META.get(clean_code(country_code), {})
+
+def currency_for_country(country_code: str) -> str:
+    meta = country_meta(country_code)
+    return meta.get("currency", "USD")
+
+def build_formatted_address(data: Dict[str, Any]) -> str:
+    parts = [
+        (data.get("street_line1") or "").strip(),
+        (data.get("street_line2") or "").strip(),
+        ", ".join([v for v in [(data.get("city") or "").strip(), (data.get("region") or "").strip()] if v]),
+        (data.get("postal_code") or "").strip(),
+        (data.get("country_name") or "").strip() or country_meta(data.get("country_code", "")).get("name", ""),
+    ]
+    return ", ".join([p for p in parts if p])
+
+def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(row or {})
+    out["country_code"] = clean_code(out.get("country_code", ""))
+    out["country_name"] = (out.get("country_name") or country_meta(out.get("country_code", "")).get("name", "")).strip()
+    out["currency_code"] = clean_currency(out.get("currency_code") or currency_for_country(out.get("country_code", "")))
+    out["formatted_address"] = (out.get("formatted_address") or "").strip() or build_formatted_address(out)
+    out["address"] = out["formatted_address"] or (out.get("address") or "").strip()
+    return out
+
+def validate_postal_code(country_code: str, postal_code: str) -> bool:
+    value = (postal_code or "").strip()
+    if not value:
+        return False
+    pattern = country_meta(country_code).get("postal_regex")
+    if not pattern:
+        return True
+    return re.fullmatch(pattern, value, flags=re.IGNORECASE) is not None
+
+def parse_price_amount(value: Any) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            return round(float(value), 2)
+        except Exception:
+            return None
+    return parse_price_value(str(value))
+
+def format_money(amount: Optional[float], currency_code: str) -> str:
+    if amount is None:
+        return ""
+    code = clean_currency(currency_code) or "USD"
+    return f"{code} {amount:,.2f}"
+
+def get_row_price_amount(row: Dict[str, Any]) -> Optional[float]:
+    return parse_price_amount(row.get("price_amount")) if row.get("price_amount") not in (None, "") else parse_price_amount(row.get("price"))
+
+def get_row_currency_code(row: Dict[str, Any], shop: Optional[Dict[str, Any]] = None) -> str:
+    return clean_currency(row.get("currency_code") or (shop or {}).get("currency_code") or currency_for_country((shop or {}).get("country_code", "")) or "USD")
+
+def get_fx_rate(base_currency: str, target_currency: str) -> Optional[float]:
+    base = clean_currency(base_currency)
+    target = clean_currency(target_currency)
+    if not base or not target or base == target:
+        return 1.0
+    key = (base, target)
+    now = time.time()
+    cached = FX_CACHE.get(key)
+    if cached and now - cached.get("ts", 0) < FX_CACHE_SECONDS:
+        return cached.get("rate")
+    try:
+        res = requests.get(f"{FX_API_BASE}/rate/{base}/{target}", timeout=8)
+        res.raise_for_status()
+        data = res.json() or {}
+        rate = float(data.get("rate"))
+        FX_CACHE[key] = {"rate": rate, "ts": now}
+        return rate
+    except Exception:
+        return None
+
+def get_display_price_fields(row: Dict[str, Any], shop: Optional[Dict[str, Any]] = None, viewer_currency: str = "") -> Dict[str, Any]:
+    amount = get_row_price_amount(row)
+    source_currency = get_row_currency_code(row, shop)
+    original = format_money(amount, source_currency) if amount is not None else (str(row.get("price", "")) if row.get("price") else "")
+    viewer = clean_currency(viewer_currency)
+    converted_amount = None
+    converted_code = source_currency
+    price_text = original
+    converted = False
+    if amount is not None and viewer and viewer != source_currency:
+        rate = get_fx_rate(source_currency, viewer)
+        if rate:
+            converted_amount = round(amount * rate, 2)
+            converted_code = viewer
+            price_text = format_money(converted_amount, converted_code)
+            converted = True
+    return {
+        "price": price_text,
+        "price_native": original,
+        "price_amount": converted_amount if converted_amount is not None else amount,
+        "price_amount_native": amount,
+        "currency_code": converted_code,
+        "currency_code_native": source_currency,
+        "price_converted": converted,
+    }
+
+def validate_shop_payload(shop: ShopInfo) -> Dict[str, Any]:
+    raw = shop.model_dump() if hasattr(shop, "model_dump") else shop.dict()
+    data = normalize_shop_record(raw)
+    if not data.get("name", "").strip():
+        raise HTTPException(400, "Shop name is required")
+    if not data.get("country_code"):
+        raise HTTPException(400, "Select the shop country")
+    if not data.get("region", "").strip():
+        raise HTTPException(400, "Select or enter the shop province/state")
+    if not data.get("city", "").strip():
+        raise HTTPException(400, "Enter the shop city")
+    if not data.get("street_line1", "").strip():
+        raise HTTPException(400, "Enter the street address")
+    if not data.get("postal_code", "").strip():
+        raise HTTPException(400, "Enter the postal code")
+    if not validate_postal_code(data["country_code"], data["postal_code"]):
+        raise HTTPException(400, f"Postal code format is not valid for {data.get('country_name') or data['country_code']}")
+    data["currency_code"] = clean_currency(data.get("currency_code") or currency_for_country(data["country_code"]))
+    data["formatted_address"] = data.get("formatted_address") or build_formatted_address(data)
+    data["address"] = data["formatted_address"]
+    return data
+
+def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[str, Any]:
+    name = (product.name or "").strip()
+    if not name:
+        raise HTTPException(400, "Product name required")
+    amount = parse_price_amount(product.price_amount if product.price_amount not in (None, "") else product.price)
+    if amount is None:
+        raise HTTPException(400, "Enter a valid numeric price")
+    if amount < 0:
+        raise HTTPException(400, "Price cannot be negative")
+    currency_code = clean_currency(product.currency_code or shop.get("currency_code") or currency_for_country(shop.get("country_code", "")))
+    return {
+        "name": name,
+        "overview": product.overview,
+        "price_amount": round(amount, 2),
+        "currency_code": currency_code,
+        "price": format_money(round(amount, 2), currency_code),
+        "stock": product.stock,
+        "variants": product.variants,
+        "images": dedup(product.images or []),
+        "updated_at": "now()",
+    }
 
 def extract_budget_limit(q: str) -> Optional[float]:
     qn = norm_text(q)
@@ -546,6 +738,12 @@ def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[D
             "name": row.get("name", ""),
             "overview": row.get("overview", ""),
             "price": row.get("price", ""),
+            "price_amount": row.get("price_amount"),
+            "price_amount_native": row.get("price_amount_native"),
+            "currency_code": row.get("currency_code"),
+            "currency_code_native": row.get("currency_code_native"),
+            "price_native": row.get("price_native"),
+            "price_converted": row.get("price_converted"),
             "stock": row.get("stock", "in"),
             "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
             "_price_value": value,
@@ -623,6 +821,12 @@ def answer_stock_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Di
             "name": row.get("name", ""),
             "overview": row.get("overview", ""),
             "price": row.get("price", ""),
+            "price_amount": row.get("price_amount"),
+            "price_amount_native": row.get("price_amount_native"),
+            "currency_code": row.get("currency_code"),
+            "currency_code_native": row.get("currency_code_native"),
+            "price_native": row.get("price_native"),
+            "price_converted": row.get("price_converted"),
             "stock": row.get("stock", "in"),
             "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
         })
@@ -662,6 +866,12 @@ def answer_cheapest_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional
             "name": row.get("name", ""),
             "overview": row.get("overview", ""),
             "price": row.get("price", ""),
+            "price_amount": row.get("price_amount"),
+            "price_amount_native": row.get("price_amount_native"),
+            "currency_code": row.get("currency_code"),
+            "currency_code_native": row.get("currency_code_native"),
+            "price_native": row.get("price_native"),
+            "price_converted": row.get("price_converted"),
             "stock": row.get("stock", "in"),
             "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
             "_price_value": value,
@@ -751,6 +961,12 @@ def choose_chat_products(prod_rows: List[Dict], q: str, answer_text: str = "", p
                 "name": name,
                 "overview": row.get("overview", ""),
                 "price": row.get("price", ""),
+                "price_amount": row.get("price_amount"),
+                "price_amount_native": row.get("price_amount_native"),
+                "currency_code": row.get("currency_code"),
+                "currency_code_native": row.get("currency_code_native"),
+                "price_native": row.get("price_native"),
+                "price_converted": row.get("price_converted"),
                 "stock": row.get("stock", "in"),
                 "images": imgs,
                 "_score": score,
@@ -831,6 +1047,12 @@ def answer_recommendation_query(shop: dict, prod_rows: List[Dict], q: str) -> Op
                 "name": row.get("name", ""),
                 "overview": row.get("overview", ""),
                 "price": row.get("price", ""),
+                "price_amount": row.get("price_amount"),
+                "price_amount_native": row.get("price_amount_native"),
+                "currency_code": row.get("currency_code"),
+                "currency_code_native": row.get("currency_code_native"),
+                "price_native": row.get("price_native"),
+                "price_converted": row.get("price_converted"),
                 "stock": row.get("stock", "in"),
                 "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
             }
@@ -1297,6 +1519,8 @@ def public_shops(category: Optional[str] = None):
     if category: q = q.ilike("category", f"%{category}%")
     rows = q.execute().data
     for r in rows:
+        nr = normalize_shop_record(r)
+        r.update(nr)
         try:
             r["stats"] = shop_stats(r["shop_id"])
         except Exception as e:
@@ -1304,10 +1528,79 @@ def public_shops(category: Optional[str] = None):
             r["stats"] = {"product_count": 0, "image_count": 0, "products_with_images": 0, "chat_hits_30d": 0, "shop_views_30d": 0, "product_views_30d": 0, "avg_rating": 0}
     return {"ok": True, "shops": rows}
 
+@app.get("/public/location-support")
+def public_location_support():
+    countries = []
+    for code, meta in sorted(COUNTRY_META.items(), key=lambda item: item[1]["name"]):
+        countries.append({"code": code, "name": meta["name"], "currency_code": meta["currency"]})
+    return {"ok": True, "countries": countries, "address_autocomplete": bool(MAPBOX_TOKEN)}
+
+@app.get("/public/address/search")
+def public_address_search(q: str = Query(..., min_length=3), country: str = Query("")):
+    if not MAPBOX_TOKEN:
+        return {"ok": True, "suggestions": [], "provider": "disabled"}
+    params = {
+        "access_token": MAPBOX_TOKEN,
+        "autocomplete": "true",
+        "limit": 5,
+        "types": "address",
+    }
+    country_code = clean_code(country)
+    if country_code:
+        params["country"] = country_code.lower()
+    try:
+        res = requests.get(
+            f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(q)}.json",
+            params=params,
+            timeout=8,
+        )
+        res.raise_for_status()
+        data = res.json() or {}
+        suggestions = []
+        for feature in data.get("features", []):
+            context = feature.get("context") or []
+            country_name = ""
+            region = ""
+            city = ""
+            postal_code = ""
+            country_code_val = country_code
+            for item in context:
+                item_id = str(item.get("id", ""))
+                if item_id.startswith("country."):
+                    country_name = item.get("text", "")
+                    country_code_val = clean_code(item.get("short_code", "") or country_code_val)
+                elif item_id.startswith("region."):
+                    region = item.get("text", "")
+                elif item_id.startswith("place."):
+                    city = item.get("text", "")
+                elif item_id.startswith("postcode."):
+                    postal_code = item.get("text", "")
+            street_number = str(feature.get("address", "")).strip()
+            street_name = str(feature.get("text", "")).strip()
+            street_line1 = " ".join([v for v in [street_number, street_name] if v]).strip() or str(feature.get("place_name", "")).split(",")[0].strip()
+            suggestions.append({
+                "label": feature.get("place_name", ""),
+                "formatted_address": feature.get("place_name", ""),
+                "street_line1": street_line1,
+                "street_line2": "",
+                "city": city,
+                "region": region,
+                "postal_code": postal_code,
+                "country_code": country_code_val,
+                "country_name": country_name or country_meta(country_code_val).get("name", ""),
+                "latitude": (feature.get("center") or [None, None])[1],
+                "longitude": (feature.get("center") or [None, None])[0],
+            })
+        return {"ok": True, "suggestions": suggestions, "provider": "mapbox"}
+    except Exception as e:
+        print(f"[Address Search Warning] {e}")
+        return {"ok": True, "suggestions": [], "provider": "error"}
+
 @app.get("/public/shop/{shop_id}")
-def public_shop(shop_id: str, request: Request, sort: str = Query("default"), stock: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
+def public_shop(shop_id: str, request: Request, sort: str = Query("default"), stock: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
     shop_res = supabase.table("shops").select("*").eq("shop_id", shop_id).execute()
     if not shop_res.data: raise HTTPException(404, "Shop not found")
+    shop_row = normalize_shop_record(shop_res.data[0])
     
     user_id = None
     if authorization:
@@ -1318,17 +1611,17 @@ def public_shop(shop_id: str, request: Request, sort: str = Query("default"), st
     if stock in ("in", "low", "out"): q = q.eq("stock", stock)
     all_prods = q.execute().data
     
-    if sort == "price-asc": all_prods.sort(key=lambda x: float(re.sub(r'[^\d.]', '', x.get("price") or "0") or 0))
-    elif sort == "price-desc": all_prods.sort(key=lambda x: float(re.sub(r'[^\d.]', '', x.get("price") or "0") or 0), reverse=True)
+    if sort == "price-asc": all_prods.sort(key=lambda x: get_row_price_amount(x) or 0)
+    elif sort == "price-desc": all_prods.sort(key=lambda x: get_row_price_amount(x) or 0, reverse=True)
     else: all_prods.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
     
     track(shop_id, "shop_view")
     
     paged = paginate_list(all_prods, page, limit)
-    ser_prods = serialize_products_bulk(paged["items"], user_id)
+    ser_prods = serialize_products_bulk(paged["items"], user_id, {shop_id: shop_row}, currency)
     
     return {
-        "ok": True, "shop_id": shop_id, "shop": shop_res.data[0],
+        "ok": True, "shop_id": shop_id, "shop": shop_row,
         "products": ser_prods,
         "pagination": paged["pagination"],
         "stats": shop_stats(shop_id),
@@ -1336,34 +1629,44 @@ def public_shop(shop_id: str, request: Request, sort: str = Query("default"), st
     }
 
 @app.get("/public/search")
-def search_shop(request: Request, shop_id: str = Query(...), q: str = Query(...), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100)):
+def search_shop(request: Request, shop_id: str = Query(...), q: str = Query(...), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100)):
     qn = (q or "").strip()
     if not qn: return {"ok": True, "shop_id": shop_id, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
     rows = supabase.table("products").select("*").eq("shop_id", shop_id).or_(f"name.ilike.%{qn}%,overview.ilike.%{qn}%").order("updated_at", desc=True).execute().data
     paged = paginate_list(rows, page, limit)
-    return {"ok": True, "shop_id": shop_id, "q": q, "results": serialize_products_bulk(paged["items"]), "total": len(rows), "pagination": paged["pagination"]}
+    shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
+    shop_map = {shop_id: normalize_shop_record(shop_rows[0])} if shop_rows else {}
+    return {"ok": True, "shop_id": shop_id, "q": q, "results": serialize_products_bulk(paged["items"], None, shop_map, currency), "total": len(rows), "pagination": paged["pagination"]}
 
 @app.get("/public/search/global")
-def search_global(request: Request, q: str = Query(...), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60)):
+def search_global(request: Request, q: str = Query(...), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60)):
     qn = (q or "").strip()
     if not qn: return {"ok": True, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
-    rows = supabase.table("products").select("*, shops(name, address, whatsapp)").or_(f"name.ilike.%{qn}%,overview.ilike.%{qn}%").order("updated_at", desc=True).execute().data
+    rows = supabase.table("products").select("*, shops(name, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").or_(f"name.ilike.%{qn}%,overview.ilike.%{qn}%").order("updated_at", desc=True).execute().data
     
     paged = paginate_list(rows, page, limit)
-    results = serialize_products_bulk(paged["items"])
+    shop_map = {}
+    for row in paged["items"]:
+        if row.get("shop_id"):
+            shop_map[str(row.get("shop_id"))] = normalize_shop_record(row.get("shops", {}) or {})
+    results = serialize_products_bulk(paged["items"], None, shop_map, currency)
     for r, prod in zip(paged["items"], results):
         prod["shop_name"] = r.get("shops", {}).get("name", "")
-        prod["shop_address"] = r.get("shops", {}).get("address", "")
+        prod["shop_address"] = normalize_shop_record(r.get("shops", {}) or {}).get("address", "")
     return {"ok": True, "q": q, "results": results, "total": len(rows), "pagination": paged["pagination"]}
 
 @app.get("/public/top-products")
-def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60), category: str = Query("")):
-    q = supabase.table("products").select("*, shops!inner(name, category)").neq("stock", "out")
+def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60), category: str = Query(""), currency: str = Query("")):
+    q = supabase.table("products").select("*, shops!inner(name, category, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").neq("stock", "out")
     if category: q = q.ilike("shops.category", f"%{category}%")
     rows = q.execute().data
     
     paged = paginate_list(rows, page, limit)
-    results = serialize_products_bulk(paged["items"])
+    shop_map = {}
+    for row in paged["items"]:
+        if row.get("shop_id"):
+            shop_map[str(row.get("shop_id"))] = normalize_shop_record(row.get("shops", {}) or {})
+    results = serialize_products_bulk(paged["items"], None, shop_map, currency)
     for r, prod in zip(paged["items"], results):
         prod["shop_name"] = r.get("shops", {}).get("name", "")
     return {"ok": True, "products": results, "pagination": paged["pagination"]}
@@ -1372,16 +1675,19 @@ def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Quer
 # ROUTES — Chat 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 @app.get("/chat")
-def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(...)):
+def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(...), currency: str = Query("")):
     q = (q or "").strip()
     if not q: raise HTTPException(400, "Missing q")
     track(shop_id, "chat")
 
     shop_res = supabase.table("shops").select("*").eq("shop_id", shop_id).execute()
     if not shop_res.data: return {"answer": "Shop not found.", "products": [], "meta": {"llm_used": False}}
-    shop = shop_res.data[0]
+    shop = normalize_shop_record(shop_res.data[0])
     
-    prod_rows = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
+    raw_prod_rows = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
+    prod_rows = []
+    for row in raw_prod_rows:
+        prod_rows.append({**row, **get_display_price_fields(row, shop, currency)})
 
     info_answer = answer_shop_info_query(shop, q)
     if info_answer is not None:
@@ -1404,7 +1710,7 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
         return product_image_answer
 
     picked = rank_products(prod_rows, q)
-    abs_picked = serialize_products_bulk(picked[:4])
+    abs_picked = serialize_products_bulk(picked[:4], None, {shop_id: shop}, currency)
     rag = {"chunks": [], "matches": []}
     if HAS_RAG and not is_greeting(q):
         try:
@@ -1437,11 +1743,11 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
         llm_res = llm_chat(system_prompt, f"CONTEXT:\n{build_context(shop, picked, prod_rows, rag.get('chunks', []))}\n\nCUSTOMER: {q}")
         attached = choose_chat_products(prod_rows, q, llm_res["content"], prefer_images=wants_product_image(q), limit=4)
         if attached:
-            abs_picked = serialize_products_bulk(attached)
+            abs_picked = serialize_products_bulk(attached, None, {shop_id: shop}, currency)
         elif wants_product_image(q):
             with_images = [p for p in picked if p.get("images")]
             if with_images:
-                abs_picked = serialize_products_bulk(with_images[:4])
+                abs_picked = serialize_products_bulk(with_images[:4], None, {shop_id: shop}, currency)
         return {"answer": llm_res["content"], "products": abs_picked, "meta": {"llm_used": True, "model": llm_res.get("model") or OPENROUTER_MODEL, "suggestions": suggestions, "rag_matches": len(rag.get('matches', []))}}
     except Exception as e:
         err_msg = str(e)
@@ -1469,14 +1775,34 @@ def check_shop_owner(user_id: str, shop_id: str):
 def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     require_verified(user)
-    shop = body.shop
-    if not shop.name.strip() or not shop.address.strip(): raise HTTPException(400, "Shop name and address required")
-    sid = slug(body.shop_id) if body.shop_id else gen_shop_id(shop.name)
+    shop = validate_shop_payload(body.shop)
+    sid = slug(body.shop_id) if body.shop_id else gen_shop_id(shop["name"])
     
     exists_res = supabase.table("shops").select("shop_id").eq("shop_id", sid).execute()
     if exists_res.data: raise HTTPException(409, "shop_id already exists")
     
-    supabase.table("shops").insert({"shop_id": sid, "owner_user_id": user.id, "name": shop.name.strip(), "address": shop.address.strip(), "overview": shop.overview, "phone": shop.phone, "hours": shop.hours, "category": shop.category, "whatsapp": shop.whatsapp}).execute()
+    supabase.table("shops").insert({
+        "shop_id": sid,
+        "owner_user_id": user.id,
+        "name": shop["name"].strip(),
+        "address": shop["address"],
+        "formatted_address": shop["formatted_address"],
+        "country_code": shop["country_code"],
+        "country_name": shop["country_name"],
+        "region": shop["region"],
+        "city": shop["city"],
+        "postal_code": shop["postal_code"],
+        "street_line1": shop["street_line1"],
+        "street_line2": shop["street_line2"],
+        "currency_code": shop["currency_code"],
+        "latitude": shop.get("latitude"),
+        "longitude": shop.get("longitude"),
+        "overview": shop["overview"],
+        "phone": shop["phone"],
+        "hours": shop["hours"],
+        "category": shop["category"],
+        "whatsapp": shop["whatsapp"],
+    }).execute()
     supabase.table("profiles").update({"role": "shopkeeper"}).eq("id", user.id).execute()
     
     rebuild_kb(sid)
@@ -1488,7 +1814,8 @@ def my_shops(authorization: Optional[str] = Header(None)):
     shops_res = supabase.table("shops").select("*").eq("owner_user_id", user.id).order("created_at", desc=True).execute()
     rows = shops_res.data
     
-    for r in rows: 
+    for r in rows:
+        r.update(normalize_shop_record(r))
         r["stats"] = shop_stats(r["shop_id"])
     return {"ok": True, "shops": rows}
 
@@ -1497,18 +1824,38 @@ def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
     
-    shop = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data[0]
+    shop = normalize_shop_record(supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data[0])
     prods = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
     stats = shop_stats(shop_id)
     
-    ser_prods = serialize_products_bulk(prods)
+    ser_prods = serialize_products_bulk(prods, None, {shop_id: shop})
     return {"ok": True, "shop_id": shop_id, "data": {"shop": shop, "products": ser_prods, "stats": stats}}
 
 @app.put("/admin/shop/{shop_id}")
 def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
-    supabase.table("shops").update({"name": body.name.strip(), "address": body.address.strip(), "overview": body.overview, "phone": body.phone, "hours": body.hours, "category": body.category, "whatsapp": body.whatsapp}).eq("shop_id", shop_id).execute()
+    shop = validate_shop_payload(body)
+    supabase.table("shops").update({
+        "name": shop["name"].strip(),
+        "address": shop["address"],
+        "formatted_address": shop["formatted_address"],
+        "country_code": shop["country_code"],
+        "country_name": shop["country_name"],
+        "region": shop["region"],
+        "city": shop["city"],
+        "postal_code": shop["postal_code"],
+        "street_line1": shop["street_line1"],
+        "street_line2": shop["street_line2"],
+        "currency_code": shop["currency_code"],
+        "latitude": shop.get("latitude"),
+        "longitude": shop.get("longitude"),
+        "overview": shop["overview"],
+        "phone": shop["phone"],
+        "hours": shop["hours"],
+        "category": shop["category"],
+        "whatsapp": shop["whatsapp"],
+    }).eq("shop_id", shop_id).execute()
     rebuild_kb(shop_id)
     return {"ok": True}
 
@@ -1525,13 +1872,15 @@ def admin_upsert_product(shop_id: str, product: Product, authorization: Optional
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
     pid = slug(product.product_id, 60)
-    if not product.name.strip(): raise HTTPException(400, "Product name required")
+    shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
+    if not shop_rows: raise HTTPException(404, "Shop not found")
+    shop = normalize_shop_record(shop_rows[0])
     
     existing = supabase.table("products").select("images").eq("shop_id", shop_id).eq("product_id", pid).execute().data
-    imgs = dedup(product.images or [])
+    data = normalize_product_payload(product, shop)
+    imgs = data["images"]
     if existing and not imgs: imgs = existing[0].get("images", [])
-    
-    data = {"name": product.name.strip(), "overview": product.overview, "price": product.price, "stock": product.stock, "variants": product.variants, "images": imgs, "updated_at": "now()"}
+    data["images"] = imgs
     if existing: supabase.table("products").update(data).eq("shop_id", shop_id).eq("product_id", pid).execute()
     else: supabase.table("products").insert({**data, "shop_id": shop_id, "product_id": pid}).execute()
     
@@ -1550,12 +1899,16 @@ def admin_delete_product(shop_id: str, product_id: str, authorization: Optional[
 def admin_product_with_images(
     shop_id: str, authorization: Optional[str] = Header(None),
     product_id: str = Form(...), name: str = Form(...), overview: str = Form(""), price: str = Form(""),
+    price_amount: str = Form(""), currency_code: str = Form(""),
     stock: str = Form("in"), variants: str = Form(""), images: List[UploadFile] = File(default=[])
 ):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
     pid = slug(product_id, 60)
     if not name.strip(): raise HTTPException(400, "Name required")
+    shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
+    if not shop_rows: raise HTTPException(404, "Shop not found")
+    shop = normalize_shop_record(shop_rows[0])
     
     new_urls = save_images(shop_id, images)
     
@@ -1570,7 +1923,17 @@ def admin_product_with_images(
             
     merged = dedup(current_imgs + new_urls)
     
-    data = {"name": name.strip(), "overview": overview, "price": price, "stock": stock, "variants": variants, "images": merged, "updated_at": "now()"}
+    data = normalize_product_payload(Product(
+        product_id=pid,
+        name=name.strip(),
+        overview=overview,
+        price=price,
+        price_amount=parse_price_amount(price_amount),
+        currency_code=currency_code,
+        stock=stock,
+        variants=variants,
+        images=merged,
+    ), shop)
     if existing: supabase.table("products").update(data).eq("shop_id", shop_id).eq("product_id", pid).execute()
     else: supabase.table("products").insert({**data, "shop_id": shop_id, "product_id": pid}).execute()
     
