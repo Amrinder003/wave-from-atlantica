@@ -668,6 +668,10 @@ a{color:inherit;text-decoration:none}
 .csv-prog{display:none;margin-top:8px}
 .csv-prog progress{width:100%;height:5px;accent-color:#1d4ed8}
 .csv-pt{font-size:11px;color:var(--ink3);margin-top:3px}
+.csv-errors{display:none;margin-top:10px;padding:12px;border-radius:14px;background:#fff7ed;border:1px solid rgba(194,65,12,.18);color:#9a3412}
+.csv-errors.on{display:block}
+.csv-errors-title{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.csv-errors-list{display:grid;gap:6px;margin-top:8px;font-size:12px;line-height:1.6}
 .workspace-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:22px 22px;background:linear-gradient(135deg,rgba(255,247,236,.98),rgba(247,224,205,.94) 54%,rgba(241,234,223,.92));border-bottom:1px solid rgba(191,174,149,.34);position:relative;overflow:hidden}
 .workspace-hero::after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:999px;background:radial-gradient(circle,rgba(178,87,53,.16),rgba(178,87,53,0));pointer-events:none}
 .workspace-copy{display:grid;gap:6px}
@@ -1290,6 +1294,7 @@ a{color:inherit;text-decoration:none}
             </div>
             <div class="card-body">
               <div id="bulkEditBar" class="bulk-edit-bar">
+                <div class="fld"><label>Action</label><select id="bulkAction"><option value="set">Set / Replace</option><option value="append">Append</option><option value="clear">Clear</option></select></div>
                 <div class="fld"><label>Field</label><select id="bulkField"><option value="">Choose field</option><option value="stock_quantity">Stock quantity</option><option value="stock">Stock status</option><option value="overview_append">Add description note</option></select></div>
                 <div class="fld"><label>Category Field</label><select id="bulkAttrField"><option value="">No category field</option></select></div>
                 <div class="fld"><label>Value</label><input id="bulkValue" placeholder="Enter the value to apply"/></div>
@@ -1312,6 +1317,7 @@ a{color:inherit;text-decoration:none}
                   <button id="csvTplBtn" class="btn btn-g btn-sm">⬇ Template</button>
                 </div>
                 <div id="csvProg" class="csv-prog"><progress id="csvBar" max="100" value="0"></progress><div id="csvTxt" class="csv-pt"></div></div>
+                <div id="csvErrors" class="csv-errors"><div class="csv-errors-title">Import issues</div><div id="csvErrorsList" class="csv-errors-list"></div></div>
               </div>
             </div>
           </div>
@@ -2062,14 +2068,71 @@ function renderBulkAttributeOptions(category=''){
   const schema=PRODUCT_ATTRIBUTE_SCHEMA[category]||[];
   sel.innerHTML='<option value="">No category field</option>'+schema.map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('');
 }
+function parseCsvLine(line=''){
+  const out=[]; let cur=''; let inQuotes=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){
+      if(inQuotes && line[i+1]==='"'){ cur+='"'; i++; }
+      else inQuotes=!inQuotes;
+    }else if(ch===',' && !inQuotes){
+      out.push(cur); cur='';
+    }else{
+      cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out.map(v=>v.trim());
+}
+function showCsvErrors(errors=[]){
+  const wrap=$('csvErrors'), list=$('csvErrorsList');
+  if(!wrap||!list) return;
+  if(!errors.length){
+    wrap.classList.remove('on');
+    list.innerHTML='';
+    return;
+  }
+  wrap.classList.add('on');
+  list.innerHTML=errors.map(err=>`<div>${esc(err)}</div>`).join('');
+}
+function validateCsvRow(obj,rowNumber,category=''){
+  const errs=[];
+  const name=String(obj.name||'').trim();
+  const priceRaw=String(obj.price||'').trim();
+  const qtyRaw=String(obj.stock_quantity||'').trim();
+  const stockRaw=String(obj.stock||'in').trim().toLowerCase();
+  if(!name) errs.push(`Row ${rowNumber}: name is required.`);
+  const numeric=Number(priceRaw);
+  if(!priceRaw || !Number.isFinite(numeric) || numeric<0) errs.push(`Row ${rowNumber}: price must be a valid non-negative number.`);
+  const qty=Number(qtyRaw);
+  if(qtyRaw==='' || !Number.isInteger(qty) || qty<0) errs.push(`Row ${rowNumber}: stock_quantity must be a whole number.`);
+  if(stockRaw && !['in','low','out'].includes(stockRaw)) errs.push(`Row ${rowNumber}: stock must be in, low, or out.`);
+  let attr={};
+  if(String(obj.attribute_data_json||'').trim()){
+    try{ attr=JSON.parse(obj.attribute_data_json); }
+    catch{ errs.push(`Row ${rowNumber}: attribute_data_json is not valid JSON.`); }
+  }
+  const schema=PRODUCT_ATTRIBUTE_SCHEMA[category]||[];
+  if(schema.length){
+    const allowed=new Set(schema.map(([key])=>key));
+    Object.keys(attr||{}).forEach(key=>{ if(!allowed.has(key)) errs.push(`Row ${rowNumber}: ${key} is not valid for ${category}.`); });
+  }
+  return {errors:errs, attr, numeric, qty};
+}
 function syncBulkEditBar(){
   const bar=$('bulkEditBar'), note=$('bulkEditNote');
   if(!bar) return;
   bar.classList.toggle('on',!!App.adminBulkMode);
+  const action=$('bulkAction')?.value||'set';
+  const valueInp=$('bulkValue');
+  if(valueInp){
+    valueInp.disabled=action==='clear';
+    valueInp.placeholder=action==='clear'?'No value needed for clear':'Enter the value to apply';
+  }
   if(note){
     const count=App.adminSelectedProducts.length||0;
     note.textContent=count
-      ? `${count} product${count===1?'':'s'} selected. Apply one shared value to all of them.`
+      ? `${count} product${count===1?'':'s'} selected. ${action==='clear'?'Clear the chosen field across them with confirmation.':'Apply one shared value to all of them.'}`
       : 'Select products, choose one field, then apply the same value across all selected items.';
   }
   if($('adminBulkToggleBtn')) $('adminBulkToggleBtn').textContent=App.adminBulkMode?'Done':'Bulk Edit';
@@ -3581,14 +3644,16 @@ async function applyBulkEdit(){
   const shopId=App.adminShopId||$('shopId')?.value.trim();
   const selected=App.adminSelectedProducts||[];
   if(!shopId||!selected.length) return toast('Select products first','','err');
+  const action=$('bulkAction')?.value||'set';
   const field=$('bulkField')?.value||'';
   const attrField=$('bulkAttrField')?.value||'';
   const rawValue=($('bulkValue')?.value||'').trim();
   const category=App.adminShopData?.shop?.category||'';
   if(!field && !attrField) return toast('Choose a field to update','','err');
-  if(!rawValue) return toast('Enter a value to apply','','err');
+  if(action!=='clear' && !rawValue) return toast('Enter a value to apply','','err');
   const selectedProducts=(App.adminProducts||[]).filter(p=>selected.includes(p.product_id));
   if(!selectedProducts.length) return toast('No products selected','','err');
+  if(action==='clear' && !confirm(`Clear the selected field from ${selectedProducts.length} product${selectedProducts.length===1?'':'s'}? This cannot be undone automatically.`)) return;
   try{
     setBtnBusy('bulkApplyBtn',true,'Applying...');
     for(const p of selectedProducts){
@@ -3607,19 +3672,25 @@ async function applyBulkEdit(){
         images:p.images||[],
       };
       if(field==='stock_quantity'){
+        if(action==='clear') throw new Error('Stock quantity cannot be cleared in bulk. Set a valid number instead.');
         const qty=Number(rawValue);
         if(!Number.isInteger(qty) || qty<0) throw new Error('Stock quantity must be a whole number.');
         payload.stock_quantity=qty;
         payload.stock=qty<=0?'out':(qty<=5?'low':'in');
       }else if(field==='stock'){
+        if(action==='clear') throw new Error('Stock status cannot be cleared in bulk. Set it to in, low, or out.');
         if(!['in','low','out'].includes(rawValue)) throw new Error('Stock status must be in, low, or out.');
         payload.stock=rawValue;
       }else if(field==='overview_append'){
-        payload.overview=(payload.overview?`${payload.overview.trim()} `:'')+rawValue;
+        if(action==='clear') payload.overview='';
+        else if(action==='append') payload.overview=(payload.overview?`${payload.overview.trim()} `:'')+rawValue;
+        else payload.overview=rawValue;
       }
       if(attrField){
         if(!(PRODUCT_ATTRIBUTE_SCHEMA[category]||[]).some(([key])=>key===attrField)) throw new Error('That category field is not valid for this shop.');
-        payload.attribute_data[attrField]=rawValue;
+        if(action==='clear') delete payload.attribute_data[attrField];
+        else if(action==='append' && payload.attribute_data[attrField]) payload.attribute_data[attrField]=`${String(payload.attribute_data[attrField]).trim()} ${rawValue}`.trim();
+        else payload.attribute_data[attrField]=rawValue;
       }
       await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     }
@@ -3643,6 +3714,7 @@ if($('adminProdAttrMissing')) $('adminProdAttrMissing').addEventListener('change
 if($('adminBulkToggleBtn')) $('adminBulkToggleBtn').addEventListener('click',()=>{App.adminBulkMode=!App.adminBulkMode;if(!App.adminBulkMode) App.adminSelectedProducts=[];syncBulkEditBar();renderAdminProds(App.adminProducts||[]);});
 if($('bulkClearBtn')) $('bulkClearBtn').addEventListener('click',()=>{App.adminSelectedProducts=[];syncBulkEditBar();renderAdminProds(App.adminProducts||[]);});
 if($('bulkApplyBtn')) $('bulkApplyBtn').addEventListener('click',applyBulkEdit);
+if($('bulkAction')) $('bulkAction').addEventListener('change',syncBulkEditBar);
 
 /* ── Analytics ── */
 ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2'].forEach(id=>{
@@ -3736,18 +3808,40 @@ $('csvTplBtn').addEventListener('click',()=>{const csv='product_id,name,price,ov
 $('importCsvBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a shop first','','err');if(!tok())return toast('Login required','','err');
   const file=$('csvFile').files[0];if(!file)return toast('Select a CSV','','err');
-  const text=await file.text(),lines=text.trim().split('\n'),headers=lines[0].split(',').map(h=>h.trim().toLowerCase()),rows=lines.slice(1).filter(l=>l.trim());
+  showCsvErrors([]);
+  const category=App.adminShopData?.shop?.category||'';
+  const text=await file.text(),lines=text.trim().split(/\r?\n/),headers=parseCsvLine(lines[0]||'').map(h=>h.trim().toLowerCase()),rows=lines.slice(1).filter(l=>l.trim());
   if(!rows.length)return toast('CSV is empty','','err');
+  const parsedRows=[]; const preflightErrors=[];
+  rows.forEach((row,idx)=>{
+    const vals=parseCsvLine(row).map(v=>v.replace(/^"|"$/g,''));
+    const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');
+    const validation=validateCsvRow(obj,idx+2,category);
+    if(validation.errors.length) preflightErrors.push(...validation.errors);
+    parsedRows.push({obj,...validation});
+  });
+  if(preflightErrors.length){
+    showCsvErrors(preflightErrors.slice(0,18));
+    return toast('CSV needs fixes',`${preflightErrors.length} issue${preflightErrors.length===1?'':'s'} found`,'err');
+  }
   const prog=$('csvProg'),bar=$('csvBar'),txt=$('csvTxt');prog.style.display='block';bar.value=0;
   let done=0,failed=0;
   setBtnBusy('importCsvBtn',true,'Importing...');
-  txt.textContent=`Preparing import for ${rows.length} rows...`;
-  for(const row of rows){const vals=row.split(',').map(v=>v.trim().replace(/^"|"$/g,''));const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');
-    try{const numeric=Number(obj.price||'');const qty=Number(obj.stock_quantity||'');let attr={};try{attr=obj.attribute_data_json?JSON.parse(obj.attribute_data_json):{};}catch{}await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||`p${Date.now()}`,name:obj.name||'Unnamed',price:obj.price||'',price_amount:Number.isFinite(numeric)?numeric:null,currency_code:$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',overview:obj.overview||'',stock:obj.stock||'in',stock_quantity:Number.isFinite(qty)?qty:null,variants:obj.variants||'',attribute_data:attr,images:[]})});done++;}catch{failed++;}
-    bar.value=Math.round(((done+failed)/rows.length)*100);txt.textContent=`${done+failed}/${rows.length} (${failed} failed)`;await new Promise(r=>setTimeout(r,100));
+  txt.textContent=`Preparing import for ${parsedRows.length} rows...`;
+  for(const row of parsedRows){
+    const obj=row.obj;
+    try{
+      await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||`p${Date.now()}`,name:obj.name||'Unnamed',price:obj.price||'',price_amount:row.numeric,currency_code:$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',overview:obj.overview||'',stock:obj.stock||'in',stock_quantity:row.qty,variants:obj.variants||'',attribute_data:row.attr||{},images:[]})});
+      done++;
+    }catch(e){
+      failed++;
+      preflightErrors.push(`Import failed for ${obj.product_id||obj.name||'row'}: ${e.message}`);
+    }
+    bar.value=Math.round(((done+failed)/parsedRows.length)*100);txt.textContent=`${done+failed}/${parsedRows.length} (${failed} failed)`;await new Promise(r=>setTimeout(r,60));
   }
   txt.textContent=`Import complete: ${done} imported, ${failed} failed.`;
   setBtnBusy('importCsvBtn',false);
+  showCsvErrors(preflightErrors.slice(0,18));
   toast(`Import complete`,`${done} imported, ${failed} failed`);await loadAdminShop(shopId);
   setTimeout(()=>prog.style.display='none',3000);
 });
