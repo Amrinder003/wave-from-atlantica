@@ -80,6 +80,15 @@ COUNTRY_META: Dict[str, Dict[str, Any]] = {
 }
 DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 DAY_LABELS = {"mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun"}
+PRODUCT_ATTRIBUTE_SCHEMA: Dict[str, List[Tuple[str, str]]] = {
+    "Food": [("ingredients", "Ingredients"), ("allergens", "Allergens"), ("serving_size", "Serving size"), ("origin", "Origin")],
+    "Clothing": [("brand", "Brand"), ("material", "Material"), ("sizes", "Sizes"), ("colors", "Colors")],
+    "Electronics": [("brand", "Brand"), ("model", "Model"), ("warranty", "Warranty"), ("compatibility", "Compatibility")],
+    "Beauty": [("brand", "Brand"), ("skin_type", "Skin type"), ("size", "Size"), ("ingredients", "Key ingredients")],
+    "Books": [("author", "Author"), ("publisher", "Publisher"), ("format", "Format"), ("language", "Language")],
+    "Home": [("brand", "Brand"), ("material", "Material"), ("dimensions", "Dimensions"), ("color", "Color")],
+    "Sports": [("brand", "Brand"), ("size", "Size"), ("material", "Material"), ("skill_level", "Skill level")],
+}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # APP
@@ -147,6 +156,7 @@ class Product(BaseModel):
     stock: str = "in"
     stock_quantity: Optional[int] = Field(default=None, ge=0)
     variants: str = ""
+    attribute_data: Dict[str, str] = {}
     images: List[str] = []
 
 class CreateShopReq(BaseModel):
@@ -339,16 +349,19 @@ def serialize_product(row: dict, user_id: str = None, shop: Optional[Dict[str, A
             is_fav = len(favs) > 0
         except: pass
         
+    normalized_attributes = normalize_attribute_data(row.get("attribute_data"), shop_row.get("category", ""))
     return {
         "product_id": prod_id, "shop_id": shop_id, "name": row.get("name", ""),
         "overview": row.get("overview", ""), **price_fields,
         "stock": row.get("stock", "in"), "stock_quantity": row.get("stock_quantity"),
         "variants": row.get("variants", ""),
+        "attribute_data": normalized_attributes,
+        "attribute_lines": format_attribute_lines(normalized_attributes, shop_row.get("category", "")),
         "images": imgs, "image_count": len(imgs),
         "product_views": len(product_views),
         "avg_rating": round(sum(r["rating"] for r in rv)/len(rv) if rv else 0, 1),
         "review_count": len(rv), "is_favourite": is_fav,
-        "quality_flags": product_completeness_flags({**row, "images": imgs, "shop_id": shop_id}),
+        "quality_flags": product_completeness_flags({**row, "images": imgs, "shop_id": shop_id, "attribute_data": normalized_attributes}, shop_row.get("category", "")),
     }
 
 def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Optional[Dict[str, Dict[str, Any]]] = None, viewer_currency: str = "") -> List[Dict[str, Any]]:
@@ -398,22 +411,26 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Opt
         key = (shop_id, product_id)
         ratings = review_map.get(key, [])
         imgs = normalize_image_list(shop_id, row.get("images", []))
+        shop_row = normalize_shop_record((shop_map or {}).get(shop_id, {}))
+        normalized_attributes = normalize_attribute_data(row.get("attribute_data"), shop_row.get("category", ""))
         out.append({
             "product_id": product_id,
             "shop_id": shop_id,
             "name": row.get("name", ""),
             "overview": row.get("overview", ""),
-            **get_display_price_fields(row, normalize_shop_record((shop_map or {}).get(shop_id, {})), viewer_currency),
+            **get_display_price_fields(row, shop_row, viewer_currency),
             "stock": row.get("stock", "in"),
             "stock_quantity": row.get("stock_quantity"),
             "variants": row.get("variants", ""),
+            "attribute_data": normalized_attributes,
+            "attribute_lines": format_attribute_lines(normalized_attributes, shop_row.get("category", "")),
             "images": imgs,
             "image_count": len(imgs),
             "product_views": view_map.get(key, 0),
             "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else 0,
             "review_count": len(ratings),
             "is_favourite": key in fav_set,
-            "quality_flags": product_completeness_flags({**row, "images": imgs, "shop_id": shop_id}),
+            "quality_flags": product_completeness_flags({**row, "images": imgs, "shop_id": shop_id, "attribute_data": normalized_attributes}, shop_row.get("category", "")),
         })
     return out
 
@@ -492,7 +509,9 @@ def rebuild_kb(shop_id: str):
         p_serialized.append({
             "product_id": p["product_id"], "name": p["name"], "overview": p.get("overview", ""),
             "price": get_display_price_fields(p, shop_row).get("price_native") or p.get("price", ""),
-            "stock": p.get("stock", "in"), "images": imgs
+            "stock": p.get("stock", "in"), "variants": p.get("variants", ""),
+            "attribute_data": normalize_attribute_data(p.get("attribute_data"), shop_row.get("category", "")),
+            "images": imgs
         })
     
     obj = {"shop": {k: shop_row.get(k, "") for k in ("name","address","overview","phone","hours","hours_structured","category","country_code","country_name","timezone_name","region","city","postal_code","street_line1","street_line2","currency_code")},
@@ -710,6 +729,34 @@ def normalize_variants_text(value: str) -> str:
         parts.append(cleaned)
     return ", ".join(parts)
 
+def normalize_attribute_data(raw: Any, category: str = "") -> Dict[str, str]:
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except Exception:
+            raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    allowed = {key for key, _ in PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])}
+    out: Dict[str, str] = {}
+    for key, value in raw.items():
+        clean_key = re.sub(r"[^a-z0-9_]", "", str(key or "").lower())
+        clean_value = re.sub(r"\s+", " ", str(value or "")).strip()
+        if not clean_key or not clean_value:
+            continue
+        if allowed and clean_key not in allowed:
+            continue
+        out[clean_key] = clean_value
+    return out
+
+def format_attribute_lines(attribute_data: Dict[str, str], category: str = "") -> List[str]:
+    label_map = {key: label for key, label in PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])}
+    lines = []
+    for key, value in attribute_data.items():
+        label = label_map.get(key, key.replace("_", " ").title())
+        lines.append(f"{label}: {value}")
+    return lines
+
 def derive_stock_from_quantity(quantity: Optional[int], fallback_stock: str) -> str:
     if quantity is None:
         return str(fallback_stock or "in")
@@ -719,7 +766,7 @@ def derive_stock_from_quantity(quantity: Optional[int], fallback_stock: str) -> 
         return "low"
     return "in"
 
-def product_completeness_flags(product: Dict[str, Any]) -> List[str]:
+def product_completeness_flags(product: Dict[str, Any], shop_category: str = "") -> List[str]:
     flags = []
     if parse_price_amount(product.get("price_amount")) is None and parse_price_amount(product.get("price")) is None:
         flags.append("Missing price")
@@ -729,6 +776,8 @@ def product_completeness_flags(product: Dict[str, Any]) -> List[str]:
         flags.append("Missing images")
     if product.get("stock_quantity") in (None, ""):
         flags.append("Missing quantity")
+    if PRODUCT_ATTRIBUTE_SCHEMA.get(shop_category) and not normalize_attribute_data(product.get("attribute_data"), shop_category):
+        flags.append("Missing category details")
     return flags
 
 def format_money(amount: Optional[float], currency_code: str) -> str:
@@ -833,6 +882,7 @@ def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[st
     currency_code = clean_currency(product.currency_code or shop.get("currency_code") or currency_for_country(shop.get("country_code", "")))
     normalized_variants = normalize_variants_text(product.variants)
     stock_value = derive_stock_from_quantity(stock_quantity, product.stock)
+    attribute_data = normalize_attribute_data(product.attribute_data, shop.get("category", ""))
     return {
         "name": name,
         "overview": product.overview,
@@ -842,6 +892,7 @@ def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[st
         "stock": stock_value,
         "stock_quantity": stock_quantity,
         "variants": normalized_variants,
+        "attribute_data": attribute_data,
         "images": dedup(product.images or []),
         "updated_at": "now()",
     }
@@ -1278,13 +1329,17 @@ def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Op
         lines.append("\nRelevant products:")
         for p in picked[:6]:
             img_part = f' | Photo: ![{p["name"]}]({p["images"][0]})' if p.get("images") else ""
-            lines.append(f'- {p["name"]} | Price: {p.get("price","N/A")} | Stock: {p.get("stock","in")}{img_part}')
+            attr_lines = format_attribute_lines(normalize_attribute_data(p.get("attribute_data"), shop.get("category", "")), shop.get("category", ""))
+            attr_part = f" | Details: {'; '.join(attr_lines[:3])}" if attr_lines else ""
+            lines.append(f'- {p["name"]} | Price: {p.get("price","N/A")} | Stock: {p.get("stock","in")}{img_part}{attr_part}')
     elif all_rows:
         lines.append("\nSample products from this shop:")
         for row in all_rows[:8]:
             imgs = normalize_image_list(row.get("shop_id", ""), row.get("images", []))
             img_part = f' | Photo: ![{row.get("name","Product")}]({imgs[0]})' if imgs else ""
-            lines.append(f'- {row.get("name","Product")} | Price: {row.get("price","N/A")} | Stock: {row.get("stock","in")}{img_part}')
+            attr_lines = format_attribute_lines(normalize_attribute_data(row.get("attribute_data"), shop.get("category", "")), shop.get("category", ""))
+            attr_part = f" | Details: {'; '.join(attr_lines[:3])}" if attr_lines else ""
+            lines.append(f'- {row.get("name","Product")} | Price: {row.get("price","N/A")} | Stock: {row.get("stock","in")}{img_part}{attr_part}')
     if rag_chunks:
         lines.append("\nKnowledge base notes:")
         for chunk in rag_chunks[:4]:
@@ -2074,11 +2129,12 @@ def admin_export_products_csv(authorization: Optional[str] = Header(None)):
     rows = supabase.table("products").select("*").in_("shop_id", shop_ids).order("updated_at", desc=True).execute().data if shop_ids else []
     buffer = StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["shop_id", "product_id", "name", "price_amount", "currency_code", "price", "stock", "stock_quantity", "variants", "overview"])
+    writer.writerow(["shop_id", "product_id", "name", "price_amount", "currency_code", "price", "stock", "stock_quantity", "variants", "attribute_data_json", "overview"])
     for row in rows or []:
         writer.writerow([
             row.get("shop_id", ""), row.get("product_id", ""), row.get("name", ""), row.get("price_amount", ""),
             row.get("currency_code", ""), row.get("price", ""), row.get("stock", ""), row.get("stock_quantity", ""), row.get("variants", ""),
+            json.dumps(normalize_attribute_data(row.get("attribute_data"), ""), ensure_ascii=False),
             row.get("overview", ""),
         ])
     return PlainTextResponse(
@@ -2170,7 +2226,7 @@ def admin_product_with_images(
     shop_id: str, authorization: Optional[str] = Header(None),
     product_id: str = Form(...), name: str = Form(...), overview: str = Form(""), price: str = Form(""),
     price_amount: str = Form(""), currency_code: str = Form(""),
-    stock: str = Form("in"), stock_quantity: str = Form(""), variants: str = Form(""), images: List[UploadFile] = File(default=[])
+    stock: str = Form("in"), stock_quantity: str = Form(""), variants: str = Form(""), attribute_data_json: str = Form(""), images: List[UploadFile] = File(default=[])
 ):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
@@ -2203,6 +2259,7 @@ def admin_product_with_images(
         stock=stock,
         stock_quantity=int(stock_quantity) if str(stock_quantity).strip() else None,
         variants=variants,
+        attribute_data=normalize_attribute_data(attribute_data_json, shop.get("category", "")),
         images=merged,
     ), shop)
     if existing: supabase.table("products").update(data).eq("shop_id", shop_id).eq("product_id", pid).execute()

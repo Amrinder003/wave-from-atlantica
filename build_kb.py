@@ -69,6 +69,7 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
             price = p.get("price", "")
             stock = p.get("stock", "")
             variants = p.get("variants", "")
+            attribute_data = p.get("attribute_data", {})
             images = p.get("images", [])
             if isinstance(images, list):
                 images_str = ", ".join(images)
@@ -83,6 +84,7 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
                 f"Price: {price}\n"
                 f"Stock: {stock}\n"
                 f"Variants: {variants}\n"
+                f"Attributes: {json.dumps(attribute_data, ensure_ascii=False)}\n"
                 f"Shop Category: {category}\n"
                 f"Images: {images_str}\n"
             ).strip()
@@ -121,6 +123,7 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
         price = p.get("price", "")
         stock = p.get("stock", "")
         variants = p.get("variants", "")
+        attribute_data = p.get("attribute_data", {})
         images = p.get("images", [])
         if isinstance(images, list):
             images_str = ", ".join(images)
@@ -135,6 +138,7 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
             f"Price: {price}\n"
             f"Stock: {stock}\n"
             f"Variants: {variants}\n"
+            f"Attributes: {json.dumps(attribute_data, ensure_ascii=False)}\n"
             f"Shop Category: {category}\n"
             f"Images: {images_str}\n"
         ).strip()
