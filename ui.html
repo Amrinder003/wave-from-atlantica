@@ -1317,7 +1317,13 @@ a{color:inherit;text-decoration:none}
                   <button id="csvTplBtn" class="btn btn-g btn-sm">⬇ Template</button>
                 </div>
                 <div id="csvProg" class="csv-prog"><progress id="csvBar" max="100" value="0"></progress><div id="csvTxt" class="csv-pt"></div></div>
-                <div id="csvErrors" class="csv-errors"><div class="csv-errors-title">Import issues</div><div id="csvErrorsList" class="csv-errors-list"></div></div>
+                <div id="csvErrors" class="csv-errors">
+                  <div class="btn-row" style="justify-content:space-between;align-items:center">
+                    <div class="csv-errors-title">Import issues</div>
+                    <button id="csvErrorsDownloadBtn" class="btn btn-g btn-sm" style="display:none">Download Report</button>
+                  </div>
+                  <div id="csvErrorsList" class="csv-errors-list"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -1752,6 +1758,7 @@ const App = {
   adminProductFilters: {health:'',missingAttr:''},
   adminSelectedProducts: [],
   adminBulkMode: false,
+  csvImportErrors: [],
   ownerFilters: {country:'',region:'',city:'',quality:''},
 };
 const $=id=>document.getElementById(id);
@@ -2085,15 +2092,29 @@ function parseCsvLine(line=''){
   return out.map(v=>v.trim());
 }
 function showCsvErrors(errors=[]){
-  const wrap=$('csvErrors'), list=$('csvErrorsList');
+  const wrap=$('csvErrors'), list=$('csvErrorsList'), btn=$('csvErrorsDownloadBtn');
   if(!wrap||!list) return;
+  App.csvImportErrors=[...errors];
   if(!errors.length){
     wrap.classList.remove('on');
     list.innerHTML='';
+    if(btn) btn.style.display='none';
     return;
   }
   wrap.classList.add('on');
   list.innerHTML=errors.map(err=>`<div>${esc(err)}</div>`).join('');
+  if(btn) btn.style.display='';
+}
+function downloadCsvErrors(){
+  if(!(App.csvImportErrors||[]).length) return;
+  const lines=['error'];
+  App.csvImportErrors.forEach(err=>lines.push(`"${String(err).replace(/"/g,'""')}"`));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='csv_import_errors.csv';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),500);
 }
 function validateCsvRow(obj,rowNumber,category=''){
   const errs=[];
@@ -3715,6 +3736,7 @@ if($('adminBulkToggleBtn')) $('adminBulkToggleBtn').addEventListener('click',()=
 if($('bulkClearBtn')) $('bulkClearBtn').addEventListener('click',()=>{App.adminSelectedProducts=[];syncBulkEditBar();renderAdminProds(App.adminProducts||[]);});
 if($('bulkApplyBtn')) $('bulkApplyBtn').addEventListener('click',applyBulkEdit);
 if($('bulkAction')) $('bulkAction').addEventListener('change',syncBulkEditBar);
+if($('csvErrorsDownloadBtn')) $('csvErrorsDownloadBtn').addEventListener('click',downloadCsvErrors);
 
 /* ── Analytics ── */
 ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2'].forEach(id=>{
