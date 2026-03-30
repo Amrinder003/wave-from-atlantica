@@ -2201,7 +2201,9 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
   $('shopHdrName').textContent='Loading shop...';$('shopHdrChips').innerHTML='';$('shopHdrDesc').textContent='';$('shopHdrActions').innerHTML='';
   $('shopProdGrid').innerHTML=`<div class="empty"><div class="ei">...</div><div class="et">Loading products...</div></div>`;
   $('shopQchips').innerHTML='';$('shopSrchIn').value='';$('shopSort').value=sort||'';
-  document.querySelector('input[name="stk"][value=""]').checked=true;
+  const stockValue = stock || '';
+  const activeStockInput = document.querySelector(`input[name="stk"][value="${stockValue}"]`) || document.querySelector('input[name="stk"][value=""]');
+  if(activeStockInput) activeStockInput.checked = true;
 
   try{
     const d=await api(`/public/shop/${encodeURIComponent(shopId)}?page=${page}&sort=${sort}&stock=${stock}`,{auth:!!tok()});
