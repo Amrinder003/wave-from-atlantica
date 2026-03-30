@@ -282,6 +282,10 @@ def serialize_product(row: dict, user_id: str = None) -> Dict[str, Any]:
         rv = supabase.table("reviews").select("rating").eq("shop_id", shop_id).eq("product_id", prod_id).execute().data
     except:
         rv = []
+    try:
+        product_views = supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("product_id", prod_id).eq("event", "view").execute().data
+    except:
+        product_views = []
         
     is_fav = False
     if user_id:
@@ -295,6 +299,7 @@ def serialize_product(row: dict, user_id: str = None) -> Dict[str, Any]:
         "overview": row.get("overview", ""), "price": row.get("price", ""),
         "stock": row.get("stock", "in"), "variants": row.get("variants", ""),
         "images": imgs, "image_count": len(imgs),
+        "product_views": len(product_views),
         "avg_rating": round(sum(r["rating"] for r in rv)/len(rv) if rv else 0, 1),
         "review_count": len(rv), "is_favourite": is_fav,
     }
@@ -308,6 +313,7 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None) -> List[Dict[
     product_ids = sorted({product_id for _, product_id in pairs})
 
     review_map: Dict[tuple, List[int]] = {}
+    view_map: Dict[tuple, int] = {}
     if shop_ids and product_ids and supabase is not None:
         try:
             review_rows = supabase.table("reviews").select("shop_id, product_id, rating").in_("shop_id", shop_ids).in_("product_id", product_ids).execute().data
@@ -317,6 +323,14 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None) -> List[Dict[
                     review_map.setdefault(key, []).append(int(review.get("rating", 0)))
         except Exception:
             review_map = {}
+        try:
+            view_rows = supabase.table("analytics").select("shop_id, product_id").eq("event", "view").in_("shop_id", shop_ids).in_("product_id", product_ids).execute().data
+            for view in view_rows:
+                key = (str(view.get("shop_id", "")), str(view.get("product_id", "")))
+                if key in pairs:
+                    view_map[key] = view_map.get(key, 0) + 1
+        except Exception:
+            view_map = {}
 
     fav_set = set()
     if user_id and shop_ids and product_ids and supabase is not None:
@@ -347,6 +361,7 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None) -> List[Dict[
             "variants": row.get("variants", ""),
             "images": imgs,
             "image_count": len(imgs),
+            "product_views": view_map.get(key, 0),
             "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else 0,
             "review_count": len(ratings),
             "is_favourite": key in fav_set,
