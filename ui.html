@@ -129,6 +129,11 @@ a{color:inherit;text-decoration:none}
 .shop-filter-bar .fld{margin:0}
 .shop-filter-actions{display:flex;gap:8px;align-items:end}
 .shop-filter-toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink3);padding:10px 12px;border:1px solid var(--bd);border-radius:16px;background:var(--sf2)}
+.shop-filter-shell{margin-top:10px;padding:14px;border-radius:24px;background:rgba(255,255,255,.58);border:1px solid rgba(191,174,149,.28);display:none}
+.shop-filter-shell.on{display:block}
+.shop-filter-trigger{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border-radius:999px;border:1px solid rgba(191,174,149,.36);background:rgba(255,250,242,.9);font-size:12px;font-weight:800;color:var(--ink2)}
+.shop-filter-trigger .filter-count{display:inline-flex;min-width:22px;height:22px;padding:0 7px;align-items:center;justify-content:center;border-radius:999px;background:var(--A);color:#fff;font-size:11px}
+.shop-filter-summary{font-size:12px;color:var(--ink3);margin-top:10px}
 @media(max-width:900px){.shop-filter-bar{grid-template-columns:1fr 1fr 1fr}.shop-filter-actions{grid-column:1/-1}}
 @media(max-width:680px){.shop-filter-bar{grid-template-columns:1fr}}
 @media(max-width:680px){
@@ -931,19 +936,26 @@ a{color:inherit;text-decoration:none}
           <div class="sec-title" id="shopsSectionTitle">All Shops</div>
           <div class="sec-sub">Open a shop to browse its products and talk to its assistant with shop-specific answers.</div>
         </div>
+        <button id="shopFilterToggleBtn" class="shop-filter-trigger" type="button">
+          <span>Filter Shops</span>
+          <span id="shopFilterCount" class="filter-count" style="display:none">0</span>
+        </button>
       </div>
-      <div class="shop-filter-bar">
-        <div class="fld"><label>Country</label><select id="shopFilterCountry"><option value="">All countries</option></select></div>
-        <div class="fld"><label>Province / State</label><input id="shopFilterRegion" placeholder="Any region"/></div>
-        <div class="fld"><label>City</label><input id="shopFilterCity" placeholder="Any city"/></div>
-        <div class="fld"><label>Postal Code</label><input id="shopFilterPostal" placeholder="Any postal code"/></div>
-        <div class="fld"><label>Open Day</label><select id="shopFilterDay"><option value="">Any day</option><option value="mon">Monday</option><option value="tue">Tuesday</option><option value="wed">Wednesday</option><option value="thu">Thursday</option><option value="fri">Friday</option><option value="sat">Saturday</option><option value="sun">Sunday</option></select></div>
-        <div class="fld"><label>Open Time</label><input id="shopFilterTime" type="time"/></div>
-        <div class="shop-filter-actions">
-          <label class="shop-filter-toggle"><input id="shopFilterOpenNow" type="checkbox"/> Open now</label>
-          <button id="shopFilterApply" class="btn btn-o btn-sm">Apply</button>
-          <button id="shopFilterClear" class="btn btn-g btn-sm">Clear</button>
+      <div id="shopFiltersPanel" class="shop-filter-shell">
+        <div class="shop-filter-bar" style="margin-top:0">
+          <div class="fld"><label>Country</label><select id="shopFilterCountry"><option value="">All countries</option></select></div>
+          <div class="fld"><label>Province / State</label><input id="shopFilterRegion" placeholder="Any region"/></div>
+          <div class="fld"><label>City</label><input id="shopFilterCity" placeholder="Any city"/></div>
+          <div class="fld"><label>Postal Code</label><input id="shopFilterPostal" placeholder="Any postal code"/></div>
+          <div class="fld"><label>Open Day</label><select id="shopFilterDay"><option value="">Any day</option><option value="mon">Monday</option><option value="tue">Tuesday</option><option value="wed">Wednesday</option><option value="thu">Thursday</option><option value="fri">Friday</option><option value="sat">Saturday</option><option value="sun">Sunday</option></select></div>
+          <div class="fld"><label>Open Time</label><input id="shopFilterTime" type="time"/></div>
+          <div class="shop-filter-actions">
+            <label class="shop-filter-toggle"><input id="shopFilterOpenNow" type="checkbox"/> Open now</label>
+            <button id="shopFilterApply" class="btn btn-o btn-sm">Apply</button>
+            <button id="shopFilterClear" class="btn btn-g btn-sm">Clear</button>
+          </div>
         </div>
+        <div id="shopFilterSummary" class="shop-filter-summary">No filters applied.</div>
       </div>
       <div id="homeShopGrid" class="shop-grid">
         <div class="empty"><div class="ei">...</div><div class="et">Loading shops...</div></div>
@@ -2177,6 +2189,21 @@ function collectShopFilters(){
     open_now:!!$('shopFilterOpenNow')?.checked,
   };
 }
+function updateShopFilterSummary(){
+  const summary=$('shopFilterSummary'), countEl=$('shopFilterCount');
+  if(!summary||!countEl) return;
+  const parts=[];
+  if(App.shopFilters.country_code) parts.push($('shopFilterCountry')?.selectedOptions?.[0]?.textContent||App.shopFilters.country_code);
+  if(App.shopFilters.region) parts.push(App.shopFilters.region);
+  if(App.shopFilters.city) parts.push(App.shopFilters.city);
+  if(App.shopFilters.postal_code) parts.push(App.shopFilters.postal_code);
+  if(App.shopFilters.open_day) parts.push(`Open ${$('shopFilterDay')?.selectedOptions?.[0]?.textContent||App.shopFilters.open_day}`);
+  if(App.shopFilters.open_time) parts.push(`At ${App.shopFilters.open_time}`);
+  if(App.shopFilters.open_now) parts.push('Open now');
+  summary.textContent=parts.length?`Active filters: ${parts.join(' · ')}`:'No filters applied.';
+  countEl.textContent=String(parts.length);
+  countEl.style.display=parts.length?'inline-flex':'none';
+}
 function syncShopFilterControls(){
   if($('shopFilterCountry')) $('shopFilterCountry').value=App.shopFilters.country_code||'';
   if($('shopFilterRegion')) $('shopFilterRegion').value=App.shopFilters.region||'';
@@ -2185,6 +2212,7 @@ function syncShopFilterControls(){
   if($('shopFilterDay')) $('shopFilterDay').value=App.shopFilters.open_day||'';
   if($('shopFilterTime')) $('shopFilterTime').value=App.shopFilters.open_time||'';
   if($('shopFilterOpenNow')) $('shopFilterOpenNow').checked=!!App.shopFilters.open_now;
+  updateShopFilterSummary();
 }
 function buildShopFilterQuery(){
   const params=new URLSearchParams();
@@ -3911,6 +3939,12 @@ function clearShopFilters(){
   App.shopFilters={country_code:'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false};
   syncShopFilterControls();
 }
+function toggleShopFilters(force){
+  const panel=$('shopFiltersPanel');
+  if(!panel) return;
+  const open=typeof force==='boolean' ? force : !panel.classList.contains('on');
+  panel.classList.toggle('on',open);
+}
 async function downloadAdminExport(path,filename){
   const headers={};
   if(tok()) headers['Authorization']=`Bearer ${tok()}`;
@@ -3989,8 +4023,9 @@ async function init(){
   }
   await handleDeepLink();
 }
-$('shopFilterApply')?.addEventListener('click',()=>loadAllShops());
-$('shopFilterClear')?.addEventListener('click',()=>{clearShopFilters();loadAllShops();});
+$('shopFilterApply')?.addEventListener('click',()=>{loadAllShops();toggleShopFilters(false);});
+$('shopFilterClear')?.addEventListener('click',()=>{clearShopFilters();loadAllShops();toggleShopFilters(false);});
+$('shopFilterToggleBtn')?.addEventListener('click',()=>toggleShopFilters());
 $('shopFilterOpenNow')?.addEventListener('change',()=>{if($('shopFilterOpenNow').checked){$('shopFilterDay').value='';$('shopFilterTime').value='';}});
 init();
 </script>
