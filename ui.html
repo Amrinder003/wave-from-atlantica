@@ -616,10 +616,12 @@ a{color:inherit;text-decoration:none}
 @media(max-width:560px){.admin-pgrid{grid-template-columns:1fr}}
 .admin-pc{background:linear-gradient(180deg,rgba(255,252,247,.99),rgba(247,240,230,.94));border:1px solid rgba(191,174,149,.42);border-radius:24px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;box-shadow:0 14px 32px rgba(58,38,22,.08);transition:transform .16s,box-shadow .16s,border-color .16s}
 .admin-pc:hover{transform:translateY(-3px);box-shadow:0 20px 40px rgba(58,38,22,.12);border-color:rgba(162,76,46,.34)}
+.admin-pc.selected{border-color:rgba(2,132,199,.52);box-shadow:0 20px 40px rgba(2,132,199,.14)}
 .admin-pc-photo{width:100%;aspect-ratio:16/10;background:linear-gradient(135deg,#f2e7d7,#ead9bc);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
 .admin-pc-photo img{width:100%;height:100%;object-fit:cover}
 .admin-pc-badge{position:absolute;top:12px;left:12px;padding:5px 9px;border-radius:999px;background:rgba(31,27,22,.7);color:#fff;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .admin-pc-count{position:absolute;top:12px;right:12px;padding:5px 8px;border-radius:999px;background:rgba(255,250,242,.92);border:1px solid rgba(191,174,149,.35);font-size:10px;font-weight:800;color:var(--ink2)}
+.admin-pc-check{position:absolute;left:12px;bottom:12px;width:22px;height:22px;border-radius:999px;border:1px solid rgba(191,174,149,.35);background:rgba(255,250,242,.92);display:grid;place-items:center;font-size:13px;font-weight:900;color:var(--A2)}
 .admin-pc-body{padding:16px;display:grid;gap:10px}
 .admin-pc-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
 .admin-pc-name{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;line-height:1.25;letter-spacing:-.03em}
@@ -726,6 +728,11 @@ a{color:inherit;text-decoration:none}
 .owner-products-card .card-head{padding-bottom:6px}
 .owner-products-topline{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2);margin-bottom:6px}
 .owner-products-sub{font-size:13px;color:var(--ink3);line-height:1.65;max-width:620px}
+.bulk-edit-bar{display:none;grid-template-columns:repeat(4,minmax(0,1fr)) auto auto;gap:10px;margin-top:14px}
+.bulk-edit-bar.on{display:grid}
+.bulk-edit-note{font-size:12px;color:var(--ink3);align-self:center}
+@media(max-width:980px){.bulk-edit-bar,.bulk-edit-bar.on{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){.bulk-edit-bar,.bulk-edit-bar.on{grid-template-columns:1fr}}
 .setup-form{display:grid;gap:16px}
 .setup-section{padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(255,252,247,.98),rgba(248,241,231,.92));border:1px solid rgba(191,174,149,.32)}
 .setup-section-head{display:grid;gap:4px;margin-bottom:14px}
@@ -1265,6 +1272,7 @@ a{color:inherit;text-decoration:none}
                   <div class="owner-products-sub">Everything listed under this shop appears here. Open a product to edit it, or use the search to find something quickly.</div>
                 </div>
                 <div class="product-manager-tools">
+                  <button id="adminBulkToggleBtn" class="btn btn-g btn-sm">Bulk Edit</button>
                   <select id="adminProdHealth" class="btn btn-o btn-sm" style="padding:7px 10px">
                     <option value="">All products</option>
                     <option value="needs_attention">Needs attention</option>
@@ -1281,6 +1289,14 @@ a{color:inherit;text-decoration:none}
               </div>
             </div>
             <div class="card-body">
+              <div id="bulkEditBar" class="bulk-edit-bar">
+                <div class="fld"><label>Field</label><select id="bulkField"><option value="">Choose field</option><option value="stock_quantity">Stock quantity</option><option value="stock">Stock status</option><option value="overview_append">Add description note</option></select></div>
+                <div class="fld"><label>Category Field</label><select id="bulkAttrField"><option value="">No category field</option></select></div>
+                <div class="fld"><label>Value</label><input id="bulkValue" placeholder="Enter the value to apply"/></div>
+                <div class="bulk-edit-note" id="bulkEditNote">Select products, choose one field, then apply the same value across all selected items.</div>
+                <button id="bulkApplyBtn" class="btn btn-A btn-sm">Apply to Selected</button>
+                <button id="bulkClearBtn" class="btn btn-o btn-sm">Clear Selection</button>
+              </div>
               <div id="adminPGrid" class="admin-pgrid"><div class="empty" style="grid-column:1/-1"><div class="ei">📦</div><div class="et">Load a shop first</div></div></div>
             </div>
           </div>
@@ -1728,6 +1744,8 @@ const App = {
   shopAttrFilter: {key:'',value:''},
   marketAttrFilter: {key:'',value:'',category:''},
   adminProductFilters: {health:'',missingAttr:''},
+  adminSelectedProducts: [],
+  adminBulkMode: false,
   ownerFilters: {country:'',region:'',city:'',quality:''},
 };
 const $=id=>document.getElementById(id);
@@ -2037,6 +2055,32 @@ function renderAdminProductFilters(category=''){
     App.adminProductFilters.missingAttr='';
   }
   attrSel.value=App.adminProductFilters.missingAttr||'';
+}
+function renderBulkAttributeOptions(category=''){
+  const sel=$('bulkAttrField');
+  if(!sel) return;
+  const schema=PRODUCT_ATTRIBUTE_SCHEMA[category]||[];
+  sel.innerHTML='<option value="">No category field</option>'+schema.map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('');
+}
+function syncBulkEditBar(){
+  const bar=$('bulkEditBar'), note=$('bulkEditNote');
+  if(!bar) return;
+  bar.classList.toggle('on',!!App.adminBulkMode);
+  if(note){
+    const count=App.adminSelectedProducts.length||0;
+    note.textContent=count
+      ? `${count} product${count===1?'':'s'} selected. Apply one shared value to all of them.`
+      : 'Select products, choose one field, then apply the same value across all selected items.';
+  }
+  if($('adminBulkToggleBtn')) $('adminBulkToggleBtn').textContent=App.adminBulkMode?'Done':'Bulk Edit';
+}
+function toggleAdminProductSelection(productId){
+  const next=new Set(App.adminSelectedProducts);
+  if(next.has(productId)) next.delete(productId);
+  else next.add(productId);
+  App.adminSelectedProducts=[...next];
+  syncBulkEditBar();
+  renderAdminProds(App.adminProducts||[]);
 }
 function collectShopFilters(){
   App.shopFilters={
@@ -2392,15 +2436,18 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
   const isFav=!!(p.is_favourite);
   const desc=p.overview?esc(p.overview):'Add a sharper description so customers and chat both understand this product better.';
   const attrPreview=((p.attribute_lines||[]).slice(0,2).join(' • ')).trim();
+  const isSelected=App.adminSelectedProducts.includes(p.product_id);
 
   if(mode==='admin'){
     const flags=p.quality_flags||[];
     const art=document.createElement('article');art.className='admin-pc';
+    if(isSelected) art.classList.add('selected');
     art.innerHTML=`
       <div class="admin-pc-photo">
         ${main?`<img src="${esc(main)}" alt="${esc(p.name)}" loading="lazy"/>`:`<div class="pc-nophoto">📦</div>`}
         <div class="admin-pc-badge">${esc(stMap[st]||'In Stock')}</div>
         <div class="admin-pc-count">${n?`${n} image${n===1?'':'s'}`:'No images'}</div>
+        ${App.adminBulkMode?`<button class="admin-pc-check" data-admin-select="1" title="${isSelected?'Deselect':'Select'}">${isSelected?'✓':''}</button>`:''}
       </div>
       <div class="admin-pc-body">
         <div class="admin-pc-head">
@@ -2422,7 +2469,9 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
           <div class="admin-pc-edit">Manage</div>
         </div>
       </div>`;
-    art.addEventListener('click',()=>openPD(p,mode,shopId,shopName));
+    const checkBtn=art.querySelector('[data-admin-select]');
+    if(checkBtn) checkBtn.addEventListener('click',e=>{e.stopPropagation();toggleAdminProductSelection(p.product_id);});
+    art.addEventListener('click',()=>{ if(App.adminBulkMode){toggleAdminProductSelection(p.product_id); return;} openPD(p,mode,shopId,shopName); });
     return art;
   }
 
@@ -3304,8 +3353,12 @@ async function loadAdminShop(shopId){
     App.adminShopData=d.data;
     const s=d.data.shop;
     App.adminProductFilters={health:'',missingAttr:''};
+    App.adminSelectedProducts=[];
+    App.adminBulkMode=false;
     if($('adminProdHealth')) $('adminProdHealth').value='';
     renderAdminProductFilters(s.category||'');
+    renderBulkAttributeOptions(s.category||'');
+    syncBulkEditBar();
     $('adminProdSearch').value='';
     populateShopForm({...s,shop_id:shopId});
     const st=d.data.stats||{};const el=$('shopStats');el.style.display='grid';
@@ -3524,6 +3577,62 @@ async function deleteProd(){
   catch(e){setS('productStatus',e.message,'err');toast('Delete failed',e.message,'err');}
   finally{setBtnBusy('deleteProdBtn',false);}
 }
+async function applyBulkEdit(){
+  const shopId=App.adminShopId||$('shopId')?.value.trim();
+  const selected=App.adminSelectedProducts||[];
+  if(!shopId||!selected.length) return toast('Select products first','','err');
+  const field=$('bulkField')?.value||'';
+  const attrField=$('bulkAttrField')?.value||'';
+  const rawValue=($('bulkValue')?.value||'').trim();
+  const category=App.adminShopData?.shop?.category||'';
+  if(!field && !attrField) return toast('Choose a field to update','','err');
+  if(!rawValue) return toast('Enter a value to apply','','err');
+  const selectedProducts=(App.adminProducts||[]).filter(p=>selected.includes(p.product_id));
+  if(!selectedProducts.length) return toast('No products selected','','err');
+  try{
+    setBtnBusy('bulkApplyBtn',true,'Applying...');
+    for(const p of selectedProducts){
+      const nativePrice = p.price_amount_native ?? p.price_amount ?? Number(String(p.price||'').replace(/[^0-9.]/g,'')) ?? null;
+      const payload={
+        product_id:p.product_id,
+        name:p.name||'',
+        price:nativePrice!=null?String(nativePrice):'',
+        price_amount:nativePrice,
+        currency_code:p.currency_code_native||p.currency_code||$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',
+        overview:p.overview||'',
+        stock:p.stock||'in',
+        stock_quantity:p.stock_quantity,
+        variants:p.variants||'',
+        attribute_data:{...(p.attribute_data||{})},
+        images:p.images||[],
+      };
+      if(field==='stock_quantity'){
+        const qty=Number(rawValue);
+        if(!Number.isInteger(qty) || qty<0) throw new Error('Stock quantity must be a whole number.');
+        payload.stock_quantity=qty;
+        payload.stock=qty<=0?'out':(qty<=5?'low':'in');
+      }else if(field==='stock'){
+        if(!['in','low','out'].includes(rawValue)) throw new Error('Stock status must be in, low, or out.');
+        payload.stock=rawValue;
+      }else if(field==='overview_append'){
+        payload.overview=(payload.overview?`${payload.overview.trim()} `:'')+rawValue;
+      }
+      if(attrField){
+        if(!(PRODUCT_ATTRIBUTE_SCHEMA[category]||[]).some(([key])=>key===attrField)) throw new Error('That category field is not valid for this shop.');
+        payload.attribute_data[attrField]=rawValue;
+      }
+      await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    }
+    toast('Bulk edit applied',`${selectedProducts.length} products updated`);
+    App.adminSelectedProducts=[];
+    if($('bulkValue')) $('bulkValue').value='';
+    await loadAdminShop(shopId);
+  }catch(e){
+    toast('Bulk edit failed',e.message,'err');
+  }finally{
+    setBtnBusy('bulkApplyBtn',false);
+  }
+}
 $('saveProdBtn').addEventListener('click',saveProd);
 $('deleteProdBtn').addEventListener('click',deleteProd);
 $('clearProdBtn').addEventListener('click',()=>{if(!App.productFormDirty||confirmDiscardDraft('product')) clearProdForm();});
@@ -3531,6 +3640,9 @@ $('prodFiles').addEventListener('change',()=>renderFilePrev([...$('prodFiles').f
 if($('adminProdSearch')) $('adminProdSearch').addEventListener('input',()=>renderAdminProds(App.adminProducts||[]));
 if($('adminProdHealth')) $('adminProdHealth').addEventListener('change',()=>{App.adminProductFilters.health=$('adminProdHealth').value||'';renderAdminProds(App.adminProducts||[]);});
 if($('adminProdAttrMissing')) $('adminProdAttrMissing').addEventListener('change',()=>{App.adminProductFilters.missingAttr=$('adminProdAttrMissing').value||'';renderAdminProds(App.adminProducts||[]);});
+if($('adminBulkToggleBtn')) $('adminBulkToggleBtn').addEventListener('click',()=>{App.adminBulkMode=!App.adminBulkMode;if(!App.adminBulkMode) App.adminSelectedProducts=[];syncBulkEditBar();renderAdminProds(App.adminProducts||[]);});
+if($('bulkClearBtn')) $('bulkClearBtn').addEventListener('click',()=>{App.adminSelectedProducts=[];syncBulkEditBar();renderAdminProds(App.adminProducts||[]);});
+if($('bulkApplyBtn')) $('bulkApplyBtn').addEventListener('click',applyBulkEdit);
 
 /* ── Analytics ── */
 ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2'].forEach(id=>{
