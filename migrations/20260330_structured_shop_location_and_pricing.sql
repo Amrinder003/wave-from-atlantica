@@ -52,6 +52,7 @@ create table if not exists public.order_requests (
   fulfillment_type text not null,
   customer_name text not null,
   phone text not null,
+  customer_email text,
   note text,
   preferred_time text,
   delivery_address text,
@@ -66,3 +67,6 @@ create table if not exists public.order_requests (
 
 create index if not exists order_requests_shop_id_created_at_idx
   on public.order_requests(shop_id, created_at desc);
+
+alter table if exists public.order_requests
+  add column if not exists customer_email text;

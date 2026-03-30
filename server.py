@@ -11,8 +11,10 @@ import csv
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 import requests
+import smtplib
 from typing import Any, Dict, List, Optional, Tuple
 from io import StringIO
+from email.message import EmailMessage
 from supabase import create_client, Client
 from zoneinfo import ZoneInfo
 
@@ -55,6 +57,13 @@ SUPABASE_URL      = os.environ.get("SUPABASE_URL", "").strip()
 SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
 APP_BASE_URL      = os.environ.get("APP_BASE_URL", "http://localhost:8001").strip()
 CORS_ORIGINS      = [o.strip() for o in os.environ.get("CORS_ORIGINS", APP_BASE_URL).split(",") if o.strip()]
+SMTP_HOST         = os.environ.get("SMTP_HOST", "").strip()
+SMTP_PORT         = int(os.environ.get("SMTP_PORT", "587") or 587)
+SMTP_USERNAME     = os.environ.get("SMTP_USERNAME", "").strip()
+SMTP_PASSWORD     = os.environ.get("SMTP_PASSWORD", "").strip()
+SMTP_FROM_EMAIL   = os.environ.get("SMTP_FROM_EMAIL", "").strip()
+SMTP_FROM_NAME    = os.environ.get("SMTP_FROM_NAME", "Wave from Atlantica").strip()
+SMTP_USE_TLS      = os.environ.get("SMTP_USE_TLS", "true").strip().lower() not in {"0", "false", "no"}
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY.")
@@ -179,6 +188,7 @@ class OrderRequestReq(BaseModel):
     fulfillment_type: str
     customer_name: str
     phone: str
+    customer_email: str = ""
     note: str = ""
     preferred_time: str = ""
     delivery_address: str = ""
@@ -188,7 +198,7 @@ class OrderStatusUpdateReq(BaseModel):
     status: str
 
 class Product(BaseModel):
-    product_id: str = Field(..., description="e.g. p001")
+    product_id: str = ""
     name: str
     overview: str = ""
     price: str = ""
@@ -262,6 +272,100 @@ def supabase_auth_post(path: str, payload: Dict[str, Any], token: Optional[str] 
             detail = res.text or "Supabase auth request failed"
         raise HTTPException(400, detail)
 
+def notifications_enabled() -> bool:
+    return bool(SMTP_HOST and SMTP_FROM_EMAIL)
+
+def clean_email(value: str) -> str:
+    return re.sub(r"\s+", "", str(value or "").strip()).lower()
+
+def send_email_message(to_email: str, subject: str, text_body: str) -> bool:
+    recipient = clean_email(to_email)
+    if not recipient or not notifications_enabled():
+        return False
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>" if SMTP_FROM_NAME else SMTP_FROM_EMAIL
+        msg["To"] = recipient
+        msg.set_content(text_body)
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as smtp:
+            if SMTP_USE_TLS:
+                smtp.starttls()
+            if SMTP_USERNAME:
+                smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+            smtp.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[Notification Warning] Email send failed for {recipient}: {e}")
+        return False
+
+def format_request_items_text(items: List[Dict[str, Any]]) -> str:
+    lines = []
+    for item in items or []:
+        name = str(item.get("name") or "Product").strip()
+        qty = int(item.get("qty") or 1)
+        variant = str(item.get("variant") or "").strip()
+        price = str(item.get("price") or "").strip()
+        desc = f"- {qty} x {name}"
+        if variant:
+            desc += f" ({variant})"
+        if price:
+            desc += f" — {price}"
+        lines.append(desc)
+    return "\n".join(lines) or "- Order items not available"
+
+def request_status_human(status: str) -> str:
+    mapping = {"new": "New", "accepted": "Accepted", "ready": "Ready for pickup", "completed": "Completed", "cancelled": "Cancelled"}
+    return mapping.get(str(status or "").strip().lower(), "New")
+
+def send_request_confirmation_email(shop: Dict[str, Any], payload: Dict[str, Any]) -> None:
+    email = clean_email(payload.get("customer_email", ""))
+    if not email:
+        return
+    subject = f"Your {shop.get('name', 'shop')} request is confirmed"
+    fulfillment = str(payload.get("fulfillment_type") or "pickup").replace("_", " ").title()
+    tracker_url = f"{ui_redirect_url()}?request_id={payload.get('request_id','')}"
+    body = "\n".join([
+        f"Hi {payload.get('customer_name') or 'there'},",
+        "",
+        f"Your request with {shop.get('name', 'the shop')} has been received.",
+        f"Request ID: {payload.get('request_id', '')}",
+        f"Fulfillment: {fulfillment}",
+        f"Status: {request_status_human(payload.get('status', 'new'))}",
+        "",
+        "Items:",
+        format_request_items_text(payload.get("items") or []),
+        "",
+        f"Track in Wave: {tracker_url}",
+        "",
+        "Thank you for shopping local.",
+        "Wave from Atlantica",
+    ])
+    send_email_message(email, subject, body)
+
+def send_request_status_email(shop: Dict[str, Any], row: Dict[str, Any], status: str) -> None:
+    email = clean_email(row.get("customer_email", ""))
+    if not email:
+        return
+    subject = f"Your {shop.get('name', 'shop')} request is now {request_status_human(status)}"
+    tracker_url = f"{ui_redirect_url()}?request_id={row.get('request_id','')}"
+    body = "\n".join([
+        f"Hi {row.get('customer_name') or 'there'},",
+        "",
+        f"Your request with {shop.get('name', 'the shop')} was updated.",
+        f"Request ID: {row.get('request_id', '')}",
+        f"New status: {request_status_human(status)}",
+        f"Fulfillment: {str(row.get('fulfillment_type') or 'pickup').replace('_', ' ').title()}",
+        "",
+        "Items:",
+        format_request_items_text(row.get('items') or []),
+        "",
+        f"Track in Wave: {tracker_url}",
+        "",
+        "Wave from Atlantica",
+    ])
+    send_email_message(email, subject, body)
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # LLM 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -316,6 +420,10 @@ def slug(s: str, max_len: int = 40) -> str:
 def gen_shop_id(name: str) -> str:
     base = slug(name)[:22]
     return f"{base}-{uuid.uuid4().hex[:4]}" if base else f"shop-{uuid.uuid4().hex[:6]}"
+
+def gen_product_id(name: str) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", norm_text(name)).strip("-")[:24]
+    return f"prd-{base}-{uuid.uuid4().hex[:5]}" if base else f"prd-{uuid.uuid4().hex[:8]}"
 
 def norm_ext(ext: str) -> str:
     return ".jpg" if ext.lower() in {".jfif", ".jif"} else ext.lower()
@@ -1982,6 +2090,7 @@ def health():
         "temperature": OPENROUTER_TEMPERATURE if OPENROUTER_KEY else None,
         "rag_enabled": HAS_RAG,
         "supabase_configured": supabase is not None,
+        "notifications_enabled": notifications_enabled(),
     }
 
 @app.get("/shops/{shop_id}/images/{filename}")
@@ -2513,10 +2622,14 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     user, prof = get_user(authorization)
     require_verified(user)
     shop = validate_shop_payload(body.shop)
-    sid = slug(body.shop_id) if body.shop_id else gen_shop_id(shop["name"])
-    
-    exists_res = supabase.table("shops").select("shop_id").eq("shop_id", sid).execute()
-    if exists_res.data: raise HTTPException(409, "shop_id already exists")
+    sid = gen_shop_id(shop["name"])
+    for _ in range(5):
+        exists_res = supabase.table("shops").select("shop_id").eq("shop_id", sid).execute()
+        if not exists_res.data:
+            break
+        sid = gen_shop_id(shop["name"])
+    else:
+        raise HTTPException(500, "Could not generate a unique shop ID")
     
     supabase.table("shops").insert({
         "shop_id": sid,
@@ -2650,6 +2763,8 @@ def admin_update_request_status(shop_id: str, request_id: str, body: OrderStatus
     if not rows:
         raise HTTPException(404, "Request not found")
     row = rows[0]
+    shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).limit(1).execute().data or []
+    shop = normalize_shop_record(shop_rows[0]) if shop_rows else {"name": "the shop"}
     history = row.get("status_history") or []
     if isinstance(history, str):
         try:
@@ -2664,6 +2779,8 @@ def admin_update_request_status(shop_id: str, request_id: str, body: OrderStatus
         "status_history": history,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }).eq("shop_id", shop_id).eq("request_id", request_id).execute()
+    updated_row = {**row, "status": status, "status_history": history}
+    send_request_status_email(shop, updated_row, status)
     return {"ok": True, "status": status}
 
 @app.put("/admin/shop/{shop_id}")
@@ -2722,10 +2839,13 @@ def public_order_request(body: OrderRequestReq):
         raise HTTPException(400, "This shop does not accept walk-in orders through the app")
     customer_name = re.sub(r"\s+", " ", str(body.customer_name or "")).strip()
     phone = re.sub(r"\s+", " ", str(body.phone or "")).strip()
+    customer_email = clean_email(body.customer_email or "")
     if len(customer_name) < 2:
         raise HTTPException(400, "Enter your name")
     if len(phone) < 6:
         raise HTTPException(400, "Enter a valid phone number")
+    if customer_email and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", customer_email):
+        raise HTTPException(400, "Enter a valid email address")
     if fulfillment_type == "delivery" and not str(body.delivery_address or "").strip():
         raise HTTPException(400, "Enter the delivery address")
     items = body.items or []
@@ -2768,6 +2888,7 @@ def public_order_request(body: OrderRequestReq):
         "fulfillment_type": fulfillment_type,
         "customer_name": customer_name,
         "phone": phone,
+        "customer_email": customer_email,
         "note": str(body.note or "").strip(),
         "preferred_time": str(body.preferred_time or "").strip(),
         "delivery_address": str(body.delivery_address or "").strip(),
@@ -2780,6 +2901,7 @@ def public_order_request(body: OrderRequestReq):
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     supabase.table("order_requests").insert(payload).execute()
+    send_request_confirmation_email(shop, payload)
     return {"ok": True, "request_id": request_id}
 
 @app.get("/public/order-request-status")
@@ -2805,6 +2927,7 @@ def public_order_request_status(request_id: str = Query(...), phone: str = Query
             "created_at": row.get("created_at"),
             "updated_at": row.get("updated_at"),
             "items": row.get("items") or [],
+            "customer_email": row.get("customer_email", ""),
             "status_history": row.get("status_history") or [],
         }
     }
@@ -2821,12 +2944,21 @@ def admin_delete_shop(shop_id: str, authorization: Optional[str] = Header(None))
 def admin_upsert_product(shop_id: str, product: Product, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
-    pid = slug(product.product_id, 60)
+    raw_pid = str(product.product_id or "").strip()
+    pid = slug(raw_pid, 60) if raw_pid else gen_product_id(product.name)
     shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
     if not shop_rows: raise HTTPException(404, "Shop not found")
     shop = normalize_shop_record(shop_rows[0])
     
     existing = supabase.table("products").select("images").eq("shop_id", shop_id).eq("product_id", pid).execute().data
+    if not existing and not raw_pid:
+        for _ in range(5):
+            dupe = supabase.table("products").select("product_id").eq("shop_id", shop_id).eq("product_id", pid).execute().data
+            if not dupe:
+                break
+            pid = gen_product_id(product.name)
+        else:
+            raise HTTPException(500, "Could not generate a unique product ID")
     data = normalize_product_payload(product, shop)
     imgs = data["images"]
     if existing and not imgs: imgs = existing[0].get("images", [])
@@ -2849,19 +2981,28 @@ def admin_delete_product(shop_id: str, product_id: str, authorization: Optional[
 async def admin_product_with_images(
     request: Request,
     shop_id: str, authorization: Optional[str] = Header(None),
-    product_id: str = Form(...), name: str = Form(...), overview: str = Form(""), price: str = Form(""),
+    product_id: str = Form(""), name: str = Form(...), overview: str = Form(""), price: str = Form(""),
     price_amount: str = Form(""), currency_code: str = Form(""),
     stock: str = Form("in"), stock_quantity: str = Form(""), variants: str = Form(""), variant_data_json: str = Form(""), variant_matrix_json: str = Form(""), attribute_data_json: str = Form(""), images: List[UploadFile] = File(default=[])
 ):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
-    pid = slug(product_id, 60)
     if not name.strip(): raise HTTPException(400, "Name required")
     shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
     if not shop_rows: raise HTTPException(404, "Shop not found")
     shop = normalize_shop_record(shop_rows[0])
+    raw_pid = str(product_id or "").strip()
+    pid = slug(raw_pid, 60) if raw_pid else gen_product_id(name)
     
     existing = supabase.table("products").select("images").eq("shop_id", shop_id).eq("product_id", pid).execute().data
+    if not existing and not raw_pid:
+        for _ in range(5):
+            dupe = supabase.table("products").select("product_id").eq("shop_id", shop_id).eq("product_id", pid).execute().data
+            if not dupe:
+                break
+            pid = gen_product_id(name)
+        else:
+            raise HTTPException(500, "Could not generate a unique product ID")
     current_imgs = []
     if existing:
         current_imgs = existing[0].get("images", [])

@@ -860,6 +860,17 @@ a{color:inherit;text-decoration:none}
 .toast-dot{width:7px;height:7px;border-radius:99px;flex-shrink:0;margin-top:3px}
 .toast.ok .toast-dot{background:var(--G)}.toast.err .toast-dot{background:var(--R)}
 .toast-tit{font-weight:700;font-size:13px}.toast-txt{font-size:11px;color:var(--ink3);margin-top:1px}
+.req-banner{display:none;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:linear-gradient(180deg,#fff8ef,#f9efe2);border-bottom:1px solid rgba(191,174,149,.35)}
+.req-banner.on{display:flex}
+.req-banner-copy{display:grid;gap:3px;min-width:0}
+.req-banner-title{font-size:12px;font-weight:800;color:var(--ink1)}
+.req-banner-text{font-size:12px;color:var(--ink3);line-height:1.45}
+.req-banner-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+@media(max-width:700px){
+  .req-banner{padding:10px 12px;align-items:flex-start;flex-direction:column}
+  .req-banner-actions{width:100%}
+  .req-banner-actions .btn{flex:1;justify-content:center}
+}
 @keyframes tin{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
 </style>
 </head>
@@ -895,6 +906,17 @@ a{color:inherit;text-decoration:none}
   <button class="snav" data-cat="Books">Books</button>
   <button class="snav" data-cat="Other">Other</button>
 </nav>
+
+<div id="requestBanner" class="req-banner">
+  <div class="req-banner-copy">
+    <div id="requestBannerTitle" class="req-banner-title">Request Update</div>
+    <div id="requestBannerText" class="req-banner-text">Track your latest order request.</div>
+  </div>
+  <div class="req-banner-actions">
+    <button id="requestBannerTrackBtn" class="btn btn-o btn-sm">Track Request</button>
+    <button id="requestBannerDismissBtn" class="btn btn-g btn-sm">Hide</button>
+  </div>
+</div>
 
 <div id="pg-home" class="page show">
   <div class="home-wrap">
@@ -1341,7 +1363,7 @@ a{color:inherit;text-decoration:none}
             <div class="card-body">
               <div class="csv-box">
                 <div class="csv-title">Import multiple products into this shop</div>
-                <div class="csv-hint">Columns: <code>product_id, name, price, overview, stock, stock_quantity, variants, variant_data_json, variant_matrix_json, attribute_data_json</code>. Use numeric values for <code>price</code> and <code>stock_quantity</code>. Use <code>variant_data_json</code> for size/color options and <code>variant_matrix_json</code> for exact combinations like Size + Color.</div>
+                <div class="csv-hint">Columns: <code>product_id, name, price, overview, stock, stock_quantity, variants, variant_data_json, variant_matrix_json, attribute_data_json</code>. <code>product_id</code> is optional and Wave will generate it when blank. Use numeric values for <code>price</code> and <code>stock_quantity</code>. Use <code>variant_data_json</code> for size/color options and <code>variant_matrix_json</code> for exact combinations like Size + Color.</div>
                 <div class="btn-row">
                   <input id="csvFile" type="file" accept=".csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
                   <button id="importCsvBtn" class="btn btn-o btn-sm">Import</button>
@@ -1384,7 +1406,8 @@ a{color:inherit;text-decoration:none}
                   <div class="setup-section-copy">Set the basics customers notice first on the shop page and in search results.</div>
                 </div>
                 <div class="fg3">
-                  <div class="fld"><label>Shop ID</label><input id="shopId" placeholder="Auto-generated"/><div class="fld-hint">Leave this blank to let the system create one for you.</div></div>
+                  <input id="shopId" type="hidden"/>
+                  <div class="fld"><label>Shop Reference</label><div id="shopIdRef" class="currency-pill" style="min-height:44px;display:flex;align-items:center">Generated after creation</div><div class="fld-hint">Wave creates the shop ID automatically. Owners do not need to choose one.</div></div>
                   <div class="fld"><label>Shop Name</label><input id="shopName" placeholder="Maple Juice Bar"/><div class="fld-hint">Use the public name exactly as you want customers to see it.</div></div>
                   <div class="fld"><label>Category</label>
                     <select id="shopCat"><option value="">Select...</option><option>Food</option><option>Electronics</option><option>Clothing</option><option>Home</option><option>Beauty</option><option>Sports</option><option>Books</option><option>Other</option></select>
@@ -1499,7 +1522,8 @@ a{color:inherit;text-decoration:none}
                   <div class="setup-section-copy">Start with the fields customers use to identify and compare the product.</div>
                 </div>
                 <div class="fg3">
-                  <div class="fld"><label>Product ID</label><input id="prodId" placeholder="p001"/><div class="fld-hint">Optional. Leave blank to auto-generate from the product name.</div></div>
+                  <input id="prodId" type="hidden"/>
+                  <div class="fld"><label>Product Reference</label><div id="prodIdRef" class="currency-pill" style="min-height:44px;display:flex;align-items:center">Generated when you save</div><div class="fld-hint">Wave creates the product ID automatically and keeps it stable.</div></div>
                   <div class="fld"><label>Product Name</label><input id="prodName" placeholder="Mango Smoothie"/><div class="fld-hint">Use the exact name customers will search for and see on the product card.</div></div>
                   <div class="fld"><label>Price</label><div class="price-field"><div id="prodCurrencyBadge" class="currency-pill">USD</div><input id="prodPrice" type="number" min="0" step="0.01" inputmode="decimal" placeholder="10.00"/></div><div id="prodPriceNote" class="fld-hint">Enter only the numeric amount. The shop currency is applied automatically.</div></div>
                 </div>
@@ -1810,6 +1834,7 @@ a{color:inherit;text-decoration:none}
         <div class="fld"><label>Your Name</label><input id="orderName" placeholder="Alex Johnson"/></div>
         <div class="fld"><label>Phone</label><input id="orderPhone" placeholder="+1 902-555-0101"/></div>
       </div>
+      <div class="fld"><label>Email for updates (optional)</label><input id="orderEmail" type="email" placeholder="you@example.com"/></div>
       <div class="fld"><label>Preferred Time (optional)</label><input id="orderTime" placeholder="Today after 5 PM"/></div>
       <div id="orderDeliveryWrap" class="fld" style="display:none"><label>Delivery Address</label><textarea id="orderDeliveryAddress" placeholder="Enter the address for local delivery"></textarea></div>
       <div class="fld"><label>Note (optional)</label><textarea id="orderNote" placeholder="Anything the shop should know about this request"></textarea></div>
@@ -1875,6 +1900,7 @@ const App = {
   productVariantDraft: [],
   productVariantMatrixDraft: [],
   pdVariantSelection: {},
+  requestWatch: {timer:null,lastStatus:'',lastRequestId:'',hidden:false},
 };
 const $=id=>document.getElementById(id);
 const norm=u=>(u||'').trim().replace(/\/$/,'');
@@ -2728,7 +2754,7 @@ function saveUser(data){
   localStorage.setItem('lm_user',JSON.stringify(App.user));
   renderUserUI();
 }
-function clearUser(){App.user=null;localStorage.removeItem('lm_user');renderUserUI();}
+function clearUser(){App.user=null;localStorage.removeItem('lm_user');renderUserUI();setRequestBanner(null);}
 
 function renderUserUI(){
   const u=App.user;
@@ -2948,6 +2974,55 @@ function rememberRequestLookup(requestId='',phone=''){
   if(requestId) localStorage.setItem('wave_last_request_id',requestId);
   if(phone) localStorage.setItem('wave_last_request_phone',phone);
 }
+function setRequestBanner(req=null){
+  const banner=$('requestBanner');
+  if(!banner) return;
+  const hidden=localStorage.getItem('wave_request_banner_hidden')==='1';
+  if(!req || hidden){
+    banner.classList.remove('on');
+    return;
+  }
+  const title=$('requestBannerTitle');
+  const text=$('requestBannerText');
+  if(title) title.textContent=`Request ${requestStatusLabel(req.status)}`;
+  if(text){
+    const updated=req.updated_at?formatDate(req.updated_at):req.created_at?formatDate(req.created_at):'recently';
+    text.textContent=`${(req.fulfillment_type||'pickup').replace('_',' ')} request ${req.request_id||''} was updated ${updated}.`;
+  }
+  banner.classList.add('on');
+}
+async function refreshRequestNotification({forceToast=false}={}){
+  const requestId=localStorage.getItem('wave_last_request_id')||'';
+  const phone=localStorage.getItem('wave_last_request_phone')||'';
+  if(!requestId || !phone){
+    App.requestWatch.lastRequestId='';
+    App.requestWatch.lastStatus='';
+    setRequestBanner(null);
+    return;
+  }
+  try{
+    const res=await api(`/public/order-request-status?request_id=${encodeURIComponent(requestId)}&phone=${encodeURIComponent(phone)}`);
+    const req=res.request||{};
+    const status=String(req.status||'new').toLowerCase();
+    const previousId=App.requestWatch.lastRequestId||localStorage.getItem('wave_request_last_seen_id')||'';
+    const previousStatus=App.requestWatch.lastStatus||localStorage.getItem('wave_request_last_seen_status')||'';
+    const changed = previousId===requestId && previousStatus && previousStatus!==status;
+    App.requestWatch.lastRequestId=requestId;
+    App.requestWatch.lastStatus=status;
+    localStorage.setItem('wave_request_last_seen_id',requestId);
+    localStorage.setItem('wave_request_last_seen_status',status);
+    setRequestBanner(req);
+    if(forceToast || changed){
+      toast('Request update',`${requestStatusLabel(status)}${req.request_id?` · ${req.request_id}`:''}`);
+    }
+  }catch{
+    setRequestBanner(null);
+  }
+}
+function startRequestWatcher(){
+  if(App.requestWatch.timer) clearInterval(App.requestWatch.timer);
+  App.requestWatch.timer=setInterval(()=>{ if(!document.hidden) refreshRequestNotification(); },60000);
+}
 function renderOwnerRequests(requests=[]){
   const host=$('ownerRequestList');
   if(!host) return;
@@ -2961,7 +3036,8 @@ function renderOwnerRequests(requests=[]){
       status==='new'?`<button class="btn btn-A btn-sm" data-req-status="accepted" data-req-id="${esc(req.request_id)}">Accept</button>`:'',
       (status==='accepted'||status==='new')?`<button class="btn btn-o btn-sm" data-req-status="ready" data-req-id="${esc(req.request_id)}">Mark Ready</button>`:'',
       status!=='completed'&&status!=='cancelled'?`<button class="btn btn-g btn-sm" data-req-status="completed" data-req-id="${esc(req.request_id)}">Complete</button>`:'',
-      status!=='cancelled'&&status!=='completed'?`<button class="btn btn-r btn-sm" data-req-status="cancelled" data-req-id="${esc(req.request_id)}">Cancel</button>`:''
+      status!=='cancelled'&&status!=='completed'?`<button class="btn btn-r btn-sm" data-req-status="cancelled" data-req-id="${esc(req.request_id)}">Cancel</button>`:'',
+      req.customer_email?`<a class="btn btn-o btn-sm" href="mailto:${esc(req.customer_email)}?subject=${encodeURIComponent(`Update for ${req.request_id||'your order'}`)}">Email</a>`:''
     ].filter(Boolean).join('');
     const items=(req.items||[]).slice(0,2).map(item=>`${item.qty||1}× ${item.name||'Product'}${item.variant?` (${item.variant})`:''}`).join(' · ');
     return `<div class="setup-card">
@@ -2973,6 +3049,7 @@ function renderOwnerRequests(requests=[]){
             <span class="chip">${esc((req.fulfillment_type||'pickup').replace('_',' '))}</span>
           </div>
           <div class="fld-hint">${esc(req.request_id||'')} · ${esc(req.phone||'')}</div>
+          ${req.customer_email?`<div class="fld-hint">${esc(req.customer_email)}</div>`:''}
           <div class="fld-hint">${esc(items || 'Items not available')} </div>
           <div class="fld-hint">${esc(req.created_at?formatDate(req.created_at):'')}</div>
         </div>
@@ -3021,6 +3098,7 @@ function openOrderModal(){
   $('orderDeliveryWrap').style.display=sel.value==='delivery'?'block':'none';
   $('orderShopNote').style.display=ctx.shop?.pickup_notes?'block':'none';
   $('orderShopNote').innerHTML=ctx.shop?.pickup_notes?`<div class="setup-callout-title">Shop note</div><div class="setup-callout-copy">${esc(ctx.shop.pickup_notes)}</div>`:'';
+  if($('orderEmail') && !$('orderEmail').value && App.user?.email) $('orderEmail').value=App.user.email;
   setS('orderStatus','');
   $('orderBg').classList.add('on');document.body.style.overflow='hidden';
 }
@@ -3029,7 +3107,7 @@ async function submitOrderRequest(){
   const ctx=getCartShopContext();
   if(!ctx.ok) return setS('orderStatus',ctx.message,'err');
   const fulfillment=$('orderFulfillment').value;
-  const payload={shop_id:ctx.shop_id,fulfillment_type:fulfillment,customer_name:$('orderName').value.trim(),phone:$('orderPhone').value.trim(),preferred_time:$('orderTime').value.trim(),delivery_address:$('orderDeliveryAddress').value.trim(),note:$('orderNote').value.trim(),items:App.cart.filter(item=>item.shop_id===ctx.shop_id)};
+  const payload={shop_id:ctx.shop_id,fulfillment_type:fulfillment,customer_name:$('orderName').value.trim(),phone:$('orderPhone').value.trim(),customer_email:$('orderEmail').value.trim(),preferred_time:$('orderTime').value.trim(),delivery_address:$('orderDeliveryAddress').value.trim(),note:$('orderNote').value.trim(),items:App.cart.filter(item=>item.shop_id===ctx.shop_id)};
   try{
     setBtnBusy('submitOrderBtn',true,'Sending...');
     setS('orderStatus','Sending request...');
@@ -3037,10 +3115,14 @@ async function submitOrderRequest(){
     App.cart=App.cart.filter(item=>item.shop_id!==ctx.shop_id);
     saveCart();updateCartBadge();renderCart();updateCartFulfillmentState();
     rememberRequestLookup(res.request_id,payload.phone);
+    localStorage.removeItem('wave_request_banner_hidden');
+    App.requestWatch.lastRequestId=res.request_id;
+    App.requestWatch.lastStatus='new';
     setS('orderStatus',`Request sent: ${res.request_id}`,'ok');
     toast('Request sent',res.request_id);
     closeOrderModal();
     closeCart();
+    refreshRequestNotification();
   }catch(e){setS('orderStatus',e.message,'err');}
   finally{setBtnBusy('submitOrderBtn',false);}
 }
@@ -3093,7 +3175,9 @@ async function lookupRequestStatus(){
     setS('trackReqStatus','Checking request...');
     const res=await api(`/public/order-request-status?request_id=${encodeURIComponent(requestId)}&phone=${encodeURIComponent(phone)}`);
     rememberRequestLookup(requestId,phone);
+    localStorage.removeItem('wave_request_banner_hidden');
     renderTrackedRequest(res.request||{});
+    setRequestBanner(res.request||null);
     setS('trackReqStatus','Request found.','ok');
   }catch(e){
     if($('trackReqResult')){$('trackReqResult').style.display='none';$('trackReqResult').innerHTML='';}
@@ -3135,6 +3219,8 @@ $('profileTrackRequestBtn')?.addEventListener('click',()=>{closeProfile();openTr
 $('trackReqClose')?.addEventListener('click',closeTrackRequestModal);
 $('trackReqBg')?.addEventListener('click',e=>{if(e.target===$('trackReqBg'))closeTrackRequestModal();});
 $('trackReqSubmitBtn')?.addEventListener('click',lookupRequestStatus);
+$('requestBannerTrackBtn')?.addEventListener('click',openTrackRequestModal);
+$('requestBannerDismissBtn')?.addEventListener('click',()=>{localStorage.setItem('wave_request_banner_hidden','1');setRequestBanner(null);});
 
 /* ═════════════════════════════════════════════
    PRODUCT CARD
@@ -3981,6 +4067,7 @@ function syncProductEditorState(mode='create'){
   if($('productFloatingSubmitBtn')) $('productFloatingSubmitBtn').textContent=isEdit?'Save Product':'Create Product';
   if($('deleteProdBtn')) $('deleteProdBtn').style.display=isEdit?'':'none';
   if($('clearProdBtn')) $('clearProdBtn').textContent=isEdit?'Reset Form':'Clear';
+  if($('prodIdRef')) $('prodIdRef').textContent=isEdit?($('prodId')?.value.trim()||'Saved product'):'Generated when you save';
   updateProductDraftState(false);
 }
 function syncShopFormActions(mode='create'){
@@ -3991,6 +4078,7 @@ function syncShopFormActions(mode='create'){
     $('shopFloatingSubmitBtn').textContent=isEdit?'Save Shop':'Create Shop';
     $('shopFloatingSubmitBtn').dataset.mode=isEdit?'edit':'create';
   }
+  if($('shopIdRef')) $('shopIdRef').textContent=isEdit?($('shopId')?.value.trim()||'Saved shop'):'Generated after creation';
   updateShopDraftState(false);
 }
 
@@ -4037,6 +4125,7 @@ function syncDeliverySettingsVisibility(){
 function resetShopForm(){
   suspendFormDirty=true;
   ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopLat','shopLng','shopDeliveryRadius','shopDeliveryFee','shopPickupNotes'].forEach(id=>$(id).value='');
+  if($('shopIdRef')) $('shopIdRef').textContent='Generated after creation';
   $('shopCat').value='';
   $('shopCountry').value='CA';
   $('shopSupportsPickup').checked=true;
@@ -4060,6 +4149,7 @@ function populateShopForm(shop=null){
   resetShopForm();
   if(!shop) return;
   $('shopId').value=shop.shop_id||shop.shopId||App.adminShopId||'';
+  if($('shopIdRef')) $('shopIdRef').textContent=$('shopId').value||'Saved shop';
   $('shopName').value=shop.name||'';
   $('shopCountry').value=(shop.country_code||'CA').toUpperCase();
   updateRegionOptions($('shopCountry').value);
@@ -4158,7 +4248,7 @@ async function loadMyShops(){
       const flags=s.quality_flags||[];
       const card=document.createElement('button');
       card.className='owner-shop-card';
-      card.innerHTML=`<div class="owner-shop-card-top"><div><div class="owner-shop-card-name">${esc(s.name||s.shop_id)}</div><div class="owner-shop-card-meta">${esc(s.address||'Address coming soon')}${s.category?` · ${esc(s.category)}`:''}</div></div><span class="badge">${stats.product_count??0} products</span></div><div class="owner-shop-card-overview">${esc((s.overview||'Open this workspace to update your storefront, manage products, and keep the customer chat accurate.').slice(0,150))}</div><div class="owner-flag-list">${flags.length?flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join(''):'<span class="owner-good">Ready to publish</span>'}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Products</div><div class="owner-shop-card-stat-v">${stats.product_count??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Chats / 30d</div><div class="owner-shop-card-stat-v">${stats.chat_hits_30d??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Rating</div><div class="owner-shop-card-stat-v">${Number(stats.avg_rating||0).toFixed(1)}</div></div></div><div class="owner-shop-card-go"><span>Open shop workspace</span><span>→</span></div>`;
+      card.innerHTML=`<div class="owner-shop-card-top"><div><div class="owner-shop-card-name">${esc(s.name||'Untitled Shop')}</div><div class="owner-shop-card-meta">${esc(s.address||'Address coming soon')}${s.category?` · ${esc(s.category)}`:''}</div></div><span class="badge">${stats.product_count??0} products</span></div><div class="owner-shop-card-overview">${esc((s.overview||'Open this workspace to update your storefront, manage products, and keep the customer chat accurate.').slice(0,150))}</div><div class="owner-flag-list">${flags.length?flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join(''):'<span class="owner-good">Ready to publish</span>'}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Products</div><div class="owner-shop-card-stat-v">${stats.product_count??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Chats / 30d</div><div class="owner-shop-card-stat-v">${stats.chat_hits_30d??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Rating</div><div class="owner-shop-card-stat-v">${Number(stats.avg_rating||0).toFixed(1)}</div></div></div><div class="owner-shop-card-go"><span>Open shop workspace</span><span>→</span></div>`;
       card.addEventListener('click',()=>loadAdminShop(s.shop_id));
       grid.appendChild(card);
     });
@@ -4271,14 +4361,14 @@ async function createShop(){
   if(formErr){setS('shopStatus',formErr,'err');return toast('Shop details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
   const hoursData=updateHoursSummary();
-  const payload={shop_id:$('shopId').value.trim()||null,shop:{name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim()}};
+  const payload={shop:{name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim()}};
   try{
     setBtnBusy('createShopBtn',true,'Creating...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Creating...');
     setS('shopStatus','Creating your shop...');
     const d=await api('/admin/create-shop',{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     toast('Shop created',d.shop_id);
-    setS('shopStatus',`Shop created successfully as ${d.shop_id}.`,'ok');
+    setS('shopStatus',`Shop created successfully.`,'ok');
     updateShopDraftState(false);
     await loadMyShops();
     await loadAdminShop(d.shop_id);
@@ -4369,9 +4459,10 @@ $('rebuildKbBtn').addEventListener('click',async()=>{
 });
 
 /* ── Product editor ── */
-function loadProdIntoEditor(p,{skipView=false}={}){
+function loadProdIntoEditor(p,{skipView=false}={}){ 
   suspendFormDirty=true;
   $('prodId').value=p.product_id||'';$('prodName').value=p.name||'';$('prodPrice').value=(p.price_amount_native ?? p.price_amount ?? '').toString();
+  if($('prodIdRef')) $('prodIdRef').textContent=$('prodId').value||'Saved product';
   $('prodOverview').value=p.overview||'';$('prodStock').value=p.stock||'in';$('prodQty').value=p.stock_quantity ?? '';
   $('prodFiles').value='';renderFilePrev([]);
   syncProductEditorState('edit');
@@ -4388,17 +4479,16 @@ function loadProdIntoEditor(p,{skipView=false}={}){
   updateProductDraftState(false);
   if(!skipView){switchAdminSub('shops');showShopManagerView('productform');$('prodId').scrollIntoView({behavior:'smooth',block:'center'});}
 }
-function clearProdForm(){suspendFormDirty=true;['prodId','prodName','prodPrice','prodQty','prodOverview'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');updateShopCurrencyBadge();App.productVariantMatrixDraft=[];renderVariantBuilder([]);renderVariantMatrixBuilder([],[]);renderProductAttributeFields({});setS('productStatus','');suspendFormDirty=false;updateProductDraftState(false);}
+function clearProdForm(){suspendFormDirty=true;['prodId','prodName','prodPrice','prodQty','prodOverview'].forEach(id=>$(id).value='');if($('prodIdRef')) $('prodIdRef').textContent='Generated when you save';$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');updateShopCurrencyBadge();App.productVariantMatrixDraft=[];renderVariantBuilder([]);renderVariantMatrixBuilder([],[]);renderProductAttributeFields({});setS('productStatus','');suspendFormDirty=false;updateProductDraftState(false);}
 function renderFilePrev(files){const g=$('filePreview');g.innerHTML='';if(!files?.length){g.innerHTML=`<div style="font-size:11px;color:var(--ink4)">No files selected</div>`;return;}Array.from(files).forEach(f=>{const r=new FileReader();r.onload=()=>{const d=document.createElement('div');d.className='prev-item';d.innerHTML=`<img src="${r.result}" alt=""/>`;g.appendChild(d);};r.readAsDataURL(f);});}
 async function saveProd(){
   if(!tok())return toast('Login required','','err');
   normalizePriceInput();
   const shopId=$('shopId').value.trim(),name=$('prodName').value.trim(),price=$('prodPrice').value.trim(),overview=$('prodOverview').value.trim();
-  let pid=$('prodId').value.trim();
+  const pid=$('prodId').value.trim();
   if(!shopId)return toast('Load a shop first','','err');
   const formErr=validateProductForm();
   if(formErr){setS('productStatus',formErr,'err');return toast('Product details missing',formErr,'err');}
-  if(!pid){pid=slugify(name);$('prodId').value=pid;}
   const files=$('prodFiles').files,stock=$('prodStock').value,stockQuantity=Number($('prodQty').value),variantData=collectVariantData(),variantMatrix=collectVariantMatrixData();
   const variantHasFiles=variantData.some(item=>Array.isArray(item._files)&&item._files.length);
   const comboHasFiles=variantMatrix.some(item=>Array.isArray(item._files)&&item._files.length);
@@ -4411,8 +4501,8 @@ async function saveProd(){
     setBtnBusy('productFloatingSubmitBtn',true,busyLabel);
     setS('productStatus',(files.length||variantHasFiles||comboHasFiles)?'Uploading product images and saving details...':'Saving product details...');
     const attributeData=collectProductAttributeData();
-    if(files.length||variantHasFiles||comboHasFiles){const form=new FormData();form.append('product_id',pid);form.append('name',name);form.append('overview',overview);form.append('price',price);form.append('price_amount',price);form.append('currency_code',currencyCode);form.append('stock',stock);form.append('stock_quantity',String(stockQuantity));form.append('variants',variantSummary(cleanVariantData));form.append('variant_data_json',JSON.stringify(cleanVariantData));form.append('variant_matrix_json',JSON.stringify(cleanVariantMatrix));form.append('attribute_data_json',JSON.stringify(attributeData));[...files].forEach(f=>form.append('images',f));variantData.forEach((item,idx)=>{(item._files||[]).forEach(file=>form.append(`variant_images_${idx}`,file));});variantMatrix.forEach((item,idx)=>{(item._files||[]).forEach(file=>form.append(`variant_combo_images_${idx}`,file));});await api(`/admin/shop/${encodeURIComponent(shopId)}/product-with-images`,{method:'POST',auth:true,body:form});}
-    else{await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid,name,price,price_amount:Number(price),currency_code:currencyCode,overview,stock,stock_quantity:stockQuantity,variants:variantSummary(cleanVariantData),variant_data:cleanVariantData,variant_matrix:cleanVariantMatrix,attribute_data:attributeData,images:[]})});}
+    if(files.length||variantHasFiles||comboHasFiles){const form=new FormData();if(pid) form.append('product_id',pid);form.append('name',name);form.append('overview',overview);form.append('price',price);form.append('price_amount',price);form.append('currency_code',currencyCode);form.append('stock',stock);form.append('stock_quantity',String(stockQuantity));form.append('variants',variantSummary(cleanVariantData));form.append('variant_data_json',JSON.stringify(cleanVariantData));form.append('variant_matrix_json',JSON.stringify(cleanVariantMatrix));form.append('attribute_data_json',JSON.stringify(attributeData));[...files].forEach(f=>form.append('images',f));variantData.forEach((item,idx)=>{(item._files||[]).forEach(file=>form.append(`variant_images_${idx}`,file));});variantMatrix.forEach((item,idx)=>{(item._files||[]).forEach(file=>form.append(`variant_combo_images_${idx}`,file));});const res=await api(`/admin/shop/${encodeURIComponent(shopId)}/product-with-images`,{method:'POST',auth:true,body:form});if(res?.product_id){$('prodId').value=res.product_id;if($('prodIdRef')) $('prodIdRef').textContent=res.product_id;}}
+    else{const res=await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid,name,price,price_amount:Number(price),currency_code:currencyCode,overview,stock,stock_quantity:stockQuantity,variants:variantSummary(cleanVariantData),variant_data:cleanVariantData,variant_matrix:cleanVariantMatrix,attribute_data:attributeData,images:[]})});if(res?.product_id){$('prodId').value=res.product_id;if($('prodIdRef')) $('prodIdRef').textContent=res.product_id;}}
     toast('Product saved',name);
     setS('productStatus',`Product "${name}" saved successfully.`,'ok');
     updateProductDraftState(false);
@@ -4783,6 +4873,8 @@ async function init(){
   }
   await loadAllShops();
   if(tok())await loadMyShops();
+  await refreshRequestNotification();
+  startRequestWatcher();
   if(App.shopId){
     try{const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(App.shopId)}`));App.shopData=d;$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}catch{}
   }
@@ -4792,6 +4884,7 @@ $('shopFilterApply')?.addEventListener('click',()=>{loadAllShops();toggleShopFil
 $('shopFilterClear')?.addEventListener('click',()=>{clearShopFilters();loadAllShops();toggleShopFilters(false);});
 $('shopFilterToggleBtn')?.addEventListener('click',()=>toggleShopFilters());
 $('shopFilterOpenNow')?.addEventListener('change',()=>{if($('shopFilterOpenNow').checked){$('shopFilterDay').value='';$('shopFilterTime').value='';}});
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshRequestNotification(); });
 init();
 </script>
 </body>
