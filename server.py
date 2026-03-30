@@ -167,6 +167,25 @@ class ShopInfo(BaseModel):
     currency_code: str = ""
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    supports_pickup: bool = True
+    supports_delivery: bool = False
+    supports_walk_in: bool = True
+    delivery_radius_km: Optional[float] = None
+    delivery_fee: Optional[float] = None
+    pickup_notes: str = ""
+
+class OrderRequestReq(BaseModel):
+    shop_id: str
+    fulfillment_type: str
+    customer_name: str
+    phone: str
+    note: str = ""
+    preferred_time: str = ""
+    delivery_address: str = ""
+    items: List[Dict[str, Any]] = []
+
+class OrderStatusUpdateReq(BaseModel):
+    status: str
 
 class Product(BaseModel):
     product_id: str = Field(..., description="e.g. p001")
@@ -627,6 +646,18 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out["hours"] = (out.get("hours") or "").strip() or format_hours_structured(out["hours_structured"])
     out["formatted_address"] = (out.get("formatted_address") or "").strip() or build_formatted_address(out)
     out["address"] = out["formatted_address"] or (out.get("address") or "").strip()
+    out["supports_pickup"] = bool(out.get("supports_pickup", True))
+    out["supports_delivery"] = bool(out.get("supports_delivery", False))
+    out["supports_walk_in"] = bool(out.get("supports_walk_in", True))
+    try:
+        out["delivery_radius_km"] = round(float(out.get("delivery_radius_km")), 2) if out.get("delivery_radius_km") not in (None, "") else None
+    except Exception:
+        out["delivery_radius_km"] = None
+    try:
+        out["delivery_fee"] = round(float(out.get("delivery_fee")), 2) if out.get("delivery_fee") not in (None, "") else None
+    except Exception:
+        out["delivery_fee"] = None
+    out["pickup_notes"] = (out.get("pickup_notes") or "").strip()
     return out
 
 def validate_postal_code(country_code: str, postal_code: str) -> bool:
@@ -1128,6 +1159,15 @@ def validate_shop_payload(shop: ShopInfo) -> Dict[str, Any]:
     except Exception:
         raise HTTPException(400, "Select a valid shop timezone")
     data["currency_code"] = clean_currency(data.get("currency_code") or currency_for_country(data["country_code"]))
+    if not any([data.get("supports_pickup"), data.get("supports_delivery"), data.get("supports_walk_in")]):
+        raise HTTPException(400, "Enable at least one fulfillment option")
+    if data.get("supports_delivery"):
+        if data.get("delivery_radius_km") in (None, ""):
+            raise HTTPException(400, "Set a delivery radius for shops that offer delivery")
+        if float(data["delivery_radius_km"]) <= 0:
+            raise HTTPException(400, "Delivery radius must be greater than zero")
+        if data.get("delivery_fee") not in (None, "") and float(data["delivery_fee"]) < 0:
+            raise HTTPException(400, "Delivery fee cannot be negative")
     data["formatted_address"] = data.get("formatted_address") or build_formatted_address(data)
     data["address"] = data["formatted_address"]
     data["hours"] = format_hours_structured(data["hours_structured"])
@@ -2501,6 +2541,12 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         "hours_structured": shop["hours_structured"],
         "category": shop["category"],
         "whatsapp": shop["whatsapp"],
+        "supports_pickup": shop["supports_pickup"],
+        "supports_delivery": shop["supports_delivery"],
+        "supports_walk_in": shop["supports_walk_in"],
+        "delivery_radius_km": shop.get("delivery_radius_km"),
+        "delivery_fee": shop.get("delivery_fee"),
+        "pickup_notes": shop.get("pickup_notes", ""),
     }).execute()
     supabase.table("profiles").update({"role": "shopkeeper"}).eq("id", user.id).execute()
     
@@ -2529,7 +2575,8 @@ def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
     writer = csv.writer(buffer)
     writer.writerow([
         "shop_id", "name", "category", "country_code", "country_name", "region", "city", "postal_code",
-        "formatted_address", "timezone_name", "currency_code", "hours", "phone", "whatsapp", "overview"
+        "formatted_address", "timezone_name", "currency_code", "hours", "phone", "whatsapp",
+        "supports_pickup", "supports_delivery", "supports_walk_in", "delivery_radius_km", "delivery_fee", "pickup_notes", "overview"
     ])
     for row in rows:
         writer.writerow([
@@ -2537,7 +2584,8 @@ def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
             row.get("country_name", ""), row.get("region", ""), row.get("city", ""), row.get("postal_code", ""),
             row.get("formatted_address", "") or row.get("address", ""), row.get("timezone_name", ""),
             row.get("currency_code", ""), row.get("hours", ""), row.get("phone", ""), row.get("whatsapp", ""),
-            row.get("overview", ""),
+            row.get("supports_pickup", True), row.get("supports_delivery", False), row.get("supports_walk_in", True),
+            row.get("delivery_radius_km", ""), row.get("delivery_fee", ""), row.get("pickup_notes", ""), row.get("overview", ""),
         ])
     return PlainTextResponse(
         content=buffer.getvalue(),
@@ -2580,6 +2628,44 @@ def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     ser_prods = serialize_products_bulk(prods, None, {shop_id: shop})
     return {"ok": True, "shop_id": shop_id, "data": {"shop": shop, "products": ser_prods, "stats": stats}}
 
+@app.get("/admin/shop/{shop_id}/requests")
+def admin_shop_requests(shop_id: str, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    check_shop_owner(user.id, shop_id)
+    try:
+        rows = supabase.table("order_requests").select("*").eq("shop_id", shop_id).order("created_at", desc=True).limit(100).execute().data or []
+    except Exception:
+        rows = []
+    return {"ok": True, "requests": rows}
+
+@app.put("/admin/shop/{shop_id}/request/{request_id}/status")
+def admin_update_request_status(shop_id: str, request_id: str, body: OrderStatusUpdateReq, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    check_shop_owner(user.id, shop_id)
+    status = str(body.status or "").strip().lower()
+    allowed = {"new", "accepted", "ready", "completed", "cancelled"}
+    if status not in allowed:
+        raise HTTPException(400, "Status must be new, accepted, ready, completed, or cancelled")
+    rows = supabase.table("order_requests").select("*").eq("shop_id", shop_id).eq("request_id", request_id).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Request not found")
+    row = rows[0]
+    history = row.get("status_history") or []
+    if isinstance(history, str):
+        try:
+            history = json.loads(history)
+        except Exception:
+            history = []
+    if not isinstance(history, list):
+        history = []
+    history.append({"status": status, "at": datetime.now(timezone.utc).isoformat()})
+    supabase.table("order_requests").update({
+        "status": status,
+        "status_history": history,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("shop_id", shop_id).eq("request_id", request_id).execute()
+    return {"ok": True, "status": status}
+
 @app.put("/admin/shop/{shop_id}")
 def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
@@ -2606,9 +2692,122 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
         "hours_structured": shop["hours_structured"],
         "category": shop["category"],
         "whatsapp": shop["whatsapp"],
+        "supports_pickup": shop["supports_pickup"],
+        "supports_delivery": shop["supports_delivery"],
+        "supports_walk_in": shop["supports_walk_in"],
+        "delivery_radius_km": shop.get("delivery_radius_km"),
+        "delivery_fee": shop.get("delivery_fee"),
+        "pickup_notes": shop.get("pickup_notes", ""),
     }).eq("shop_id", shop_id).execute()
     rebuild_kb(shop_id)
     return {"ok": True}
+
+@app.post("/public/order-request")
+def public_order_request(body: OrderRequestReq):
+    shop_id = slug(body.shop_id or "", 80)
+    if not shop_id:
+        raise HTTPException(400, "Shop is required")
+    shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
+    if not shop_rows:
+        raise HTTPException(404, "Shop not found")
+    shop = normalize_shop_record(shop_rows[0])
+    fulfillment_type = str(body.fulfillment_type or "").strip().lower()
+    if fulfillment_type not in {"pickup", "delivery", "walk_in"}:
+        raise HTTPException(400, "Select pickup, delivery, or walk_in")
+    if fulfillment_type == "pickup" and not shop.get("supports_pickup"):
+        raise HTTPException(400, "This shop does not accept pickup requests")
+    if fulfillment_type == "delivery" and not shop.get("supports_delivery"):
+        raise HTTPException(400, "This shop does not offer local delivery")
+    if fulfillment_type == "walk_in" and not shop.get("supports_walk_in"):
+        raise HTTPException(400, "This shop does not accept walk-in orders through the app")
+    customer_name = re.sub(r"\s+", " ", str(body.customer_name or "")).strip()
+    phone = re.sub(r"\s+", " ", str(body.phone or "")).strip()
+    if len(customer_name) < 2:
+        raise HTTPException(400, "Enter your name")
+    if len(phone) < 6:
+        raise HTTPException(400, "Enter a valid phone number")
+    if fulfillment_type == "delivery" and not str(body.delivery_address or "").strip():
+        raise HTTPException(400, "Enter the delivery address")
+    items = body.items or []
+    if not items:
+        raise HTTPException(400, "Cart is empty")
+    if len({str(item.get("shop_id") or shop_id) for item in items}) > 1:
+        raise HTTPException(400, "Use one shop per request")
+    clean_items: List[Dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        qty = int(item.get("qty") or 1)
+        if qty < 1:
+            continue
+        clean_items.append({
+            "product_id": str(item.get("product_id") or "").strip(),
+            "name": str(item.get("name") or "").strip(),
+            "qty": qty,
+            "price": str(item.get("price") or "").strip(),
+            "price_amount": item.get("price_amount"),
+            "currency_code": str(item.get("currency_code") or shop.get("currency_code") or "").strip(),
+            "variant": str(item.get("variant") or "").strip(),
+            "variant_selections": item.get("variant_selections") or {},
+            "combo_key": str(item.get("combo_key") or "").strip(),
+        })
+    if not clean_items:
+        raise HTTPException(400, "Cart is empty")
+    total_amount = 0.0
+    known_amounts = True
+    for item in clean_items:
+        try:
+            total_amount += float(item.get("price_amount")) * int(item.get("qty") or 1)
+        except Exception:
+            known_amounts = False
+            break
+    request_id = f"req_{uuid.uuid4().hex[:10]}"
+    payload = {
+        "request_id": request_id,
+        "shop_id": shop_id,
+        "fulfillment_type": fulfillment_type,
+        "customer_name": customer_name,
+        "phone": phone,
+        "note": str(body.note or "").strip(),
+        "preferred_time": str(body.preferred_time or "").strip(),
+        "delivery_address": str(body.delivery_address or "").strip(),
+        "items": clean_items,
+        "total_amount": round(total_amount, 2) if known_amounts else None,
+        "currency_code": clean_items[0].get("currency_code") or shop.get("currency_code") or "",
+        "status": "new",
+        "status_history": [{"status": "new", "at": datetime.now(timezone.utc).isoformat()}],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    supabase.table("order_requests").insert(payload).execute()
+    return {"ok": True, "request_id": request_id}
+
+@app.get("/public/order-request-status")
+def public_order_request_status(request_id: str = Query(...), phone: str = Query(...)):
+    rid = str(request_id or "").strip()
+    phone_clean = re.sub(r"\D+", "", str(phone or ""))
+    if not rid or not phone_clean:
+        raise HTTPException(400, "Request ID and phone are required")
+    rows = supabase.table("order_requests").select("*").eq("request_id", rid).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Request not found")
+    row = rows[0]
+    row_phone = re.sub(r"\D+", "", str(row.get("phone") or ""))
+    if row_phone != phone_clean:
+        raise HTTPException(403, "Phone does not match this request")
+    return {
+        "ok": True,
+        "request": {
+            "request_id": row.get("request_id"),
+            "shop_id": row.get("shop_id"),
+            "fulfillment_type": row.get("fulfillment_type"),
+            "status": row.get("status", "new"),
+            "created_at": row.get("created_at"),
+            "updated_at": row.get("updated_at"),
+            "items": row.get("items") or [],
+            "status_history": row.get("status_history") or [],
+        }
+    }
 
 @app.delete("/admin/shop/{shop_id}")
 def admin_delete_shop(shop_id: str, authorization: Optional[str] = Header(None)):

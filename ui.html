@@ -1291,6 +1291,11 @@ a{color:inherit;text-decoration:none}
                   </div>
                 </div>
               </div>
+              <div class="owner-side-card">
+                <div class="owner-side-label">Requests</div>
+                <div class="owner-side-title">Recent customer requests</div>
+                <div id="ownerRequestList" class="fstack"><div class="fld-hint">No requests yet.</div></div>
+              </div>
             </div>
           </div>
           <div class="card owner-products-card">
@@ -1428,6 +1433,23 @@ a{color:inherit;text-decoration:none}
               <div class="setup-section">
                 <div class="setup-section-head">
                   <div class="setup-section-kicker">Step 3</div>
+                  <div class="setup-section-title">Fulfillment options</div>
+                  <div class="setup-section-copy">Choose how customers can buy from this shop. You can allow pickup, local delivery, in-store buying, or any mix that fits the business.</div>
+                </div>
+                <div class="fg3">
+                  <label class="owner-check"><input id="shopSupportsPickup" type="checkbox" checked style="margin-top:2px"/><span><strong>Pickup</strong><br/><span class="fld-hint">Customers place a request and collect it from the shop.</span></span></label>
+                  <label class="owner-check"><input id="shopSupportsDelivery" type="checkbox" style="margin-top:2px"/><span><strong>Local delivery</strong><br/><span class="fld-hint">Only show this if the shop has its own delivery setup.</span></span></label>
+                  <label class="owner-check"><input id="shopSupportsWalkIn" type="checkbox" checked style="margin-top:2px"/><span><strong>Buy in shop</strong><br/><span class="fld-hint">Customers browse in Wave, then come in and pay at the shop.</span></span></label>
+                </div>
+                <div id="deliverySettings" class="fg2" style="margin-top:14px;display:none">
+                  <div class="fld"><label>Delivery Radius (km)</label><input id="shopDeliveryRadius" type="number" min="0" step="0.1" inputmode="decimal" placeholder="8"/><div class="fld-hint">How far the shop is willing to deliver locally.</div></div>
+                  <div class="fld"><label>Delivery Fee</label><input id="shopDeliveryFee" type="number" min="0" step="0.01" inputmode="decimal" placeholder="4.99"/><div class="fld-hint">Optional. Leave blank for free delivery.</div></div>
+                </div>
+                <div class="fld" style="margin-top:14px"><label>Pickup / buying notes</label><textarea id="shopPickupNotes" placeholder="Example: Pickup ready in 30 minutes. Bring your order request number when you arrive."></textarea><div class="fld-hint">Shown to customers when they place a pickup or delivery request.</div></div>
+              </div>
+              <div class="setup-section">
+                <div class="setup-section-head">
+                  <div class="setup-section-kicker">Step 4</div>
                   <div class="setup-section-title">Story and voice</div>
                   <div class="setup-section-copy">A strong overview helps the shop page feel credible and gives the chatbot better context.</div>
                 </div>
@@ -1698,6 +1720,7 @@ a{color:inherit;text-decoration:none}
     <div class="profile-menu">
       <button class="pm-btn" onclick="closeProfile();showPage('favs');loadFavourites()"><span class="pm-icon">FV</span>My Favourites</button>
       <button class="pm-btn" onclick="closeProfile();showPage('admin');switchAdminSub('shops')"><span class="pm-icon">SH</span>Shops</button>
+      <button class="pm-btn" id="profileTrackRequestBtn"><span class="pm-icon">TR</span>Track Request</button>
       <button class="pm-btn" onclick="closeProfile();showPage('admin');switchAdminSub('account')"><span class="pm-icon">AC</span>Account Settings</button>
       <hr class="pm-sep"/>
       <button class="pm-btn danger" id="profileLogoutBtn"><span class="pm-icon">OUT</span>Sign Out</button>
@@ -1762,6 +1785,7 @@ a{color:inherit;text-decoration:none}
     <div id="cartList" class="cart-list"><div class="cart-empty"><div class="ei">Cart</div><div>Cart is empty</div></div></div>
     <div class="cart-foot">
       <div class="cart-tot-row"><span class="cart-tot-lbl">Total</span><span id="cartTotal" class="cart-tot-val">—</span></div>
+      <div id="cartFulfillmentNote" class="fld-hint" style="display:none"></div>
       <button id="cartCheckout" class="btn btn-A" style="width:100%;justify-content:center">Checkout (coming soon)</button>
       <button id="cartClearBtn" class="btn btn-g btn-sm" style="width:100%;justify-content:center">Clear cart</button>
     </div>
@@ -1770,6 +1794,52 @@ a{color:inherit;text-decoration:none}
 
 <div id="lboxBg" class="lbox-bg"><button id="lboxClose" class="lbox-x">×</button><img id="lboxImg" src="" alt=""/></div>
 <div id="toastStack" class="toast-stack"></div>
+
+<div id="orderBg" class="auth-bg">
+  <div class="auth-box">
+    <div class="auth-head">
+      <div>
+        <div class="auth-title">Place Order Request</div>
+        <div class="auth-sub">Choose pickup or delivery when available, or use the shop visit option for in-store buying.</div>
+      </div>
+      <button id="orderClose" class="auth-close">Ã—</button>
+    </div>
+    <div class="auth-body" style="display:grid;gap:12px">
+      <div class="fld"><label>Fulfillment</label><select id="orderFulfillment"></select></div>
+      <div class="fg2">
+        <div class="fld"><label>Your Name</label><input id="orderName" placeholder="Alex Johnson"/></div>
+        <div class="fld"><label>Phone</label><input id="orderPhone" placeholder="+1 902-555-0101"/></div>
+      </div>
+      <div class="fld"><label>Preferred Time (optional)</label><input id="orderTime" placeholder="Today after 5 PM"/></div>
+      <div id="orderDeliveryWrap" class="fld" style="display:none"><label>Delivery Address</label><textarea id="orderDeliveryAddress" placeholder="Enter the address for local delivery"></textarea></div>
+      <div class="fld"><label>Note (optional)</label><textarea id="orderNote" placeholder="Anything the shop should know about this request"></textarea></div>
+      <div id="orderShopNote" class="setup-callout" style="display:none"></div>
+      <div id="orderStatus" class="stxt"></div>
+      <button id="submitOrderBtn" class="btn btn-A" style="width:100%;justify-content:center">Send Request</button>
+    </div>
+  </div>
+</div>
+
+<div id="trackReqBg" class="auth-bg">
+  <div class="auth-box">
+    <div class="auth-head">
+      <div>
+        <div class="auth-title">Track Request</div>
+        <div class="auth-sub">Check the latest status of your pickup or delivery request.</div>
+      </div>
+      <button id="trackReqClose" class="auth-close">×</button>
+    </div>
+    <div class="auth-body" style="display:grid;gap:12px">
+      <div class="fg2">
+        <div class="fld"><label>Request ID</label><input id="trackReqId" placeholder="req_1234567890"/></div>
+        <div class="fld"><label>Phone</label><input id="trackReqPhone" placeholder="+1 902-555-0101"/></div>
+      </div>
+      <div id="trackReqStatus" class="stxt"></div>
+      <button id="trackReqSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Check Status</button>
+      <div id="trackReqResult" class="fstack" style="display:none"></div>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ═════════════════════════════════════════════
@@ -2785,7 +2855,7 @@ function addToCart(p,sid,sname){
 }
 function renderCart(){
   const list=$('cartList');
-  if(!App.cart.length){list.innerHTML=`<div class="cart-empty"><div class="ei">🛒</div><div>Cart is empty</div></div>`;$('cartTotal').textContent='—';return;}
+  if(!App.cart.length){list.innerHTML=`<div class="cart-empty"><div class="ei">🛒</div><div>Cart is empty</div></div>`;$('cartTotal').textContent='—';updateCartFulfillmentState();return;}
   list.innerHTML='';let hasTot=true,total=0;
   App.cart.forEach((item,idx)=>{
     const np=parseFloat((item.price||'').replace(/[^0-9.]/g,''));
@@ -2846,14 +2916,225 @@ function renderCart(){
   $('cartTotal').textContent=hasTot&&cartCurrencies.length===1?`${cartCurrencies[0]} ${total.toFixed(2)}`:`${App.cart.length} item${App.cart.length>1?'s':''}`;
   list.querySelectorAll('.qbtn').forEach(b=>b.addEventListener('click',()=>{const i=+b.dataset.i,d=+b.dataset.d;App.cart[i].qty=Math.max(1,App.cart[i].qty+d);saveCart();renderCart();updateCartBadge();}));
   list.querySelectorAll('.ci-del').forEach(b=>b.addEventListener('click',()=>{App.cart.splice(+b.dataset.i,1);saveCart();renderCart();updateCartBadge();}));
+  updateCartFulfillmentState();
 }
-function openCart(){renderCart();$('cartBg').classList.add('on');document.body.style.overflow='hidden';}
+function getCartShopContext(){
+  if(!App.cart.length) return {ok:false,message:'Cart is empty.'};
+  const shopIds=[...new Set(App.cart.map(item=>item.shop_id).filter(Boolean))];
+  if(shopIds.length!==1) return {ok:false,message:'Use one shop per request. Clear the cart or keep items from only one shop.'};
+  const sid=shopIds[0];
+  const shop=(App.shopData?.shop && App.shopData.shop.shop_id===sid)?App.shopData.shop:(App.allShops||[]).find(s=>s.shop_id===sid)||null;
+  return {ok:true,shop_id:sid,shop};
+}
+function getShopFulfillmentOptions(shop){
+  const options=[];
+  if(shop?.supports_pickup!==false) options.push({value:'pickup',label:'Pickup'});
+  if(shop?.supports_delivery) options.push({value:'delivery',label:'Local Delivery'});
+  if(shop?.supports_walk_in!==false) options.push({value:'walk_in',label:'Buy in Shop'});
+  return options;
+}
+function requestStatusLabel(status=''){
+  const map={new:'New',accepted:'Accepted',ready:'Ready for Pickup',completed:'Completed',cancelled:'Cancelled'};
+  return map[String(status||'').toLowerCase()]||'New';
+}
+function requestStatusTone(status=''){
+  const tone=String(status||'').toLowerCase();
+  if(tone==='completed') return 'ok';
+  if(tone==='cancelled') return 'err';
+  if(tone==='accepted' || tone==='ready') return 'warn';
+  return '';
+}
+function rememberRequestLookup(requestId='',phone=''){
+  if(requestId) localStorage.setItem('wave_last_request_id',requestId);
+  if(phone) localStorage.setItem('wave_last_request_phone',phone);
+}
+function renderOwnerRequests(requests=[]){
+  const host=$('ownerRequestList');
+  if(!host) return;
+  if(!requests.length){
+    host.innerHTML='<div class="fld-hint">No requests yet.</div>';
+    return;
+  }
+  host.innerHTML=requests.slice(0,8).map(req=>{
+    const status=String(req.status||'new').toLowerCase();
+    const actions=[
+      status==='new'?`<button class="btn btn-A btn-sm" data-req-status="accepted" data-req-id="${esc(req.request_id)}">Accept</button>`:'',
+      (status==='accepted'||status==='new')?`<button class="btn btn-o btn-sm" data-req-status="ready" data-req-id="${esc(req.request_id)}">Mark Ready</button>`:'',
+      status!=='completed'&&status!=='cancelled'?`<button class="btn btn-g btn-sm" data-req-status="completed" data-req-id="${esc(req.request_id)}">Complete</button>`:'',
+      status!=='cancelled'&&status!=='completed'?`<button class="btn btn-r btn-sm" data-req-status="cancelled" data-req-id="${esc(req.request_id)}">Cancel</button>`:''
+    ].filter(Boolean).join('');
+    const items=(req.items||[]).slice(0,2).map(item=>`${item.qty||1}× ${item.name||'Product'}${item.variant?` (${item.variant})`:''}`).join(' · ');
+    return `<div class="setup-card">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div class="fstack" style="gap:4px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <strong>${esc(req.customer_name||'Customer')}</strong>
+            <span class="chip ${requestStatusTone(status)}">${esc(requestStatusLabel(status))}</span>
+            <span class="chip">${esc((req.fulfillment_type||'pickup').replace('_',' '))}</span>
+          </div>
+          <div class="fld-hint">${esc(req.request_id||'')} · ${esc(req.phone||'')}</div>
+          <div class="fld-hint">${esc(items || 'Items not available')} </div>
+          <div class="fld-hint">${esc(req.created_at?formatDate(req.created_at):'')}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${actions || `<span class="fld-hint">No actions available</span>`}</div>
+      </div>
+    </div>`;
+  }).join('');
+  host.querySelectorAll('[data-req-status]').forEach(btn=>btn.addEventListener('click',()=>updateOrderRequestStatus(App.adminShopId,btn.getAttribute('data-req-id'),btn.getAttribute('data-req-status'))));
+}
+function updateCartFulfillmentState(){
+  const note=$('cartFulfillmentNote');
+  const btn=$('cartCheckout');
+  if(!note||!btn) return;
+  const ctx=getCartShopContext();
+  if(!ctx.ok){
+    note.style.display='block';
+    note.textContent=ctx.message;
+    btn.textContent='Checkout unavailable';
+    btn.disabled=true;
+    return;
+  }
+  const options=getShopFulfillmentOptions(ctx.shop);
+  if(!options.length){
+    note.style.display='block';
+    note.textContent='This shop does not have an active fulfillment method yet.';
+    btn.textContent='Unavailable';
+    btn.disabled=true;
+    return;
+  }
+  note.style.display='block';
+  note.textContent=ctx.shop?.pickup_notes || (ctx.shop?.supports_walk_in && !ctx.shop?.supports_pickup && !ctx.shop?.supports_delivery ? 'This shop currently sells in person at the storefront.' : 'Choose how you want to get your order from this shop.');
+  btn.disabled=false;
+  btn.textContent=options.some(o=>o.value==='pickup')||options.some(o=>o.value==='delivery')?'Place Request':'Visit Shop';
+}
+function openOrderModal(){
+  const ctx=getCartShopContext();
+  if(!ctx.ok) return toast('Cart issue',ctx.message,'err');
+  const options=getShopFulfillmentOptions(ctx.shop);
+  if(!options.length) return toast('Unavailable','This shop does not have an active fulfillment option.','err');
+  if(options.length===1 && options[0].value==='walk_in'){
+    const shop=ctx.shop||{};
+    return toast('Visit Shop',shop.address||'This shop accepts in-store buying only.');
+  }
+  const sel=$('orderFulfillment');
+  sel.innerHTML=options.map(opt=>`<option value="${esc(opt.value)}">${esc(opt.label)}</option>`).join('');
+  $('orderDeliveryWrap').style.display=sel.value==='delivery'?'block':'none';
+  $('orderShopNote').style.display=ctx.shop?.pickup_notes?'block':'none';
+  $('orderShopNote').innerHTML=ctx.shop?.pickup_notes?`<div class="setup-callout-title">Shop note</div><div class="setup-callout-copy">${esc(ctx.shop.pickup_notes)}</div>`:'';
+  setS('orderStatus','');
+  $('orderBg').classList.add('on');document.body.style.overflow='hidden';
+}
+function closeOrderModal(){$('orderBg')?.classList.remove('on');document.body.style.overflow='';}
+async function submitOrderRequest(){
+  const ctx=getCartShopContext();
+  if(!ctx.ok) return setS('orderStatus',ctx.message,'err');
+  const fulfillment=$('orderFulfillment').value;
+  const payload={shop_id:ctx.shop_id,fulfillment_type:fulfillment,customer_name:$('orderName').value.trim(),phone:$('orderPhone').value.trim(),preferred_time:$('orderTime').value.trim(),delivery_address:$('orderDeliveryAddress').value.trim(),note:$('orderNote').value.trim(),items:App.cart.filter(item=>item.shop_id===ctx.shop_id)};
+  try{
+    setBtnBusy('submitOrderBtn',true,'Sending...');
+    setS('orderStatus','Sending request...');
+    const res=await api('/public/order-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    App.cart=App.cart.filter(item=>item.shop_id!==ctx.shop_id);
+    saveCart();updateCartBadge();renderCart();updateCartFulfillmentState();
+    rememberRequestLookup(res.request_id,payload.phone);
+    setS('orderStatus',`Request sent: ${res.request_id}`,'ok');
+    toast('Request sent',res.request_id);
+    closeOrderModal();
+    closeCart();
+  }catch(e){setS('orderStatus',e.message,'err');}
+  finally{setBtnBusy('submitOrderBtn',false);}
+}
+function openTrackRequestModal(){
+  const lastId=localStorage.getItem('wave_last_request_id')||'';
+  const lastPhone=localStorage.getItem('wave_last_request_phone')||'';
+  if($('trackReqId') && !$('trackReqId').value) $('trackReqId').value=lastId;
+  if($('trackReqPhone') && !$('trackReqPhone').value) $('trackReqPhone').value=lastPhone;
+  setS('trackReqStatus','');
+  if($('trackReqResult')){$('trackReqResult').style.display='none';$('trackReqResult').innerHTML='';}
+  $('trackReqBg')?.classList.add('on');
+  document.body.style.overflow='hidden';
+}
+function closeTrackRequestModal(){
+  $('trackReqBg')?.classList.remove('on');
+  document.body.style.overflow='';
+}
+function renderTrackedRequest(req){
+  const host=$('trackReqResult');
+  if(!host) return;
+  const items=(req.items||[]).map(item=>`<div class="tp-row"><span class="tp-name">${esc(item.name||'Product')}${item.variant?` <span class="fld-hint">(${esc(item.variant)})</span>`:''}</span><span class="tp-views">${esc(item.qty||1)}x</span></div>`).join('');
+  const history=(req.status_history||[]).map(step=>`<div class="tp-row"><span class="tp-name">${esc(requestStatusLabel(step.status))}</span><span class="tp-rank">${esc(step.at?formatDate(step.at):'')}</span></div>`).join('');
+  host.innerHTML=`
+    <div class="setup-card">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+        <div>
+          <div class="section-title" style="font-size:18px;margin:0">${esc(requestStatusLabel(req.status))}</div>
+          <div class="fld-hint">${esc(req.request_id||'')}</div>
+        </div>
+        <span class="chip ${requestStatusTone(req.status)}">${esc((req.fulfillment_type||'pickup').replace('_',' '))}</span>
+      </div>
+      <div class="fld-hint" style="margin-top:6px">Updated ${esc(req.updated_at?formatDate(req.updated_at):req.created_at?formatDate(req.created_at):'recently')}</div>
+    </div>
+    <div class="setup-card">
+      <div class="setup-callout-title">Items</div>
+      <div class="fstack" style="margin-top:8px">${items || '<div class="fld-hint">No items found.</div>'}</div>
+    </div>
+    <div class="setup-card">
+      <div class="setup-callout-title">Status History</div>
+      <div class="fstack" style="margin-top:8px">${history || '<div class="fld-hint">No updates yet.</div>'}</div>
+    </div>`;
+  host.style.display='grid';
+}
+async function lookupRequestStatus(){
+  const requestId=$('trackReqId')?.value.trim()||'';
+  const phone=$('trackReqPhone')?.value.trim()||'';
+  if(!requestId || !phone) return setS('trackReqStatus','Enter your request ID and phone number.','err');
+  try{
+    setBtnBusy('trackReqSubmitBtn',true,'Checking...');
+    setS('trackReqStatus','Checking request...');
+    const res=await api(`/public/order-request-status?request_id=${encodeURIComponent(requestId)}&phone=${encodeURIComponent(phone)}`);
+    rememberRequestLookup(requestId,phone);
+    renderTrackedRequest(res.request||{});
+    setS('trackReqStatus','Request found.','ok');
+  }catch(e){
+    if($('trackReqResult')){$('trackReqResult').style.display='none';$('trackReqResult').innerHTML='';}
+    setS('trackReqStatus',e.message,'err');
+  }finally{
+    setBtnBusy('trackReqSubmitBtn',false);
+  }
+}
+async function updateOrderRequestStatus(shopId,requestId,status){
+  if(!shopId || !requestId || !status) return;
+  try{
+    const label=requestStatusLabel(status);
+    setFieldHint('myShopsStatus',`Updating request ${requestId} to ${label.toLowerCase()}...`);
+    await api(`/admin/shop/${encodeURIComponent(shopId)}/request/${encodeURIComponent(requestId)}/status`,{
+      method:'PUT',
+      auth:true,
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({status})
+    });
+    toast('Request updated',label);
+    await loadAdminShop(shopId);
+  }catch(e){
+    toast('Update failed',e.message,'err');
+    setFieldHint('myShopsStatus',e.message,'err');
+  }
+}
+function openCart(){renderCart();updateCartFulfillmentState();$('cartBg').classList.add('on');document.body.style.overflow='hidden';}
 function closeCart(){$('cartBg').classList.remove('on');document.body.style.overflow='';}
 $('cartBtn').addEventListener('click',openCart);
 $('cartClose').addEventListener('click',closeCart);
 $('cartBg').addEventListener('click',e=>{if(e.target===$('cartBg'))closeCart();});
 $('cartClearBtn').addEventListener('click',()=>{App.cart=[];saveCart();updateCartBadge();renderCart();});
-$('cartCheckout').addEventListener('click',()=>toast('Coming soon','Checkout integration coming soon.'));
+$('cartCheckout').addEventListener('click',openOrderModal);
+$('orderClose')?.addEventListener('click',closeOrderModal);
+$('orderBg')?.addEventListener('click',e=>{if(e.target===$('orderBg'))closeOrderModal();});
+$('orderFulfillment')?.addEventListener('change',()=>{$('orderDeliveryWrap').style.display=$('orderFulfillment').value==='delivery'?'block':'none';});
+$('submitOrderBtn')?.addEventListener('click',submitOrderRequest);
+$('profileTrackRequestBtn')?.addEventListener('click',()=>{closeProfile();openTrackRequestModal();});
+$('trackReqClose')?.addEventListener('click',closeTrackRequestModal);
+$('trackReqBg')?.addEventListener('click',e=>{if(e.target===$('trackReqBg'))closeTrackRequestModal();});
+$('trackReqSubmitBtn')?.addEventListener('click',lookupRequestStatus);
 
 /* ═════════════════════════════════════════════
    PRODUCT CARD
@@ -3400,10 +3681,16 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
       (st.avg_rating>0)?`<span class="shop-hdr-chip">Rating ${st.avg_rating}</span>`:''
     ].join('');
     $('shopHdrDesc').textContent=s.overview||'';
+    const fulfillButtons=[
+      `<button class="btn btn-A btn-sm" onclick="openChatFor('${esc(shopId)}','${esc(s.name)}','')">Chat with Shop</button>`,
+      `<button class="btn btn-o btn-sm" style="border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.8)" onclick="openChatFor('${esc(shopId)}','${esc(s.name)}','Show all images')">View Photos</button>`,
+      s.supports_pickup!==false?`<button class="btn btn-gr btn-sm" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${esc(shopId)}');saveCart();updateCartBadge();openCart();">Pickup Order</button>`:'',
+      s.supports_delivery?`<button class="btn btn-gr btn-sm" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${esc(shopId)}');saveCart();updateCartBadge();openCart();">Request Delivery</button>`:'',
+      s.supports_walk_in!==false?`<button class="btn btn-o btn-sm" onclick="toast('Visit Shop',decodeURIComponent('${encodeURIComponent(s.address||'Visit the shop to buy in person.')}'))">Buy in Shop</button>`:'',
+      s.whatsapp?`<a href="https://wa.me/${(s.whatsapp||'').replace(/[^0-9]/g,'')}" target="_blank" class="btn btn-gr btn-sm">WhatsApp</a>`:''
+    ].filter(Boolean);
     $('shopHdrActions').innerHTML=`
-      <button class="btn btn-A btn-sm" onclick="openChatFor('${esc(shopId)}','${esc(s.name)}','')">Chat with Shop</button>
-      <button class="btn btn-o btn-sm" style="border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.8)" onclick="openChatFor('${esc(shopId)}','${esc(s.name)}','Show all images')">View Photos</button>
-      ${s.whatsapp?`<a href="https://wa.me/${(s.whatsapp||'').replace(/[^0-9]/g,'')}" target="_blank" class="btn btn-gr btn-sm">WhatsApp</a>`:''}`;
+      ${fulfillButtons.join('')}`;
 
     const chips=$('shopQchips');chips.innerHTML='';
     (d.suggested_questions||[]).forEach(q=>{const b=document.createElement('button');b.className='qchip';b.textContent=q;b.addEventListener('click',()=>openChatFor(shopId,s.name,q));chips.appendChild(b);});
@@ -3742,11 +4029,20 @@ function validateProductForm(){
   return '';
 }
 
+function syncDeliverySettingsVisibility(){
+  const on=!!$('shopSupportsDelivery')?.checked;
+  if($('deliverySettings')) $('deliverySettings').style.display=on?'grid':'none';
+}
+
 function resetShopForm(){
   suspendFormDirty=true;
-  ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopLat','shopLng'].forEach(id=>$(id).value='');
+  ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopLat','shopLng','shopDeliveryRadius','shopDeliveryFee','shopPickupNotes'].forEach(id=>$(id).value='');
   $('shopCat').value='';
   $('shopCountry').value='CA';
+  $('shopSupportsPickup').checked=true;
+  $('shopSupportsDelivery').checked=false;
+  $('shopSupportsWalkIn').checked=true;
+  syncDeliverySettingsVisibility();
   updateRegionOptions('CA');
   updateTimezoneOptions('CA');
   updateShopCurrencyBadge();
@@ -3780,6 +4076,13 @@ function populateShopForm(shop=null){
   $('shopPhone').value=shop.phone||'';
   $('shopCat').value=shop.category||'';
   $('shopWhatsapp').value=shop.whatsapp||'';
+  $('shopSupportsPickup').checked=shop.supports_pickup!==false;
+  $('shopSupportsDelivery').checked=!!shop.supports_delivery;
+  $('shopSupportsWalkIn').checked=shop.supports_walk_in!==false;
+  $('shopDeliveryRadius').value=shop.delivery_radius_km ?? '';
+  $('shopDeliveryFee').value=shop.delivery_fee ?? '';
+  $('shopPickupNotes').value=shop.pickup_notes||'';
+  syncDeliverySettingsVisibility();
   updateShopCurrencyBadge();
   buildShopAddressPayload();
   populateHoursEditor(shop.hours_structured||[]);
@@ -3901,7 +4204,10 @@ function refreshWorkspaceHeader(shop=null,stats={}){
 async function loadAdminShop(shopId){
   if(!tok())return toast('Login required','','err');
   App.adminShopId=shopId;
-  try{const d=await api(`/admin/shop/${encodeURIComponent(shopId)}`,{auth:true});
+  try{const [d,reqRes]=await Promise.all([
+    api(`/admin/shop/${encodeURIComponent(shopId)}`,{auth:true}),
+    api(`/admin/shop/${encodeURIComponent(shopId)}/requests`,{auth:true}).catch(()=>({requests:[]}))
+  ]);
     App.adminShopData=d.data;
     const s=d.data.shop;
     App.adminProductFilters={health:'',missingAttr:''};
@@ -3916,6 +4222,8 @@ async function loadAdminShop(shopId){
     const st=d.data.stats||{};const el=$('shopStats');el.style.display='grid';
     el.innerHTML=[['Products',st.product_count??0],['Images',st.image_count??0],['Coverage',`${st.products_with_images??0}/${st.product_count??0}`],['Chats/30d',st.chat_hits_30d??0]].map(([l,v])=>`<div class="sbox"><div class="sbox-l">${esc(l)}</div><div class="sbox-v">${esc(v)}</div></div>`).join('');
     App.adminProducts=d.data.products||[];
+    const requests=reqRes.requests||[];
+    renderOwnerRequests(requests);
     refreshWorkspaceHeader(s,st);
     renderAdminProds(App.adminProducts);
     setFieldHint('myShopsStatus',`Opened ${s.name||shopId}.`,'ok');
@@ -3963,7 +4271,7 @@ async function createShop(){
   if(formErr){setS('shopStatus',formErr,'err');return toast('Shop details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
   const hoursData=updateHoursSummary();
-  const payload={shop_id:$('shopId').value.trim()||null,shop:{name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim()}};
+  const payload={shop_id:$('shopId').value.trim()||null,shop:{name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim()}};
   try{
     setBtnBusy('createShopBtn',true,'Creating...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Creating...');
@@ -3990,7 +4298,7 @@ async function saveShop(){
   if(formErr){setS('shopStatus',formErr,'err');return toast('Shop details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
   const hoursData=updateHoursSummary();
-  const payload={name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim()};
+  const payload={name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim()};
   try{
     setBtnBusy('saveShopBtn',true,'Saving...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Saving...');
@@ -4219,6 +4527,12 @@ if($('csvErrorsDownloadBtn')) $('csvErrorsDownloadBtn').addEventListener('click'
 ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2'].forEach(id=>{
   $(id)?.addEventListener('input',markShopFormDirty);
 });
+$('shopSupportsPickup')?.addEventListener('change',markShopFormDirty);
+$('shopSupportsDelivery')?.addEventListener('change',()=>{syncDeliverySettingsVisibility();markShopFormDirty();});
+$('shopSupportsWalkIn')?.addEventListener('change',markShopFormDirty);
+$('shopDeliveryRadius')?.addEventListener('input',markShopFormDirty);
+$('shopDeliveryFee')?.addEventListener('input',markShopFormDirty);
+$('shopPickupNotes')?.addEventListener('input',markShopFormDirty);
 $('shopCat')?.addEventListener('change',markShopFormDirty);
 $('shopCat')?.addEventListener('change',()=>renderProductAttributeFields(collectProductAttributeData()));
 $('shopCountry')?.addEventListener('change',()=>{updateRegionOptions(selectedCountryCode());updateTimezoneOptions(selectedCountryCode());updateShopCurrencyBadge();buildShopAddressPayload();markShopFormDirty();});
