@@ -1,5 +1,7 @@
 alter table if exists public.shops
   add column if not exists formatted_address text,
+  add column if not exists hours_structured jsonb,
+  add column if not exists timezone_name text,
   add column if not exists country_code text,
   add column if not exists country_name text,
   add column if not exists region text,

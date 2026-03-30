@@ -125,6 +125,12 @@ a{color:inherit;text-decoration:none}
 @media(max-width:680px){.home-wrap{padding:16px 12px 70px;gap:24px}}
 .home-hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr);gap:18px;align-items:stretch}
 @media(max-width:900px){.home-hero{grid-template-columns:1fr}}
+.shop-filter-bar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:16px}
+.shop-filter-bar .fld{margin:0}
+.shop-filter-actions{display:flex;gap:8px;align-items:end}
+.shop-filter-toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink3);padding:10px 12px;border:1px solid var(--bd);border-radius:16px;background:var(--sf2)}
+@media(max-width:900px){.shop-filter-bar{grid-template-columns:1fr 1fr 1fr}.shop-filter-actions{grid-column:1/-1}}
+@media(max-width:680px){.shop-filter-bar{grid-template-columns:1fr}}
 @media(max-width:680px){
   .hero-panel,.hero-stat-card{border-radius:24px;padding:20px 18px}
   .hero-title{font-size:30px}
@@ -567,7 +573,7 @@ a{color:inherit;text-decoration:none}
 .fstack{display:grid;gap:11px}
 .fg2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
 .fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px}
-@media(max-width:680px){.fg2,.fg3,.address-grid,.price-field{grid-template-columns:1fr}}
+@media(max-width:680px){.fg2,.fg3,.address-grid,.price-field{grid-template-columns:1fr}.hours-row{grid-template-columns:1fr 1fr}.hours-day{grid-column:1/-1}}
 .fld label{display:block;font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 .fld input:not([type=file]),.fld textarea,.fld select{width:100%;padding:9px 12px;border:1px solid var(--bd);border-radius:var(--r2);background:var(--sf2);font-size:13px;outline:none;transition:.13s}
 .fld input:not([type=file]):focus,.fld textarea:focus{border-color:var(--A);background:#fff;box-shadow:0 0 0 2px var(--Ag)}
@@ -578,6 +584,11 @@ a{color:inherit;text-decoration:none}
 .currency-pill{height:46px;border-radius:16px;border:1px solid rgba(191,174,149,.4);background:rgba(255,255,255,.84);display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;color:var(--A2);letter-spacing:.02em}
 .address-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .address-grid .fld.wide{grid-column:1/-1}
+.hours-grid{display:grid;gap:10px}
+.hours-row{display:grid;grid-template-columns:74px 84px 1fr 1fr;gap:10px;align-items:center;padding:10px 12px;border:1px solid rgba(191,174,149,.28);border-radius:16px;background:rgba(255,255,255,.76)}
+.hours-day{font-size:12px;font-weight:800;color:var(--ink)}
+.hours-closed{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink3)}
+.hours-closed input{margin:0}
 .suggest-list{display:grid;gap:8px;margin-top:10px}
 .suggest-item{border:1px solid rgba(191,174,149,.3);border-radius:16px;background:rgba(255,255,255,.84);padding:11px 13px;cursor:pointer;text-align:left;transition:border-color .16s ease,transform .16s ease,box-shadow .16s ease}
 .suggest-item:hover{border-color:rgba(185,97,40,.35);transform:translateY(-1px);box-shadow:0 10px 18px rgba(48,33,15,.08)}
@@ -890,6 +901,19 @@ a{color:inherit;text-decoration:none}
           <div class="section-kicker">Storefronts</div>
           <div class="sec-title" id="shopsSectionTitle">All Shops</div>
           <div class="sec-sub">Open a shop to browse its products and talk to its assistant with shop-specific answers.</div>
+        </div>
+      </div>
+      <div class="shop-filter-bar">
+        <div class="fld"><label>Country</label><select id="shopFilterCountry"><option value="">All countries</option></select></div>
+        <div class="fld"><label>Province / State</label><input id="shopFilterRegion" placeholder="Any region"/></div>
+        <div class="fld"><label>City</label><input id="shopFilterCity" placeholder="Any city"/></div>
+        <div class="fld"><label>Postal Code</label><input id="shopFilterPostal" placeholder="Any postal code"/></div>
+        <div class="fld"><label>Open Day</label><select id="shopFilterDay"><option value="">Any day</option><option value="mon">Monday</option><option value="tue">Tuesday</option><option value="wed">Wednesday</option><option value="thu">Thursday</option><option value="fri">Friday</option><option value="sat">Saturday</option><option value="sun">Sunday</option></select></div>
+        <div class="fld"><label>Open Time</label><input id="shopFilterTime" type="time"/></div>
+        <div class="shop-filter-actions">
+          <label class="shop-filter-toggle"><input id="shopFilterOpenNow" type="checkbox"/> Open now</label>
+          <button id="shopFilterApply" class="btn btn-o btn-sm">Apply</button>
+          <button id="shopFilterClear" class="btn btn-g btn-sm">Clear</button>
         </div>
       </div>
       <div id="homeShopGrid" class="shop-grid">
@@ -1255,19 +1279,28 @@ a{color:inherit;text-decoration:none}
                   <div class="setup-section-copy">Use structured location details instead of a loose address. This makes shop search, currency, and customer trust much stronger.</div>
                 </div>
                 <input id="shopAddress" type="hidden"/>
+                <input id="shopHours" type="hidden"/>
                 <input id="shopLat" type="hidden"/>
                 <input id="shopLng" type="hidden"/>
                 <div class="address-grid">
                   <div class="fld"><label>Country</label><select id="shopCountry"></select><div class="fld-hint">Country sets the default shop currency automatically.</div></div>
+                  <div class="fld"><label>Timezone</label><select id="shopTimezone"></select><div class="fld-hint">Used for schedule logic like open now and day/time filters.</div></div>
                   <div class="fld"><label>Province / State</label><input id="shopRegion" list="shopRegionList" placeholder="Nova Scotia"/><datalist id="shopRegionList"></datalist><div class="fld-hint">Pick the region where the shop is registered.</div></div>
                   <div class="fld"><label>City</label><input id="shopCity" placeholder="Halifax"/><div class="fld-hint">Use the real city customers should search for.</div></div>
                   <div class="fld"><label>Postal Code</label><input id="shopPostal" placeholder="B3J 2K9"/><div class="fld-hint">The format is checked against the selected country.</div></div>
                   <div class="fld wide"><label>Street Address</label><input id="shopStreet1" placeholder="1479 Lower Water Street" autocomplete="off"/><div class="fld-hint">Start typing the real storefront address. If address suggestions are enabled, choose one to fill the rest accurately.</div></div>
                   <div class="fld"><label>Unit / Apt (optional)</label><input id="shopStreet2" placeholder="Suite 210"/></div>
                   <div class="fld"><label>Shop Currency</label><div id="shopCurrencyBadge" class="currency-pill">USD</div><div class="fld-hint">Customers will see this base currency, and Wave can convert it for other viewers.</div></div>
-                  <div class="fld"><label>Hours</label><input id="shopHours" placeholder="Mon-Sat 9 AM - 7 PM"/><div class="fld-hint">Keep this simple. The assistant uses it in direct answers.</div></div>
                 </div>
                 <div id="shopAddressSuggest" class="suggest-list" style="display:none"></div>
+                <div class="setup-section" style="margin-top:14px">
+                  <div class="setup-section-head">
+                    <div class="setup-section-kicker">Hours</div>
+                    <div class="setup-section-title">Weekly working schedule</div>
+                    <div class="setup-section-copy">Pick the open days and exact opening window. This gives you clean hours data for filtering shops by day or time later.</div>
+                  </div>
+                  <div id="hoursGrid" class="hours-grid"></div>
+                </div>
                 <div class="fg2" style="margin-top:14px">
                   <div class="fld"><label>WhatsApp (optional)</label><input id="shopWhatsapp" placeholder="+1 902-XXX-XXXX"/><div class="fld-hint">Used when customers ask how to contact the shop.</div></div>
                   <div class="fld"><label>Phone</label><input id="shopPhone" placeholder="+1 902-XXX-XXXX"/><div class="fld-hint">Optional, but useful for customer support questions.</div></div>
@@ -1585,7 +1618,9 @@ const App = {
   adminProducts: [],
   recoveryToken: '',
   locationSupport: null,
+  timezoneSupport: [],
   viewerCurrency: '',
+  shopFilters: {country_code:'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false},
 };
 const $=id=>document.getElementById(id);
 const norm=u=>(u||'').trim().replace(/\/$/,'');
@@ -1636,7 +1671,27 @@ const COUNTRY_META={
   US:{name:'United States',currency:'USD',regions:['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','District of Columbia','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming']},
   AE:{name:'United Arab Emirates',currency:'AED',regions:['Abu Dhabi','Ajman','Dubai','Fujairah','Ras Al Khaimah','Sharjah','Umm Al Quwain']},
 };
+const COUNTRY_TIMEZONES={
+  AU:['Australia/Sydney','Australia/Melbourne','Australia/Brisbane','Australia/Perth'],
+  BD:['Asia/Dhaka'],
+  CA:['America/Halifax','America/St_Johns','America/Toronto','America/Winnipeg','America/Edmonton','America/Vancouver'],
+  DE:['Europe/Berlin'],
+  FR:['Europe/Paris'],
+  GB:['Europe/London'],
+  IE:['Europe/Dublin'],
+  IN:['Asia/Kolkata'],
+  NZ:['Pacific/Auckland'],
+  PK:['Asia/Karachi'],
+  QA:['Asia/Qatar'],
+  SA:['Asia/Riyadh'],
+  SG:['Asia/Singapore'],
+  US:['America/New_York','America/Chicago','America/Denver','America/Los_Angeles'],
+  AE:['Asia/Dubai'],
+};
+const DAY_ROWS=[['mon','Monday'],['tue','Tuesday'],['wed','Wednesday'],['thu','Thursday'],['fri','Friday'],['sat','Saturday'],['sun','Sunday']];
+const TIME_OPTIONS=Array.from({length:48},(_,i)=>{const h=String(Math.floor(i/2)).padStart(2,'0');const m=i%2?'30':'00';return `${h}:${m}`;});
 function getCountryMeta(code=''){return COUNTRY_META[String(code||'').toUpperCase()]||null;}
+function timezonesForCountry(code=''){return COUNTRY_TIMEZONES[String(code||'').toUpperCase()]||['UTC'];}
 function detectViewerCurrency(){
   try{
     const region=new Intl.Locale(navigator.language||'en-US').region;
@@ -1657,6 +1712,14 @@ function updateRegionOptions(countryCode=''){
   const list=$('shopRegionList');
   if(!list) return;
   list.innerHTML=(meta?.regions||[]).map(v=>`<option value="${esc(v)}"></option>`).join('');
+}
+function updateTimezoneOptions(countryCode=''){
+  const select=$('shopTimezone');
+  if(!select) return;
+  const zones=[...new Set([...(timezonesForCountry(countryCode)||[]), ...(App.timezoneSupport||[])])];
+  const existing=select.value;
+  select.innerHTML=zones.map(zone=>`<option value="${zone}">${zone}</option>`).join('');
+  select.value=zones.includes(existing)?existing:(zones[0]||'UTC');
 }
 function buildShopAddressPayload(){
   const countryCode=selectedCountryCode();
@@ -1690,11 +1753,112 @@ function buildShopAddressPayload(){
     longitude: $('shopLng')?.value?Number($('shopLng').value):null,
   };
 }
+function initHoursEditor(){
+  const grid=$('hoursGrid');
+  if(!grid) return;
+  grid.innerHTML=DAY_ROWS.map(([day,label])=>`<div class="hours-row" data-day="${day}"><div class="hours-day">${label}</div><label class="hours-closed"><input type="checkbox" data-hours-closed="${day}"/> Closed</label><select data-hours-start="${day}">${TIME_OPTIONS.map(t=>`<option value="${t}">${t}</option>`).join('')}</select><select data-hours-end="${day}">${TIME_OPTIONS.map(t=>`<option value="${t}">${t}</option>`).join('')}</select></div>`).join('');
+  DAY_ROWS.forEach(([day])=>{
+    const start=document.querySelector(`[data-hours-start="${day}"]`);
+    const end=document.querySelector(`[data-hours-end="${day}"]`);
+    const closed=document.querySelector(`[data-hours-closed="${day}"]`);
+    if(start) start.value='09:00';
+    if(end) end.value='17:00';
+    const sync=()=>{
+      const isClosed=!!closed?.checked;
+      if(start) start.disabled=isClosed;
+      if(end) end.disabled=isClosed;
+      updateHoursSummary();
+      markShopFormDirty();
+    };
+    start?.addEventListener('change',sync);
+    end?.addEventListener('change',sync);
+    closed?.addEventListener('change',sync);
+    sync();
+  });
+}
+function getHoursStructured(){
+  return DAY_ROWS.map(([day])=>{
+    const closed=!!document.querySelector(`[data-hours-closed="${day}"]`)?.checked;
+    const start=document.querySelector(`[data-hours-start="${day}"]`)?.value||'09:00';
+    const end=document.querySelector(`[data-hours-end="${day}"]`)?.value||'17:00';
+    return {day,closed,start:closed?'':start,end:closed?'':end};
+  });
+}
+function formatHoursSummary(hours){
+  const groups=[];
+  hours.forEach(item=>{
+    const slot=item.closed?'Closed':`${item.start} - ${item.end}`;
+    const prev=groups[groups.length-1];
+    const prevIndex=prev?DAY_ROWS.findIndex(([day])=>day===prev.days[prev.days.length-1]):-1;
+    const curIndex=DAY_ROWS.findIndex(([day])=>day===item.day);
+    if(prev&&prev.slot===slot&&curIndex===prevIndex+1){
+      prev.days.push(item.day);
+      return;
+    }
+    groups.push({slot,days:[item.day]});
+  });
+  return groups.map(group=>{
+    const first=DAY_ROWS.find((row)=>row[0]===group.days[0])?.[1].slice(0,3)||group.days[0];
+    const last=DAY_ROWS.find((row)=>row[0]===group.days[group.days.length-1])?.[1].slice(0,3)||group.days[group.days.length-1];
+    const dayLabel=group.days.length===1?first:`${first}-${last}`;
+    return `${dayLabel} ${group.slot}`;
+  }).join(', ');
+}
+function updateHoursSummary(){
+  const hours=getHoursStructured();
+  const summary=formatHoursSummary(hours);
+  if($('shopHours')) $('shopHours').value=summary;
+  return {hours_structured:hours,hours:summary};
+}
+function populateHoursEditor(hours){
+  const structured=Array.isArray(hours)&&hours.length?hours:getHoursStructured();
+  DAY_ROWS.forEach(([day])=>{
+    const item=structured.find(h=>h.day===day)||{day,closed:false,start:'09:00',end:'17:00'};
+    const closed=document.querySelector(`[data-hours-closed="${day}"]`);
+    const start=document.querySelector(`[data-hours-start="${day}"]`);
+    const end=document.querySelector(`[data-hours-end="${day}"]`);
+    if(closed) closed.checked=!!item.closed;
+    if(start) start.value=item.start||'09:00';
+    if(end) end.value=item.end||'17:00';
+    start && (start.disabled=!!item.closed);
+    end && (end.disabled=!!item.closed);
+  });
+  updateHoursSummary();
+}
 function updateShopCurrencyBadge(){
   const code=getCountryMeta(selectedCountryCode())?.currency||'USD';
   if($('shopCurrencyBadge')) $('shopCurrencyBadge').textContent=code;
   if($('prodCurrencyBadge')) $('prodCurrencyBadge').textContent=code;
   if($('prodPriceNote')) $('prodPriceNote').textContent=`Enter only the numeric amount. ${code} is applied automatically from the shop country.`;
+}
+function collectShopFilters(){
+  App.shopFilters={
+    country_code:$('shopFilterCountry')?.value||'',
+    region:$('shopFilterRegion')?.value.trim()||'',
+    city:$('shopFilterCity')?.value.trim()||'',
+    postal_code:$('shopFilterPostal')?.value.trim()||'',
+    open_day:$('shopFilterDay')?.value||'',
+    open_time:$('shopFilterTime')?.value||'',
+    open_now:!!$('shopFilterOpenNow')?.checked,
+  };
+}
+function syncShopFilterControls(){
+  if($('shopFilterCountry')) $('shopFilterCountry').value=App.shopFilters.country_code||'';
+  if($('shopFilterRegion')) $('shopFilterRegion').value=App.shopFilters.region||'';
+  if($('shopFilterCity')) $('shopFilterCity').value=App.shopFilters.city||'';
+  if($('shopFilterPostal')) $('shopFilterPostal').value=App.shopFilters.postal_code||'';
+  if($('shopFilterDay')) $('shopFilterDay').value=App.shopFilters.open_day||'';
+  if($('shopFilterTime')) $('shopFilterTime').value=App.shopFilters.open_time||'';
+  if($('shopFilterOpenNow')) $('shopFilterOpenNow').checked=!!App.shopFilters.open_now;
+}
+function buildShopFilterQuery(){
+  const params=new URLSearchParams();
+  Object.entries(App.shopFilters||{}).forEach(([k,v])=>{
+    if(v===false||v===''||v==null) return;
+    params.set(k,String(v));
+  });
+  const q=params.toString();
+  return q?`?${q}`:'';
 }
 function normalizePriceInput(){
   const el=$('prodPrice');
@@ -2299,7 +2463,8 @@ $('srchClear').addEventListener('click',()=>{
    HOME — shops + featured products
 ═════════════════════════════════════════════ */
 async function loadAllShops(){
-  try{const d=await api('/public/shops');App.allShops=d.shops||[];renderHomeShops();loadFeatured();}
+  collectShopFilters();
+  try{const d=await api(`/public/shops${buildShopFilterQuery()}`);App.allShops=d.shops||[];renderHomeShops();loadFeatured();}
   catch(e){$('homeShopGrid').innerHTML=`<div class="empty"><div class="ei">⚠️</div><div class="et">${esc(e.message)}</div></div>`;}
 }
 function renderHomeShops(){
@@ -2317,7 +2482,7 @@ function renderHomeShops(){
     card.innerHTML=`<div class="shop-card-banner"><div class="shop-card-mark">${ico}</div>${s.category?`<div class="shop-card-category">${esc(s.category)}</div>`:''}</div>
     <div class="shop-card-body"><div class="shop-card-name">${esc(s.name)}</div><div class="shop-card-addr">📍 ${esc(s.address||'Address coming soon')}</div>
     <div class="shop-card-overview">${esc((s.overview||'Local products, direct shop chat, and quick browsing in one storefront.').slice(0,120))}</div>
-    <div class="shop-card-foot"><span class="sc-chip a">${s.stats?.product_count??0} products</span>${(s.stats?.avg_rating>0)?`<span class="sc-chip g">★ ${s.stats.avg_rating}</span>`:''}<span class="sc-chip d">${s.stats?.chat_hits_30d??0} chats / 30d</span></div></div>`;
+    <div class="shop-card-foot"><span class="sc-chip a">${s.stats?.product_count??0} products</span>${(s.stats?.avg_rating>0)?`<span class="sc-chip g">★ ${s.stats.avg_rating}</span>`:''}<span class="sc-chip d">${s.stats?.chat_hits_30d??0} chats / 30d</span>${s.is_open_now?`<span class="sc-chip g">Open now</span>`:''}</div></div>`;
     card.addEventListener('click',()=>openShopPage(s.shop_id));
     grid.appendChild(card);
   });
@@ -2674,6 +2839,10 @@ function validateShopForm(){
   if(!addr.postal_code) return 'Enter the shop postal code.';
   if(!addr.street_line1) return 'Enter the shop street address.';
   if(!addr.formatted_address) return 'Enter the real customer-facing shop address.';
+  const hours=getHoursStructured();
+  const openSlots=hours.filter(h=>!h.closed);
+  if(!openSlots.length) return 'Mark at least one working day as open.';
+  if(openSlots.some(h=>!h.start||!h.end||h.start>=h.end)) return 'Each open day needs a valid start and end time.';
   if(!category) return 'Select the category that best matches this shop.';
   return '';
 }
@@ -2693,8 +2862,10 @@ function resetShopForm(){
   $('shopCat').value='';
   $('shopCountry').value='CA';
   updateRegionOptions('CA');
+  updateTimezoneOptions('CA');
   updateShopCurrencyBadge();
   buildShopAddressPayload();
+  populateHoursEditor(DAY_ROWS.map(([day])=>({day,closed:day==='sun',start:'09:00',end:'17:00'})));
   $('shopAddressSuggest').innerHTML='';
   $('shopAddressSuggest').style.display='none';
   $('shopStats').style.display='none';
@@ -2710,6 +2881,8 @@ function populateShopForm(shop=null){
   $('shopName').value=shop.name||'';
   $('shopCountry').value=(shop.country_code||'CA').toUpperCase();
   updateRegionOptions($('shopCountry').value);
+  updateTimezoneOptions($('shopCountry').value);
+  $('shopTimezone').value=shop.timezone_name||timezonesForCountry($('shopCountry').value)[0]||'UTC';
   $('shopRegion').value=shop.region||'';
   $('shopCity').value=shop.city||'';
   $('shopPostal').value=shop.postal_code||'';
@@ -2719,11 +2892,11 @@ function populateShopForm(shop=null){
   $('shopLng').value=shop.longitude??'';
   $('shopOverview').value=shop.overview||'';
   $('shopPhone').value=shop.phone||'';
-  $('shopHours').value=shop.hours||'';
   $('shopCat').value=shop.category||'';
   $('shopWhatsapp').value=shop.whatsapp||'';
   updateShopCurrencyBadge();
   buildShopAddressPayload();
+  populateHoursEditor(shop.hours_structured||[]);
 }
 
 function openCreateShopView(){
@@ -2858,7 +3031,8 @@ async function createShop(){
   const formErr=validateShopForm();
   if(formErr){setS('shopStatus',formErr,'err');return toast('Shop details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
-  const payload={shop_id:$('shopId').value.trim()||null,shop:{name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,currency_code:$('shopCurrencyBadge').textContent.trim(),latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:$('shopHours').value.trim(),category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim()}};
+  const hoursData=updateHoursSummary();
+  const payload={shop_id:$('shopId').value.trim()||null,shop:{name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim()}};
   try{
     setBtnBusy('createShopBtn',true,'Creating...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Creating...');
@@ -2884,7 +3058,8 @@ async function saveShop(){
   const formErr=validateShopForm();
   if(formErr){setS('shopStatus',formErr,'err');return toast('Shop details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
-  const payload={name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,currency_code:$('shopCurrencyBadge').textContent.trim(),latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:$('shopHours').value.trim(),category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim()};
+  const hoursData=updateHoursSummary();
+  const payload={name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim()};
   try{
     setBtnBusy('saveShopBtn',true,'Saving...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Saving...');
@@ -3028,11 +3203,12 @@ $('prodFiles').addEventListener('change',()=>renderFilePrev([...$('prodFiles').f
 if($('adminProdSearch')) $('adminProdSearch').addEventListener('input',()=>renderAdminProds(App.adminProducts||[]));
 
 /* ── Analytics ── */
-['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2'].forEach(id=>{
+['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2'].forEach(id=>{
   $(id)?.addEventListener('input',markShopFormDirty);
 });
 $('shopCat')?.addEventListener('change',markShopFormDirty);
-$('shopCountry')?.addEventListener('change',()=>{updateRegionOptions(selectedCountryCode());updateShopCurrencyBadge();buildShopAddressPayload();markShopFormDirty();});
+$('shopCountry')?.addEventListener('change',()=>{updateRegionOptions(selectedCountryCode());updateTimezoneOptions(selectedCountryCode());updateShopCurrencyBadge();buildShopAddressPayload();markShopFormDirty();});
+$('shopTimezone')?.addEventListener('change',markShopFormDirty);
 ['shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2'].forEach(id=>{
   $(id)?.addEventListener('input',()=>{buildShopAddressPayload();markShopFormDirty();});
 });
@@ -3122,8 +3298,10 @@ function initLocationForm(){
   select.innerHTML=['<option value="">Select country...</option>',...Object.entries(COUNTRY_META).sort((a,b)=>a[1].name.localeCompare(b[1].name)).map(([code,meta])=>`<option value="${code}">${esc(meta.name)}</option>`)].join('');
   select.value=COUNTRY_META.CA?'CA':'';
   updateRegionOptions(select.value);
+  updateTimezoneOptions(select.value);
   updateShopCurrencyBadge();
   buildShopAddressPayload();
+  if($('shopFilterCountry')) $('shopFilterCountry').innerHTML='<option value="">All countries</option>'+Object.entries(COUNTRY_META).sort((a,b)=>a[1].name.localeCompare(b[1].name)).map(([code,meta])=>`<option value="${code}">${esc(meta.name)}</option>`).join('');
 }
 
 async function loadLocationSupport(){
@@ -3132,6 +3310,18 @@ async function loadLocationSupport(){
   }catch{
     App.locationSupport={countries:[],address_autocomplete:false};
   }
+}
+async function loadTimezoneSupport(){
+  try{
+    const d=await api('/public/timezone-support');
+    App.timezoneSupport=d.timezones||[];
+  }catch{
+    App.timezoneSupport=[];
+  }
+}
+function clearShopFilters(){
+  App.shopFilters={country_code:'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false};
+  syncShopFilterControls();
 }
 
 /* ═════════════════════════════════════════════
@@ -3167,10 +3357,15 @@ async function init(){
   await handleHashAuth(); // <--- Catches Supabase Email Link
   
   if($('srvUrl')) $('srvUrl').value=App.srv;
+  suspendFormDirty=true;
   initLocationForm();
+  initHoursEditor();
+  suspendFormDirty=false;
+  syncShopFilterControls();
   refreshWorkspaceHeader();
   renderUserUI();renderFilePrev([]);renderChatSide([]);renderCQchips([]);renderChatPromptList();renderChatFacts();autoSizeChatInput();updateCartBadge();
   await loadLocationSupport();
+  await loadTimezoneSupport();
   await checkServer();
   if(App.user?.token){
     try{const d=await api('/auth/me',{auth:true});App.user={...App.user,email:d.email,display_name:d.display_name||'',avatar_url:d.avatar_url||'',email_verified:d.email_verified,role:d.role};localStorage.setItem('lm_user',JSON.stringify(App.user));renderUserUI();}
@@ -3183,6 +3378,9 @@ async function init(){
   }
   await handleDeepLink();
 }
+$('shopFilterApply')?.addEventListener('click',()=>loadAllShops());
+$('shopFilterClear')?.addEventListener('click',()=>{clearShopFilters();loadAllShops();});
+$('shopFilterOpenNow')?.addEventListener('change',()=>{if($('shopFilterOpenNow').checked){$('shopFilterDay').value='';$('shopFilterTime').value='';}});
 init();
 </script>
 </body>

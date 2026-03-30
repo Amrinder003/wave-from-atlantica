@@ -12,6 +12,7 @@ from difflib import SequenceMatcher
 import requests
 from typing import Any, Dict, List, Optional, Tuple
 from supabase import create_client, Client
+from zoneinfo import ZoneInfo
 
 try:
     from dotenv import load_dotenv
@@ -59,22 +60,24 @@ supabase: Optional[Client] = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABA
 FX_CACHE: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
 COUNTRY_META: Dict[str, Dict[str, Any]] = {
-    "AU": {"name": "Australia", "currency": "AUD", "postal_regex": r"^\d{4}$"},
-    "BD": {"name": "Bangladesh", "currency": "BDT", "postal_regex": r"^\d{4}$"},
-    "CA": {"name": "Canada", "currency": "CAD", "postal_regex": r"^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$"},
-    "DE": {"name": "Germany", "currency": "EUR", "postal_regex": r"^\d{5}$"},
-    "FR": {"name": "France", "currency": "EUR", "postal_regex": r"^\d{5}$"},
-    "GB": {"name": "United Kingdom", "currency": "GBP", "postal_regex": r"^[A-Za-z]{1,2}\d[A-Za-z\d]?\s?\d[A-Za-z]{2}$"},
-    "IE": {"name": "Ireland", "currency": "EUR", "postal_regex": r"^[A-Za-z]\d{2}\s?[A-Za-z0-9]{4}$"},
-    "IN": {"name": "India", "currency": "INR", "postal_regex": r"^\d{6}$"},
-    "NZ": {"name": "New Zealand", "currency": "NZD", "postal_regex": r"^\d{4}$"},
-    "PK": {"name": "Pakistan", "currency": "PKR", "postal_regex": r"^\d{5}$"},
-    "QA": {"name": "Qatar", "currency": "QAR", "postal_regex": r"^\d{3,4}$"},
-    "SA": {"name": "Saudi Arabia", "currency": "SAR", "postal_regex": r"^\d{5}$"},
-    "SG": {"name": "Singapore", "currency": "SGD", "postal_regex": r"^\d{6}$"},
-    "US": {"name": "United States", "currency": "USD", "postal_regex": r"^\d{5}(?:-\d{4})?$"},
-    "AE": {"name": "United Arab Emirates", "currency": "AED", "postal_regex": r"^[A-Za-z0-9 -]{3,10}$"},
+    "AU": {"name": "Australia", "currency": "AUD", "postal_regex": r"^\d{4}$", "timezone": "Australia/Sydney"},
+    "BD": {"name": "Bangladesh", "currency": "BDT", "postal_regex": r"^\d{4}$", "timezone": "Asia/Dhaka"},
+    "CA": {"name": "Canada", "currency": "CAD", "postal_regex": r"^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$", "timezone": "America/Halifax"},
+    "DE": {"name": "Germany", "currency": "EUR", "postal_regex": r"^\d{5}$", "timezone": "Europe/Berlin"},
+    "FR": {"name": "France", "currency": "EUR", "postal_regex": r"^\d{5}$", "timezone": "Europe/Paris"},
+    "GB": {"name": "United Kingdom", "currency": "GBP", "postal_regex": r"^[A-Za-z]{1,2}\d[A-Za-z\d]?\s?\d[A-Za-z]{2}$", "timezone": "Europe/London"},
+    "IE": {"name": "Ireland", "currency": "EUR", "postal_regex": r"^[A-Za-z]\d{2}\s?[A-Za-z0-9]{4}$", "timezone": "Europe/Dublin"},
+    "IN": {"name": "India", "currency": "INR", "postal_regex": r"^\d{6}$", "timezone": "Asia/Kolkata"},
+    "NZ": {"name": "New Zealand", "currency": "NZD", "postal_regex": r"^\d{4}$", "timezone": "Pacific/Auckland"},
+    "PK": {"name": "Pakistan", "currency": "PKR", "postal_regex": r"^\d{5}$", "timezone": "Asia/Karachi"},
+    "QA": {"name": "Qatar", "currency": "QAR", "postal_regex": r"^\d{3,4}$", "timezone": "Asia/Qatar"},
+    "SA": {"name": "Saudi Arabia", "currency": "SAR", "postal_regex": r"^\d{5}$", "timezone": "Asia/Riyadh"},
+    "SG": {"name": "Singapore", "currency": "SGD", "postal_regex": r"^\d{6}$", "timezone": "Asia/Singapore"},
+    "US": {"name": "United States", "currency": "USD", "postal_regex": r"^\d{5}(?:-\d{4})?$", "timezone": "America/New_York"},
+    "AE": {"name": "United Arab Emirates", "currency": "AED", "postal_regex": r"^[A-Za-z0-9 -]{3,10}$", "timezone": "Asia/Dubai"},
 }
+DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+DAY_LABELS = {"mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun"}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # APP
@@ -116,10 +119,12 @@ class ShopInfo(BaseModel):
     overview: str = ""
     phone: str = ""
     hours: str = ""
+    hours_structured: List[Dict[str, Any]] = []
     category: str = ""
     whatsapp: str = ""
     country_code: str = ""
     country_name: str = ""
+    timezone_name: str = ""
     region: str = ""
     city: str = ""
     postal_code: str = ""
@@ -483,7 +488,7 @@ def rebuild_kb(shop_id: str):
             "stock": p.get("stock", "in"), "images": imgs
         })
     
-    obj = {"shop": {k: shop_row.get(k, "") for k in ("name","address","overview","phone","hours","category","country_code","region","city","postal_code","street_line1","street_line2","currency_code")},
+    obj = {"shop": {k: shop_row.get(k, "") for k in ("name","address","overview","phone","hours","hours_structured","category","country_code","country_name","timezone_name","region","city","postal_code","street_line1","street_line2","currency_code")},
            "products": p_serialized}
            
     d = os.path.join(SHOPS_DIR, shop_id)
@@ -540,6 +545,10 @@ def currency_for_country(country_code: str) -> str:
     meta = country_meta(country_code)
     return meta.get("currency", "USD")
 
+def timezone_for_country(country_code: str) -> str:
+    meta = country_meta(country_code)
+    return meta.get("timezone", "UTC")
+
 def build_formatted_address(data: Dict[str, Any]) -> str:
     parts = [
         (data.get("street_line1") or "").strip(),
@@ -555,6 +564,9 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out["country_code"] = clean_code(out.get("country_code", ""))
     out["country_name"] = (out.get("country_name") or country_meta(out.get("country_code", "")).get("name", "")).strip()
     out["currency_code"] = clean_currency(out.get("currency_code") or currency_for_country(out.get("country_code", "")))
+    out["timezone_name"] = (out.get("timezone_name") or timezone_for_country(out.get("country_code", ""))).strip()
+    out["hours_structured"] = parse_hours_structured(out.get("hours_structured"))
+    out["hours"] = (out.get("hours") or "").strip() or format_hours_structured(out["hours_structured"])
     out["formatted_address"] = (out.get("formatted_address") or "").strip() or build_formatted_address(out)
     out["address"] = out["formatted_address"] or (out.get("address") or "").strip()
     return out
@@ -567,6 +579,86 @@ def validate_postal_code(country_code: str, postal_code: str) -> bool:
     if not pattern:
         return True
     return re.fullmatch(pattern, value, flags=re.IGNORECASE) is not None
+
+def parse_hours_structured(value: Any) -> List[Dict[str, Any]]:
+    raw = value
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except Exception:
+            raw = []
+    if not isinstance(raw, list):
+        return []
+    out = []
+    seen = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        day = str(item.get("day", "")).strip().lower()[:3]
+        if day not in DAY_ORDER or day in seen:
+            continue
+        closed = bool(item.get("closed", False))
+        start = str(item.get("start", "")).strip()
+        end = str(item.get("end", "")).strip()
+        if not closed:
+            if not re.fullmatch(r"^\d{2}:\d{2}$", start) or not re.fullmatch(r"^\d{2}:\d{2}$", end) or start >= end:
+                continue
+        out.append({"day": day, "closed": closed, "start": start if not closed else "", "end": end if not closed else ""})
+        seen.add(day)
+    out.sort(key=lambda item: DAY_ORDER.index(item["day"]))
+    return out
+
+def format_hours_structured(hours_structured: List[Dict[str, Any]]) -> str:
+    if not hours_structured:
+        return ""
+    grouped = []
+    current = None
+    for item in hours_structured:
+        slot = "Closed" if item.get("closed") else f"{item.get('start')} - {item.get('end')}"
+        if current and current["slot"] == slot and DAY_ORDER.index(item["day"]) == DAY_ORDER.index(current["days"][-1]) + 1:
+            current["days"].append(item["day"])
+        else:
+            current = {"slot": slot, "days": [item["day"]]}
+            grouped.append(current)
+    parts = []
+    for group in grouped:
+        days = group["days"]
+        label = DAY_LABELS[days[0]] if len(days) == 1 else f"{DAY_LABELS[days[0]]}-{DAY_LABELS[days[-1]]}"
+        parts.append(f"{label} {group['slot']}")
+    return ", ".join(parts)
+
+def shop_matches_schedule(shop: Dict[str, Any], day: str = "", at_time: str = "") -> bool:
+    hours_structured = parse_hours_structured(shop.get("hours_structured"))
+    if not hours_structured:
+        return True
+    day_code = str(day or "").strip().lower()[:3]
+    if day_code and day_code not in DAY_ORDER:
+        return True
+    for slot in hours_structured:
+        if day_code and slot["day"] != day_code:
+            continue
+        if slot.get("closed"):
+            if day_code:
+                return False
+            continue
+        if not at_time:
+            return True
+        if re.fullmatch(r"^\d{2}:\d{2}$", at_time) and slot["start"] <= at_time <= slot["end"]:
+            return True
+    return not day_code and not at_time
+
+def shop_is_open_now(shop: Dict[str, Any]) -> bool:
+    hours_structured = parse_hours_structured(shop.get("hours_structured"))
+    if not hours_structured:
+        return True
+    tz_name = (shop.get("timezone_name") or "UTC").strip()
+    try:
+        now_local = datetime.now(ZoneInfo(tz_name))
+    except Exception:
+        now_local = datetime.now(timezone.utc)
+    day_code = DAY_ORDER[now_local.weekday()]
+    time_str = now_local.strftime("%H:%M")
+    return shop_matches_schedule(shop, day_code, time_str)
 
 def parse_price_amount(value: Any) -> Optional[float]:
     if value is None or value == "":
@@ -653,9 +745,16 @@ def validate_shop_payload(shop: ShopInfo) -> Dict[str, Any]:
         raise HTTPException(400, "Enter the postal code")
     if not validate_postal_code(data["country_code"], data["postal_code"]):
         raise HTTPException(400, f"Postal code format is not valid for {data.get('country_name') or data['country_code']}")
+    if not data.get("hours_structured"):
+        raise HTTPException(400, "Set the shop working days and hours")
+    try:
+        ZoneInfo(data.get("timezone_name") or "UTC")
+    except Exception:
+        raise HTTPException(400, "Select a valid shop timezone")
     data["currency_code"] = clean_currency(data.get("currency_code") or currency_for_country(data["country_code"]))
     data["formatted_address"] = data.get("formatted_address") or build_formatted_address(data)
     data["address"] = data["formatted_address"]
+    data["hours"] = format_hours_structured(data["hours_structured"])
     return data
 
 def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[str, Any]:
@@ -1514,19 +1613,43 @@ def post_review(shop_id: str, product_id: str, body: ReviewReq, authorization: O
 # ROUTES — Public Browsing
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 @app.get("/public/shops")
-def public_shops(category: Optional[str] = None):
+def public_shops(
+    category: Optional[str] = None,
+    country_code: str = Query(""),
+    region: str = Query(""),
+    city: str = Query(""),
+    postal_code: str = Query(""),
+    open_day: str = Query(""),
+    open_time: str = Query(""),
+    open_now: bool = Query(False),
+):
     q = supabase.table("shops").select("*").order("created_at", desc=True)
     if category: q = q.ilike("category", f"%{category}%")
     rows = q.execute().data
+    filtered = []
     for r in rows:
         nr = normalize_shop_record(r)
         r.update(nr)
+        if country_code and r.get("country_code", "") != clean_code(country_code):
+            continue
+        if region and region.lower() not in (r.get("region", "") or "").lower():
+            continue
+        if city and city.lower() not in (r.get("city", "") or "").lower():
+            continue
+        if postal_code and postal_code.lower() not in (r.get("postal_code", "") or "").lower():
+            continue
+        if (open_day or open_time) and not shop_matches_schedule(r, open_day, open_time):
+            continue
+        if open_now and not shop_is_open_now(r):
+            continue
         try:
             r["stats"] = shop_stats(r["shop_id"])
         except Exception as e:
             print(f"[Shop Stats Warning] {r.get('shop_id')}: {e}")
             r["stats"] = {"product_count": 0, "image_count": 0, "products_with_images": 0, "chat_hits_30d": 0, "shop_views_30d": 0, "product_views_30d": 0, "avg_rating": 0}
-    return {"ok": True, "shops": rows}
+        r["is_open_now"] = shop_is_open_now(r)
+        filtered.append(r)
+    return {"ok": True, "shops": filtered}
 
 @app.get("/public/location-support")
 def public_location_support():
@@ -1534,6 +1657,35 @@ def public_location_support():
     for code, meta in sorted(COUNTRY_META.items(), key=lambda item: item[1]["name"]):
         countries.append({"code": code, "name": meta["name"], "currency_code": meta["currency"]})
     return {"ok": True, "countries": countries, "address_autocomplete": bool(MAPBOX_TOKEN)}
+
+@app.get("/public/timezone-support")
+def public_timezone_support():
+    zones = sorted([
+        "America/Halifax",
+        "America/St_Johns",
+        "America/Toronto",
+        "America/Vancouver",
+        "America/Edmonton",
+        "America/Winnipeg",
+        "America/New_York",
+        "America/Chicago",
+        "America/Denver",
+        "America/Los_Angeles",
+        "Europe/London",
+        "Europe/Dublin",
+        "Europe/Paris",
+        "Europe/Berlin",
+        "Asia/Dubai",
+        "Asia/Kolkata",
+        "Asia/Karachi",
+        "Asia/Dhaka",
+        "Asia/Riyadh",
+        "Asia/Qatar",
+        "Asia/Singapore",
+        "Australia/Sydney",
+        "Pacific/Auckland",
+    ])
+    return {"ok": True, "timezones": zones}
 
 @app.get("/public/address/search")
 def public_address_search(q: str = Query(..., min_length=3), country: str = Query("")):
@@ -1789,6 +1941,7 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         "formatted_address": shop["formatted_address"],
         "country_code": shop["country_code"],
         "country_name": shop["country_name"],
+        "timezone_name": shop["timezone_name"],
         "region": shop["region"],
         "city": shop["city"],
         "postal_code": shop["postal_code"],
@@ -1800,6 +1953,7 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         "overview": shop["overview"],
         "phone": shop["phone"],
         "hours": shop["hours"],
+        "hours_structured": shop["hours_structured"],
         "category": shop["category"],
         "whatsapp": shop["whatsapp"],
     }).execute()
@@ -1842,6 +1996,7 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
         "formatted_address": shop["formatted_address"],
         "country_code": shop["country_code"],
         "country_name": shop["country_name"],
+        "timezone_name": shop["timezone_name"],
         "region": shop["region"],
         "city": shop["city"],
         "postal_code": shop["postal_code"],
@@ -1853,6 +2008,7 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
         "overview": shop["overview"],
         "phone": shop["phone"],
         "hours": shop["hours"],
+        "hours_structured": shop["hours_structured"],
         "category": shop["category"],
         "whatsapp": shop["whatsapp"],
     }).eq("shop_id", shop_id).execute()
