@@ -383,8 +383,15 @@ def shop_stats(shop_id: str) -> Dict:
 def track(shop_id: str, event: str, product_id: Optional[str] = None):
     if supabase is None:
         return
-    try: supabase.table("analytics").insert({"shop_id": shop_id, "product_id": product_id, "event": event}).execute()
-    except Exception: pass
+    try:
+        supabase.table("analytics").insert({
+            "shop_id": shop_id,
+            "product_id": product_id,
+            "event": event,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception as e:
+        print(f"[Analytics Track Warning] shop={shop_id} product={product_id} event={event}: {e}")
 
 def paginate_list(items: List[Any], page: int, page_size: int = PAGE_SIZE) -> Dict[str, Any]:
     total = len(items)
