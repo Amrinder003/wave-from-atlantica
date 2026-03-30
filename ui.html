@@ -2801,6 +2801,52 @@ function renderCart(){
   list.querySelectorAll('.qbtn').forEach(b=>b.addEventListener('click',()=>{const i=+b.dataset.i,d=+b.dataset.d;App.cart[i].qty=Math.max(1,App.cart[i].qty+d);saveCart();renderCart();updateCartBadge();}));
   list.querySelectorAll('.ci-del').forEach(b=>b.addEventListener('click',()=>{App.cart.splice(+b.dataset.i,1);saveCart();renderCart();updateCartBadge();}));
 }
+function selectionKeyForCart(selections={}){
+  return Object.entries(selections||{}).sort(([a],[b])=>a.localeCompare(b)).map(([group,label])=>`${group}: ${label}`).join(' / ');
+}
+function getCartSelectionPayload(p){
+  const selections={...(App.pdVariantSelection||{})};
+  const optionLabel=selectionKeyForCart(selections);
+  const variantMatrix=Array.isArray(p?.variant_matrix)?p.variant_matrix:[];
+  const variantData=Array.isArray(p?.variant_data)?p.variant_data:[];
+  const combo=optionLabel ? (variantMatrix.find(item=>selectionKeyForCart(item.selections||{})===optionLabel)||null) : null;
+  const selectedOptions=Object.entries(selections).map(([group,label])=>variantData.find(item=>(item.group||'Option')===group && item.label===label)).filter(Boolean);
+  const optionDelta=selectedOptions.reduce((sum,item)=>sum+Number(item.price_delta||0),0);
+  const comboDelta=Number(combo?.price_delta||0);
+  const base=Number(p?.price_amount_native ?? p?.price_amount ?? NaN);
+  const code=(p?.currency_code_native||p?.currency_code||'').trim();
+  const totalNumeric=Number.isFinite(base)?base+optionDelta+comboDelta:NaN;
+  const priceLabel=Number.isFinite(totalNumeric)&&code?`${code} ${totalNumeric.toFixed(2)}`:(p?.price||'');
+  const comboImages=(combo?.images||[]).map(absUrl).filter(Boolean);
+  const optionImages=selectedOptions.flatMap(item=>(item.images||[]).map(absUrl).filter(Boolean));
+  const fallbackImages=(p?.images||[]).map(absUrl).filter(Boolean);
+  return {selection_key:optionLabel,selections,combo_key:combo?.selection_key||optionLabel||'',price:priceLabel,price_amount:Number.isFinite(totalNumeric)?totalNumeric:null,currency_code:code||'',image:comboImages[0]||optionImages[0]||fallbackImages[0]||''};
+}
+function addToCart(p,sid,sname,selection=null){
+  const chosen=selection || {selection_key:'',selections:{},combo_key:'',price:p.price||'',price_amount:Number.isFinite(Number(p.price_amount_native ?? p.price_amount))?Number(p.price_amount_native ?? p.price_amount):null,currency_code:(p.currency_code_native||p.currency_code||'').trim(),image:(p.images||[]).map(absUrl)[0]||''};
+  const ex=App.cart.find(i=>i.product_id===p.product_id&&i.shop_id===sid&&(i.combo_key||'')===(chosen.combo_key||''));
+  if(ex){ex.qty++;}else{App.cart.push({product_id:p.product_id,name:p.name,price:chosen.price||p.price||'',price_amount:chosen.price_amount,currency_code:chosen.currency_code||'',image:chosen.image||'',shop_id:sid,shop_name:sname||'',qty:1,variant:chosen.selection_key||'',variant_selections:chosen.selections||{},combo_key:chosen.combo_key||''});}
+  saveCart();updateCartBadge();toast('Added to cart 🛒',p.name);
+}
+function renderCart(){
+  const list=$('cartList');
+  if(!App.cart.length){list.innerHTML=`<div class="cart-empty"><div class="ei">🛒</div><div>Cart is empty</div></div>`;$('cartTotal').textContent='—';return;}
+  list.innerHTML='';let hasTot=true,total=0;
+  App.cart.forEach((item,idx)=>{
+    const np=Number(item.price_amount);
+    if(Number.isFinite(np))total+=np*item.qty;else hasTot=false;
+    const row=document.createElement('div');row.className='ci';
+    row.innerHTML=`${item.image?`<img class="ci-img" src="${esc(item.image)}" alt="" loading="lazy"/>`:`<div class="ci-ph">📦</div>`}
+    <div class="ci-info"><div class="ci-name">${esc(item.name)}</div><div class="ci-meta">${esc(item.shop_name)}${item.variant?` · ${esc(item.variant)}`:''}</div><div class="ci-price">${esc(item.price||'—')}</div>
+    <div class="ci-qty"><button class="qbtn" data-i="${idx}" data-d="-1">−</button><span class="qn">${item.qty}</span><button class="qbtn" data-i="${idx}" data-d="1">+</button></div></div>
+    <button class="ci-del" data-i="${idx}">✕</button>`;
+    list.appendChild(row);
+  });
+  const cartCurrencies=[...new Set(App.cart.map(item=>item.currency_code).filter(Boolean))];
+  $('cartTotal').textContent=hasTot&&cartCurrencies.length===1?`${cartCurrencies[0]} ${total.toFixed(2)}`:`${App.cart.length} item${App.cart.length>1?'s':''}`;
+  list.querySelectorAll('.qbtn').forEach(b=>b.addEventListener('click',()=>{const i=+b.dataset.i,d=+b.dataset.d;App.cart[i].qty=Math.max(1,App.cart[i].qty+d);saveCart();renderCart();updateCartBadge();}));
+  list.querySelectorAll('.ci-del').forEach(b=>b.addEventListener('click',()=>{App.cart.splice(+b.dataset.i,1);saveCart();renderCart();updateCartBadge();}));
+}
 function openCart(){renderCart();$('cartBg').classList.add('on');document.body.style.overflow='hidden';}
 function closeCart(){$('cartBg').classList.remove('on');document.body.style.overflow='';}
 $('cartBtn').addEventListener('click',openCart);
@@ -3096,7 +3142,7 @@ async function openPD(p,mode,sid,sname){
   $('shareInp').value=url;
   $('shareBtn').onclick=()=>navigator.clipboard.writeText(url).then(()=>toast('Link copied!'));
   $('pdCartBtn').disabled=p.stock==='out';
-  $('pdCartBtn').onclick=()=>addToCart(p,App.curSid,App.curSname);
+  $('pdCartBtn').onclick=()=>addToCart(p,App.curSid,App.curSname,getCartSelectionPayload(p));
   $('pdChatBtn').onclick=()=>{closePD();openChatFor(App.curSid,App.curSname,`Tell me about ${p.name}`);};
 
   const favBtn=$('pdFavBtn');
