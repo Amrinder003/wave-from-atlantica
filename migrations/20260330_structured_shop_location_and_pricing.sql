@@ -15,6 +15,7 @@ alter table if exists public.shops
 
 alter table if exists public.products
   add column if not exists price_amount numeric(12,2),
+  add column if not exists stock_quantity integer,
   add column if not exists currency_code text;
 
 update public.shops

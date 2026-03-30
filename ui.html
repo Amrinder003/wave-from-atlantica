@@ -1244,7 +1244,7 @@ a{color:inherit;text-decoration:none}
             <div class="card-body">
               <div class="csv-box">
                 <div class="csv-title">Import multiple products into this shop</div>
-                <div class="csv-hint">Columns: <code>product_id, name, price, overview, stock, variants</code>. Use a numeric value for <code>price</code>; the shop currency is applied automatically.</div>
+                <div class="csv-hint">Columns: <code>product_id, name, price, overview, stock, stock_quantity, variants</code>. Use numeric values for <code>price</code> and <code>stock_quantity</code>; the shop currency is applied automatically.</div>
                 <div class="btn-row">
                   <input id="csvFile" type="file" accept=".csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
                   <button id="importCsvBtn" class="btn btn-o btn-sm">Import</button>
@@ -1393,6 +1393,7 @@ a{color:inherit;text-decoration:none}
                   <div class="fld"><label>Description</label><textarea id="prodOverview" placeholder="Ingredients, origin, what makes it special..."></textarea><div class="fld-hint">A clear description improves recommendations, search, and chat answers.</div></div>
                   <div class="fstack">
                     <div class="fld"><label>Stock Status</label><select id="prodStock"><option value="in">In Stock</option><option value="low">Low Stock</option><option value="out">Out of Stock</option></select><div class="fld-hint">This is used directly on product cards and in chat responses.</div></div>
+                    <div class="fld"><label>Stock Quantity</label><input id="prodQty" type="number" min="0" step="1" inputmode="numeric" placeholder="12"/><div class="fld-hint">Use a real quantity. Wave will derive the status from this number.</div></div>
                     <div class="fld"><label>Variants (comma-separated)</label><input id="prodVariants" placeholder="Small, Medium, Large"/><div class="fld-hint">Optional. Use this for size, flavor, color, or pack options.</div></div>
                   </div>
                 </div>
@@ -2221,6 +2222,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
   const desc=p.overview?esc(p.overview):'Add a sharper description so customers and chat both understand this product better.';
 
   if(mode==='admin'){
+    const flags=p.quality_flags||[];
     const art=document.createElement('article');art.className='admin-pc';
     art.innerHTML=`
       <div class="admin-pc-photo">
@@ -2236,9 +2238,11 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
         <div class="admin-pc-meta">
           <div class="admin-pc-chip">${esc(p.product_id||'No ID')}</div>
           <div class="admin-pc-chip">${n?`Photos ${n}`:'Add Photos'}</div>
+          <div class="admin-pc-chip">${p.stock_quantity!=null?`Qty ${p.stock_quantity}`:'Qty needed'}</div>
           <div class="admin-pc-chip">${p.product_views||0} views</div>
           ${(p.avg_rating>0)?`<div class="admin-pc-chip">Rating ${p.avg_rating.toFixed(1)}${p.review_count?` (${p.review_count})`:''}</div>`:`<div class="admin-pc-chip">No Reviews</div>`}
         </div>
+        <div class="owner-flag-list">${flags.length?flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join(''):'<span class="owner-good">Catalog ready</span>'}</div>
         <div class="admin-pc-desc">${desc}</div>
         <div class="admin-pc-actions">
           <div class="admin-pc-link">Open and edit product</div>
@@ -2887,9 +2891,12 @@ function validateShopForm(){
 function validateProductForm(){
   const name=$('prodName').value.trim();
   const price=Number($('prodPrice').value);
+  const qtyRaw=$('prodQty').value.trim();
+  const qty=qtyRaw===''?null:Number(qtyRaw);
   if(!name) return 'Enter a product name customers can search for.';
   if(!Number.isFinite(price)) return 'Enter a valid numeric product price.';
   if(price<0) return 'Price cannot be negative.';
+  if(qty===null || !Number.isInteger(qty) || qty<0) return 'Enter a valid stock quantity.';
   return '';
 }
 
@@ -3186,7 +3193,7 @@ $('rebuildKbBtn').addEventListener('click',async()=>{
 function loadProdIntoEditor(p,{skipView=false}={}){
   suspendFormDirty=true;
   $('prodId').value=p.product_id||'';$('prodName').value=p.name||'';$('prodPrice').value=(p.price_amount_native ?? p.price_amount ?? '').toString();
-  $('prodOverview').value=p.overview||'';$('prodStock').value=p.stock||'in';$('prodVariants').value=p.variants||'';
+  $('prodOverview').value=p.overview||'';$('prodStock').value=p.stock||'in';$('prodQty').value=p.stock_quantity ?? '';$('prodVariants').value=p.variants||'';
   $('prodFiles').value='';renderFilePrev([]);
   syncProductEditorState('edit');
   updateShopCurrencyBadge();
@@ -3199,7 +3206,7 @@ function loadProdIntoEditor(p,{skipView=false}={}){
   updateProductDraftState(false);
   if(!skipView){switchAdminSub('shops');showShopManagerView('productform');$('prodId').scrollIntoView({behavior:'smooth',block:'center'});}
 }
-function clearProdForm(){suspendFormDirty=true;['prodId','prodName','prodPrice','prodOverview','prodVariants'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');updateShopCurrencyBadge();setS('productStatus','');suspendFormDirty=false;updateProductDraftState(false);}
+function clearProdForm(){suspendFormDirty=true;['prodId','prodName','prodPrice','prodQty','prodOverview','prodVariants'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');updateShopCurrencyBadge();setS('productStatus','');suspendFormDirty=false;updateProductDraftState(false);}
 function renderFilePrev(files){const g=$('filePreview');g.innerHTML='';if(!files?.length){g.innerHTML=`<div style="font-size:11px;color:var(--ink4)">No files selected</div>`;return;}Array.from(files).forEach(f=>{const r=new FileReader();r.onload=()=>{const d=document.createElement('div');d.className='prev-item';d.innerHTML=`<img src="${r.result}" alt=""/>`;g.appendChild(d);};r.readAsDataURL(f);});}
 async function saveProd(){
   if(!tok())return toast('Login required','','err');
@@ -3210,14 +3217,14 @@ async function saveProd(){
   const formErr=validateProductForm();
   if(formErr){setS('productStatus',formErr,'err');return toast('Product details missing',formErr,'err');}
   if(!pid){pid=slugify(name);$('prodId').value=pid;}
-  const files=$('prodFiles').files,stock=$('prodStock').value,variants=$('prodVariants').value;
+  const files=$('prodFiles').files,stock=$('prodStock').value,stockQuantity=Number($('prodQty').value),variants=$('prodVariants').value;
   const currencyCode=$('prodCurrencyBadge')?.textContent?.trim()||'USD';
   try{
     setBtnBusy('saveProdBtn',true,files.length?'Uploading...':'Saving...');
     setBtnBusy('productFloatingSubmitBtn',true,files.length?'Uploading...':'Saving...');
     setS('productStatus',files.length?'Uploading product images and saving details...':'Saving product details...');
-    if(files.length){const form=new FormData();form.append('product_id',pid);form.append('name',name);form.append('overview',overview);form.append('price',price);form.append('price_amount',price);form.append('currency_code',currencyCode);form.append('stock',stock);form.append('variants',variants);[...files].forEach(f=>form.append('images',f));await api(`/admin/shop/${encodeURIComponent(shopId)}/product-with-images`,{method:'POST',auth:true,body:form});}
-    else{await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid,name,price,price_amount:Number(price),currency_code:currencyCode,overview,stock,variants,images:[]})});}
+    if(files.length){const form=new FormData();form.append('product_id',pid);form.append('name',name);form.append('overview',overview);form.append('price',price);form.append('price_amount',price);form.append('currency_code',currencyCode);form.append('stock',stock);form.append('stock_quantity',String(stockQuantity));form.append('variants',variants);[...files].forEach(f=>form.append('images',f));await api(`/admin/shop/${encodeURIComponent(shopId)}/product-with-images`,{method:'POST',auth:true,body:form});}
+    else{await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid,name,price,price_amount:Number(price),currency_code:currencyCode,overview,stock,stock_quantity:stockQuantity,variants,images:[]})});}
     toast('Product saved',name);
     setS('productStatus',`Product "${name}" saved successfully.`,'ok');
     updateProductDraftState(false);
@@ -3272,11 +3279,19 @@ $('shopStreet1')?.addEventListener('input',()=>{
   addressSuggestTimer=setTimeout(loadAddressSuggestions,260);
 });
 $('shopStreet1')?.addEventListener('blur',()=>setTimeout(()=>{if($('shopAddressSuggest')){$('shopAddressSuggest').style.display='none';}},180));
-['prodId','prodName','prodPrice','prodOverview','prodVariants'].forEach(id=>{
+['prodId','prodName','prodPrice','prodQty','prodOverview','prodVariants'].forEach(id=>{
   $(id)?.addEventListener('input',markProductFormDirty);
 });
 ['prodStock','prodFiles'].forEach(id=>{
   $(id)?.addEventListener('change',markProductFormDirty);
+});
+$('prodQty')?.addEventListener('input',()=>{
+  const raw=String($('prodQty').value||'').replace(/[^\d]/g,'');
+  $('prodQty').value=raw;
+  const qty=raw===''?null:Number(raw);
+  if(qty===null) return;
+  $('prodStock').value=qty<=0?'out':(qty<=5?'low':'in');
+  markProductFormDirty();
 });
 $('prodPrice')?.addEventListener('input',()=>{normalizePriceInput();markProductFormDirty();});
 document.addEventListener('pointerdown',e=>{
@@ -3328,7 +3343,7 @@ $('refreshAnBtn').addEventListener('click',loadAnalytics);
 $('anDays').addEventListener('change',loadAnalytics);
 
 /* ── CSV ── */
-$('csvTplBtn').addEventListener('click',()=>{const csv='product_id,name,price,overview,stock,variants\np001,Example Product,9.99,A great product,in,"Small,Medium"\n';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='products_template.csv';a.click();});
+$('csvTplBtn').addEventListener('click',()=>{const csv='product_id,name,price,overview,stock,stock_quantity,variants\np001,Example Product,9.99,A great product,in,12,"Small,Medium"\n';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='products_template.csv';a.click();});
 $('importCsvBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a shop first','','err');if(!tok())return toast('Login required','','err');
   const file=$('csvFile').files[0];if(!file)return toast('Select a CSV','','err');
@@ -3339,7 +3354,7 @@ $('importCsvBtn').addEventListener('click',async()=>{
   setBtnBusy('importCsvBtn',true,'Importing...');
   txt.textContent=`Preparing import for ${rows.length} rows...`;
   for(const row of rows){const vals=row.split(',').map(v=>v.trim().replace(/^"|"$/g,''));const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');
-    try{const numeric=Number(obj.price||'');await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||`p${Date.now()}`,name:obj.name||'Unnamed',price:obj.price||'',price_amount:Number.isFinite(numeric)?numeric:null,currency_code:$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',overview:obj.overview||'',stock:obj.stock||'in',variants:obj.variants||'',images:[]})});done++;}catch{failed++;}
+    try{const numeric=Number(obj.price||'');const qty=Number(obj.stock_quantity||'');await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||`p${Date.now()}`,name:obj.name||'Unnamed',price:obj.price||'',price_amount:Number.isFinite(numeric)?numeric:null,currency_code:$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',overview:obj.overview||'',stock:obj.stock||'in',stock_quantity:Number.isFinite(qty)?qty:null,variants:obj.variants||'',images:[]})});done++;}catch{failed++;}
     bar.value=Math.round(((done+failed)/rows.length)*100);txt.textContent=`${done+failed}/${rows.length} (${failed} failed)`;await new Promise(r=>setTimeout(r,100));
   }
   txt.textContent=`Import complete: ${done} imported, ${failed} failed.`;

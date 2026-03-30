@@ -145,6 +145,7 @@ class Product(BaseModel):
     price_amount: Optional[float] = Field(default=None, ge=0)
     currency_code: str = ""
     stock: str = "in"
+    stock_quantity: Optional[int] = Field(default=None, ge=0)
     variants: str = ""
     images: List[str] = []
 
@@ -341,11 +342,13 @@ def serialize_product(row: dict, user_id: str = None, shop: Optional[Dict[str, A
     return {
         "product_id": prod_id, "shop_id": shop_id, "name": row.get("name", ""),
         "overview": row.get("overview", ""), **price_fields,
-        "stock": row.get("stock", "in"), "variants": row.get("variants", ""),
+        "stock": row.get("stock", "in"), "stock_quantity": row.get("stock_quantity"),
+        "variants": row.get("variants", ""),
         "images": imgs, "image_count": len(imgs),
         "product_views": len(product_views),
         "avg_rating": round(sum(r["rating"] for r in rv)/len(rv) if rv else 0, 1),
         "review_count": len(rv), "is_favourite": is_fav,
+        "quality_flags": product_completeness_flags({**row, "images": imgs, "shop_id": shop_id}),
     }
 
 def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Optional[Dict[str, Dict[str, Any]]] = None, viewer_currency: str = "") -> List[Dict[str, Any]]:
@@ -402,6 +405,7 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Opt
             "overview": row.get("overview", ""),
             **get_display_price_fields(row, normalize_shop_record((shop_map or {}).get(shop_id, {})), viewer_currency),
             "stock": row.get("stock", "in"),
+            "stock_quantity": row.get("stock_quantity"),
             "variants": row.get("variants", ""),
             "images": imgs,
             "image_count": len(imgs),
@@ -409,6 +413,7 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Opt
             "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else 0,
             "review_count": len(ratings),
             "is_favourite": key in fav_set,
+            "quality_flags": product_completeness_flags({**row, "images": imgs, "shop_id": shop_id}),
         })
     return out
 
@@ -693,6 +698,39 @@ def parse_price_amount(value: Any) -> Optional[float]:
             return None
     return parse_price_value(str(value))
 
+def normalize_variants_text(value: str) -> str:
+    parts = []
+    seen = set()
+    for item in str(value or "").split(","):
+        cleaned = re.sub(r"\s+", " ", item).strip()
+        key = cleaned.lower()
+        if not cleaned or key in seen:
+            continue
+        seen.add(key)
+        parts.append(cleaned)
+    return ", ".join(parts)
+
+def derive_stock_from_quantity(quantity: Optional[int], fallback_stock: str) -> str:
+    if quantity is None:
+        return str(fallback_stock or "in")
+    if quantity <= 0:
+        return "out"
+    if quantity <= 5:
+        return "low"
+    return "in"
+
+def product_completeness_flags(product: Dict[str, Any]) -> List[str]:
+    flags = []
+    if parse_price_amount(product.get("price_amount")) is None and parse_price_amount(product.get("price")) is None:
+        flags.append("Missing price")
+    if not (product.get("overview") or "").strip():
+        flags.append("Missing description")
+    if not normalize_image_list(str(product.get("shop_id", "")), product.get("images", [])):
+        flags.append("Missing images")
+    if product.get("stock_quantity") in (None, ""):
+        flags.append("Missing quantity")
+    return flags
+
 def format_money(amount: Optional[float], currency_code: str) -> str:
     if amount is None:
         return ""
@@ -789,15 +827,21 @@ def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[st
         raise HTTPException(400, "Enter a valid numeric price")
     if amount < 0:
         raise HTTPException(400, "Price cannot be negative")
+    stock_quantity = None if product.stock_quantity in (None, "") else int(product.stock_quantity)
+    if stock_quantity is not None and stock_quantity < 0:
+        raise HTTPException(400, "Stock quantity cannot be negative")
     currency_code = clean_currency(product.currency_code or shop.get("currency_code") or currency_for_country(shop.get("country_code", "")))
+    normalized_variants = normalize_variants_text(product.variants)
+    stock_value = derive_stock_from_quantity(stock_quantity, product.stock)
     return {
         "name": name,
         "overview": product.overview,
         "price_amount": round(amount, 2),
         "currency_code": currency_code,
         "price": format_money(round(amount, 2), currency_code),
-        "stock": product.stock,
-        "variants": product.variants,
+        "stock": stock_value,
+        "stock_quantity": stock_quantity,
+        "variants": normalized_variants,
         "images": dedup(product.images or []),
         "updated_at": "now()",
     }
@@ -2030,11 +2074,11 @@ def admin_export_products_csv(authorization: Optional[str] = Header(None)):
     rows = supabase.table("products").select("*").in_("shop_id", shop_ids).order("updated_at", desc=True).execute().data if shop_ids else []
     buffer = StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["shop_id", "product_id", "name", "price_amount", "currency_code", "price", "stock", "variants", "overview"])
+    writer.writerow(["shop_id", "product_id", "name", "price_amount", "currency_code", "price", "stock", "stock_quantity", "variants", "overview"])
     for row in rows or []:
         writer.writerow([
             row.get("shop_id", ""), row.get("product_id", ""), row.get("name", ""), row.get("price_amount", ""),
-            row.get("currency_code", ""), row.get("price", ""), row.get("stock", ""), row.get("variants", ""),
+            row.get("currency_code", ""), row.get("price", ""), row.get("stock", ""), row.get("stock_quantity", ""), row.get("variants", ""),
             row.get("overview", ""),
         ])
     return PlainTextResponse(
@@ -2126,7 +2170,7 @@ def admin_product_with_images(
     shop_id: str, authorization: Optional[str] = Header(None),
     product_id: str = Form(...), name: str = Form(...), overview: str = Form(""), price: str = Form(""),
     price_amount: str = Form(""), currency_code: str = Form(""),
-    stock: str = Form("in"), variants: str = Form(""), images: List[UploadFile] = File(default=[])
+    stock: str = Form("in"), stock_quantity: str = Form(""), variants: str = Form(""), images: List[UploadFile] = File(default=[])
 ):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
@@ -2157,6 +2201,7 @@ def admin_product_with_images(
         price_amount=parse_price_amount(price_amount),
         currency_code=currency_code,
         stock=stock,
+        stock_quantity=int(stock_quantity) if str(stock_quantity).strip() else None,
         variants=variants,
         images=merged,
     ), shop)
