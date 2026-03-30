@@ -601,7 +601,16 @@ a{color:inherit;text-decoration:none}
 .variant-row{display:grid;grid-template-columns:1.1fr 1.2fr .8fr auto;gap:10px;align-items:end;padding:12px;border-radius:16px;background:rgba(255,255,255,.76);border:1px solid rgba(191,174,149,.28)}
 .variant-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .variant-help{font-size:12px;color:var(--ink3);line-height:1.6}
+.variant-row-main{display:grid;grid-template-columns:1.1fr 1.2fr .8fr .8fr auto;gap:10px;align-items:end}
+.variant-assets{display:grid;gap:10px;grid-column:1/-1}
+.variant-summary-card{padding:10px 12px;border-radius:14px;background:rgba(247,240,230,.92);border:1px solid rgba(191,174,149,.28);font-size:12px;font-weight:700;color:var(--ink2)}
+.variant-img-grid{display:flex;flex-wrap:wrap;gap:8px}
+.variant-img-item{width:58px;height:58px;border-radius:12px;overflow:hidden;border:1px solid rgba(191,174,149,.34);position:relative;background:rgba(255,255,255,.82)}
+.variant-img-item img{width:100%;height:100%;object-fit:cover}
+.variant-img-del{position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:999px;border:none;background:rgba(31,27,22,.74);color:#fff;font-size:11px;cursor:pointer}
+.variant-img-empty{font-size:11px;color:var(--ink4)}
 @media(max-width:760px){.variant-row{grid-template-columns:1fr}.variant-row .btn{width:100%;justify-content:center}}
+@media(max-width:760px){.variant-row-main{grid-template-columns:1fr}}
 .suggest-list{display:grid;gap:8px;margin-top:10px}
 .suggest-item{border:1px solid rgba(191,174,149,.3);border-radius:16px;background:rgba(255,255,255,.84);padding:11px 13px;cursor:pointer;text-align:left;transition:border-color .16s ease,transform .16s ease,box-shadow .16s ease}
 .suggest-item:hover{border-color:rgba(185,97,40,.35);transform:translateY(-1px);box-shadow:0 10px 18px rgba(48,33,15,.08)}
@@ -1327,7 +1336,7 @@ a{color:inherit;text-decoration:none}
             <div class="card-body">
               <div class="csv-box">
                 <div class="csv-title">Import multiple products into this shop</div>
-                <div class="csv-hint">Columns: <code>product_id, name, price, overview, stock, stock_quantity, variants, variant_data_json, attribute_data_json</code>. Use numeric values for <code>price</code> and <code>stock_quantity</code>. Use <code>variant_data_json</code> for size/color options with price changes.</div>
+                <div class="csv-hint">Columns: <code>product_id, name, price, overview, stock, stock_quantity, variants, variant_data_json, variant_matrix_json, attribute_data_json</code>. Use numeric values for <code>price</code> and <code>stock_quantity</code>. Use <code>variant_data_json</code> for size/color options and <code>variant_matrix_json</code> for exact combinations like Size + Color.</div>
                 <div class="btn-row">
                   <input id="csvFile" type="file" accept=".csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
                   <button id="importCsvBtn" class="btn btn-o btn-sm">Import</button>
@@ -1489,9 +1498,17 @@ a{color:inherit;text-decoration:none}
                         <label>Variant options</label>
                         <button id="addVariantBtn" class="btn btn-g btn-sm" type="button">+ Add Option</button>
                       </div>
-                      <div class="variant-help">Add real options like size or color, and set a price change for each option. Example: <code>Large +2.00</code> or <code>Red +0.00</code>.</div>
+                      <div class="variant-help">Add real options like size or color, set an option-level price change, and upload option-specific images. Example: <code>Large +2.00</code> or <code>Red +0.00</code>.</div>
                       <datalist id="variantGroupList"><option value="Size"></option><option value="Color"></option><option value="Flavor"></option><option value="Pack"></option><option value="Material"></option><option value="Style"></option><option value="Other"></option></datalist>
                       <div id="variantBuilder" class="variant-builder"></div>
+                    </div>
+                    <div class="fld">
+                      <div class="variant-head">
+                        <label>Combination overrides</label>
+                        <button id="refreshVariantMatrixBtn" class="btn btn-g btn-sm" type="button">Refresh Combinations</button>
+                      </div>
+                      <div class="variant-help">When a product has more than one option group, Wave can create full combinations like <code>Size: Large + Color: Red</code>. Each combination can have its own extra price, stock quantity, and image gallery.</div>
+                      <div id="variantMatrixBuilder" class="variant-builder"></div>
                     </div>
                   </div>
                 </div>
@@ -1785,6 +1802,9 @@ const App = {
   adminBulkMode: false,
   csvImportErrors: [],
   ownerFilters: {country:'',region:'',city:'',quality:''},
+  productVariantDraft: [],
+  productVariantMatrixDraft: [],
+  pdVariantSelection: {},
 };
 const $=id=>document.getElementById(id);
 const norm=u=>(u||'').trim().replace(/\/$/,'');
@@ -2051,43 +2071,217 @@ function variantSummary(variantData=[]){
   });
   return Object.entries(grouped).map(([group,labels])=>`${group}: ${labels.join(', ')}`).join(' | ');
 }
-function renderVariantBuilder(prefill=[]){
-  const wrap=$('variantBuilder');
-  if(!wrap) return;
-  const rows=(Array.isArray(prefill)&&prefill.length?prefill:[{group:'Size',label:'',price_delta:0}]).map(item=>({
+function normalizeVariantDraftRows(prefill=[]){
+  const rows=(Array.isArray(prefill)&&prefill.length?prefill:[{group:'Size',label:'',price_delta:0,stock_quantity:'',images:[]}]);
+  return rows.map(item=>({
     group:item.group||'Option',
     label:item.label||'',
     price_delta:Number(item.price_delta||0),
+    stock_quantity:item.stock_quantity==null||item.stock_quantity===''?'':Number(item.stock_quantity),
+    images:Array.isArray(item.images)?item.images.map(absUrl).filter(Boolean):[],
+    _files:Array.isArray(item._files)?item._files:[]
   }));
+}
+function getVariantGroups(variantData=[]){
+  const groups={};
+  (variantData||[]).forEach(item=>{
+    const group=(item.group||'Option').trim();
+    const label=(item.label||'').trim();
+    if(!group||!label) return;
+    (groups[group] ||= []).push({group,label,price_delta:Number(item.price_delta||0),stock_quantity:item.stock_quantity,images:item.images||[]});
+  });
+  return Object.entries(groups)
+    .map(([group,items])=>({group,items:items.filter((item,idx,arr)=>arr.findIndex(other=>other.label.toLowerCase()===item.label.toLowerCase())===idx)}))
+    .filter(entry=>entry.items.length);
+}
+function selectionKey(selections={}){
+  return Object.entries(selections||{}).sort(([a],[b])=>a.localeCompare(b)).map(([group,label])=>`${group}: ${label}`).join(' / ');
+}
+function buildVariantMatrixCombos(groups=[]){
+  if((groups||[]).length<2) return [];
+  const combos=[];
+  const walk=(idx,current)=>{
+    if(idx>=groups.length){ combos.push({...current}); return; }
+    const entry=groups[idx];
+    entry.items.forEach(item=>walk(idx+1,{...current,[entry.group]:item.label}));
+  };
+  walk(0,{});
+  return combos;
+}
+function normalizeVariantMatrixRows(prefill=[],variantData=[]){
+  const groups=getVariantGroups(variantData);
+  const combos=buildVariantMatrixCombos(groups);
+  const existing=new Map((Array.isArray(prefill)?prefill:[]).map(item=>[selectionKey(item.selections||{}),item]));
+  return combos.map(selections=>{
+    const key=selectionKey(selections);
+    const item=existing.get(key)||{};
+    return {
+      selections,
+      selection_key:key,
+      price_delta:Number(item.price_delta||0),
+      stock_quantity:item.stock_quantity==null||item.stock_quantity===''?'':Number(item.stock_quantity),
+      images:Array.isArray(item.images)?item.images.map(absUrl).filter(Boolean):[],
+      _files:Array.isArray(item._files)?item._files:[]
+    };
+  });
+}
+function renderVariantImageItems(images=[],idx=0){
+  if(!images.length) return `<div class="variant-img-empty">No saved images for this option yet.</div>`;
+  return images.map((url,imageIdx)=>`<div class="variant-img-item"><img src="${esc(url)}" alt=""/><button class="variant-img-del" type="button" data-variant-img-del="${idx}" data-variant-img-idx="${imageIdx}">×</button></div>`).join('');
+}
+function renderVariantMatrixBuilder(prefill=[],variantData=null){
+  const wrap=$('variantMatrixBuilder');
+  if(!wrap) return;
+  const rows=normalizeVariantMatrixRows(prefill,variantData||collectVariantData());
+  App.productVariantMatrixDraft=rows;
+  wrap.innerHTML='';
+  if(!rows.length){
+    wrap.innerHTML='<div class="variant-img-empty">Add at least two option groups, like Size and Color, to generate full combination rows.</div>';
+    return;
+  }
+  rows.forEach((item,idx)=>{
+    const row=document.createElement('div');
+    row.className='variant-row';
+    row.innerHTML=`
+      <div class="variant-summary-card">${esc(item.selection_key)}</div>
+      <div class="variant-row-main">
+        <div class="fld"><label>Extra Price Change</label><input data-combo-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/></div>
+        <div class="fld"><label>Combo Qty</label><input data-combo-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="8"/></div>
+      </div>
+      <div class="variant-assets">
+        <div class="fld">
+          <label>Combination Images</label>
+          <input data-combo-files="${idx}" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.jfif"/>
+          <div class="fld-hint">These images win when the customer selects this exact combination.</div>
+        </div>
+        <div>
+          <div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Saved Images</div>
+          <div class="variant-img-grid">${renderVariantImageItems(item.images||[],idx).replaceAll('data-variant-img-del','data-combo-img-del').replaceAll('data-variant-img-idx','data-combo-img-idx')}</div>
+        </div>
+        <div>
+          <div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">New Uploads</div>
+          <div class="variant-img-grid">${(item._files||[]).length ? Array.from(item._files).map(file=>`<div class="variant-img-item"><img src="${esc(URL.createObjectURL(file))}" alt=""/></div>`).join('') : '<div class="variant-img-empty">No new files selected.</div>'}</div>
+        </div>
+      </div>`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('[data-combo-delta],[data-combo-stock]').forEach(el=>el.addEventListener('input',markProductFormDirty));
+  wrap.querySelectorAll('[data-combo-files]').forEach(input=>input.addEventListener('change',e=>{
+    const idx=Number(e.target.getAttribute('data-combo-files'));
+    if(!App.productVariantMatrixDraft[idx]) return;
+    App.productVariantMatrixDraft[idx]._files=Array.from(e.target.files||[]);
+    renderVariantMatrixBuilder(App.productVariantMatrixDraft,variantData||collectVariantData());
+    markProductFormDirty();
+  }));
+  wrap.querySelectorAll('[data-combo-img-del]').forEach(btn=>btn.addEventListener('click',()=>{
+    const idx=Number(btn.getAttribute('data-combo-img-del'));
+    const imageIdx=Number(btn.getAttribute('data-combo-img-idx'));
+    if(!App.productVariantMatrixDraft[idx]) return;
+    App.productVariantMatrixDraft[idx].images=(App.productVariantMatrixDraft[idx].images||[]).filter((_,i)=>i!==imageIdx);
+    renderVariantMatrixBuilder(App.productVariantMatrixDraft,variantData||collectVariantData());
+    markProductFormDirty();
+  }));
+}
+function renderVariantBuilder(prefill=[]){
+  const wrap=$('variantBuilder');
+  if(!wrap) return;
+  const rows=normalizeVariantDraftRows(prefill);
+  App.productVariantDraft=rows;
   wrap.innerHTML='';
   rows.forEach((item,idx)=>{
     const row=document.createElement('div');
     row.className='variant-row';
     row.innerHTML=`
-      <div class="fld"><label>Type</label><input data-variant-group value="${esc(item.group)}" list="variantGroupList" placeholder="Size"/></div>
-      <div class="fld"><label>Option</label><input data-variant-label value="${esc(item.label)}" placeholder="Large"/></div>
-      <div class="fld"><label>Price Change</label><input data-variant-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/></div>
-      <button class="btn btn-r btn-sm" type="button" data-variant-remove="${idx}">Remove</button>`;
+      <div class="variant-row-main">
+        <div class="fld"><label>Type</label><input data-variant-group value="${esc(item.group)}" list="variantGroupList" placeholder="Size"/></div>
+        <div class="fld"><label>Option</label><input data-variant-label value="${esc(item.label)}" placeholder="Large"/></div>
+        <div class="fld"><label>Price Change</label><input data-variant-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/></div>
+        <div class="fld"><label>Option Qty</label><input data-variant-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="12"/></div>
+        <button class="btn btn-r btn-sm" type="button" data-variant-remove="${idx}">Remove</button>
+      </div>
+      <div class="variant-assets">
+        <div class="fld">
+          <label>Option Images</label>
+          <input data-variant-files="${idx}" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.jfif"/>
+          <div class="fld-hint">Upload separate images for this option only. Example: red photos under <code>Color / Red</code>.</div>
+        </div>
+        <div>
+          <div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Saved Images</div>
+          <div class="variant-img-grid">${renderVariantImageItems(item.images||[],idx)}</div>
+        </div>
+        <div>
+          <div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">New Uploads</div>
+          <div class="variant-img-grid" data-variant-new-preview="${idx}">${(item._files||[]).length ? Array.from(item._files).map(file=>`<div class="variant-img-item"><img src="${esc(URL.createObjectURL(file))}" alt=""/></div>`).join('') : '<div class="variant-img-empty">No new files selected.</div>'}</div>
+        </div>
+      </div>`;
     wrap.appendChild(row);
   });
-  wrap.querySelectorAll('[data-variant-group],[data-variant-label],[data-variant-delta]').forEach(el=>el.addEventListener('input',markProductFormDirty));
+  wrap.querySelectorAll('[data-variant-group],[data-variant-label],[data-variant-delta],[data-variant-stock]').forEach(el=>el.addEventListener('input',markProductFormDirty));
+  wrap.querySelectorAll('[data-variant-group],[data-variant-label]').forEach(el=>el.addEventListener('change',()=>renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData())));
+  wrap.querySelectorAll('[data-variant-files]').forEach(input=>input.addEventListener('change',e=>{
+    const idx=Number(e.target.getAttribute('data-variant-files'));
+    if(!App.productVariantDraft[idx]) return;
+    App.productVariantDraft[idx]._files=Array.from(e.target.files||[]);
+    renderVariantBuilder(App.productVariantDraft);
+    markProductFormDirty();
+  }));
+  wrap.querySelectorAll('[data-variant-img-del]').forEach(btn=>btn.addEventListener('click',()=>{
+    const idx=Number(btn.getAttribute('data-variant-img-del'));
+    const imageIdx=Number(btn.getAttribute('data-variant-img-idx'));
+    if(!App.productVariantDraft[idx]) return;
+    App.productVariantDraft[idx].images=(App.productVariantDraft[idx].images||[]).filter((_,i)=>i!==imageIdx);
+    renderVariantBuilder(App.productVariantDraft);
+    markProductFormDirty();
+  }));
   wrap.querySelectorAll('[data-variant-remove]').forEach(btn=>btn.addEventListener('click',()=>{
     const current=collectVariantData();
     current.splice(Number(btn.getAttribute('data-variant-remove')),1);
     renderVariantBuilder(current);
+    renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData());
     markProductFormDirty();
   }));
+  renderVariantMatrixBuilder(App.productVariantMatrixDraft,rows);
 }
 function collectVariantData(){
   const out=[];
-  document.querySelectorAll('#variantBuilder .variant-row').forEach(row=>{
+  document.querySelectorAll('#variantBuilder .variant-row').forEach((row,rowIdx)=>{
     const group=(row.querySelector('[data-variant-group]')?.value||'').trim();
     const label=(row.querySelector('[data-variant-label]')?.value||'').trim();
     const deltaRaw=row.querySelector('[data-variant-delta]')?.value||'0';
+    const stockRaw=row.querySelector('[data-variant-stock]')?.value||'';
     const delta=Number(deltaRaw);
+    const stockQuantity=stockRaw===''?null:Number(stockRaw);
     if(!label) return;
-    out.push({group:group||'Option',label,price_delta:Number.isFinite(delta)?delta:0});
+    const draft=App.productVariantDraft[rowIdx]||{};
+    out.push({
+      group:group||'Option',
+      label,
+      price_delta:Number.isFinite(delta)?delta:0,
+      stock_quantity:Number.isInteger(stockQuantity)&&stockQuantity>=0?stockQuantity:null,
+      images:Array.isArray(draft.images)?draft.images.slice():[],
+      _files:Array.isArray(draft._files)?draft._files.slice():[]
+    });
   });
+  App.productVariantDraft=normalizeVariantDraftRows(out);
+  return out;
+}
+function collectVariantMatrixData(){
+  const out=[];
+  document.querySelectorAll('#variantMatrixBuilder .variant-row').forEach((row,rowIdx)=>{
+    const draft=App.productVariantMatrixDraft[rowIdx]||{};
+    const delta=Number(row.querySelector('[data-combo-delta]')?.value||0);
+    const stockRaw=row.querySelector('[data-combo-stock]')?.value||'';
+    const stockQuantity=stockRaw===''?null:Number(stockRaw);
+    out.push({
+      selections:{...(draft.selections||{})},
+      selection_key:draft.selection_key||selectionKey(draft.selections||{}),
+      price_delta:Number.isFinite(delta)?delta:0,
+      stock_quantity:Number.isInteger(stockQuantity)&&stockQuantity>=0?stockQuantity:null,
+      images:Array.isArray(draft.images)?draft.images.slice():[],
+      _files:Array.isArray(draft._files)?draft._files.slice():[]
+    });
+  });
+  App.productVariantMatrixDraft=normalizeVariantMatrixRows(out,collectVariantData());
   return out;
 }
 function renderShopAttributeFilter(category=''){
@@ -2216,6 +2410,14 @@ function validateCsvRow(obj,rowNumber,category=''){
       if(!Array.isArray(variantData)) errs.push(`Row ${rowNumber}: variant_data_json must be a JSON array.`);
     }catch{
       errs.push(`Row ${rowNumber}: variant_data_json is not valid JSON.`);
+    }
+  }
+  if(String(obj.variant_matrix_json||'').trim()){
+    try{
+      const variantMatrix=JSON.parse(obj.variant_matrix_json);
+      if(!Array.isArray(variantMatrix)) errs.push(`Row ${rowNumber}: variant_matrix_json must be a JSON array.`);
+    }catch{
+      errs.push(`Row ${rowNumber}: variant_matrix_json is not valid JSON.`);
     }
   }
   const schema=PRODUCT_ATTRIBUTE_SCHEMA[category]||[];
@@ -2733,8 +2935,47 @@ function buildPagination(container,pagination,onPageClick){
 ═════════════════════════════════════════════ */
 async function openPD(p,mode,sid,sname){
   App.curProd=p;App.curSid=sid||p.shop_id||App.shopId;App.curSname=sname||p.shop_name||'';
-  App.pdVariant='';App.pdStar=0;
-  const imgs=(p.images||[]).map(absUrl).filter(Boolean);
+  App.pdVariant='';App.pdStar=0;App.pdVariantSelection={};
+  const baseImgs=(p.images||[]).map(absUrl).filter(Boolean);
+  const imgs=baseImgs;
+  const stockFromQty=qty=>{
+    const n=Number(qty);
+    if(!Number.isFinite(n)) return '';
+    if(n<=0) return 'out';
+    if(n<=5) return 'low';
+    return 'in';
+  };
+  const renderGallery=images=>{
+    const imgs=(images||[]).map(absUrl).filter(Boolean);
+    const ia=$('pdImgArea');
+    const ts=$('pdThumbs');
+    if(imgs.length){ia.innerHTML=`<img id="pdMainImg" src="${esc(imgs[0])}" alt="${esc(p.name)}"/>`;$('pdMainImg').addEventListener('click',()=>openLbox(imgs[0]));}
+    else{ia.innerHTML=`<div class="pd-nophoto">📦</div>`;}
+    ts.innerHTML='';
+    if(imgs.length>1){imgs.forEach((url,i)=>{const b=document.createElement('button');b.className='pd-thumb'+(i===0?' on':'');b.innerHTML=`<img src="${esc(url)}" alt=""/>`;b.addEventListener('click',()=>{const m=$('pdMainImg');if(m){m.src=url;m.onclick=()=>openLbox(url);}ts.querySelectorAll('.pd-thumb').forEach(t=>t.classList.remove('on'));b.classList.add('on');});ts.appendChild(b);});ts.style.display='flex';}
+    else{ts.style.display='none';}
+  };
+  const applyVariantPresentation=item=>{
+    const delta=Number(item?.price_delta||0);
+    const base=Number(p.price_amount_native ?? p.price_amount ?? 0);
+    if(Number.isFinite(base)){
+      const total=base+delta;
+      const code=(p.currency_code_native||p.currency_code||'USD').trim();
+      $('pdPrice').textContent=`${code} ${total.toFixed(2)}`;
+      $('pdPrice').className='pd-price';
+    }
+    const variantImages=(item?.images||[]).map(absUrl).filter(Boolean);
+    renderGallery(variantImages.length?variantImages:baseImgs);
+    const variantStatus=item?.stock || stockFromQty(item?.stock_quantity);
+    const statusClass=variantStatus||p.stock||'in';
+    $('pdSP').className=`pd-sp ${statusClass}`;
+    $('pdSP').textContent=variantStatus && item?.stock_quantity!=null ? `${statusClass==='out'?'Out of Stock':statusClass==='low'?'Low Stock':'In Stock'} • ${item.stock_quantity} left` : $('pdSP').textContent;
+    $('pdCartBtn').disabled=statusClass==='out';
+    $('pdPriceNote').textContent=
+      delta ? `Includes ${delta>0?'+':''}${delta.toFixed(2)} for ${item.label}` :
+      (variantImages.length ? `Showing ${item.label} images` :
+      (p.price_converted&&p.price_native?`Converted from ${p.price_native}`:''));
+  };
   if(App.curSid&&p.product_id){
     api(`/public/track-view/${encodeURIComponent(App.curSid)}/${encodeURIComponent(p.product_id)}`,{method:'POST'}).catch(()=>{});
   }
@@ -2772,6 +3013,45 @@ async function openPD(p,mode,sid,sname){
 
   const vw=$('pdVarsWrap'),vr=$('pdVarRow');vr.innerHTML='';
   const variantData=Array.isArray(p.variant_data)?p.variant_data:[];
+  const variantMatrix=Array.isArray(p.variant_matrix)?p.variant_matrix:[];
+  const findSelectedCombo=()=>{
+    const activeGroups=Object.keys(App.pdVariantSelection||{});
+    if(activeGroups.length<2) return null;
+    return variantMatrix.find(item=>{
+      const selections=item.selections||{};
+      const comboGroups=Object.keys(selections);
+      return comboGroups.length===activeGroups.length && comboGroups.every(group=>selections[group]===App.pdVariantSelection[group]);
+    })||null;
+  };
+  const applySelectionState=selectedItem=>{
+    applyVariantPresentation(selectedItem||null);
+    const combo=findSelectedCombo();
+    if(!combo) return;
+    const base=Number(p.price_amount_native ?? p.price_amount ?? 0);
+    const selectedDelta=Object.entries(App.pdVariantSelection||{}).reduce((sum,[group,label])=>{
+      const match=variantData.find(item=>(item.group||'Option')===group && item.label===label);
+      return sum + Number(match?.price_delta||0);
+    },0);
+    const comboDelta=Number(combo.price_delta||0);
+    if(Number.isFinite(base)){
+      const total=base+selectedDelta+comboDelta;
+      const code=(p.currency_code_native||p.currency_code||'USD').trim();
+      $('pdPrice').textContent=`${code} ${total.toFixed(2)}`;
+      $('pdPrice').className='pd-price';
+    }
+    const comboImages=(combo.images||[]).map(absUrl).filter(Boolean);
+    if(comboImages.length) renderGallery(comboImages);
+    const comboStatus=combo.stock || stockFromQty(combo.stock_quantity);
+    if(comboStatus){
+      $('pdSP').className=`pd-sp ${comboStatus}`;
+      $('pdSP').textContent=combo.stock_quantity!=null ? `${comboStatus==='out'?'Out of Stock':comboStatus==='low'?'Low Stock':'In Stock'} • ${combo.stock_quantity} left` : $('pdSP').textContent;
+      $('pdCartBtn').disabled=comboStatus==='out';
+    }
+    const comboLabel=combo.selection_key||selectionKey(combo.selections||{});
+    $('pdPriceNote').textContent=
+      comboDelta ? `${comboLabel} includes ${comboDelta>0?'+':''}${comboDelta.toFixed(2)}` :
+      (comboImages.length ? `Showing images for ${comboLabel}` : `Selected ${comboLabel}`);
+  };
   if(variantData.length){
     vw.style.display='block';
     const grouped={};
@@ -2789,24 +3069,23 @@ async function openPD(p,mode,sid,sname){
       items.forEach((item,idx)=>{
         const b=document.createElement('button');
         b.className='var-pill'+(idx===0?' on':'');
+        if(idx===0) App.pdVariantSelection[group]=item.label;
         const delta=Number(item.price_delta||0);
-        b.textContent=`${item.label}${delta?` ${delta>0?'+':''}${delta.toFixed(2)}`:''}`;
+        const qtyLabel=item.stock_quantity==null?'':` • ${item.stock_quantity} left`;
+        b.textContent=`${item.label}${delta?` ${delta>0?'+':''}${delta.toFixed(2)}`:''}${qtyLabel}`;
         b.addEventListener('click',()=>{
           row.querySelectorAll('.var-pill').forEach(x=>x.classList.remove('on'));
           b.classList.add('on');
-          const base=Number(p.price_amount_native ?? p.price_amount ?? 0);
-          if(Number.isFinite(base)){
-            const total=base+delta;
-            const code=(p.currency_code_native||p.currency_code||'USD').trim();
-            $('pdPrice').textContent=`${code} ${total.toFixed(2)}`;
-            $('pdPriceNote').textContent=delta?`Includes ${delta>0?'+':''}${delta.toFixed(2)} for ${item.label}`:'';
-          }
+          App.pdVariantSelection[group]=item.label;
+          applySelectionState(item);
         });
         row.appendChild(b);
       });
       sec.appendChild(row);
       vr.appendChild(sec);
     });
+    const firstVariant=Object.values(grouped)[0]?.[0];
+    if(firstVariant) applySelectionState(firstVariant);
   }else{
     const vars=(p.variants||'').split(',').map(v=>v.trim()).filter(Boolean);
     if(vars.length){vw.style.display='block';vars.forEach(v=>{const b=document.createElement('button');b.className='var-pill';b.textContent=v;b.addEventListener('click',()=>{vr.querySelectorAll('.var-pill').forEach(x=>x.classList.remove('on'));b.classList.add('on');App.pdVariant=v;});vr.appendChild(b);});}
@@ -3410,6 +3689,10 @@ function validateProductForm(){
   if(!Number.isFinite(price)) return 'Enter a valid numeric product price.';
   if(price<0) return 'Price cannot be negative.';
   if(qty===null || !Number.isInteger(qty) || qty<0) return 'Enter a valid stock quantity.';
+  const badVariant=(collectVariantData()||[]).find(item=>item.stock_quantity!==null && (!Number.isInteger(Number(item.stock_quantity)) || Number(item.stock_quantity)<0));
+  if(badVariant) return `Enter a valid stock quantity for ${badVariant.label}.`;
+  const badCombo=(collectVariantMatrixData()||[]).find(item=>item.stock_quantity!==null && (!Number.isInteger(Number(item.stock_quantity)) || Number(item.stock_quantity)<0));
+  if(badCombo) return `Enter a valid stock quantity for ${badCombo.selection_key}.`;
   return '';
 }
 
@@ -3695,6 +3978,7 @@ $('detailAddProductBtn').addEventListener('click',()=>openProductForm());
 $('detailEditShopBtnSide').addEventListener('click',openEditShopView);
 $('detailAddProductBtnSide').addEventListener('click',()=>openProductForm());
 $('addVariantBtn')?.addEventListener('click',()=>{const data=collectVariantData();data.push({group:'Size',label:'',price_delta:0});renderVariantBuilder(data);markProductFormDirty();});
+$('refreshVariantMatrixBtn')?.addEventListener('click',()=>{renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData());markProductFormDirty();});
 $('detailOpenLiveShopBtn').addEventListener('click',()=>{
   const shopId=App.adminShopId||$('shopId').value.trim();
   if(!shopId)return toast('Load a shop first','','err');
@@ -3739,6 +4023,7 @@ function loadProdIntoEditor(p,{skipView=false}={}){
   syncProductEditorState('edit');
   updateShopCurrencyBadge();
   renderVariantBuilder(p.variant_data||[]);
+  renderVariantMatrixBuilder(p.variant_matrix||[],p.variant_data||[]);
   renderProductAttributeFields(p.attribute_data||{});
   const imgs=(p.images||[]).map(absUrl).filter(Boolean);
   const mgr=$('existImgsMgr'),wrap=$('existImgsWrap');mgr.innerHTML='';
@@ -3749,7 +4034,7 @@ function loadProdIntoEditor(p,{skipView=false}={}){
   updateProductDraftState(false);
   if(!skipView){switchAdminSub('shops');showShopManagerView('productform');$('prodId').scrollIntoView({behavior:'smooth',block:'center'});}
 }
-function clearProdForm(){suspendFormDirty=true;['prodId','prodName','prodPrice','prodQty','prodOverview'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');updateShopCurrencyBadge();renderVariantBuilder([]);renderProductAttributeFields({});setS('productStatus','');suspendFormDirty=false;updateProductDraftState(false);}
+function clearProdForm(){suspendFormDirty=true;['prodId','prodName','prodPrice','prodQty','prodOverview'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');updateShopCurrencyBadge();App.productVariantMatrixDraft=[];renderVariantBuilder([]);renderVariantMatrixBuilder([],[]);renderProductAttributeFields({});setS('productStatus','');suspendFormDirty=false;updateProductDraftState(false);}
 function renderFilePrev(files){const g=$('filePreview');g.innerHTML='';if(!files?.length){g.innerHTML=`<div style="font-size:11px;color:var(--ink4)">No files selected</div>`;return;}Array.from(files).forEach(f=>{const r=new FileReader();r.onload=()=>{const d=document.createElement('div');d.className='prev-item';d.innerHTML=`<img src="${r.result}" alt=""/>`;g.appendChild(d);};r.readAsDataURL(f);});}
 async function saveProd(){
   if(!tok())return toast('Login required','','err');
@@ -3760,15 +4045,20 @@ async function saveProd(){
   const formErr=validateProductForm();
   if(formErr){setS('productStatus',formErr,'err');return toast('Product details missing',formErr,'err');}
   if(!pid){pid=slugify(name);$('prodId').value=pid;}
-  const files=$('prodFiles').files,stock=$('prodStock').value,stockQuantity=Number($('prodQty').value),variantData=collectVariantData();
+  const files=$('prodFiles').files,stock=$('prodStock').value,stockQuantity=Number($('prodQty').value),variantData=collectVariantData(),variantMatrix=collectVariantMatrixData();
+  const variantHasFiles=variantData.some(item=>Array.isArray(item._files)&&item._files.length);
+  const comboHasFiles=variantMatrix.some(item=>Array.isArray(item._files)&&item._files.length);
+  const cleanVariantData=variantData.map(({_files,...item})=>item);
+  const cleanVariantMatrix=variantMatrix.map(({_files,...item})=>item);
   const currencyCode=$('prodCurrencyBadge')?.textContent?.trim()||'USD';
   try{
-    setBtnBusy('saveProdBtn',true,files.length?'Uploading...':'Saving...');
-    setBtnBusy('productFloatingSubmitBtn',true,files.length?'Uploading...':'Saving...');
-    setS('productStatus',files.length?'Uploading product images and saving details...':'Saving product details...');
+    const busyLabel=(files.length||variantHasFiles||comboHasFiles)?'Uploading...':'Saving...';
+    setBtnBusy('saveProdBtn',true,busyLabel);
+    setBtnBusy('productFloatingSubmitBtn',true,busyLabel);
+    setS('productStatus',(files.length||variantHasFiles||comboHasFiles)?'Uploading product images and saving details...':'Saving product details...');
     const attributeData=collectProductAttributeData();
-    if(files.length){const form=new FormData();form.append('product_id',pid);form.append('name',name);form.append('overview',overview);form.append('price',price);form.append('price_amount',price);form.append('currency_code',currencyCode);form.append('stock',stock);form.append('stock_quantity',String(stockQuantity));form.append('variants',variantSummary(variantData));form.append('variant_data_json',JSON.stringify(variantData));form.append('attribute_data_json',JSON.stringify(attributeData));[...files].forEach(f=>form.append('images',f));await api(`/admin/shop/${encodeURIComponent(shopId)}/product-with-images`,{method:'POST',auth:true,body:form});}
-    else{await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid,name,price,price_amount:Number(price),currency_code:currencyCode,overview,stock,stock_quantity:stockQuantity,variants:variantSummary(variantData),variant_data:variantData,attribute_data:attributeData,images:[]})});}
+    if(files.length||variantHasFiles||comboHasFiles){const form=new FormData();form.append('product_id',pid);form.append('name',name);form.append('overview',overview);form.append('price',price);form.append('price_amount',price);form.append('currency_code',currencyCode);form.append('stock',stock);form.append('stock_quantity',String(stockQuantity));form.append('variants',variantSummary(cleanVariantData));form.append('variant_data_json',JSON.stringify(cleanVariantData));form.append('variant_matrix_json',JSON.stringify(cleanVariantMatrix));form.append('attribute_data_json',JSON.stringify(attributeData));[...files].forEach(f=>form.append('images',f));variantData.forEach((item,idx)=>{(item._files||[]).forEach(file=>form.append(`variant_images_${idx}`,file));});variantMatrix.forEach((item,idx)=>{(item._files||[]).forEach(file=>form.append(`variant_combo_images_${idx}`,file));});await api(`/admin/shop/${encodeURIComponent(shopId)}/product-with-images`,{method:'POST',auth:true,body:form});}
+    else{await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid,name,price,price_amount:Number(price),currency_code:currencyCode,overview,stock,stock_quantity:stockQuantity,variants:variantSummary(cleanVariantData),variant_data:cleanVariantData,variant_matrix:cleanVariantMatrix,attribute_data:attributeData,images:[]})});}
     toast('Product saved',name);
     setS('productStatus',`Product "${name}" saved successfully.`,'ok');
     updateProductDraftState(false);
@@ -3895,7 +4185,7 @@ $('shopStreet1')?.addEventListener('input',()=>{
   addressSuggestTimer=setTimeout(loadAddressSuggestions,260);
 });
 $('shopStreet1')?.addEventListener('blur',()=>setTimeout(()=>{if($('shopAddressSuggest')){$('shopAddressSuggest').style.display='none';}},180));
-['prodId','prodName','prodPrice','prodQty','prodOverview','prodVariants'].forEach(id=>{
+['prodId','prodName','prodPrice','prodQty','prodOverview'].forEach(id=>{
   $(id)?.addEventListener('input',markProductFormDirty);
 });
 ['prodStock','prodFiles'].forEach(id=>{
@@ -3967,7 +4257,7 @@ $('refreshAnBtn').addEventListener('click',loadAnalytics);
 $('anDays').addEventListener('change',loadAnalytics);
 
 /* ── CSV ── */
-$('csvTplBtn').addEventListener('click',()=>{const csv='product_id,name,price,overview,stock,stock_quantity,variants,variant_data_json,attribute_data_json\np001,Example Product,9.99,A great product,in,12,"Size: Small, Large (+2.00)","[{""group"":""Size"",""label"":""Small"",""price_delta"":0},{""group"":""Size"",""label"":""Large"",""price_delta"":2}]","{""brand"":""Wave Goods""}"\n';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='products_template.csv';a.click();});
+$('csvTplBtn').addEventListener('click',()=>{const csv='product_id,name,price,overview,stock,stock_quantity,variants,variant_data_json,variant_matrix_json,attribute_data_json\np001,Example Product,9.99,A great product,in,12,"Size: Small, Large (+2.00) | Color: Red, Blue","[{""group"":""Size"",""label"":""Small"",""price_delta"":0},{""group"":""Size"",""label"":""Large"",""price_delta"":2},{""group"":""Color"",""label"":""Red"",""price_delta"":0},{""group"":""Color"",""label"":""Blue"",""price_delta"":0}]","[{""selections"":{""Color"":""Red"",""Size"":""Large""},""price_delta"":1.5,""stock_quantity"":4}]","{""brand"":""Wave Goods""}"\n';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='products_template.csv';a.click();});
 $('importCsvBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a shop first','','err');if(!tok())return toast('Login required','','err');
   const file=$('csvFile').files[0];if(!file)return toast('Select a CSV','','err');
@@ -3995,7 +4285,8 @@ $('importCsvBtn').addEventListener('click',async()=>{
     const obj=row.obj;
     try{
       let variantData=[]; try{variantData=obj.variant_data_json?JSON.parse(obj.variant_data_json):[];}catch{}
-      await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||`p${Date.now()}`,name:obj.name||'Unnamed',price:obj.price||'',price_amount:row.numeric,currency_code:$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',overview:obj.overview||'',stock:obj.stock||'in',stock_quantity:row.qty,variants:obj.variants||variantSummary(variantData),variant_data:variantData,attribute_data:row.attr||{},images:[]})});
+      let variantMatrix=[]; try{variantMatrix=obj.variant_matrix_json?JSON.parse(obj.variant_matrix_json):[];}catch{}
+      await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||`p${Date.now()}`,name:obj.name||'Unnamed',price:obj.price||'',price_amount:row.numeric,currency_code:$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',overview:obj.overview||'',stock:obj.stock||'in',stock_quantity:row.qty,variants:obj.variants||variantSummary(variantData),variant_data:variantData,variant_matrix:variantMatrix,attribute_data:row.attr||{},images:[]})});
       done++;
     }catch(e){
       failed++;
