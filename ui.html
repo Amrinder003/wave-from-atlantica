@@ -245,6 +245,7 @@ a{color:inherit;text-decoration:none}
 .pc-shop-link{color:var(--A2);font-weight:700;cursor:pointer}.pc-shop-link:hover{text-decoration:underline}
 .pc-rating{display:flex;align-items:center;gap:4px;margin-top:8px;font-size:11px;color:var(--ink3)}
 .pc-views{font-size:11px;color:var(--ink4);margin-top:7px}
+.pc-attr{margin-top:8px;font-size:11px;color:var(--ink3);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 @media(max-width:460px){
   .pc{border-radius:20px}
   .pc-photo-wrap{aspect-ratio:1/1}
@@ -627,6 +628,7 @@ a{color:inherit;text-decoration:none}
 .admin-pc-meta{display:flex;flex-wrap:wrap;gap:7px}
 .admin-pc-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.82);border:1px solid rgba(191,174,149,.3);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2)}
 .admin-pc-desc{font-size:12px;color:var(--ink3);line-height:1.62;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-height:58px}
+.admin-pc-attr{font-size:11px;color:var(--ink3);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .admin-pc-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:4px}
 .admin-pc-link{font-size:12px;font-weight:800;color:var(--A2)}
 .admin-pc-edit{font-size:11px;font-weight:800;color:var(--ink4);text-transform:uppercase;letter-spacing:.06em}
@@ -967,6 +969,21 @@ a{color:inherit;text-decoration:none}
           <label class="filter-row"><input type="radio" name="stk" value="" checked/> All</label>
           <label class="filter-row"><input type="radio" name="stk" value="in"/> In Stock</label>
           <label class="filter-row"><input type="radio" name="stk" value="low"/> Low Stock</label>
+        </div>
+      </div>
+      <div class="shop-sidebar-sec" id="shopAttrFilterSec" style="display:none">
+        <div class="shop-sidebar-lbl">Product Details</div>
+        <div class="fld" style="margin-bottom:8px">
+          <label>Filter By</label>
+          <select id="shopAttrKey"></select>
+        </div>
+        <div class="fld" style="margin-bottom:10px">
+          <label>Contains</label>
+          <input id="shopAttrValue" placeholder="Type a value like gluten free, black, XL, 1 year..."/>
+        </div>
+        <div class="btn-row" style="gap:8px">
+          <button id="shopAttrApply" class="btn btn-o btn-sm">Apply</button>
+          <button id="shopAttrClear" class="btn btn-g btn-sm">Clear</button>
         </div>
       </div>
       <div class="shop-sidebar-sec">
@@ -1672,6 +1689,7 @@ const App = {
   timezoneSupport: [],
   viewerCurrency: '',
   shopFilters: {country_code:'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false},
+  shopAttrFilter: {key:'',value:''},
   ownerFilters: {country:'',region:'',city:'',quality:''},
 };
 const $=id=>document.getElementById(id);
@@ -1925,6 +1943,23 @@ function collectProductAttributeData(){
     if(key&&val) out[key]=val;
   });
   return out;
+}
+function renderShopAttributeFilter(category=''){
+  const sec=$('shopAttrFilterSec'), keySel=$('shopAttrKey'), valInp=$('shopAttrValue');
+  if(!sec||!keySel||!valInp) return;
+  const schema=PRODUCT_ATTRIBUTE_SCHEMA[category]||[];
+  if(!schema.length){
+    sec.style.display='none';
+    App.shopAttrFilter={key:'',value:''};
+    keySel.innerHTML='';
+    valInp.value='';
+    return;
+  }
+  sec.style.display='block';
+  if(App.shopAttrFilter.key && !schema.some(([key])=>key===App.shopAttrFilter.key)) App.shopAttrFilter.key='';
+  keySel.innerHTML='<option value="">Any detail</option>'+schema.map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('');
+  keySel.value=App.shopAttrFilter.key||'';
+  valInp.value=App.shopAttrFilter.value||'';
 }
 function collectShopFilters(){
   App.shopFilters={
@@ -2277,6 +2312,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
   const st=p.stock||'in';
   const isFav=!!(p.is_favourite);
   const desc=p.overview?esc(p.overview):'Add a sharper description so customers and chat both understand this product better.';
+  const attrPreview=((p.attribute_lines||[]).slice(0,2).join(' • ')).trim();
 
   if(mode==='admin'){
     const flags=p.quality_flags||[];
@@ -2300,6 +2336,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
           ${(p.avg_rating>0)?`<div class="admin-pc-chip">Rating ${p.avg_rating.toFixed(1)}${p.review_count?` (${p.review_count})`:''}</div>`:`<div class="admin-pc-chip">No Reviews</div>`}
         </div>
         <div class="owner-flag-list">${flags.length?flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join(''):'<span class="owner-good">Catalog ready</span>'}</div>
+        ${attrPreview?`<div class="admin-pc-attr">${esc(attrPreview)}</div>`:''}
         <div class="admin-pc-desc">${desc}</div>
         <div class="admin-pc-actions">
           <div class="admin-pc-link">Open and edit product</div>
@@ -2325,6 +2362,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
       ${p.price?`<div class="pc-price">${esc(p.price)}</div>`:`<div class="pc-noprice">Price on request</div>`}
       <div class="pc-stock ${st}">${stMap[st]}</div>
       ${p.overview?`<div style="font-size:12px;color:var(--ink3);margin-top:7px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.overview)}</div>`:''}
+      ${attrPreview?`<div class="pc-attr">${esc(attrPreview)}</div>`:''}
       ${showShop&&shopName?`<div class="pc-shop">🏪 <span class="pc-shop-link" data-sid="${esc(shopId)}">${esc(shopName)}</span></div>`:''}
       ${(p.product_views>0)?`<div class="pc-views">${p.product_views} view${p.product_views===1?'':'s'}</div>`:''}
       ${(p.avg_rating>0)?`<div class="pc-rating">${starsHtml(p.avg_rating,5,11)} <span>${p.avg_rating.toFixed(1)}</span>${p.review_count?` (${p.review_count})`:''}</div>`:''}
@@ -2623,6 +2661,8 @@ async function loadFavourites(){
    SHOP PAGE
 ═════════════════════════════════════════════ */
 async function openShopPage(shopId,page=1,sort='',stock=''){
+  const changedShop=App.shopId!==shopId;
+  if(changedShop) App.shopAttrFilter={key:'',value:''};
   App.shopId=shopId;App.shopPage=page;App.shopSort=sort;App.shopStock=stock;save();
   showPage('shop');
   $('shopBreadName').textContent=shopId;
@@ -2634,9 +2674,13 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
   if(activeStockInput) activeStockInput.checked = true;
 
   try{
-    const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(shopId)}?page=${page}&sort=${sort}&stock=${stock}`),{auth:!!tok()});
+    const attrParams=[];
+    if(App.shopAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.shopAttrFilter.key)}`);
+    if(App.shopAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.shopAttrFilter.value)}`);
+    const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(shopId)}?page=${page}&sort=${sort}&stock=${stock}${attrParams.length?`&${attrParams.join('&')}`:''}`),{auth:!!tok()});
     App.shopData=d;
     const s=d.shop,st=d.stats||{};
+    renderShopAttributeFilter(s.category||'');
     $('shopBreadName').textContent=s.name;$('shopHdrName').textContent=s.name;
     $('shopHdrChips').innerHTML=[
       s.address?`<span class="shop-hdr-chip">${esc(s.address)}</span>`:'',
@@ -2670,7 +2714,8 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
     });
 
     const total=d.pagination?.total ?? d.products?.length ?? 0;
-    $('shopProdCount').textContent=`${total} product${total!==1?'s':''}`;
+    const attrActive=App.shopAttrFilter?.value ? ` matching ${App.shopAttrFilter.value}` : '';
+    $('shopProdCount').textContent=`${total} product${total!==1?'s':''}${attrActive}`;
     fillGrid($('shopProdGrid'),d.products||[],{mode:'browse',showShop:false});
     buildPagination($('shopPagination'),d.pagination,p=>openShopPage(shopId,p,$('shopSort').value,App.shopStock));
 
@@ -2685,8 +2730,24 @@ $('shopSrchBtn').addEventListener('click',doShopSearch);
 $('shopSrchIn').addEventListener('keydown',e=>{if(e.key==='Enter')doShopSearch();});
 $('shopSort').addEventListener('change',()=>openShopPage(App.shopId,1,$('shopSort').value,App.shopStock));
 $('stockFilterList').addEventListener('change',e=>{App.shopStock=e.target.value||'';openShopPage(App.shopId,1,$('shopSort').value,App.shopStock);});
+$('shopAttrApply')?.addEventListener('click',()=>{
+  App.shopAttrFilter={key:$('shopAttrKey')?.value||'',value:$('shopAttrValue')?.value.trim()||''};
+  if($('shopSrchIn')?.value.trim()) loadShopSearchPage($('shopSrchIn').value.trim(),1);
+  else openShopPage(App.shopId,1,$('shopSort').value,App.shopStock);
+});
+$('shopAttrClear')?.addEventListener('click',()=>{
+  App.shopAttrFilter={key:'',value:''};
+  if($('shopAttrKey')) $('shopAttrKey').value='';
+  if($('shopAttrValue')) $('shopAttrValue').value='';
+  if($('shopSrchIn')?.value.trim()) loadShopSearchPage($('shopSrchIn').value.trim(),1);
+  else openShopPage(App.shopId,1,$('shopSort').value,App.shopStock);
+});
+$('shopAttrValue')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('shopAttrApply')?.click();}});
 async function loadShopSearchPage(q,page=1){
-  const d=await api(withViewerCurrency(`/public/search?shop_id=${encodeURIComponent(App.shopId)}&q=${encodeURIComponent(q)}&page=${page}&limit=40`));
+  const attrParams=[];
+  if(App.shopAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.shopAttrFilter.key)}`);
+  if(App.shopAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.shopAttrFilter.value)}`);
+  const d=await api(withViewerCurrency(`/public/search?shop_id=${encodeURIComponent(App.shopId)}&q=${encodeURIComponent(q)}&page=${page}&limit=40${attrParams.length?`&${attrParams.join('&')}`:''}`));
   $('shopProdCount').textContent=`${d.total||0} results for "${q}"`;
   fillGrid($('shopProdGrid'),d.results||[],{mode:'browse',showShop:false});
   buildPagination($('shopPagination'),d.pagination,p=>loadShopSearchPage(q,p));
@@ -3146,7 +3207,7 @@ async function loadAdminShop(shopId){
 function renderAdminProds(prods){
   if(!$('adminPGrid')||!$('adminPBadge')) return;
   const q=$('adminProdSearch')?.value.trim().toLowerCase()||'';
-  const filtered=q?prods.filter(p=>`${p.name||''} ${p.overview||''} ${p.product_id||''}`.toLowerCase().includes(q)):prods;
+  const filtered=q?prods.filter(p=>`${p.name||''} ${p.overview||''} ${p.product_id||''} ${(p.attribute_lines||[]).join(' ')}`.toLowerCase().includes(q)):prods;
   const n=filtered.length;$('adminPBadge').textContent=`${n}`;
   const g=$('adminPGrid');g.innerHTML='';
   if(!n){

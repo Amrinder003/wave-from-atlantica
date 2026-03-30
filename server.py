@@ -89,6 +89,28 @@ PRODUCT_ATTRIBUTE_SCHEMA: Dict[str, List[Tuple[str, str]]] = {
     "Home": [("brand", "Brand"), ("material", "Material"), ("dimensions", "Dimensions"), ("color", "Color")],
     "Sports": [("brand", "Brand"), ("size", "Size"), ("material", "Material"), ("skill_level", "Skill level")],
 }
+ATTRIBUTE_QUERY_SYNONYMS: Dict[str, List[str]] = {
+    "ingredients": ["ingredient", "ingredients", "made of", "contains", "contain", "inside"],
+    "allergens": ["allergen", "allergens", "gluten", "gluten free", "dairy", "nut", "nuts", "peanut", "peanuts", "egg", "soy", "sesame"],
+    "serving_size": ["serving size", "portion", "serves", "size"],
+    "origin": ["origin", "from where", "made where", "country of origin"],
+    "brand": ["brand", "maker", "company"],
+    "material": ["material", "fabric", "made of", "cotton", "wool", "leather"],
+    "sizes": ["size", "sizes", "sizing"],
+    "size": ["size", "sizes", "sizing"],
+    "colors": ["color", "colors", "colour", "colours"],
+    "color": ["color", "colors", "colour", "colours"],
+    "model": ["model", "version"],
+    "warranty": ["warranty", "guarantee"],
+    "compatibility": ["compatible", "compatibility", "works with", "fit", "fits"],
+    "skin_type": ["skin type", "for skin", "sensitive skin", "oily skin", "dry skin"],
+    "author": ["author", "writer", "written by"],
+    "publisher": ["publisher", "published by"],
+    "format": ["format", "paperback", "hardcover", "ebook"],
+    "language": ["language"],
+    "dimensions": ["dimensions", "dimension", "size", "measurements"],
+    "skill_level": ["skill level", "beginner", "intermediate", "advanced"],
+}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # APP
@@ -757,6 +779,55 @@ def format_attribute_lines(attribute_data: Dict[str, str], category: str = "") -
         lines.append(f"{label}: {value}")
     return lines
 
+def product_attribute_label_map(category: str = "") -> Dict[str, str]:
+    return {key: label for key, label in PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])}
+
+def attribute_query_keys(q: str, category: str = "") -> List[str]:
+    qn = norm_text(q)
+    keys = []
+    label_map = product_attribute_label_map(category)
+    for key, label in label_map.items():
+        aliases = [key.replace("_", " "), label] + ATTRIBUTE_QUERY_SYNONYMS.get(key, [])
+        if any(norm_text(alias) in qn for alias in aliases if alias):
+            keys.append(key)
+    return dedup(keys)
+
+def product_attribute_text(row: Dict[str, Any], category: str = "") -> str:
+    attribute_data = normalize_attribute_data(row.get("attribute_data"), category)
+    label_map = product_attribute_label_map(category)
+    parts: List[str] = []
+    for key, value in attribute_data.items():
+        label = label_map.get(key, key.replace("_", " "))
+        parts.extend([key.replace("_", " "), label, str(value)])
+    return " ".join(parts)
+
+def product_search_blob(row: Dict[str, Any], category: str = "") -> str:
+    return " ".join([
+        str(row.get("product_id", "")),
+        str(row.get("name", "")),
+        str(row.get("overview", "")),
+        str(row.get("variants", "")),
+        product_attribute_text(row, category),
+    ]).strip()
+
+def matches_attribute_filter(row: Dict[str, Any], category: str = "", attr_key: str = "", attr_value: str = "") -> bool:
+    attr_key = re.sub(r"[^a-z0-9_]", "", str(attr_key or "").lower())
+    attr_value_n = norm_text(attr_value)
+    attribute_data = normalize_attribute_data(row.get("attribute_data"), category)
+    if attr_key and attr_key not in attribute_data:
+        return False
+    if attr_value_n:
+        hay = product_attribute_text(row, category) if not attr_key else str(attribute_data.get(attr_key, ""))
+        if attr_value_n not in norm_text(hay):
+            return False
+    return True
+
+def product_matches_query(row: Dict[str, Any], q: str, category: str = "") -> bool:
+    qn = norm_text(q)
+    if not qn:
+        return True
+    return qn in norm_text(product_search_blob(row, category))
+
 def derive_stock_from_quantity(quantity: Optional[int], fallback_stock: str) -> str:
     if quantity is None:
         return str(fallback_stock or "in")
@@ -1141,7 +1212,7 @@ def extract_candidate_phrases(q: str) -> List[str]:
             cleaned.append(phrase)
     return cleaned[:6]
 
-def choose_chat_products(prod_rows: List[Dict], q: str, answer_text: str = "", prefer_images: bool = False, limit: int = 4) -> List[Dict]:
+def choose_chat_products(prod_rows: List[Dict], q: str, answer_text: str = "", prefer_images: bool = False, limit: int = 4, category: str = "") -> List[Dict]:
     qn = norm_text(q)
     an = norm_text(answer_text)
     q_tokens = set(re.findall(r"[a-z0-9]+", qn))
@@ -1167,11 +1238,13 @@ def choose_chat_products(prod_rows: List[Dict], q: str, answer_text: str = "", p
             score += 7
         elif best_phrase >= 0.72:
             score += 4
-        row_tokens = set(re.findall(r"[a-z0-9]+", norm_text(f"{name} {row.get('overview','')} {row.get('product_id','')}")))
+        attr_text = product_attribute_text(row, category)
+        row_tokens = set(re.findall(r"[a-z0-9]+", norm_text(f"{name} {row.get('overview','')} {row.get('product_id','')} {row.get('variants','')} {attr_text}")))
         score += len(q_tokens & row_tokens) * 0.9
         if imgs:
             score += 0.5
         if score > 0:
+            attr_data = normalize_attribute_data(row.get("attribute_data"), category)
             enriched = {
                 "shop_id": row.get("shop_id", ""),
                 "product_id": row.get("product_id", ""),
@@ -1186,6 +1259,8 @@ def choose_chat_products(prod_rows: List[Dict], q: str, answer_text: str = "", p
                 "price_converted": row.get("price_converted"),
                 "stock": row.get("stock", "in"),
                 "images": imgs,
+                "attribute_data": attr_data,
+                "attribute_lines": format_attribute_lines(attr_data, category),
                 "_score": score,
             }
             ranked.append(enriched)
@@ -1195,7 +1270,7 @@ def choose_chat_products(prod_rows: List[Dict], q: str, answer_text: str = "", p
 def answer_product_image_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     if not wants_product_image(q):
         return None
-    matches = choose_chat_products(prod_rows, q, prefer_images=True, limit=4)
+    matches = choose_chat_products(prod_rows, q, prefer_images=True, limit=4, category=shop.get("category", ""))
     if not matches:
         return {
             "answer": f"I couldn't find a matching product photo at {shop_label(shop)} yet. Try asking with the product name or say **show all products**.",
@@ -1216,7 +1291,7 @@ def answer_product_image_query(shop: dict, prod_rows: List[Dict], q: str) -> Opt
 def answer_price_lookup_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     if not is_price_lookup_query(q):
         return None
-    picked = rank_products(prod_rows, q)
+    picked = rank_products(prod_rows, q, shop.get("category", ""))
     if not picked:
         return None
     top = picked[0]
@@ -1231,6 +1306,75 @@ def answer_price_lookup_query(shop: dict, prod_rows: List[Dict], q: str) -> Opti
         "answer": answer,
         "products": serialize_products_bulk([top]),
         "meta": {"llm_used": False, "reason": "price_lookup", "suggestions": [f"Show me photos of {top['name']}", f"Do you have more like {top['name']}?", "What's in stock?"]},
+    }
+
+def answer_attribute_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
+    category = shop.get("category", "")
+    keys = attribute_query_keys(q, category)
+    if not keys:
+        return None
+    ranked = rank_products(prod_rows, q, category)
+    matches = []
+    for row in ranked or prod_rows:
+        attr_data = normalize_attribute_data(row.get("attribute_data"), category)
+        if not any(attr_data.get(key) for key in keys):
+            continue
+        lines = format_attribute_lines(attr_data, category)
+        matches.append({
+            "shop_id": row.get("shop_id", ""),
+            "product_id": row.get("product_id", ""),
+            "name": row.get("name", ""),
+            "overview": row.get("overview", ""),
+            "price": row.get("price", ""),
+            "price_amount": row.get("price_amount"),
+            "price_amount_native": row.get("price_amount_native"),
+            "currency_code": row.get("currency_code"),
+            "currency_code_native": row.get("currency_code_native"),
+            "price_native": row.get("price_native"),
+            "price_converted": row.get("price_converted"),
+            "stock": row.get("stock", "in"),
+            "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
+            "attribute_data": attr_data,
+            "attribute_lines": lines,
+        })
+        if len(matches) >= 5:
+            break
+
+    if not matches:
+        label_map = product_attribute_label_map(category)
+        asked = ", ".join(label_map.get(key, key.replace("_", " ")) for key in keys)
+        return {
+            "answer": f"I could not find any saved {asked} details for products at {shop_label(shop)} yet.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "attribute_missing", "suggestions": ["Show all products", "What's in stock?", "What do you recommend?"]},
+        }
+
+    asked_key = keys[0]
+    asked_label = product_attribute_label_map(category).get(asked_key, asked_key.replace("_", " ").title())
+    top = matches[0]
+    top_value = top["attribute_data"].get(asked_key)
+    if top_value and len(matches) == 1:
+        return {
+            "answer": f"For **{top['name']}**, the **{asked_label.lower()}** is **{top_value}**.",
+            "products": serialize_products_bulk(matches[:1]),
+            "meta": {"llm_used": False, "reason": "attribute_lookup", "suggestions": [f"Show me photos of {top['name']}", f"What is the price of {top['name']}?", "Show all products"]},
+        }
+
+    lines = [f"Here are the {asked_label.lower()} details I found at {shop_label(shop)}:"]
+    for item in matches:
+        picked_lines = []
+        for key in keys:
+            value = item["attribute_data"].get(key)
+            if value:
+                label = product_attribute_label_map(category).get(key, key.replace("_", " ").title())
+                picked_lines.append(f"{label}: {value}")
+        if not picked_lines:
+            continue
+        lines.append(f"- **{item['name']}** - {' | '.join(picked_lines)}")
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_products_bulk(matches),
+        "meta": {"llm_used": False, "reason": "attribute_lookup", "suggestions": ["Show all products", "What's in stock?", "What do you recommend?"]},
     }
 
 def answer_recommendation_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
@@ -1255,7 +1399,7 @@ def answer_recommendation_query(shop: dict, prod_rows: List[Dict], q: str) -> Op
             "meta": {"llm_used": False, "reason": "recommendation_empty", "suggestions": ["Show all products", "What's in stock?", "Do you have anything cheaper?"]},
         }
 
-    ranked = rank_products(candidates, q)
+    ranked = rank_products(candidates, q, shop.get("category", ""))
     if not ranked:
         ranked = rank_products(candidates, shop.get("category", "")) or [
             {
@@ -1293,18 +1437,20 @@ def answer_recommendation_query(shop: dict, prod_rows: List[Dict], q: str) -> Op
         "meta": {"llm_used": False, "reason": "recommendation", "suggestions": build_chat_suggestions(q, shop, top)},
     }
 
-def rank_products(products: List[Dict], q: str) -> List[Dict]:
+def rank_products(products: List[Dict], q: str, category: str = "") -> List[Dict]:
     qn = norm_text(q); qt = set(re.findall(r"[a-z0-9]+", qn))
     scored = []
     for r in products:
         name = (r.get("name") or "").strip(); ov = (r.get("overview") or "").strip()
-        hay = norm_text(f"{name} {ov}"); ht = set(re.findall(r"[a-z0-9]+", hay))
+        attr_text = product_attribute_text(r, category)
+        hay = norm_text(f"{name} {ov} {r.get('variants','')} {attr_text}"); ht = set(re.findall(r"[a-z0-9]+", hay))
         s = 0.0
         if norm_text(name) and norm_text(name) in qn: s += 8
         if qt & ht: s += len(qt & ht) * 1.4
         if qn and qn in hay: s += 5
         if s > 0: 
             imgs = normalize_image_list(r.get("shop_id", ""), r.get("images", []))
+            attr_data = normalize_attribute_data(r.get("attribute_data"), category)
             scored.append((s, {
                 "shop_id": r.get("shop_id", ""),
                 "product_id": r["product_id"], 
@@ -1312,7 +1458,9 @@ def rank_products(products: List[Dict], q: str) -> List[Dict]:
                 "overview": r.get("overview",""), 
                 "price": r.get("price",""), 
                 "stock": r.get("stock","in"), 
-                "images": imgs
+                "images": imgs,
+                "attribute_data": attr_data,
+                "attribute_lines": format_attribute_lines(attr_data, category),
             }))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [p for _, p in scored]
@@ -1439,11 +1587,30 @@ def build_chat_suggestions(q: str, shop: dict, picked: List[Dict]) -> List[str]:
     if category:
         suggestions.append(f"What are your best {category.lower()} products?")
         suggestions.append(f"Show me your most popular {category.lower()} items")
+        suggestions.extend(category_prompt_suggestions(category))
     if "hour" not in qn and shop.get("hours"):
         suggestions.append("What are your opening hours?")
     if "address" not in qn and shop.get("address"):
         suggestions.append("Where is this shop located?")
     return dedup(suggestions)[:4]
+
+def category_prompt_suggestions(category: str = "") -> List[str]:
+    category = str(category or "").strip()
+    if category == "Food":
+        return ["Which items are gluten free?", "What ingredients are in this product?"]
+    if category == "Clothing":
+        return ["What sizes do you have?", "What colors are available?"]
+    if category == "Electronics":
+        return ["What brand is this?", "What does this work with?"]
+    if category == "Beauty":
+        return ["What skin type is this for?", "What ingredients does it use?"]
+    if category == "Books":
+        return ["Who is the author?", "What format is this book?"]
+    if category == "Home":
+        return ["What material is this made from?", "What are the dimensions?"]
+    if category == "Sports":
+        return ["What size do you have?", "Is this for beginners or advanced users?"]
+    return []
 
 def shop_label(shop: dict) -> str:
     return f"**{shop['name']}**"
@@ -1871,7 +2038,7 @@ def public_address_search(q: str = Query(..., min_length=3), country: str = Quer
         return {"ok": True, "suggestions": [], "provider": "error"}
 
 @app.get("/public/shop/{shop_id}")
-def public_shop(shop_id: str, request: Request, sort: str = Query("default"), stock: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
+def public_shop(shop_id: str, request: Request, sort: str = Query("default"), stock: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
     shop_res = supabase.table("shops").select("*").eq("shop_id", shop_id).execute()
     if not shop_res.data: raise HTTPException(404, "Shop not found")
     shop_row = normalize_shop_record(shop_res.data[0])
@@ -1884,6 +2051,8 @@ def public_shop(shop_id: str, request: Request, sort: str = Query("default"), st
     q = supabase.table("products").select("*").eq("shop_id", shop_id)
     if stock in ("in", "low", "out"): q = q.eq("stock", stock)
     all_prods = q.execute().data
+    if attr_key or attr_value:
+        all_prods = [row for row in all_prods if matches_attribute_filter(row, shop_row.get("category", ""), attr_key, attr_value)]
     
     if sort == "price-asc": all_prods.sort(key=lambda x: get_row_price_amount(x) or 0)
     elif sort == "price-desc": all_prods.sort(key=lambda x: get_row_price_amount(x) or 0, reverse=True)
@@ -1899,24 +2068,29 @@ def public_shop(shop_id: str, request: Request, sort: str = Query("default"), st
         "products": ser_prods,
         "pagination": paged["pagination"],
         "stats": shop_stats(shop_id),
-        "suggested_questions": ["What products do you have?", "Show all products", "What's in stock?", "Show me your best product", "Show all images"]
+        "suggested_questions": dedup(["What products do you have?", "Show all products", "What's in stock?", "Show me your best product", "Show all images", *category_prompt_suggestions(shop_row.get("category", ""))])[:6]
     }
 
 @app.get("/public/search")
-def search_shop(request: Request, shop_id: str = Query(...), q: str = Query(...), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100)):
+def search_shop(request: Request, shop_id: str = Query(...), q: str = Query(...), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100)):
     qn = (q or "").strip()
     if not qn: return {"ok": True, "shop_id": shop_id, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
-    rows = supabase.table("products").select("*").eq("shop_id", shop_id).or_(f"name.ilike.%{qn}%,overview.ilike.%{qn}%").order("updated_at", desc=True).execute().data
-    paged = paginate_list(rows, page, limit)
     shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
     shop_map = {shop_id: normalize_shop_record(shop_rows[0])} if shop_rows else {}
+    shop_row = shop_map.get(shop_id, {})
+    rows = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
+    rows = [row for row in rows if product_matches_query(row, qn, shop_row.get("category", ""))]
+    if attr_key or attr_value:
+        rows = [row for row in rows if matches_attribute_filter(row, shop_row.get("category", ""), attr_key, attr_value)]
+    paged = paginate_list(rows, page, limit)
     return {"ok": True, "shop_id": shop_id, "q": q, "results": serialize_products_bulk(paged["items"], None, shop_map, currency), "total": len(rows), "pagination": paged["pagination"]}
 
 @app.get("/public/search/global")
 def search_global(request: Request, q: str = Query(...), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60)):
     qn = (q or "").strip()
     if not qn: return {"ok": True, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
-    rows = supabase.table("products").select("*, shops(name, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").or_(f"name.ilike.%{qn}%,overview.ilike.%{qn}%").order("updated_at", desc=True).execute().data
+    rows = supabase.table("products").select("*, shops(name, category, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").order("updated_at", desc=True).execute().data
+    rows = [row for row in rows if product_matches_query(row, qn, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""))]
     
     paged = paginate_list(rows, page, limit)
     shop_map = {}
@@ -1983,7 +2157,11 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
     if product_image_answer is not None:
         return product_image_answer
 
-    picked = rank_products(prod_rows, q)
+    attribute_answer = answer_attribute_query(shop, prod_rows, q)
+    if attribute_answer is not None:
+        return attribute_answer
+
+    picked = rank_products(prod_rows, q, shop.get("category", ""))
     abs_picked = serialize_products_bulk(picked[:4], None, {shop_id: shop}, currency)
     rag = {"chunks": [], "matches": []}
     if HAS_RAG and not is_greeting(q):
@@ -2015,7 +2193,7 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
     try:
         system_prompt = SHOP_ASSISTANT_SYSTEM + "\n" + shop_voice_instructions(shop) + "\n" + shop_persona_instructions(shop) + "\n" + response_style_instructions(q)
         llm_res = llm_chat(system_prompt, f"CONTEXT:\n{build_context(shop, picked, prod_rows, rag.get('chunks', []))}\n\nCUSTOMER: {q}")
-        attached = choose_chat_products(prod_rows, q, llm_res["content"], prefer_images=wants_product_image(q), limit=4)
+        attached = choose_chat_products(prod_rows, q, llm_res["content"], prefer_images=wants_product_image(q), limit=4, category=shop.get("category", ""))
         if attached:
             abs_picked = serialize_products_bulk(attached, None, {shop_id: shop}, currency)
         elif wants_product_image(q):
