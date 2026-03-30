@@ -693,6 +693,12 @@ a{color:inherit;text-decoration:none}
 .owner-shop-card-stat-k{font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.06em}
 .owner-shop-card-stat-v{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;margin-top:4px}
 .owner-shop-card-go{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--A2);padding-top:4px}
+.owner-filter-bar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;margin:14px 0}
+.owner-flag-list{display:flex;flex-wrap:wrap;gap:8px}
+.owner-flag{font-size:11px;font-weight:700;padding:6px 9px;border-radius:999px;background:#fff4ea;color:#a24b1d;border:1px solid rgba(185,97,40,.24)}
+.owner-good{font-size:11px;font-weight:700;padding:6px 9px;border-radius:999px;background:#ebfbf2;color:#1f7a4b;border:1px solid rgba(31,122,75,.18)}
+@media(max-width:900px){.owner-filter-bar{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){.owner-filter-bar{grid-template-columns:1fr}}
 .owner-detail-card{overflow:hidden;background:linear-gradient(135deg,rgba(255,250,244,.98),rgba(250,242,232,.92));position:relative}
 .owner-detail-card::after{content:"";position:absolute;right:-40px;top:-26px;width:180px;height:180px;border-radius:999px;background:radial-gradient(circle,rgba(2,132,199,.1),rgba(2,132,199,0));pointer-events:none}
 .owner-detail-card-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:28px 26px 12px}
@@ -1126,6 +1132,16 @@ a{color:inherit;text-decoration:none}
                 <div class="sbox">
                   <div class="sbox-l">3. Open live shop</div>
                   <div class="sbox-v">Check the public page exactly as customers see it.</div>
+                </div>
+              </div>
+              <div class="owner-filter-bar">
+                <div class="fld"><label>Country</label><input id="ownerFilterCountry" placeholder="CA or Canada"/></div>
+                <div class="fld"><label>Region</label><input id="ownerFilterRegion" placeholder="Nova Scotia"/></div>
+                <div class="fld"><label>City</label><input id="ownerFilterCity" placeholder="Halifax"/></div>
+                <div class="fld"><label>Quality</label><select id="ownerFilterQuality"><option value="">All shops</option><option value="complete">Complete only</option><option value="incomplete">Needs attention</option></select></div>
+                <div class="btn-row">
+                  <button id="ownerExportShopsBtn" class="btn btn-g btn-sm">Export Shops</button>
+                  <button id="ownerExportProductsBtn" class="btn btn-g btn-sm">Export Products</button>
                 </div>
               </div>
             </div>
@@ -1641,6 +1657,7 @@ const App = {
   timezoneSupport: [],
   viewerCurrency: '',
   shopFilters: {country_code:'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false},
+  ownerFilters: {country:'',region:'',city:'',quality:''},
 };
 const $=id=>document.getElementById(id);
 const norm=u=>(u||'').trim().replace(/\/$/,'');
@@ -2962,7 +2979,20 @@ async function loadMyShops(){
   if(!tok()){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Login</div><div class="et">Sign in first to manage your shops.</div></div>`;setFieldHint('myShopsStatus','Sign in to create or manage shops.','');return;}
   try{
     const d=await api('/admin/my-shops',{auth:true});
-    const shops=d.shops||[];
+    let shops=d.shops||[];
+    collectOwnerFilters();
+    shops=shops.filter(s=>{
+      const country=((s.country_name||s.country_code||'').toLowerCase());
+      const region=((s.region||'').toLowerCase());
+      const city=((s.city||'').toLowerCase());
+      const flags=s.quality_flags||[];
+      if(App.ownerFilters.country && !country.includes(App.ownerFilters.country)) return false;
+      if(App.ownerFilters.region && !region.includes(App.ownerFilters.region)) return false;
+      if(App.ownerFilters.city && !city.includes(App.ownerFilters.city)) return false;
+      if(App.ownerFilters.quality==='complete' && flags.length) return false;
+      if(App.ownerFilters.quality==='incomplete' && !flags.length) return false;
+      return true;
+    });
     App.adminShops=shops;
     const grid=$('ownerShopGrid');grid.innerHTML='';
     if(!shops.length){
@@ -2973,9 +3003,10 @@ async function loadMyShops(){
     }
     shops.forEach(s=>{
       const stats=s.stats||{};
+      const flags=s.quality_flags||[];
       const card=document.createElement('button');
       card.className='owner-shop-card';
-      card.innerHTML=`<div class="owner-shop-card-top"><div><div class="owner-shop-card-name">${esc(s.name||s.shop_id)}</div><div class="owner-shop-card-meta">${esc(s.address||'Address coming soon')}${s.category?` · ${esc(s.category)}`:''}</div></div><span class="badge">${stats.product_count??0} products</span></div><div class="owner-shop-card-overview">${esc((s.overview||'Open this workspace to update your storefront, manage products, and keep the customer chat accurate.').slice(0,150))}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Products</div><div class="owner-shop-card-stat-v">${stats.product_count??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Chats / 30d</div><div class="owner-shop-card-stat-v">${stats.chat_hits_30d??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Rating</div><div class="owner-shop-card-stat-v">${Number(stats.avg_rating||0).toFixed(1)}</div></div></div><div class="owner-shop-card-go"><span>Open shop workspace</span><span>→</span></div>`;
+      card.innerHTML=`<div class="owner-shop-card-top"><div><div class="owner-shop-card-name">${esc(s.name||s.shop_id)}</div><div class="owner-shop-card-meta">${esc(s.address||'Address coming soon')}${s.category?` · ${esc(s.category)}`:''}</div></div><span class="badge">${stats.product_count??0} products</span></div><div class="owner-shop-card-overview">${esc((s.overview||'Open this workspace to update your storefront, manage products, and keep the customer chat accurate.').slice(0,150))}</div><div class="owner-flag-list">${flags.length?flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join(''):'<span class="owner-good">Ready to publish</span>'}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Products</div><div class="owner-shop-card-stat-v">${stats.product_count??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Chats / 30d</div><div class="owner-shop-card-stat-v">${stats.chat_hits_30d??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Rating</div><div class="owner-shop-card-stat-v">${Number(stats.avg_rating||0).toFixed(1)}</div></div></div><div class="owner-shop-card-go"><span>Open shop workspace</span><span>→</span></div>`;
       card.addEventListener('click',()=>loadAdminShop(s.shop_id));
       grid.appendChild(card);
     });
@@ -2983,6 +3014,10 @@ async function loadMyShops(){
   }catch(e){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Error</div><div class="et">${esc(e.message)}</div></div>`;setFieldHint('myShopsStatus','Could not load your shops.','err');}
 }
 $('refreshMyShops').addEventListener('click',loadMyShops);
+['ownerFilterCountry','ownerFilterRegion','ownerFilterCity'].forEach(id=>$(id)?.addEventListener('input',()=>loadMyShops()));
+$('ownerFilterQuality')?.addEventListener('change',()=>loadMyShops());
+$('ownerExportShopsBtn')?.addEventListener('click',async()=>{try{await downloadAdminExport('/admin/export/shops.csv','shops_export.csv');}catch(e){toast('Export failed',e.message,'err');}});
+$('ownerExportProductsBtn')?.addEventListener('click',async()=>{try{await downloadAdminExport('/admin/export/products.csv','products_export.csv');}catch(e){toast('Export failed',e.message,'err');}});
 App.adminShopId=null;
 App.adminShopData=null;
 App.adminProducts=[];
@@ -3355,6 +3390,29 @@ async function loadTimezoneSupport(){
 function clearShopFilters(){
   App.shopFilters={country_code:'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false};
   syncShopFilterControls();
+}
+async function downloadAdminExport(path,filename){
+  const headers={};
+  if(tok()) headers['Authorization']=`Bearer ${tok()}`;
+  const res=await fetch(`${resolveSrv(App.srv)}${path}`,{headers});
+  if(!res.ok) throw new Error(`Export failed (${res.status})`);
+  const blob=await res.blob();
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+function collectOwnerFilters(){
+  App.ownerFilters={
+    country:$('ownerFilterCountry')?.value.trim().toLowerCase()||'',
+    region:$('ownerFilterRegion')?.value.trim().toLowerCase()||'',
+    city:$('ownerFilterCity')?.value.trim().toLowerCase()||'',
+    quality:$('ownerFilterQuality')?.value||'',
+  };
 }
 
 /* ═════════════════════════════════════════════

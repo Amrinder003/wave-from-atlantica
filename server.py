@@ -3,14 +3,16 @@ Wave API  v4.0 — Supabase Edition (Stable & Fixed Chat)
 """
 
 from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Form
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import os, re, json, time, uuid, shutil
+import csv
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 import requests
 from typing import Any, Dict, List, Optional, Tuple
+from io import StringIO
 from supabase import create_client, Client
 from zoneinfo import ZoneInfo
 
@@ -659,6 +661,27 @@ def shop_is_open_now(shop: Dict[str, Any]) -> bool:
     day_code = DAY_ORDER[now_local.weekday()]
     time_str = now_local.strftime("%H:%M")
     return shop_matches_schedule(shop, day_code, time_str)
+
+def shop_completeness_flags(shop: Dict[str, Any], stats: Optional[Dict[str, Any]] = None) -> List[str]:
+    flags = []
+    if not (shop.get("formatted_address") or shop.get("address")):
+        flags.append("Missing address")
+    if not shop.get("country_code"):
+        flags.append("Missing country")
+    if not shop.get("timezone_name"):
+        flags.append("Missing timezone")
+    if not parse_hours_structured(shop.get("hours_structured")):
+        flags.append("Missing weekly hours")
+    if not (shop.get("phone") or shop.get("whatsapp")):
+        flags.append("Missing contact")
+    if not (shop.get("overview") or "").strip():
+        flags.append("Missing overview")
+    if stats is not None:
+        if not stats.get("product_count"):
+            flags.append("No products")
+        elif (stats.get("products_with_images", 0) or 0) < (stats.get("product_count", 0) or 0):
+            flags.append("Products missing images")
+    return flags
 
 def parse_price_amount(value: Any) -> Optional[float]:
     if value is None or value == "":
@@ -1970,8 +1993,55 @@ def my_shops(authorization: Optional[str] = Header(None)):
     
     for r in rows:
         r.update(normalize_shop_record(r))
-        r["stats"] = shop_stats(r["shop_id"])
+        stats = shop_stats(r["shop_id"])
+        r["stats"] = stats
+        r["quality_flags"] = shop_completeness_flags(r, stats)
     return {"ok": True, "shops": rows}
+
+@app.get("/admin/export/shops.csv")
+def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    shops_res = supabase.table("shops").select("*").eq("owner_user_id", user.id).order("created_at", desc=True).execute()
+    rows = [normalize_shop_record(r) for r in (shops_res.data or [])]
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow([
+        "shop_id", "name", "category", "country_code", "country_name", "region", "city", "postal_code",
+        "formatted_address", "timezone_name", "currency_code", "hours", "phone", "whatsapp", "overview"
+    ])
+    for row in rows:
+        writer.writerow([
+            row.get("shop_id", ""), row.get("name", ""), row.get("category", ""), row.get("country_code", ""),
+            row.get("country_name", ""), row.get("region", ""), row.get("city", ""), row.get("postal_code", ""),
+            row.get("formatted_address", "") or row.get("address", ""), row.get("timezone_name", ""),
+            row.get("currency_code", ""), row.get("hours", ""), row.get("phone", ""), row.get("whatsapp", ""),
+            row.get("overview", ""),
+        ])
+    return PlainTextResponse(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="shops_export.csv"'},
+    )
+
+@app.get("/admin/export/products.csv")
+def admin_export_products_csv(authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    shop_ids = [row.get("shop_id") for row in (supabase.table("shops").select("shop_id").eq("owner_user_id", user.id).execute().data or []) if row.get("shop_id")]
+    rows = supabase.table("products").select("*").in_("shop_id", shop_ids).order("updated_at", desc=True).execute().data if shop_ids else []
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["shop_id", "product_id", "name", "price_amount", "currency_code", "price", "stock", "variants", "overview"])
+    for row in rows or []:
+        writer.writerow([
+            row.get("shop_id", ""), row.get("product_id", ""), row.get("name", ""), row.get("price_amount", ""),
+            row.get("currency_code", ""), row.get("price", ""), row.get("stock", ""), row.get("variants", ""),
+            row.get("overview", ""),
+        ])
+    return PlainTextResponse(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="products_export.csv"'},
+    )
 
 @app.get("/admin/shop/{shop_id}")
 def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
