@@ -178,6 +178,7 @@ class Product(BaseModel):
     stock: str = "in"
     stock_quantity: Optional[int] = Field(default=None, ge=0)
     variants: str = ""
+    variant_data: List[Dict[str, Any]] = []
     attribute_data: Dict[str, str] = {}
     images: List[str] = []
 
@@ -372,11 +373,13 @@ def serialize_product(row: dict, user_id: str = None, shop: Optional[Dict[str, A
         except: pass
         
     normalized_attributes = normalize_attribute_data(row.get("attribute_data"), shop_row.get("category", ""))
+    variant_data = normalize_variant_data(row.get("variant_data") or row.get("variants", ""))
     return {
         "product_id": prod_id, "shop_id": shop_id, "name": row.get("name", ""),
         "overview": row.get("overview", ""), **price_fields,
         "stock": row.get("stock", "in"), "stock_quantity": row.get("stock_quantity"),
-        "variants": row.get("variants", ""),
+        "variants": row.get("variants", "") or summarize_variant_data(variant_data),
+        "variant_data": variant_data,
         "attribute_data": normalized_attributes,
         "attribute_lines": format_attribute_lines(normalized_attributes, shop_row.get("category", "")),
         "images": imgs, "image_count": len(imgs),
@@ -435,6 +438,7 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Opt
         imgs = normalize_image_list(shop_id, row.get("images", []))
         shop_row = normalize_shop_record((shop_map or {}).get(shop_id, {}))
         normalized_attributes = normalize_attribute_data(row.get("attribute_data"), shop_row.get("category", ""))
+        variant_data = normalize_variant_data(row.get("variant_data") or row.get("variants", ""))
         out.append({
             "product_id": product_id,
             "shop_id": shop_id,
@@ -443,7 +447,8 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Opt
             **get_display_price_fields(row, shop_row, viewer_currency),
             "stock": row.get("stock", "in"),
             "stock_quantity": row.get("stock_quantity"),
-            "variants": row.get("variants", ""),
+            "variants": row.get("variants", "") or summarize_variant_data(variant_data),
+            "variant_data": variant_data,
             "attribute_data": normalized_attributes,
             "attribute_lines": format_attribute_lines(normalized_attributes, shop_row.get("category", "")),
             "images": imgs,
@@ -751,6 +756,57 @@ def normalize_variants_text(value: str) -> str:
         parts.append(cleaned)
     return ", ".join(parts)
 
+def normalize_variant_data(raw: Any) -> List[Dict[str, Any]]:
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            raw = []
+        else:
+            try:
+                raw = json.loads(text)
+            except Exception:
+                # Legacy comma-separated variants become generic options with no price delta.
+                raw = [{"group": "Option", "label": item.strip(), "price_delta": 0} for item in text.split(",") if item.strip()]
+    if not isinstance(raw, list):
+        raw = []
+    out: List[Dict[str, Any]] = []
+    seen = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        group = re.sub(r"\s+", " ", str(item.get("group") or item.get("type") or "Option")).strip()[:40]
+        label = re.sub(r"\s+", " ", str(item.get("label") or item.get("name") or "")).strip()[:60]
+        if not label:
+            continue
+        try:
+            price_delta = round(float(item.get("price_delta") or item.get("priceDelta") or 0), 2)
+        except Exception:
+            price_delta = 0.0
+        key = (group.lower(), label.lower(), price_delta)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"group": group or "Option", "label": label, "price_delta": price_delta})
+    return out
+
+def summarize_variant_data(variant_data: List[Dict[str, Any]]) -> str:
+    grouped: Dict[str, List[str]] = {}
+    for item in variant_data:
+        group = str(item.get("group") or "Option").strip() or "Option"
+        label = str(item.get("label") or "").strip()
+        if not label:
+            continue
+        price_delta = float(item.get("price_delta") or 0)
+        text = label
+        if price_delta:
+            sign = "+" if price_delta > 0 else "-"
+            text += f" ({sign}{abs(price_delta):.2f})"
+        grouped.setdefault(group, []).append(text)
+    parts = []
+    for group, labels in grouped.items():
+        parts.append(f"{group}: {', '.join(labels)}")
+    return " | ".join(parts)
+
 def normalize_attribute_data(raw: Any, category: str = "") -> Dict[str, str]:
     if isinstance(raw, str):
         try:
@@ -833,6 +889,7 @@ def product_search_blob(row: Dict[str, Any], category: str = "") -> str:
         str(row.get("name", "")),
         str(row.get("overview", "")),
         str(row.get("variants", "")),
+        summarize_variant_data(normalize_variant_data(row.get("variant_data") or row.get("variants", ""))),
         product_attribute_text(row, category),
     ]).strip()
 
@@ -982,7 +1039,8 @@ def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[st
     if stock_raw not in {"in", "low", "out"}:
         raise HTTPException(400, "Stock status must be in, low, or out")
     currency_code = clean_currency(product.currency_code or shop.get("currency_code") or currency_for_country(shop.get("country_code", "")))
-    normalized_variants = normalize_variants_text(product.variants)
+    variant_data = normalize_variant_data(product.variant_data or product.variants)
+    normalized_variants = summarize_variant_data(variant_data) or normalize_variants_text(product.variants)
     stock_value = derive_stock_from_quantity(stock_quantity, stock_raw)
     attribute_data = parse_attribute_data_strict(product.attribute_data, shop.get("category", ""))
     return {
@@ -994,6 +1052,7 @@ def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[st
         "stock": stock_value,
         "stock_quantity": stock_quantity,
         "variants": normalized_variants,
+        "variant_data": variant_data,
         "attribute_data": attribute_data,
         "images": dedup(product.images or []),
         "updated_at": "now()",
@@ -2379,11 +2438,12 @@ def admin_export_products_csv(authorization: Optional[str] = Header(None)):
     rows = supabase.table("products").select("*").in_("shop_id", shop_ids).order("updated_at", desc=True).execute().data if shop_ids else []
     buffer = StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["shop_id", "product_id", "name", "price_amount", "currency_code", "price", "stock", "stock_quantity", "variants", "attribute_data_json", "overview"])
+    writer.writerow(["shop_id", "product_id", "name", "price_amount", "currency_code", "price", "stock", "stock_quantity", "variants", "variant_data_json", "attribute_data_json", "overview"])
     for row in rows or []:
         writer.writerow([
             row.get("shop_id", ""), row.get("product_id", ""), row.get("name", ""), row.get("price_amount", ""),
             row.get("currency_code", ""), row.get("price", ""), row.get("stock", ""), row.get("stock_quantity", ""), row.get("variants", ""),
+            json.dumps(normalize_variant_data(row.get("variant_data") or row.get("variants", "")), ensure_ascii=False),
             json.dumps(normalize_attribute_data(row.get("attribute_data"), ""), ensure_ascii=False),
             row.get("overview", ""),
         ])
@@ -2476,7 +2536,7 @@ def admin_product_with_images(
     shop_id: str, authorization: Optional[str] = Header(None),
     product_id: str = Form(...), name: str = Form(...), overview: str = Form(""), price: str = Form(""),
     price_amount: str = Form(""), currency_code: str = Form(""),
-    stock: str = Form("in"), stock_quantity: str = Form(""), variants: str = Form(""), attribute_data_json: str = Form(""), images: List[UploadFile] = File(default=[])
+    stock: str = Form("in"), stock_quantity: str = Form(""), variants: str = Form(""), variant_data_json: str = Form(""), attribute_data_json: str = Form(""), images: List[UploadFile] = File(default=[])
 ):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
@@ -2507,6 +2567,7 @@ def admin_product_with_images(
         raise HTTPException(400, "Stock quantity must be a whole number")
     parsed_attribute_data = parse_attribute_data_strict(attribute_data_json, shop.get("category", ""))
     
+    parsed_variant_data = normalize_variant_data(variant_data_json or variants)
     data = normalize_product_payload(Product(
         product_id=pid,
         name=name.strip(),
@@ -2517,6 +2578,7 @@ def admin_product_with_images(
         stock=stock,
         stock_quantity=parsed_stock_quantity,
         variants=variants,
+        variant_data=parsed_variant_data,
         attribute_data=parsed_attribute_data,
         images=merged,
     ), shop)

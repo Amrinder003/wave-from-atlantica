@@ -597,6 +597,11 @@ a{color:inherit;text-decoration:none}
 .hours-closed input{margin:0}
 .attr-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .attr-list{display:grid;gap:8px;margin-top:12px}
+.variant-builder{display:grid;gap:10px}
+.variant-row{display:grid;grid-template-columns:1.1fr 1.2fr .8fr auto;gap:10px;align-items:end;padding:12px;border-radius:16px;background:rgba(255,255,255,.76);border:1px solid rgba(191,174,149,.28)}
+.variant-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.variant-help{font-size:12px;color:var(--ink3);line-height:1.6}
+@media(max-width:760px){.variant-row{grid-template-columns:1fr}.variant-row .btn{width:100%;justify-content:center}}
 .suggest-list{display:grid;gap:8px;margin-top:10px}
 .suggest-item{border:1px solid rgba(191,174,149,.3);border-radius:16px;background:rgba(255,255,255,.84);padding:11px 13px;cursor:pointer;text-align:left;transition:border-color .16s ease,transform .16s ease,box-shadow .16s ease}
 .suggest-item:hover{border-color:rgba(185,97,40,.35);transform:translateY(-1px);box-shadow:0 10px 18px rgba(48,33,15,.08)}
@@ -1322,7 +1327,7 @@ a{color:inherit;text-decoration:none}
             <div class="card-body">
               <div class="csv-box">
                 <div class="csv-title">Import multiple products into this shop</div>
-                <div class="csv-hint">Columns: <code>product_id, name, price, overview, stock, stock_quantity, variants, attribute_data_json</code>. Use numeric values for <code>price</code> and <code>stock_quantity</code>. Category-specific attributes can be passed as JSON.</div>
+                <div class="csv-hint">Columns: <code>product_id, name, price, overview, stock, stock_quantity, variants, variant_data_json, attribute_data_json</code>. Use numeric values for <code>price</code> and <code>stock_quantity</code>. Use <code>variant_data_json</code> for size/color options with price changes.</div>
                 <div class="btn-row">
                   <input id="csvFile" type="file" accept=".csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
                   <button id="importCsvBtn" class="btn btn-o btn-sm">Import</button>
@@ -1479,7 +1484,15 @@ a{color:inherit;text-decoration:none}
                   <div class="fstack">
                     <div class="fld"><label>Stock Status</label><select id="prodStock"><option value="in">In Stock</option><option value="low">Low Stock</option><option value="out">Out of Stock</option></select><div class="fld-hint">This is used directly on product cards and in chat responses.</div></div>
                     <div class="fld"><label>Stock Quantity</label><input id="prodQty" type="number" min="0" step="1" inputmode="numeric" placeholder="12"/><div class="fld-hint">Use a real quantity. Wave will derive the status from this number.</div></div>
-                    <div class="fld"><label>Variants (comma-separated)</label><input id="prodVariants" placeholder="Small, Medium, Large"/><div class="fld-hint">Optional. Use this for size, flavor, color, or pack options.</div></div>
+                    <div class="fld">
+                      <div class="variant-head">
+                        <label>Variant options</label>
+                        <button id="addVariantBtn" class="btn btn-g btn-sm" type="button">+ Add Option</button>
+                      </div>
+                      <div class="variant-help">Add real options like size or color, and set a price change for each option. Example: <code>Large +2.00</code> or <code>Red +0.00</code>.</div>
+                      <datalist id="variantGroupList"><option value="Size"></option><option value="Color"></option><option value="Flavor"></option><option value="Pack"></option><option value="Material"></option><option value="Style"></option><option value="Other"></option></datalist>
+                      <div id="variantBuilder" class="variant-builder"></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1848,6 +1861,7 @@ const PRODUCT_ATTRIBUTE_SCHEMA={
   Home:[['brand','Brand'],['material','Material'],['dimensions','Dimensions'],['color','Color']],
   Sports:[['brand','Brand'],['size','Size'],['material','Material'],['skill_level','Skill level']],
 };
+const VARIANT_GROUP_OPTIONS=['Size','Color','Flavor','Pack','Material','Style','Other'];
 const DAY_ROWS=[['mon','Monday'],['tue','Tuesday'],['wed','Wednesday'],['thu','Thursday'],['fri','Friday'],['sat','Saturday'],['sun','Sunday']];
 const TIME_OPTIONS=Array.from({length:48},(_,i)=>{const h=String(Math.floor(i/2)).padStart(2,'0');const m=i%2?'30':'00';return `${h}:${m}`;});
 function getCountryMeta(code=''){return COUNTRY_META[String(code||'').toUpperCase()]||null;}
@@ -2025,6 +2039,57 @@ function collectProductAttributeData(){
   });
   return out;
 }
+function variantSummary(variantData=[]){
+  const grouped={};
+  (variantData||[]).forEach(item=>{
+    const group=(item.group||'Option').trim()||'Option';
+    const label=(item.label||'').trim();
+    if(!label) return;
+    const delta=Number(item.price_delta||0);
+    const part=`${label}${delta?` (${delta>0?'+':''}${delta.toFixed(2)})`:''}`;
+    (grouped[group] ||= []).push(part);
+  });
+  return Object.entries(grouped).map(([group,labels])=>`${group}: ${labels.join(', ')}`).join(' | ');
+}
+function renderVariantBuilder(prefill=[]){
+  const wrap=$('variantBuilder');
+  if(!wrap) return;
+  const rows=(Array.isArray(prefill)&&prefill.length?prefill:[{group:'Size',label:'',price_delta:0}]).map(item=>({
+    group:item.group||'Option',
+    label:item.label||'',
+    price_delta:Number(item.price_delta||0),
+  }));
+  wrap.innerHTML='';
+  rows.forEach((item,idx)=>{
+    const row=document.createElement('div');
+    row.className='variant-row';
+    row.innerHTML=`
+      <div class="fld"><label>Type</label><input data-variant-group value="${esc(item.group)}" list="variantGroupList" placeholder="Size"/></div>
+      <div class="fld"><label>Option</label><input data-variant-label value="${esc(item.label)}" placeholder="Large"/></div>
+      <div class="fld"><label>Price Change</label><input data-variant-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/></div>
+      <button class="btn btn-r btn-sm" type="button" data-variant-remove="${idx}">Remove</button>`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('[data-variant-group],[data-variant-label],[data-variant-delta]').forEach(el=>el.addEventListener('input',markProductFormDirty));
+  wrap.querySelectorAll('[data-variant-remove]').forEach(btn=>btn.addEventListener('click',()=>{
+    const current=collectVariantData();
+    current.splice(Number(btn.getAttribute('data-variant-remove')),1);
+    renderVariantBuilder(current);
+    markProductFormDirty();
+  }));
+}
+function collectVariantData(){
+  const out=[];
+  document.querySelectorAll('#variantBuilder .variant-row').forEach(row=>{
+    const group=(row.querySelector('[data-variant-group]')?.value||'').trim();
+    const label=(row.querySelector('[data-variant-label]')?.value||'').trim();
+    const deltaRaw=row.querySelector('[data-variant-delta]')?.value||'0';
+    const delta=Number(deltaRaw);
+    if(!label) return;
+    out.push({group:group||'Option',label,price_delta:Number.isFinite(delta)?delta:0});
+  });
+  return out;
+}
 function renderShopAttributeFilter(category=''){
   const sec=$('shopAttrFilterSec'), keySel=$('shopAttrKey'), valInp=$('shopAttrValue');
   if(!sec||!keySel||!valInp) return;
@@ -2144,6 +2209,14 @@ function validateCsvRow(obj,rowNumber,category=''){
   if(String(obj.attribute_data_json||'').trim()){
     try{ attr=JSON.parse(obj.attribute_data_json); }
     catch{ errs.push(`Row ${rowNumber}: attribute_data_json is not valid JSON.`); }
+  }
+  if(String(obj.variant_data_json||'').trim()){
+    try{
+      const variantData=JSON.parse(obj.variant_data_json);
+      if(!Array.isArray(variantData)) errs.push(`Row ${rowNumber}: variant_data_json must be a JSON array.`);
+    }catch{
+      errs.push(`Row ${rowNumber}: variant_data_json is not valid JSON.`);
+    }
   }
   const schema=PRODUCT_ATTRIBUTE_SCHEMA[category]||[];
   if(schema.length){
@@ -2698,9 +2771,47 @@ async function openPD(p,mode,sid,sname){
   else{ts.style.display='none';}
 
   const vw=$('pdVarsWrap'),vr=$('pdVarRow');vr.innerHTML='';
-  const vars=(p.variants||'').split(',').map(v=>v.trim()).filter(Boolean);
-  if(vars.length){vw.style.display='block';vars.forEach(v=>{const b=document.createElement('button');b.className='var-pill';b.textContent=v;b.addEventListener('click',()=>{vr.querySelectorAll('.var-pill').forEach(x=>x.classList.remove('on'));b.classList.add('on');App.pdVariant=v;});vr.appendChild(b);});}
-  else{vw.style.display='none';}
+  const variantData=Array.isArray(p.variant_data)?p.variant_data:[];
+  if(variantData.length){
+    vw.style.display='block';
+    const grouped={};
+    variantData.forEach(item=>{const key=item.group||'Option';(grouped[key] ||= []).push(item);});
+    Object.entries(grouped).forEach(([group,items])=>{
+      const sec=document.createElement('div');
+      sec.style.cssText='display:grid;gap:8px;margin-bottom:10px';
+      const title=document.createElement('div');
+      title.className='pd-lbl';
+      title.style.margin='0';
+      title.textContent=group;
+      sec.appendChild(title);
+      const row=document.createElement('div');
+      row.className='var-row';
+      items.forEach((item,idx)=>{
+        const b=document.createElement('button');
+        b.className='var-pill'+(idx===0?' on':'');
+        const delta=Number(item.price_delta||0);
+        b.textContent=`${item.label}${delta?` ${delta>0?'+':''}${delta.toFixed(2)}`:''}`;
+        b.addEventListener('click',()=>{
+          row.querySelectorAll('.var-pill').forEach(x=>x.classList.remove('on'));
+          b.classList.add('on');
+          const base=Number(p.price_amount_native ?? p.price_amount ?? 0);
+          if(Number.isFinite(base)){
+            const total=base+delta;
+            const code=(p.currency_code_native||p.currency_code||'USD').trim();
+            $('pdPrice').textContent=`${code} ${total.toFixed(2)}`;
+            $('pdPriceNote').textContent=delta?`Includes ${delta>0?'+':''}${delta.toFixed(2)} for ${item.label}`:'';
+          }
+        });
+        row.appendChild(b);
+      });
+      sec.appendChild(row);
+      vr.appendChild(sec);
+    });
+  }else{
+    const vars=(p.variants||'').split(',').map(v=>v.trim()).filter(Boolean);
+    if(vars.length){vw.style.display='block';vars.forEach(v=>{const b=document.createElement('button');b.className='var-pill';b.textContent=v;b.addEventListener('click',()=>{vr.querySelectorAll('.var-pill').forEach(x=>x.classList.remove('on'));b.classList.add('on');App.pdVariant=v;});vr.appendChild(b);});}
+    else{vw.style.display='none';}
+  }
 
   const url=`${location.href.split('#')[0]}#p:${App.curSid}:${p.product_id}`;
   $('shareInp').value=url;
@@ -3583,6 +3694,7 @@ $('detailEditShopBtn').addEventListener('click',openEditShopView);
 $('detailAddProductBtn').addEventListener('click',()=>openProductForm());
 $('detailEditShopBtnSide').addEventListener('click',openEditShopView);
 $('detailAddProductBtnSide').addEventListener('click',()=>openProductForm());
+$('addVariantBtn')?.addEventListener('click',()=>{const data=collectVariantData();data.push({group:'Size',label:'',price_delta:0});renderVariantBuilder(data);markProductFormDirty();});
 $('detailOpenLiveShopBtn').addEventListener('click',()=>{
   const shopId=App.adminShopId||$('shopId').value.trim();
   if(!shopId)return toast('Load a shop first','','err');
@@ -3622,10 +3734,11 @@ $('rebuildKbBtn').addEventListener('click',async()=>{
 function loadProdIntoEditor(p,{skipView=false}={}){
   suspendFormDirty=true;
   $('prodId').value=p.product_id||'';$('prodName').value=p.name||'';$('prodPrice').value=(p.price_amount_native ?? p.price_amount ?? '').toString();
-  $('prodOverview').value=p.overview||'';$('prodStock').value=p.stock||'in';$('prodQty').value=p.stock_quantity ?? '';$('prodVariants').value=p.variants||'';
+  $('prodOverview').value=p.overview||'';$('prodStock').value=p.stock||'in';$('prodQty').value=p.stock_quantity ?? '';
   $('prodFiles').value='';renderFilePrev([]);
   syncProductEditorState('edit');
   updateShopCurrencyBadge();
+  renderVariantBuilder(p.variant_data||[]);
   renderProductAttributeFields(p.attribute_data||{});
   const imgs=(p.images||[]).map(absUrl).filter(Boolean);
   const mgr=$('existImgsMgr'),wrap=$('existImgsWrap');mgr.innerHTML='';
@@ -3636,7 +3749,7 @@ function loadProdIntoEditor(p,{skipView=false}={}){
   updateProductDraftState(false);
   if(!skipView){switchAdminSub('shops');showShopManagerView('productform');$('prodId').scrollIntoView({behavior:'smooth',block:'center'});}
 }
-function clearProdForm(){suspendFormDirty=true;['prodId','prodName','prodPrice','prodQty','prodOverview','prodVariants'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');updateShopCurrencyBadge();renderProductAttributeFields({});setS('productStatus','');suspendFormDirty=false;updateProductDraftState(false);}
+function clearProdForm(){suspendFormDirty=true;['prodId','prodName','prodPrice','prodQty','prodOverview'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');updateShopCurrencyBadge();renderVariantBuilder([]);renderProductAttributeFields({});setS('productStatus','');suspendFormDirty=false;updateProductDraftState(false);}
 function renderFilePrev(files){const g=$('filePreview');g.innerHTML='';if(!files?.length){g.innerHTML=`<div style="font-size:11px;color:var(--ink4)">No files selected</div>`;return;}Array.from(files).forEach(f=>{const r=new FileReader();r.onload=()=>{const d=document.createElement('div');d.className='prev-item';d.innerHTML=`<img src="${r.result}" alt=""/>`;g.appendChild(d);};r.readAsDataURL(f);});}
 async function saveProd(){
   if(!tok())return toast('Login required','','err');
@@ -3647,15 +3760,15 @@ async function saveProd(){
   const formErr=validateProductForm();
   if(formErr){setS('productStatus',formErr,'err');return toast('Product details missing',formErr,'err');}
   if(!pid){pid=slugify(name);$('prodId').value=pid;}
-  const files=$('prodFiles').files,stock=$('prodStock').value,stockQuantity=Number($('prodQty').value),variants=$('prodVariants').value;
+  const files=$('prodFiles').files,stock=$('prodStock').value,stockQuantity=Number($('prodQty').value),variantData=collectVariantData();
   const currencyCode=$('prodCurrencyBadge')?.textContent?.trim()||'USD';
   try{
     setBtnBusy('saveProdBtn',true,files.length?'Uploading...':'Saving...');
     setBtnBusy('productFloatingSubmitBtn',true,files.length?'Uploading...':'Saving...');
     setS('productStatus',files.length?'Uploading product images and saving details...':'Saving product details...');
     const attributeData=collectProductAttributeData();
-    if(files.length){const form=new FormData();form.append('product_id',pid);form.append('name',name);form.append('overview',overview);form.append('price',price);form.append('price_amount',price);form.append('currency_code',currencyCode);form.append('stock',stock);form.append('stock_quantity',String(stockQuantity));form.append('variants',variants);form.append('attribute_data_json',JSON.stringify(attributeData));[...files].forEach(f=>form.append('images',f));await api(`/admin/shop/${encodeURIComponent(shopId)}/product-with-images`,{method:'POST',auth:true,body:form});}
-    else{await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid,name,price,price_amount:Number(price),currency_code:currencyCode,overview,stock,stock_quantity:stockQuantity,variants,attribute_data:attributeData,images:[]})});}
+    if(files.length){const form=new FormData();form.append('product_id',pid);form.append('name',name);form.append('overview',overview);form.append('price',price);form.append('price_amount',price);form.append('currency_code',currencyCode);form.append('stock',stock);form.append('stock_quantity',String(stockQuantity));form.append('variants',variantSummary(variantData));form.append('variant_data_json',JSON.stringify(variantData));form.append('attribute_data_json',JSON.stringify(attributeData));[...files].forEach(f=>form.append('images',f));await api(`/admin/shop/${encodeURIComponent(shopId)}/product-with-images`,{method:'POST',auth:true,body:form});}
+    else{await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid,name,price,price_amount:Number(price),currency_code:currencyCode,overview,stock,stock_quantity:stockQuantity,variants:variantSummary(variantData),variant_data:variantData,attribute_data:attributeData,images:[]})});}
     toast('Product saved',name);
     setS('productStatus',`Product "${name}" saved successfully.`,'ok');
     updateProductDraftState(false);
@@ -3854,7 +3967,7 @@ $('refreshAnBtn').addEventListener('click',loadAnalytics);
 $('anDays').addEventListener('change',loadAnalytics);
 
 /* ── CSV ── */
-$('csvTplBtn').addEventListener('click',()=>{const csv='product_id,name,price,overview,stock,stock_quantity,variants,attribute_data_json\np001,Example Product,9.99,A great product,in,12,"Small,Medium","{""brand"":""Wave Goods""}"\n';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='products_template.csv';a.click();});
+$('csvTplBtn').addEventListener('click',()=>{const csv='product_id,name,price,overview,stock,stock_quantity,variants,variant_data_json,attribute_data_json\np001,Example Product,9.99,A great product,in,12,"Size: Small, Large (+2.00)","[{""group"":""Size"",""label"":""Small"",""price_delta"":0},{""group"":""Size"",""label"":""Large"",""price_delta"":2}]","{""brand"":""Wave Goods""}"\n';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='products_template.csv';a.click();});
 $('importCsvBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a shop first','','err');if(!tok())return toast('Login required','','err');
   const file=$('csvFile').files[0];if(!file)return toast('Select a CSV','','err');
@@ -3881,7 +3994,8 @@ $('importCsvBtn').addEventListener('click',async()=>{
   for(const row of parsedRows){
     const obj=row.obj;
     try{
-      await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||`p${Date.now()}`,name:obj.name||'Unnamed',price:obj.price||'',price_amount:row.numeric,currency_code:$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',overview:obj.overview||'',stock:obj.stock||'in',stock_quantity:row.qty,variants:obj.variants||'',attribute_data:row.attr||{},images:[]})});
+      let variantData=[]; try{variantData=obj.variant_data_json?JSON.parse(obj.variant_data_json):[];}catch{}
+      await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||`p${Date.now()}`,name:obj.name||'Unnamed',price:obj.price||'',price_amount:row.numeric,currency_code:$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',overview:obj.overview||'',stock:obj.stock||'in',stock_quantity:row.qty,variants:obj.variants||variantSummary(variantData),variant_data:variantData,attribute_data:row.attr||{},images:[]})});
       done++;
     }catch(e){
       failed++;
