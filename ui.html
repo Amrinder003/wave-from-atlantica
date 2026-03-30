@@ -700,6 +700,12 @@ a{color:inherit;text-decoration:none}
 .setup-section-kicker{font-size:10px;font-weight:800;color:var(--A2);text-transform:uppercase;letter-spacing:.08em}
 .setup-section-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;line-height:1.15}
 .setup-section-copy{font-size:13px;color:var(--ink3);line-height:1.65;max-width:720px}
+.form-floating-wrap{padding-bottom:112px}
+.floating-form-actions{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:min(760px,calc(100vw - 32px));display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:22px;background:rgba(255,253,248,.96);border:1px solid rgba(191,174,149,.38);box-shadow:0 18px 40px rgba(48,33,15,.16);backdrop-filter:blur(12px);z-index:260}
+.floating-form-copy{display:grid;gap:3px;min-width:0}
+.floating-form-kicker{font-size:10px;font-weight:800;color:var(--A2);text-transform:uppercase;letter-spacing:.08em}
+.floating-form-note{font-size:12px;color:var(--ink3);line-height:1.45}
+.floating-form-actions .btn-row{margin-left:auto}
 .setup-callout{padding:14px 16px;border-radius:20px;background:rgba(255,255,255,.76);border:1px solid rgba(191,174,149,.28);display:grid;gap:4px}
 .setup-callout-title{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)}
 .setup-callout-copy{font-size:13px;color:var(--ink2);line-height:1.62}
@@ -708,6 +714,10 @@ a{color:inherit;text-decoration:none}
   .owner-shop-card-stats{grid-template-columns:1fr}
   .owner-detail-card-top{display:grid}
   .owner-detail-name{font-size:26px}
+  .form-floating-wrap{padding-bottom:132px}
+  .floating-form-actions{width:calc(100vw - 20px);bottom:10px;padding:10px 12px;border-radius:20px;display:grid}
+  .floating-form-actions .btn-row{margin-left:0;width:100%}
+  .floating-form-actions .btn-row .btn{flex:1 1 100%;justify-content:center}
 }
 .product-manager-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .product-manager-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1194,7 +1204,7 @@ a{color:inherit;text-decoration:none}
           </div>
         </div>
 
-        <div id="shopFormView" data-shop-view="shopform" class="shop-admin-view">
+        <div id="shopFormView" data-shop-view="shopform" class="shop-admin-view form-floating-wrap">
           <div class="card">
             <div class="workspace-hero">
               <div class="workspace-copy">
@@ -1260,9 +1270,19 @@ a{color:inherit;text-decoration:none}
               <div id="shopStatus" class="stxt"></div>
             </div>
           </div>
+          <div class="floating-form-actions">
+            <div class="floating-form-copy">
+              <div class="floating-form-kicker">Finish Shop Setup</div>
+              <div id="shopFloatingNote" class="floating-form-note">Create the shop to open its workspace and start adding products.</div>
+            </div>
+            <div class="btn-row">
+              <button id="shopFloatingBackBtn" class="btn btn-g btn-sm">Back</button>
+              <button id="shopFloatingSubmitBtn" class="btn btn-A btn-sm">Create Shop</button>
+            </div>
+          </div>
         </div>
 
-        <div id="productFormView" data-shop-view="productform" class="shop-admin-view">
+        <div id="productFormView" data-shop-view="productform" class="shop-admin-view form-floating-wrap">
           <div class="card">
             <div class="workspace-hero">
               <div class="workspace-copy">
@@ -1319,6 +1339,16 @@ a{color:inherit;text-decoration:none}
                 <div id="existImgsWrap" style="display:none"><div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Existing Images - click X to remove</div><div id="existImgsMgr" class="img-mgr"></div></div>
               </div>
               <div id="productStatus" class="stxt"></div>
+            </div>
+          </div>
+          <div class="floating-form-actions">
+            <div class="floating-form-copy">
+              <div class="floating-form-kicker">Finish Product Setup</div>
+              <div id="productFloatingNote" class="floating-form-note">Create the product to make it appear in the shop and chat.</div>
+            </div>
+            <div class="btn-row">
+              <button id="productFloatingBackBtn" class="btn btn-g btn-sm">Back to Shop</button>
+              <button id="productFloatingSubmitBtn" class="btn btn-A btn-sm">Create Product</button>
             </div>
           </div>
         </div>
@@ -2384,7 +2414,10 @@ function switchAdminSub(sub){
 document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.addEventListener('click',()=>switchAdminSub(b.dataset.sub)));
 
 function showShopManagerView(view){
+  const current=document.querySelector('[data-shop-view].on')?.dataset.shopView||'';
+  if(current&&current!==view&&!canLeaveShopManagerView(current)) return false;
   document.querySelectorAll('[data-shop-view]').forEach(el=>el.classList.toggle('on',el.dataset.shopView===view));
+  return true;
 }
 
 function setBtnBusy(id,busy,label='Working...'){
@@ -2407,11 +2440,60 @@ function setFieldHint(id,msg,type=''){
   el.className=`stxt${type?` ${type}`:''}`;
 }
 
+App.shopFormDirty=false;
+App.productFormDirty=false;
+let suspendFormDirty=false;
+
+function updateShopDraftState(dirty){
+  App.shopFormDirty=!!dirty;
+  if($('shopFloatingNote')){
+    $('shopFloatingNote').textContent=dirty
+      ? 'Unsaved changes. Save the shop before leaving this form.'
+      : (($('shopFloatingSubmitBtn')?.dataset.mode==='edit')
+          ? 'Save your changes to update the live storefront and chatbot context.'
+          : 'Create the shop to open its workspace and start adding products.');
+  }
+}
+function updateProductDraftState(dirty){
+  App.productFormDirty=!!dirty;
+  const isEdit=$('productFloatingSubmitBtn')?.textContent?.includes('Save');
+  if($('productFloatingNote')){
+    $('productFloatingNote').textContent=dirty
+      ? 'Unsaved changes. Save the product before leaving this form.'
+      : (isEdit
+          ? 'Save your changes to update the live product card and chat answers.'
+          : 'Create the product to make it appear in the shop and chat.');
+  }
+}
+function markShopFormDirty(){ if(!suspendFormDirty) updateShopDraftState(true); }
+function markProductFormDirty(){ if(!suspendFormDirty) updateProductDraftState(true); }
+function confirmDiscardDraft(kind){
+  return confirm(`You have unsaved ${kind} changes. Leave this form without saving?`);
+}
+function canLeaveShopManagerView(view){
+  if(view==='shopform'&&App.shopFormDirty) return confirmDiscardDraft('shop');
+  if(view==='productform'&&App.productFormDirty) return confirmDiscardDraft('product');
+  return true;
+}
+
 function syncProductEditorState(mode='create'){
   const isEdit=mode==='edit';
   if($('productFormTitle')) $('productFormTitle').textContent=isEdit?'Edit product':'Add a product';
+  if($('saveProdBtn')) $('saveProdBtn').textContent=isEdit?'Save Product':'Create Product';
+  if($('productFloatingSubmitBtn')) $('productFloatingSubmitBtn').textContent=isEdit?'Save Product':'Create Product';
   if($('deleteProdBtn')) $('deleteProdBtn').style.display=isEdit?'':'none';
   if($('clearProdBtn')) $('clearProdBtn').textContent=isEdit?'Reset Form':'Clear';
+  updateProductDraftState(false);
+}
+function syncShopFormActions(mode='create'){
+  const isEdit=mode==='edit';
+  if($('createShopBtn')) $('createShopBtn').style.display=isEdit?'none':'';
+  if($('saveShopBtn')) $('saveShopBtn').style.display=isEdit?'':'none';
+  if($('shopFloatingSubmitBtn')){
+    $('shopFloatingSubmitBtn').textContent=isEdit?'Save Shop':'Create Shop';
+    $('shopFloatingSubmitBtn').dataset.mode=isEdit?'edit':'create';
+  }
+  updateShopDraftState(false);
 }
 
 function validateShopForm(){
@@ -2433,10 +2515,13 @@ function validateProductForm(){
 }
 
 function resetShopForm(){
+  suspendFormDirty=true;
   ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp'].forEach(id=>$(id).value='');
   $('shopCat').value='';
   $('shopStats').style.display='none';
   setS('shopStatus','');
+  suspendFormDirty=false;
+  updateShopDraftState(false);
 }
 
 function populateShopForm(shop=null){
@@ -2457,8 +2542,7 @@ function openCreateShopView(){
   App.adminShopId=null;
   resetShopForm();
   $('shopFormTitle').textContent='Create your shop';
-  $('createShopBtn').style.display='';
-  $('saveShopBtn').style.display='none';
+  syncShopFormActions('create');
   $('deleteShopBtn').style.display='none';
   $('rebuildKbBtn').style.display='none';
   setFieldHint('shopStatus','Start with the public details customers will see on the shop page.','');
@@ -2471,8 +2555,7 @@ function openEditShopView(){
   if(!App.adminShopData?.shop) return toast('Load a shop first','','err');
   populateShopForm(App.adminShopData.shop);
   $('shopFormTitle').textContent='Edit shop details';
-  $('createShopBtn').style.display='none';
-  $('saveShopBtn').style.display='';
+  syncShopFormActions('edit');
   $('deleteShopBtn').style.display='';
   $('rebuildKbBtn').style.display='';
   setFieldHint('shopStatus','Update the public details, then save to refresh the storefront.','');
@@ -2590,10 +2673,12 @@ async function createShop(){
   const payload={shop_id:$('shopId').value.trim()||null,shop:{name:$('shopName').value.trim(),address:$('shopAddress').value.trim(),overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:$('shopHours').value.trim(),category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim()}};
   try{
     setBtnBusy('createShopBtn',true,'Creating...');
+    setBtnBusy('shopFloatingSubmitBtn',true,'Creating...');
     setS('shopStatus','Creating your shop...');
     const d=await api('/admin/create-shop',{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     toast('Shop created',d.shop_id);
     setS('shopStatus',`Shop created successfully as ${d.shop_id}.`,'ok');
+    updateShopDraftState(false);
     await loadMyShops();
     await loadAdminShop(d.shop_id);
     await loadAllShops();
@@ -2602,6 +2687,7 @@ async function createShop(){
     toast('Create failed',e.message,'err');
   }finally{
     setBtnBusy('createShopBtn',false);
+    setBtnBusy('shopFloatingSubmitBtn',false);
   }
 }
 async function saveShop(){
@@ -2612,10 +2698,12 @@ async function saveShop(){
   const payload={name:$('shopName').value.trim(),address:$('shopAddress').value.trim(),overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:$('shopHours').value.trim(),category:$('shopCat').value,whatsapp:$('shopWhatsapp').value.trim()};
   try{
     setBtnBusy('saveShopBtn',true,'Saving...');
+    setBtnBusy('shopFloatingSubmitBtn',true,'Saving...');
     setS('shopStatus','Saving shop changes...');
     await api(`/admin/shop/${encodeURIComponent(shopId)}`,{method:'PUT',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     toast('Saved');
     setS('shopStatus','Shop details saved successfully.','ok');
+    updateShopDraftState(false);
     await loadMyShops();
     await loadAllShops();
     await loadAdminShop(shopId);
@@ -2624,6 +2712,7 @@ async function saveShop(){
     toast('Save failed',e.message,'err');
   }finally{
     setBtnBusy('saveShopBtn',false);
+    setBtnBusy('shopFloatingSubmitBtn',false);
   }
 }
 async function deleteShop(){
@@ -2631,7 +2720,7 @@ async function deleteShop(){
   const shopId=$('shopId').value.trim();if(!shopId)return toast('No shop loaded','','err');
   const shopName=$('shopName').value.trim()||shopId;
   if(!confirm(`Delete "${shopName}" and all of its products? This cannot be undone.`))return;
-  try{await api(`/admin/shop/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});toast('Shop deleted',shopId);setS('shopStatus','');$('shopStats').style.display='none';App.adminShopId=null;App.adminShopData=null;App.adminProducts=[];refreshWorkspaceHeader();renderAdminProds([]);clearProdForm();await loadMyShops();await loadAllShops();switchAdminSub('shops');showShopManagerView('landing');}catch(e){setS('shopStatus',e.message,'err');toast('Delete failed',e.message,'err');}
+  try{await api(`/admin/shop/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});toast('Shop deleted',shopId);setS('shopStatus','');updateShopDraftState(false);$('shopStats').style.display='none';App.adminShopId=null;App.adminShopData=null;App.adminProducts=[];refreshWorkspaceHeader();renderAdminProds([]);clearProdForm();await loadMyShops();await loadAllShops();switchAdminSub('shops');showShopManagerView('landing');}catch(e){setS('shopStatus',e.message,'err');toast('Delete failed',e.message,'err');}
 }
 $('ownerCreateShopBtn').addEventListener('click',openCreateShopView);
 $('detailBackBtn').addEventListener('click',()=>showShopManagerView('landing'));
@@ -2651,6 +2740,10 @@ $('detailOpenLiveShopBtnSide').addEventListener('click',()=>{
 });
 $('shopFormBackBtn').addEventListener('click',()=>showShopManagerView(App.adminShopId?'detail':'landing'));
 $('productFormBackBtn').addEventListener('click',()=>showShopManagerView('detail'));
+$('shopFloatingBackBtn').addEventListener('click',()=>showShopManagerView(App.adminShopId?'detail':'landing'));
+$('productFloatingBackBtn').addEventListener('click',()=>showShopManagerView('detail'));
+$('shopFloatingSubmitBtn').addEventListener('click',()=>($('shopFloatingSubmitBtn').dataset.mode==='edit'?saveShop():createShop()));
+$('productFloatingSubmitBtn').addEventListener('click',saveProd);
 $('createShopBtn').addEventListener('click',createShop);
 $('saveShopBtn').addEventListener('click',saveShop);
 $('deleteShopBtn').addEventListener('click',deleteShop);
@@ -2672,6 +2765,7 @@ $('rebuildKbBtn').addEventListener('click',async()=>{
 
 /* ── Product editor ── */
 function loadProdIntoEditor(p,{skipView=false}={}){
+  suspendFormDirty=true;
   $('prodId').value=p.product_id||'';$('prodName').value=p.name||'';$('prodPrice').value=p.price||'';
   $('prodOverview').value=p.overview||'';$('prodStock').value=p.stock||'in';$('prodVariants').value=p.variants||'';
   $('prodFiles').value='';renderFilePrev([]);
@@ -2681,9 +2775,11 @@ function loadProdIntoEditor(p,{skipView=false}={}){
   if(imgs.length){wrap.style.display='block';imgs.forEach(url=>{const item=document.createElement('div');item.className='img-mg-item';item.innerHTML=`<img src="${esc(url)}" alt=""/><button class="img-mg-del">✕</button>`;item.querySelector('.img-mg-del').addEventListener('click',async()=>{const sid=$('shopId').value.trim(),pid=$('prodId').value.trim();if(!sid||!pid)return;try{await api(`/admin/shop/${encodeURIComponent(sid)}/product/${encodeURIComponent(pid)}/image?image_path=${encodeURIComponent(url)}`,{method:'DELETE',auth:true});item.remove();toast('Image removed ✓');}catch(e){toast('Remove failed',e.message,'err');}});mgr.appendChild(item);});}
   else{wrap.style.display='none';}
   setS('productStatus',`Editing: ${p.name}`,'ok');
+  suspendFormDirty=false;
+  updateProductDraftState(false);
   if(!skipView){switchAdminSub('shops');showShopManagerView('productform');$('prodId').scrollIntoView({behavior:'smooth',block:'center'});}
 }
-function clearProdForm(){['prodId','prodName','prodPrice','prodOverview','prodVariants'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');setS('productStatus','');}
+function clearProdForm(){suspendFormDirty=true;['prodId','prodName','prodPrice','prodOverview','prodVariants'].forEach(id=>$(id).value='');$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');setS('productStatus','');suspendFormDirty=false;updateProductDraftState(false);}
 function renderFilePrev(files){const g=$('filePreview');g.innerHTML='';if(!files?.length){g.innerHTML=`<div style="font-size:11px;color:var(--ink4)">No files selected</div>`;return;}Array.from(files).forEach(f=>{const r=new FileReader();r.onload=()=>{const d=document.createElement('div');d.className='prev-item';d.innerHTML=`<img src="${r.result}" alt=""/>`;g.appendChild(d);};r.readAsDataURL(f);});}
 async function saveProd(){
   if(!tok())return toast('Login required','','err');
@@ -2696,11 +2792,13 @@ async function saveProd(){
   const files=$('prodFiles').files,stock=$('prodStock').value,variants=$('prodVariants').value;
   try{
     setBtnBusy('saveProdBtn',true,files.length?'Uploading...':'Saving...');
+    setBtnBusy('productFloatingSubmitBtn',true,files.length?'Uploading...':'Saving...');
     setS('productStatus',files.length?'Uploading product images and saving details...':'Saving product details...');
     if(files.length){const form=new FormData();form.append('product_id',pid);form.append('name',name);form.append('overview',overview);form.append('price',price);form.append('stock',stock);form.append('variants',variants);[...files].forEach(f=>form.append('images',f));await api(`/admin/shop/${encodeURIComponent(shopId)}/product-with-images`,{method:'POST',auth:true,body:form});}
     else{await api(`/admin/shop/${encodeURIComponent(shopId)}/product`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid,name,price,overview,stock,variants,images:[]})});}
     toast('Product saved',name);
     setS('productStatus',`Product "${name}" saved successfully.`,'ok');
+    updateProductDraftState(false);
     $('prodFiles').value='';
     renderFilePrev([]);
     await loadAdminShop(shopId);
@@ -2710,6 +2808,7 @@ async function saveProd(){
     toast('Save failed',e.message,'err');
   }finally{
     setBtnBusy('saveProdBtn',false);
+    setBtnBusy('productFloatingSubmitBtn',false);
   }
 }
 async function deleteProd(){
@@ -2722,6 +2821,7 @@ async function deleteProd(){
     await api(`/admin/shop/${encodeURIComponent(shopId)}/product/${encodeURIComponent(pid)}`,{method:'DELETE',auth:true});
     toast('Deleted',pid);
     setS('productStatus','Product deleted successfully.','ok');
+    updateProductDraftState(false);
     clearProdForm();
     await loadAdminShop(shopId);
     showShopManagerView('detail');
@@ -2731,11 +2831,26 @@ async function deleteProd(){
 }
 $('saveProdBtn').addEventListener('click',saveProd);
 $('deleteProdBtn').addEventListener('click',deleteProd);
-$('clearProdBtn').addEventListener('click',clearProdForm);
+$('clearProdBtn').addEventListener('click',()=>{if(!App.productFormDirty||confirmDiscardDraft('product')) clearProdForm();});
 $('prodFiles').addEventListener('change',()=>renderFilePrev([...$('prodFiles').files]));
 if($('adminProdSearch')) $('adminProdSearch').addEventListener('input',()=>renderAdminProds(App.adminProducts||[]));
 
 /* ── Analytics ── */
+['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp'].forEach(id=>{
+  $(id)?.addEventListener('input',markShopFormDirty);
+});
+$('shopCat')?.addEventListener('change',markShopFormDirty);
+['prodId','prodName','prodPrice','prodOverview','prodVariants'].forEach(id=>{
+  $(id)?.addEventListener('input',markProductFormDirty);
+});
+['prodStock','prodFiles'].forEach(id=>{
+  $(id)?.addEventListener('change',markProductFormDirty);
+});
+window.addEventListener('beforeunload',e=>{
+  if(!(App.shopFormDirty||App.productFormDirty)) return;
+  e.preventDefault();
+  e.returnValue='';
+});
 async function loadAnalytics(){
   const shopId=App.adminShopId||$('shopId').value.trim();if(!shopId)return;
   const days=$('anDays').value||'30';
