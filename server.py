@@ -771,6 +771,32 @@ def normalize_attribute_data(raw: Any, category: str = "") -> Dict[str, str]:
         out[clean_key] = clean_value
     return out
 
+def parse_attribute_data_strict(raw: Any, category: str = "") -> Dict[str, str]:
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except Exception:
+            raise HTTPException(400, "attribute_data_json must be valid JSON")
+    if raw in (None, ""):
+        raw = {}
+    if not isinstance(raw, dict):
+        raise HTTPException(400, "attribute_data must be a JSON object")
+    allowed = {key for key, _ in PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])}
+    invalid_keys = []
+    out: Dict[str, str] = {}
+    for key, value in raw.items():
+        clean_key = re.sub(r"[^a-z0-9_]", "", str(key or "").lower())
+        clean_value = re.sub(r"\s+", " ", str(value or "")).strip()
+        if not clean_key or not clean_value:
+            continue
+        if allowed and clean_key not in allowed:
+            invalid_keys.append(clean_key)
+            continue
+        out[clean_key] = clean_value
+    if invalid_keys:
+        raise HTTPException(400, f"Unsupported category fields: {', '.join(sorted(set(invalid_keys)))}")
+    return out
+
 def format_attribute_lines(attribute_data: Dict[str, str], category: str = "") -> List[str]:
     label_map = {key: label for key, label in PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])}
     lines = []
@@ -947,13 +973,18 @@ def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[st
         raise HTTPException(400, "Enter a valid numeric price")
     if amount < 0:
         raise HTTPException(400, "Price cannot be negative")
-    stock_quantity = None if product.stock_quantity in (None, "") else int(product.stock_quantity)
-    if stock_quantity is not None and stock_quantity < 0:
+    if product.stock_quantity in (None, ""):
+        raise HTTPException(400, "Enter a stock quantity")
+    stock_quantity = int(product.stock_quantity)
+    if stock_quantity < 0:
         raise HTTPException(400, "Stock quantity cannot be negative")
+    stock_raw = str(product.stock or "in").strip().lower()
+    if stock_raw not in {"in", "low", "out"}:
+        raise HTTPException(400, "Stock status must be in, low, or out")
     currency_code = clean_currency(product.currency_code or shop.get("currency_code") or currency_for_country(shop.get("country_code", "")))
     normalized_variants = normalize_variants_text(product.variants)
-    stock_value = derive_stock_from_quantity(stock_quantity, product.stock)
-    attribute_data = normalize_attribute_data(product.attribute_data, shop.get("category", ""))
+    stock_value = derive_stock_from_quantity(stock_quantity, stock_raw)
+    attribute_data = parse_attribute_data_strict(product.attribute_data, shop.get("category", ""))
     return {
         "name": name,
         "overview": product.overview,
@@ -2467,18 +2498,26 @@ def admin_product_with_images(
             except: current_imgs = []
             
     merged = dedup(current_imgs + new_urls)
+    parsed_price_amount = parse_price_amount(price_amount)
+    if str(price_amount).strip() and parsed_price_amount is None:
+        raise HTTPException(400, "Enter a valid numeric price")
+    try:
+        parsed_stock_quantity = int(stock_quantity) if str(stock_quantity).strip() else None
+    except Exception:
+        raise HTTPException(400, "Stock quantity must be a whole number")
+    parsed_attribute_data = parse_attribute_data_strict(attribute_data_json, shop.get("category", ""))
     
     data = normalize_product_payload(Product(
         product_id=pid,
         name=name.strip(),
         overview=overview,
         price=price,
-        price_amount=parse_price_amount(price_amount),
+        price_amount=parsed_price_amount,
         currency_code=currency_code,
         stock=stock,
-        stock_quantity=int(stock_quantity) if str(stock_quantity).strip() else None,
+        stock_quantity=parsed_stock_quantity,
         variants=variants,
-        attribute_data=normalize_attribute_data(attribute_data_json, shop.get("category", "")),
+        attribute_data=parsed_attribute_data,
         images=merged,
     ), shop)
     if existing: supabase.table("products").update(data).eq("shop_id", shop_id).eq("product_id", pid).execute()
