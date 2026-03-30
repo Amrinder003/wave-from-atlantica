@@ -1454,6 +1454,26 @@ a{color:inherit;text-decoration:none}
                 </div>
                 <div id="anRecent" class="tp-list"></div>
               </div>
+              <div class="an-panel">
+                <div class="an-panel-head">
+                  <div>
+                    <div class="an-panel-kicker">Shop Profile</div>
+                    <div class="an-panel-title">Location and hours status</div>
+                    <div class="an-panel-copy">This is the structured profile the app can now use for filters, schedule logic, and better storefront data quality.</div>
+                  </div>
+                </div>
+                <div id="anProfile" class="tp-list"></div>
+              </div>
+              <div class="an-panel">
+                <div class="an-panel-head">
+                  <div>
+                    <div class="an-panel-kicker">Marketplace</div>
+                    <div class="an-panel-title">Location distribution snapshot</div>
+                    <div class="an-panel-copy">Use this to understand where shops are concentrated and how many are open right now.</div>
+                  </div>
+                </div>
+                <div id="anMarket" class="tp-list"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -3254,6 +3274,19 @@ async function loadAnalytics(){
           return `<div class="tp-row"><span class="tp-rank">${esc(label)}</span><span class="tp-name">${esc(target)}</span><span class="tp-views">${esc(time)}</span></div>`;
         }).join('')
       : '<div style="font-size:13px;color:var(--ink3)">No recent analytics events recorded yet.</div>';
+    const profile=d.shop_profile||{};
+    $('anProfile').innerHTML=[
+      ['Country',profile.country||'Not set'],
+      ['Region',profile.region||'Not set'],
+      ['City',profile.city||'Not set'],
+      ['Postal',profile.postal_code||'Not set'],
+      ['Timezone',profile.timezone_name||'UTC'],
+      ['Status',profile.is_open_now?'Open now':'Closed now'],
+      ['Hours',profile.hours||'Not set']
+    ].map(([k,v])=>`<div class="tp-row"><span class="tp-rank">${esc(k)}</span><span class="tp-name">${esc(v)}</span></div>`).join('');
+    const market=d.marketplace_breakdown||{};
+    const block=(title,items)=>`<div style="display:grid;gap:6px;margin-top:10px"><div style="font-size:11px;font-weight:800;color:var(--ink4);text-transform:uppercase;letter-spacing:.06em">${esc(title)}</div>${items.length?items.map(item=>`<div class="tp-row"><span class="tp-name">${esc(item.label)}</span><span class="tp-views">${item.count}</span></div>`).join(''):'<div style="font-size:13px;color:var(--ink3)">No data yet.</div>'}</div>`;
+    $('anMarket').innerHTML=`<div class="tp-row"><span class="tp-rank">Shops</span><span class="tp-name">Total in marketplace</span><span class="tp-views">${market.shop_count||0}</span></div><div class="tp-row"><span class="tp-rank">Open</span><span class="tp-name">Open right now</span><span class="tp-views">${market.open_now_count||0}</span></div>${block('Top countries',market.country_counts||[])}${block('Top regions',market.region_counts||[])}${block('Top cities',market.city_counts||[])}`;
   }catch{}
 }
 $('refreshAnBtn').addEventListener('click',loadAnalytics);

@@ -2129,6 +2129,8 @@ def admin_rebuild_kb(shop_id: str, authorization: Optional[str] = Header(None)):
 def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
+    shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
+    shop = normalize_shop_record(shop_rows[0]) if shop_rows else {"shop_id": shop_id}
     
     since = int(time.time()) - 86400 * max(1, min(days, 365))
     since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
@@ -2179,4 +2181,44 @@ def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] =
             "created_at": row.get("created_at", ""),
         })
 
-    return {"ok": True, "totals": totals, "top_products": top, "daily_chats": daily, "recent_events": recent_events}
+    all_shops = [normalize_shop_record(r) for r in (supabase.table("shops").select("*").execute().data or [])]
+    country_counts: Dict[str, int] = {}
+    region_counts: Dict[str, int] = {}
+    city_counts: Dict[str, int] = {}
+    open_now_count = 0
+    for row in all_shops:
+        country = row.get("country_name") or row.get("country_code") or "Unknown"
+        region = row.get("region") or "Unknown"
+        city = row.get("city") or "Unknown"
+        country_counts[country] = country_counts.get(country, 0) + 1
+        region_counts[region] = region_counts.get(region, 0) + 1
+        city_counts[city] = city_counts.get(city, 0) + 1
+        if shop_is_open_now(row):
+            open_now_count += 1
+
+    shop_profile = {
+        "country": shop.get("country_name") or shop.get("country_code") or "Not set",
+        "region": shop.get("region") or "Not set",
+        "city": shop.get("city") or "Not set",
+        "postal_code": shop.get("postal_code") or "Not set",
+        "timezone_name": shop.get("timezone_name") or "UTC",
+        "hours": shop.get("hours") or "Not set",
+        "is_open_now": shop_is_open_now(shop),
+    }
+    marketplace_breakdown = {
+        "shop_count": len(all_shops),
+        "open_now_count": open_now_count,
+        "country_counts": [{"label": k, "count": v} for k, v in sorted(country_counts.items(), key=lambda item: (-item[1], item[0]))[:6]],
+        "region_counts": [{"label": k, "count": v} for k, v in sorted(region_counts.items(), key=lambda item: (-item[1], item[0]))[:6]],
+        "city_counts": [{"label": k, "count": v} for k, v in sorted(city_counts.items(), key=lambda item: (-item[1], item[0]))[:6]],
+    }
+
+    return {
+        "ok": True,
+        "totals": totals,
+        "top_products": top,
+        "daily_chats": daily,
+        "recent_events": recent_events,
+        "shop_profile": shop_profile,
+        "marketplace_breakdown": marketplace_breakdown,
+    }
