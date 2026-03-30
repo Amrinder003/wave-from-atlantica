@@ -1599,7 +1599,7 @@ def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] =
     since = int(time.time()) - 86400 * max(1, min(days, 365))
     since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
     
-    evs = supabase.table("analytics").select("event, product_id").eq("shop_id", shop_id).gte("created_at", since_iso).execute().data
+    evs = supabase.table("analytics").select("event, product_id, created_at").eq("shop_id", shop_id).gte("created_at", since_iso).execute().data
     
     totals = {"chat": 0, "shop_view": 0, "view": 0}
     prod_counts = {}
@@ -1624,5 +1624,25 @@ def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] =
         
         c = len(supabase.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", s_iso).lt("created_at", e_iso).execute().data)
         daily.append({"date": datetime.fromtimestamp(e, tz=timezone.utc).strftime("%b %d"), "chats": c})
-        
-    return {"ok": True, "totals": totals, "top_products": top, "daily_chats": daily}
+
+    recent_raw = supabase.table("analytics").select("event, product_id, created_at").eq("shop_id", shop_id).order("created_at", desc=True).limit(20).execute().data
+    recent_events = []
+    for row in recent_raw or []:
+        event = row.get("event", "")
+        product_id = row.get("product_id")
+        product_name = None
+        if product_id:
+            try:
+                p_res = supabase.table("products").select("name").eq("shop_id", shop_id).eq("product_id", product_id).execute()
+                if p_res.data:
+                    product_name = p_res.data[0].get("name")
+            except Exception:
+                product_name = None
+        recent_events.append({
+            "event": event,
+            "product_id": product_id,
+            "product_name": product_name,
+            "created_at": row.get("created_at", ""),
+        })
+
+    return {"ok": True, "totals": totals, "top_products": top, "daily_chats": daily, "recent_events": recent_events}
