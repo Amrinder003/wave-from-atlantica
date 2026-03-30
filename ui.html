@@ -700,12 +700,13 @@ a{color:inherit;text-decoration:none}
 .setup-section-kicker{font-size:10px;font-weight:800;color:var(--A2);text-transform:uppercase;letter-spacing:.08em}
 .setup-section-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;line-height:1.15}
 .setup-section-copy{font-size:13px;color:var(--ink3);line-height:1.65;max-width:720px}
-.form-floating-wrap{padding-bottom:112px}
-.floating-form-actions{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:min(760px,calc(100vw - 32px));display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:22px;background:rgba(255,253,248,.96);border:1px solid rgba(191,174,149,.38);box-shadow:0 18px 40px rgba(48,33,15,.16);backdrop-filter:blur(12px);z-index:260}
+.form-floating-wrap{padding-bottom:0}
+.floating-form-actions{position:static;width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:24px;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));border:1px solid rgba(191,174,149,.36);box-shadow:0 12px 28px rgba(48,33,15,.08);margin-top:14px}
 .floating-form-copy{display:grid;gap:3px;min-width:0}
 .floating-form-kicker{font-size:10px;font-weight:800;color:var(--A2);text-transform:uppercase;letter-spacing:.08em}
 .floating-form-note{font-size:12px;color:var(--ink3);line-height:1.45}
 .floating-form-actions .btn-row{margin-left:auto}
+#createShopBtn,#saveShopBtn,#saveProdBtn{display:none!important}
 .setup-callout{padding:14px 16px;border-radius:20px;background:rgba(255,255,255,.76);border:1px solid rgba(191,174,149,.28);display:grid;gap:4px}
 .setup-callout-title{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)}
 .setup-callout-copy{font-size:13px;color:var(--ink2);line-height:1.62}
@@ -714,8 +715,8 @@ a{color:inherit;text-decoration:none}
   .owner-shop-card-stats{grid-template-columns:1fr}
   .owner-detail-card-top{display:grid}
   .owner-detail-name{font-size:26px}
-  .form-floating-wrap{padding-bottom:132px}
-  .floating-form-actions{width:calc(100vw - 20px);bottom:10px;padding:10px 12px;border-radius:20px;display:grid}
+  .form-floating-wrap{padding-bottom:0}
+  .floating-form-actions{padding:12px;border-radius:20px;display:grid}
   .floating-form-actions .btn-row{margin-left:0;width:100%}
   .floating-form-actions .btn-row .btn{flex:1 1 100%;justify-content:center}
 }
@@ -2548,7 +2549,6 @@ function openCreateShopView(){
   setFieldHint('shopStatus','Start with the public details customers will see on the shop page.','');
   switchAdminSub('shops');
   showShopManagerView('shopform');
-  $('shopName')?.focus();
 }
 
 function openEditShopView(){
@@ -2574,7 +2574,6 @@ function openProductForm(product=null){
     syncProductEditorState('create');
     clearProdForm();
     setFieldHint('productStatus','Add the product details customers should see in the shop and chat.','');
-    $('prodName')?.focus();
   }
 }
 
@@ -2845,6 +2844,12 @@ $('shopCat')?.addEventListener('change',markShopFormDirty);
 });
 ['prodStock','prodFiles'].forEach(id=>{
   $(id)?.addEventListener('change',markProductFormDirty);
+});
+document.addEventListener('pointerdown',e=>{
+  const ae=document.activeElement;
+  if(!ae||!/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+  if(e.target.closest('input, textarea, select, .fld, .compose-row, .auth-form')) return;
+  ae.blur();
 });
 window.addEventListener('beforeunload',e=>{
   if(!(App.shopFormDirty||App.productFormDirty)) return;
