@@ -1612,6 +1612,41 @@ def category_prompt_suggestions(category: str = "") -> List[str]:
         return ["What size do you have?", "Is this for beginners or advanced users?"]
     return []
 
+def attribute_analytics_for_products(products: List[Dict[str, Any]], category: str = "") -> Dict[str, Any]:
+    schema = PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])
+    if not schema:
+        return {"category": category, "fields": [], "complete_products": 0, "total_products": len(products)}
+    fields = []
+    complete_products = 0
+    for row in products:
+        if normalize_attribute_data(row.get("attribute_data"), category):
+            complete_products += 1
+    for key, label in schema:
+        value_counts: Dict[str, int] = {}
+        filled_count = 0
+        for row in products:
+            attr = normalize_attribute_data(row.get("attribute_data"), category)
+            value = str(attr.get(key, "")).strip()
+            if not value:
+                continue
+            filled_count += 1
+            for part in [re.sub(r"\s+", " ", item).strip() for item in re.split(r"[,/|;]", value) if item.strip()]:
+                value_counts[part] = value_counts.get(part, 0) + 1
+        top_values = [{"label": k, "count": v} for k, v in sorted(value_counts.items(), key=lambda item: (-item[1], item[0].lower()))[:6]]
+        fields.append({
+            "key": key,
+            "label": label,
+            "filled_count": filled_count,
+            "missing_count": max(0, len(products) - filled_count),
+            "top_values": top_values,
+        })
+    return {
+        "category": category,
+        "fields": fields,
+        "complete_products": complete_products,
+        "total_products": len(products),
+    }
+
 def shop_label(shop: dict) -> str:
     return f"**{shop['name']}**"
 
@@ -2537,6 +2572,9 @@ def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] =
             "created_at": row.get("created_at", ""),
         })
 
+    shop_products = supabase.table("products").select("*").eq("shop_id", shop_id).execute().data or []
+    attribute_insights = attribute_analytics_for_products(shop_products, shop.get("category", ""))
+
     all_shops = [normalize_shop_record(r) for r in (supabase.table("shops").select("*").execute().data or [])]
     country_counts: Dict[str, int] = {}
     region_counts: Dict[str, int] = {}
@@ -2576,5 +2614,6 @@ def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] =
         "daily_chats": daily,
         "recent_events": recent_events,
         "shop_profile": shop_profile,
+        "attribute_insights": attribute_insights,
         "marketplace_breakdown": marketplace_breakdown,
     }

@@ -1265,6 +1265,16 @@ a{color:inherit;text-decoration:none}
                   <div class="owner-products-sub">Everything listed under this shop appears here. Open a product to edit it, or use the search to find something quickly.</div>
                 </div>
                 <div class="product-manager-tools">
+                  <select id="adminProdHealth" class="btn btn-o btn-sm" style="padding:7px 10px">
+                    <option value="">All products</option>
+                    <option value="needs_attention">Needs attention</option>
+                    <option value="missing_images">Missing images</option>
+                    <option value="missing_price">Missing price</option>
+                    <option value="missing_description">Missing description</option>
+                    <option value="missing_quantity">Missing quantity</option>
+                    <option value="missing_category_details">Missing category details</option>
+                  </select>
+                  <select id="adminProdAttrMissing" class="btn btn-o btn-sm" style="padding:7px 10px;display:none"></select>
                   <input id="adminProdSearch" class="mini-search" placeholder="Search products by name or description"/>
                   <span id="adminPBadge" class="badge">0</span>
                 </div>
@@ -1537,6 +1547,16 @@ a{color:inherit;text-decoration:none}
                 </div>
                 <div id="anMarket" class="tp-list"></div>
               </div>
+              <div class="an-panel">
+                <div class="an-panel-head">
+                  <div>
+                    <div class="an-panel-kicker">Catalog Details</div>
+                    <div class="an-panel-title">Structured product attribute coverage</div>
+                    <div class="an-panel-copy">See how complete your category-specific product details are, and which values appear most often.</div>
+                  </div>
+                </div>
+                <div id="anAttr" class="tp-list"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -1707,6 +1727,7 @@ const App = {
   shopFilters: {country_code:'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false},
   shopAttrFilter: {key:'',value:''},
   marketAttrFilter: {key:'',value:'',category:''},
+  adminProductFilters: {health:'',missingAttr:''},
   ownerFilters: {country:'',region:'',city:'',quality:''},
 };
 const $=id=>document.getElementById(id);
@@ -1999,6 +2020,23 @@ function renderMarketAttributeFilter(category='', target='featured'){
   keySel.innerHTML='<option value="">Any detail</option>'+schema.map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('');
   keySel.value=App.marketAttrFilter.key||'';
   valInp.value=App.marketAttrFilter.value||'';
+}
+function renderAdminProductFilters(category=''){
+  const attrSel=$('adminProdAttrMissing');
+  if(!attrSel) return;
+  const schema=PRODUCT_ATTRIBUTE_SCHEMA[category]||[];
+  if(!schema.length){
+    attrSel.style.display='none';
+    attrSel.innerHTML='';
+    App.adminProductFilters.missingAttr='';
+    return;
+  }
+  attrSel.style.display='';
+  attrSel.innerHTML='<option value="">Any category detail</option>'+schema.map(([key,label])=>`<option value="${esc(key)}">Missing ${esc(label)}</option>`).join('');
+  if(App.adminProductFilters.missingAttr && !schema.some(([key])=>key===App.adminProductFilters.missingAttr)){
+    App.adminProductFilters.missingAttr='';
+  }
+  attrSel.value=App.adminProductFilters.missingAttr||'';
 }
 function collectShopFilters(){
   App.shopFilters={
@@ -3265,6 +3303,9 @@ async function loadAdminShop(shopId){
   try{const d=await api(`/admin/shop/${encodeURIComponent(shopId)}`,{auth:true});
     App.adminShopData=d.data;
     const s=d.data.shop;
+    App.adminProductFilters={health:'',missingAttr:''};
+    if($('adminProdHealth')) $('adminProdHealth').value='';
+    renderAdminProductFilters(s.category||'');
     $('adminProdSearch').value='';
     populateShopForm({...s,shop_id:shopId});
     const st=d.data.stats||{};const el=$('shopStats');el.style.display='grid';
@@ -3281,11 +3322,31 @@ async function loadAdminShop(shopId){
 function renderAdminProds(prods){
   if(!$('adminPGrid')||!$('adminPBadge')) return;
   const q=$('adminProdSearch')?.value.trim().toLowerCase()||'';
-  const filtered=q?prods.filter(p=>`${p.name||''} ${p.overview||''} ${p.product_id||''} ${(p.attribute_lines||[]).join(' ')}`.toLowerCase().includes(q)):prods;
+  const health=App.adminProductFilters.health||'';
+  const missingAttr=App.adminProductFilters.missingAttr||'';
+  const category=App.adminShopData?.shop?.category||'';
+  let filtered=prods.filter(p=>{
+    const hay=`${p.name||''} ${p.overview||''} ${p.product_id||''} ${(p.attribute_lines||[]).join(' ')}`.toLowerCase();
+    if(q && !hay.includes(q)) return false;
+    const flags=(p.quality_flags||[]).map(x=>String(x||'').toLowerCase());
+    if(health==='needs_attention' && !flags.length) return false;
+    if(health==='missing_images' && !flags.includes('missing images')) return false;
+    if(health==='missing_price' && !flags.includes('missing price')) return false;
+    if(health==='missing_description' && !flags.includes('missing description')) return false;
+    if(health==='missing_quantity' && !flags.includes('missing quantity')) return false;
+    if(health==='missing_category_details' && !flags.includes('missing category details')) return false;
+    if(missingAttr){
+      const attrData=p.attribute_data||{};
+      if(String(attrData[missingAttr]||'').trim()) return false;
+      if(!(PRODUCT_ATTRIBUTE_SCHEMA[category]||[]).some(([key])=>key===missingAttr)) return false;
+    }
+    return true;
+  });
   const n=filtered.length;$('adminPBadge').textContent=`${n}`;
   const g=$('adminPGrid');g.innerHTML='';
   if(!n){
-    g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Products</div><div class="et">${q?'No matching products in this shop.':'No products yet for this shop. Add your first product to make the storefront feel complete.'}</div><button class="btn btn-A btn-sm empty-action" id="emptyNewProdBtn">+ Add Product</button></div>`;
+    const hasFilters=!!(q||health||missingAttr);
+    g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Products</div><div class="et">${hasFilters?'No products match the current cleanup filters.':'No products yet for this shop. Add your first product to make the storefront feel complete.'}</div><button class="btn btn-A btn-sm empty-action" id="emptyNewProdBtn">+ Add Product</button></div>`;
     $('emptyNewProdBtn')?.addEventListener('click',()=>openProductForm());
     return;
   }
@@ -3468,6 +3529,8 @@ $('deleteProdBtn').addEventListener('click',deleteProd);
 $('clearProdBtn').addEventListener('click',()=>{if(!App.productFormDirty||confirmDiscardDraft('product')) clearProdForm();});
 $('prodFiles').addEventListener('change',()=>renderFilePrev([...$('prodFiles').files]));
 if($('adminProdSearch')) $('adminProdSearch').addEventListener('input',()=>renderAdminProds(App.adminProducts||[]));
+if($('adminProdHealth')) $('adminProdHealth').addEventListener('change',()=>{App.adminProductFilters.health=$('adminProdHealth').value||'';renderAdminProds(App.adminProducts||[]);});
+if($('adminProdAttrMissing')) $('adminProdAttrMissing').addEventListener('change',()=>{App.adminProductFilters.missingAttr=$('adminProdAttrMissing').value||'';renderAdminProds(App.adminProducts||[]);});
 
 /* ── Analytics ── */
 ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2'].forEach(id=>{
@@ -3543,6 +3606,14 @@ async function loadAnalytics(){
     const market=d.marketplace_breakdown||{};
     const block=(title,items)=>`<div style="display:grid;gap:6px;margin-top:10px"><div style="font-size:11px;font-weight:800;color:var(--ink4);text-transform:uppercase;letter-spacing:.06em">${esc(title)}</div>${items.length?items.map(item=>`<div class="tp-row"><span class="tp-name">${esc(item.label)}</span><span class="tp-views">${item.count}</span></div>`).join(''):'<div style="font-size:13px;color:var(--ink3)">No data yet.</div>'}</div>`;
     $('anMarket').innerHTML=`<div class="tp-row"><span class="tp-rank">Shops</span><span class="tp-name">Total in marketplace</span><span class="tp-views">${market.shop_count||0}</span></div><div class="tp-row"><span class="tp-rank">Open</span><span class="tp-name">Open right now</span><span class="tp-views">${market.open_now_count||0}</span></div>${block('Top countries',market.country_counts||[])}${block('Top regions',market.region_counts||[])}${block('Top cities',market.city_counts||[])}`;
+    const attr=d.attribute_insights||{};
+    const attrFields=attr.fields||[];
+    $('anAttr').innerHTML=!attr.category||!attrFields.length
+      ? '<div style="font-size:13px;color:var(--ink3)">This shop category does not use extra structured product fields yet.</div>'
+      : `<div class="tp-row"><span class="tp-rank">${esc(attr.category)}</span><span class="tp-name">Products with category details</span><span class="tp-views">${attr.complete_products||0}/${attr.total_products||0}</span></div>` + attrFields.map(field=>{
+          const topValues=(field.top_values||[]).slice(0,3).map(item=>`${esc(item.label)} (${item.count})`).join(' • ');
+          return `<div style="display:grid;gap:6px;padding:10px 0;border-top:1px solid rgba(191,174,149,.28)"><div class="tp-row" style="padding:0;border:0"><span class="tp-rank">${esc(field.label)}</span><span class="tp-name">${field.filled_count||0} filled</span><span class="tp-views">${field.missing_count||0} missing</span></div><div style="font-size:12px;color:var(--ink3)">${topValues||'No values saved yet.'}</div></div>`;
+        }).join('');
   }catch{}
 }
 $('refreshAnBtn').addEventListener('click',loadAnalytics);
