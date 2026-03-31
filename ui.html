@@ -312,16 +312,16 @@ a{color:inherit;text-decoration:none}
 .shop-side-prompt:active{transform:scale(.985);background:var(--sf2)}
 .map-sheet-bg{position:fixed;inset:0;background:rgba(15,23,42,.46);backdrop-filter:blur(8px);z-index:460;display:none;align-items:center;justify-content:center;padding:22px}
 .map-sheet-bg.on{display:flex}
-.map-sheet{width:min(1240px,100%);height:min(88dvh,860px);display:grid;grid-template-columns:minmax(280px,340px) 1fr;overflow:hidden;border-radius:32px;border:1px solid rgba(191,174,149,.38);background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));box-shadow:0 30px 80px rgba(18,23,34,.24)}
-.map-sheet-side{display:grid;grid-template-rows:auto auto 1fr;min-width:0;border-right:1px solid rgba(191,174,149,.3);background:linear-gradient(180deg,rgba(255,252,247,.98),rgba(248,241,231,.94))}
-.map-sheet-head{padding:22px 20px 16px;display:grid;gap:10px;border-bottom:1px solid rgba(191,174,149,.28)}
+.map-sheet{width:min(1240px,100%);height:min(88dvh,860px);display:grid;grid-template-rows:auto auto 1fr;overflow:hidden;border-radius:32px;border:1px solid rgba(191,174,149,.38);background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));box-shadow:0 30px 80px rgba(18,23,34,.24)}
+.map-sheet-side{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:flex-end;gap:18px;padding:22px 20px 16px;border-bottom:1px solid rgba(191,174,149,.28);background:linear-gradient(180deg,rgba(255,252,247,.98),rgba(248,241,231,.94))}
+.map-sheet-head{display:grid;gap:10px;min-width:0}
 .map-sheet-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2)}
 .map-sheet-title{font-family:'Sora',sans-serif;font-size:24px;font-weight:800;letter-spacing:-.05em;line-height:1.05}
 .map-sheet-copy{font-size:13px;color:var(--ink3);line-height:1.7}
 .map-sheet-actions{display:flex;gap:8px;flex-wrap:wrap}
 .map-sheet-status{padding:12px 20px;border-bottom:1px solid rgba(191,174,149,.28);font-size:12px;color:var(--ink3);background:rgba(255,255,255,.55)}
-.map-sheet-list{padding:14px;display:grid;gap:10px;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.map-spot-card{display:grid;gap:8px;padding:14px;border-radius:20px;border:1px solid rgba(191,174,149,.28);background:rgba(255,255,255,.76);cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+.map-sheet-list{padding:12px 20px;border-bottom:1px solid rgba(191,174,149,.28);display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;background:rgba(255,252,247,.72)}
+.map-spot-card{display:grid;gap:8px;padding:14px;border-radius:20px;border:1px solid rgba(191,174,149,.28);background:rgba(255,255,255,.76);cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;min-width:260px;max-width:320px;flex:0 0 auto}
 .map-spot-card:hover{transform:translateY(-2px);border-color:rgba(162,76,46,.3);box-shadow:0 16px 28px rgba(48,33,15,.08)}
 .map-spot-card.active{border-color:rgba(162,76,46,.4);background:linear-gradient(180deg,#fff8ef,#f7e6db)}
 .map-spot-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
@@ -339,9 +339,12 @@ a{color:inherit;text-decoration:none}
 .map-empty-card{max-width:420px;display:grid;gap:10px;padding:24px;border-radius:26px;background:rgba(255,255,255,.86);border:1px solid rgba(191,174,149,.32);box-shadow:0 20px 40px rgba(48,33,15,.1)}
 .map-empty-title{font-family:'Sora',sans-serif;font-size:20px;font-weight:800}
 .map-empty-copy{font-size:13px;color:var(--ink3);line-height:1.7}
-.wave-map-pin{width:18px;height:18px;border-radius:999px;background:var(--A);border:2px solid rgba(255,250,242,.96);box-shadow:0 10px 20px rgba(92,47,24,.22)}
-.wave-map-pin.focus{width:22px;height:22px;background:var(--A2)}
+.wave-map-pin{width:42px;height:42px;border-radius:18px;background:linear-gradient(180deg,#fff8ef,#f2dfc8);border:1px solid rgba(162,76,46,.28);box-shadow:0 12px 24px rgba(92,47,24,.2);display:grid;place-items:center;position:relative}
+.wave-map-pin::after{content:'';position:absolute;left:50%;bottom:-10px;width:14px;height:14px;background:inherit;border-right:1px solid rgba(162,76,46,.28);border-bottom:1px solid rgba(162,76,46,.28);transform:translateX(-50%) rotate(45deg);border-bottom-right-radius:3px}
+.wave-map-pin.focus{transform:scale(1.06)}
+.wave-map-pin-badge{position:relative;z-index:1;width:28px;height:28px;border-radius:999px;background:linear-gradient(180deg,#b25735,#8e3c21);display:grid;place-items:center;color:#fff;font-size:14px;box-shadow:0 8px 18px rgba(92,47,24,.24)}
 .wave-map-pin.user{width:16px;height:16px;background:#0284c7;border-color:#e0f2fe;box-shadow:0 8px 18px rgba(2,132,199,.26)}
+.wave-map-pin.user::after{display:none}
 .wave-map-popup{display:grid;gap:8px;min-width:220px}
 .wave-map-popup-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.15}
 .wave-map-popup-copy{font-size:12px;color:var(--ink3);line-height:1.6}
@@ -354,20 +357,20 @@ a{color:inherit;text-decoration:none}
 .leaflet-popup-tip{background:rgba(255,253,248,.98)!important}
 .leaflet-popup-close-button{font-size:18px!important;color:var(--ink3)!important;padding:6px 10px!important}
 @media(max-width:980px){
-  .map-sheet{grid-template-columns:1fr;height:min(92dvh,100%)}
-  .map-sheet-side{grid-template-rows:auto auto minmax(140px,34dvh);border-right:none;border-bottom:1px solid rgba(191,174,149,.28)}
+  .map-sheet{height:min(92dvh,100%)}
+  .map-sheet-side{grid-template-columns:1fr;align-items:stretch;gap:12px;padding:18px 16px 14px}
 }
 @media(max-width:560px){
   .map-sheet-bg{padding:0;align-items:flex-end}
   .map-sheet{height:94dvh;width:100%;border-radius:28px 28px 0 0}
-  .map-sheet-head{padding:18px 16px 14px}
   .map-sheet-title{font-size:21px}
   .map-sheet-actions{display:grid;grid-template-columns:1fr;gap:8px}
   .map-sheet-actions .btn{width:100%;justify-content:center}
   .map-sheet-status{padding:10px 16px}
-  .map-sheet-list{padding:12px;gap:8px}
+  .map-sheet-list{padding:10px 16px;gap:8px}
   .map-sheet-floating{left:12px;right:12px;top:12px}
   .map-floating-chip{font-size:11px;padding:7px 10px}
+  .map-spot-card{min-width:220px}
 }
 .shop-main{padding:18px 22px}
 @media(max-width:680px){.shop-main{padding:12px}}
@@ -2234,6 +2237,17 @@ function mapPopupHtml(shop={}){
       <button class="btn btn-A btn-sm" type="button" onclick="window.visitShopFromMap('${esc(ref)}')">Visit Shop</button>
     </div>`;
 }
+function shopCategoryMapIcon(category=''){
+  const key=String(category||'').trim().toLowerCase();
+  if(key==='food') return '🍽';
+  if(key==='electronics') return '📱';
+  if(key==='clothing') return '👕';
+  if(key==='home') return '🏠';
+  if(key==='beauty') return '💄';
+  if(key==='sports') return '⚽';
+  if(key==='books') return '📚';
+  return '🏪';
+}
 window.visitShopFromMap=(shopRef)=>{
   closeMapSheet();
   if(shopRef) openShopPage(shopRef);
@@ -2298,20 +2312,16 @@ function addUserMapMarker(loc){
 function renderMapMarkers(shops=[],focusShopId=''){
   if(!App.mapSheet.map || !window.L) return;
   resetMapSheetMarkers();
-  const finePointer=window.matchMedia('(hover:hover) and (pointer:fine)').matches;
   shops.forEach(shop=>{
     if(!hasShopCoords(shop)) return;
     const el=document.createElement('div');
     const isFocus=shop.shop_id===focusShopId || shopPublicRef(shop)===focusShopId;
     el.className='wave-map-pin'+(isFocus?' focus':'');
-    const icon=L.divIcon({className:'',html:el.outerHTML,iconSize:isFocus?[22,22]:[18,18],iconAnchor:isFocus?[11,11]:[9,9]});
+    el.innerHTML=`<span class="wave-map-pin-badge">${shopCategoryMapIcon(shop.category)}</span>`;
+    const icon=L.divIcon({className:'',html:el.outerHTML,iconSize:isFocus?[42,52]:[42,52],iconAnchor:[21,50],popupAnchor:[0,-42]});
     const marker=L.marker([Number(shop.latitude),Number(shop.longitude)],{icon}).addTo(App.mapSheet.map);
-    marker.bindPopup(mapPopupHtml(shop),{closeButton:!finePointer,autoClose:false,offset:[0,-8]});
+    marker.bindPopup(mapPopupHtml(shop),{closeButton:true,autoClose:false,offset:[0,-22],className:'wave-map-popup-shell'});
     marker.on('click',()=>marker.openPopup());
-    if(finePointer){
-      marker.on('mouseover',()=>marker.openPopup());
-      marker.on('mouseout',()=>marker.closePopup());
-    }
     const popup=marker.getPopup();
     App.mapSheet.markers.push({shop,marker,popup});
     App.mapSheet.shopLookup[shop.shop_id]={shop,marker,popup};
