@@ -2236,6 +2236,23 @@ async function tryGetUserLocation(){
   }
   return {ok:false,reason:geolocationErrorMessage(lastErr),code:Number(lastErr?.code||0)};
 }
+async function tryGetApproxLocationFromIP(){
+  try{
+    const res=await fetch('https://ipapi.co/json/',{headers:{'Accept':'application/json'}});
+    if(!res.ok) throw new Error('IP lookup failed');
+    const data=await res.json();
+    const lat=Number(data?.latitude);
+    const lng=Number(data?.longitude);
+    if(!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error('IP lookup returned no coordinates');
+    return {
+      ok:true,
+      loc:{lat,lng,accuracy:null,approximate:true},
+      reason:`Showing an approximate location near ${data?.city || data?.region || data?.country_name || 'your area'}.`
+    };
+  }catch{
+    return {ok:false,reason:'Approximate network-based location is unavailable right now.'};
+  }
+}
 async function locateUserOnMap(){
   if(!App.mapSheet.map) return;
   setMapSheetStatus('Finding your current location…');
@@ -2252,6 +2269,26 @@ async function locateUserOnMap(){
   addUserMapMarker(loc);
   try{ App.mapSheet.map.flyTo([loc.lat,loc.lng], 13, {duration:0.8}); }catch{}
   setMapSheetStatus(`Showing your current location on the map${loc.accuracy ? ` (about ${Math.round(loc.accuracy)} m accuracy)` : ''}.`);
+}
+async function locateUserOnMap(){
+  if(!App.mapSheet.map) return;
+  setMapSheetStatus('Finding your current location...');
+  const result=await tryGetUserLocation();
+  const finalResult=(result?.ok && result?.loc) ? result : await tryGetApproxLocationFromIP();
+  if(!finalResult?.ok || !finalResult.loc){
+    App.mapSheet.userLocation=null;
+    if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
+    setMapSheetStatus(result?.reason || finalResult?.reason || 'Your location could not be determined. Check browser location permission and try again.');
+    return;
+  }
+  const loc=finalResult.loc;
+  App.mapSheet.userLocation=loc;
+  if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
+  addUserMapMarker(loc);
+  try{ App.mapSheet.map.flyTo([loc.lat,loc.lng], 13, {duration:0.8}); }catch{}
+  setMapSheetStatus(loc.approximate
+    ? (finalResult.reason || 'Showing an approximate location based on your network.')
+    : `Showing your current location on the map${loc.accuracy ? ` (about ${Math.round(loc.accuracy)} m accuracy)` : ''}.`);
 }
 function mapPopupHtml(shop={}){
   const stats=shop.stats||{};
@@ -2422,7 +2459,8 @@ async function openMapSheet(mode='home',focusRef=''){
   if(focusShop && !shops.find(s=>s.shop_id===focusShop.shop_id)) shops.unshift(focusShop);
   let userLoc=null;
   if(mode==='home'){
-    userLoc=await tryGetUserLocation();
+    const locationResult=await tryGetUserLocation();
+    userLoc=locationResult?.ok ? locationResult.loc : null;
     App.mapSheet.userLocation=userLoc;
   }else{
     userLoc=App.mapSheet.userLocation;
@@ -5002,7 +5040,14 @@ async function loadAdminShop(shopId){
     $('adminProdSearch').value='';
     populateShopForm({...s,shop_id:shopId});
     const st=d.data.stats||{};const el=$('shopStats');el.style.display='grid';
-    el.innerHTML=[['Products',st.product_count??0],['Images',st.image_count??0],['Coverage',`${st.products_with_images??0}/${st.product_count??0}`],['Chats/30d',st.chat_hits_30d??0]].map(([l,v])=>`<div class="sbox"><div class="sbox-l">${esc(l)}</div><div class="sbox-v">${esc(v)}</div></div>`).join('');
+    el.innerHTML=[
+      ['Products',st.product_count??0],
+      ['Images',st.image_count??0],
+      ['Coverage',`${st.products_with_images??0}/${st.product_count??0}`],
+      ['Chats/30d',st.chat_hits_30d??0],
+      ['Shop Views',st.shop_views_30d??0],
+      ['Product Views',st.product_views_30d??0]
+    ].map(([l,v])=>`<div class="sbox"><div class="sbox-l">${esc(l)}</div><div class="sbox-v">${esc(v)}</div></div>`).join('');
     App.adminProducts=d.data.products||[];
     const requests=reqRes.requests||[];
     renderOwnerRequests(requests);
