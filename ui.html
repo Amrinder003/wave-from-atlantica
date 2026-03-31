@@ -2202,31 +2202,56 @@ async function ensureLeafletLoaded(){
   });
   return window.L;
 }
-async function tryGetUserLocation(){
-  if(!navigator.geolocation) return null;
-  return await new Promise(resolve=>{
+function geolocationErrorMessage(err){
+  const code=Number(err?.code||0);
+  if(code===1) return 'Location permission was denied by the browser or device.';
+  if(code===2) return 'Your device could not determine its current location.';
+  if(code===3) return 'Location lookup timed out before the device returned a position.';
+  return 'Your device could not determine its current location.';
+}
+function requestCurrentPosition(options){
+  return new Promise((resolve,reject)=>{
     navigator.geolocation.getCurrentPosition(
-      pos=>resolve({lng:pos.coords.longitude,lat:pos.coords.latitude}),
-      ()=>resolve(null),
-      {enableHighAccuracy:true,timeout:7000,maximumAge:120000}
+      pos=>resolve({lng:pos.coords.longitude,lat:pos.coords.latitude,accuracy:pos.coords.accuracy||null}),
+      err=>reject(err),
+      options
     );
   });
+}
+async function tryGetUserLocation(){
+  if(!navigator.geolocation) return {ok:false,reason:'This browser does not support location access.'};
+  const attempts=[
+    {enableHighAccuracy:false,timeout:12000,maximumAge:300000},
+    {enableHighAccuracy:true,timeout:18000,maximumAge:120000}
+  ];
+  let lastErr=null;
+  for(const opts of attempts){
+    try{
+      const loc=await requestCurrentPosition(opts);
+      return {ok:true,loc};
+    }catch(err){
+      lastErr=err;
+      if(Number(err?.code||0)===1) break;
+    }
+  }
+  return {ok:false,reason:geolocationErrorMessage(lastErr),code:Number(lastErr?.code||0)};
 }
 async function locateUserOnMap(){
   if(!App.mapSheet.map) return;
   setMapSheetStatus('Finding your current location…');
-  const loc=await tryGetUserLocation();
-  if(!loc){
+  const result=await tryGetUserLocation();
+  if(!result?.ok || !result.loc){
     App.mapSheet.userLocation=null;
     if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
-    setMapSheetStatus('Your location could not be determined. Check browser location permission and try again.');
+    setMapSheetStatus(result?.reason || 'Your location could not be determined. Check browser location permission and try again.');
     return;
   }
+  const loc=result.loc;
   App.mapSheet.userLocation=loc;
   if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
   addUserMapMarker(loc);
   try{ App.mapSheet.map.flyTo([loc.lat,loc.lng], 13, {duration:0.8}); }catch{}
-  setMapSheetStatus('Showing your current location on the map.');
+  setMapSheetStatus(`Showing your current location on the map${loc.accuracy ? ` (about ${Math.round(loc.accuracy)} m accuracy)` : ''}.`);
 }
 function mapPopupHtml(shop={}){
   const stats=shop.stats||{};
