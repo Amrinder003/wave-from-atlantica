@@ -2352,7 +2352,7 @@ async function ensureMapSheetBase(){
     App.mapSheet.map.setView([44.6488,-63.5752],11);
     App.mapSheet.loaded=true;
   }
-  setTimeout(()=>App.mapSheet.map?.resize(),80);
+  setTimeout(()=>App.mapSheet.map?.invalidateSize?.(),80);
   return {ok:true,enabled:true,provider:'leaflet'};
 }
 async function ensureMapShopsLoaded(){
