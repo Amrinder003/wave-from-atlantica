@@ -347,8 +347,12 @@ a{color:inherit;text-decoration:none}
 .wave-map-popup-copy{font-size:12px;color:var(--ink3);line-height:1.6}
 .wave-map-popup-meta{display:flex;flex-wrap:wrap;gap:6px}
 .wave-map-popup-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:rgba(255,250,242,.88);border:1px solid rgba(191,174,149,.28);font-size:10px;font-weight:800;color:var(--ink2)}
-.mapboxgl-popup-content{border-radius:20px!important;padding:14px!important;box-shadow:0 18px 36px rgba(48,33,15,.16)!important;border:1px solid rgba(191,174,149,.28)}
-.mapboxgl-popup-close-button{font-size:18px;color:var(--ink3);padding:4px 8px}
+.leaflet-container{font-family:'Inter',sans-serif;background:linear-gradient(180deg,#f6efe3,#eadbc6)}
+.leaflet-control-zoom a{color:var(--ink2)!important}
+.leaflet-popup-content-wrapper{border-radius:20px!important;padding:0!important;box-shadow:0 18px 36px rgba(48,33,15,.16)!important;border:1px solid rgba(191,174,149,.28);background:rgba(255,253,248,.98)!important}
+.leaflet-popup-content{margin:14px!important}
+.leaflet-popup-tip{background:rgba(255,253,248,.98)!important}
+.leaflet-popup-close-button{font-size:18px!important;color:var(--ink3)!important;padding:6px 10px!important}
 @media(max-width:980px){
   .map-sheet{grid-template-columns:1fr;height:min(92dvh,100%)}
   .map-sheet-side{grid-template-rows:auto auto minmax(140px,34dvh);border-right:none;border-bottom:1px solid rgba(191,174,149,.28)}
@@ -2175,31 +2179,34 @@ async function getMapSupport(){
   catch{ App.mapSupport={ok:true,enabled:false,provider:'mapbox',public_token:''}; }
   return App.mapSupport;
 }
-async function ensureMapboxLoaded(token=''){
-  if(window.mapboxgl) return window.mapboxgl;
+async function ensureLeafletLoaded(){
+  if(window.L) return window.L;
   await new Promise((resolve,reject)=>{
-    if(!document.getElementById('mapbox-gl-css')){
+    if(!document.getElementById('leaflet-css')){
       const link=document.createElement('link');
-      link.id='mapbox-gl-css';
+      link.id='leaflet-css';
       link.rel='stylesheet';
-      link.href='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css';
+      link.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      link.integrity='sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+      link.crossOrigin='';
       document.head.appendChild(link);
     }
-    const existing=document.getElementById('mapbox-gl-js');
+    const existing=document.getElementById('leaflet-js');
     if(existing){
       existing.addEventListener('load',()=>resolve(),{once:true});
       existing.addEventListener('error',()=>reject(new Error('Could not load the map library.')),{once:true});
       return;
     }
     const script=document.createElement('script');
-    script.id='mapbox-gl-js';
-    script.src='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js';
+    script.id='leaflet-js';
+    script.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.integrity='sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+    script.crossOrigin='';
     script.onload=()=>resolve();
     script.onerror=()=>reject(new Error('Could not load the map library.'));
     document.head.appendChild(script);
   });
-  if(window.mapboxgl && token) window.mapboxgl.accessToken=token;
-  return window.mapboxgl;
+  return window.L;
 }
 async function tryGetUserLocation(){
   if(!navigator.geolocation) return null;
@@ -2275,20 +2282,21 @@ function buildMapSpotCards(shops=[],focusShopId=''){
 function focusMapShop(shop={}){
   if(!App.mapSheet.map || !hasShopCoords(shop)) return;
   const popupEntry=App.mapSheet.shopLookup[shop.shop_id] || App.mapSheet.shopLookup[shopPublicRef(shop)];
-  App.mapSheet.map.flyTo({center:[Number(shop.longitude),Number(shop.latitude)],zoom:15.2,essential:true});
+  App.mapSheet.map.flyTo([Number(shop.latitude),Number(shop.longitude)],15,{duration:0.8});
   if(popupEntry?.popup){
-    popupEntry.popup.setLngLat([Number(shop.longitude),Number(shop.latitude)]).addTo(App.mapSheet.map);
+    popupEntry.marker.bindPopup(mapPopupHtml(shop),{closeButton:true,autoClose:false}).openPopup();
   }
   buildMapSpotCards(Object.values(App.mapSheet.shopLookup).map(entry=>entry.shop).filter((shop,idx,self)=>self.findIndex(s=>s.shop_id===shop.shop_id)===idx), shop.shop_id);
 }
 function addUserMapMarker(loc){
-  if(!App.mapSheet.map || !loc) return;
+  if(!App.mapSheet.map || !loc || !window.L) return;
   const el=document.createElement('div');
   el.className='wave-map-pin user';
-  App.mapSheet.userMarker=new mapboxgl.Marker({element:el}).setLngLat([loc.lng,loc.lat]).addTo(App.mapSheet.map);
+  const icon=L.divIcon({className:'',html:el.outerHTML,iconSize:[16,16],iconAnchor:[8,8]});
+  App.mapSheet.userMarker=L.marker([loc.lat,loc.lng],{icon}).addTo(App.mapSheet.map);
 }
 function renderMapMarkers(shops=[],focusShopId=''){
-  if(!App.mapSheet.map || !window.mapboxgl) return;
+  if(!App.mapSheet.map || !window.L) return;
   resetMapSheetMarkers();
   const finePointer=window.matchMedia('(hover:hover) and (pointer:fine)').matches;
   shops.forEach(shop=>{
@@ -2296,55 +2304,46 @@ function renderMapMarkers(shops=[],focusShopId=''){
     const el=document.createElement('div');
     const isFocus=shop.shop_id===focusShopId || shopPublicRef(shop)===focusShopId;
     el.className='wave-map-pin'+(isFocus?' focus':'');
-    const popup=new mapboxgl.Popup({offset:16,closeButton:!finePointer,closeOnClick:false,maxWidth:'280px'}).setHTML(mapPopupHtml(shop));
-    const marker=new mapboxgl.Marker({element:el,anchor:'bottom'})
-      .setLngLat([Number(shop.longitude),Number(shop.latitude)])
-      .addTo(App.mapSheet.map);
-    el.addEventListener('click',()=>popup.setLngLat([Number(shop.longitude),Number(shop.latitude)]).addTo(App.mapSheet.map));
+    const icon=L.divIcon({className:'',html:el.outerHTML,iconSize:isFocus?[22,22]:[18,18],iconAnchor:isFocus?[11,11]:[9,9]});
+    const marker=L.marker([Number(shop.latitude),Number(shop.longitude)],{icon}).addTo(App.mapSheet.map);
+    marker.bindPopup(mapPopupHtml(shop),{closeButton:!finePointer,autoClose:false,offset:[0,-8]});
+    marker.on('click',()=>marker.openPopup());
     if(finePointer){
-      el.addEventListener('mouseenter',()=>popup.setLngLat([Number(shop.longitude),Number(shop.latitude)]).addTo(App.mapSheet.map));
-      el.addEventListener('mouseleave',()=>popup.remove());
+      marker.on('mouseover',()=>marker.openPopup());
+      marker.on('mouseout',()=>marker.closePopup());
     }
+    const popup=marker.getPopup();
     App.mapSheet.markers.push({shop,marker,popup});
     App.mapSheet.shopLookup[shop.shop_id]={shop,marker,popup};
     App.mapSheet.shopLookup[shopPublicRef(shop)]={shop,marker,popup};
   });
 }
 function fitMapToShops(shops=[],focusShop=null,userLoc=null){
-  if(!App.mapSheet.map || !window.mapboxgl || !shops.length) return;
-  const bounds=new mapboxgl.LngLatBounds();
-  let count=0;
-  if(userLoc){ bounds.extend([userLoc.lng,userLoc.lat]); count++; }
+  if(!App.mapSheet.map || !window.L || !shops.length) return;
+  const points=[];
+  if(userLoc) points.push([userLoc.lat,userLoc.lng]);
   const fitShops=focusShop
     ? [focusShop,...shops.filter(s=>s.shop_id!==focusShop.shop_id).slice(0,8)]
     : shops.slice(0,12);
-  fitShops.forEach(shop=>{ if(hasShopCoords(shop)){ bounds.extend([Number(shop.longitude),Number(shop.latitude)]); count++; }});
-  if(!count) return;
-  if(count===1 && focusShop) App.mapSheet.map.easeTo({center:[Number(focusShop.longitude),Number(focusShop.latitude)],zoom:14.8,essential:true});
-  else App.mapSheet.map.fitBounds(bounds,{padding:{top:90,right:70,bottom:70,left:70},maxZoom:14.8,duration:900});
+  fitShops.forEach(shop=>{ if(hasShopCoords(shop)) points.push([Number(shop.latitude),Number(shop.longitude)]); });
+  if(!points.length) return;
+  if(points.length===1 && focusShop) App.mapSheet.map.setView([Number(focusShop.latitude),Number(focusShop.longitude)],14);
+  else App.mapSheet.map.fitBounds(points,{padding:[70,70],maxZoom:14});
 }
 async function ensureMapSheetBase(){
-  const support=await getMapSupport();
-  if(!support?.enabled || !support?.public_token){
-    setMapSheetEmpty('Map not ready','Add a public Mapbox token in Railway so Wave can render live shop maps.');
-    setMapSheetStatus('Map support is not configured on this deployment.');
-    return null;
-  }
   setMapSheetEmpty('','');
-  await ensureMapboxLoaded(support.public_token);
+  await ensureLeafletLoaded();
   if(!App.mapSheet.map){
-    App.mapSheet.map=new mapboxgl.Map({
-      container:'mapSheetCanvas',
-      style:'mapbox://styles/mapbox/streets-v12',
-      center:[-63.5752,44.6488],
-      zoom:11.4,
-      attributionControl:false
-    });
-    App.mapSheet.map.addControl(new mapboxgl.NavigationControl({visualizePitch:true}),'bottom-right');
+    App.mapSheet.map=L.map('mapSheetCanvas',{zoomControl:true,attributionControl:true});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19,
+      attribution:'&copy; OpenStreetMap contributors'
+    }).addTo(App.mapSheet.map);
+    App.mapSheet.map.setView([44.6488,-63.5752],11);
     App.mapSheet.loaded=true;
   }
   setTimeout(()=>App.mapSheet.map?.resize(),80);
-  return support;
+  return {ok:true,enabled:true,provider:'leaflet'};
 }
 async function ensureMapShopsLoaded(){
   if(App.allShops?.length) return App.allShops;
