@@ -1357,6 +1357,7 @@ a{color:inherit;text-decoration:none}
               </div>
               <div class="workspace-actions">
                 <button id="ownerCreateShopBtn" class="btn btn-A btn-sm">+ Create Shop</button>
+                <button id="ownerGeocodeShopsBtn" class="btn btn-o btn-sm">Refresh Map Data</button>
                 <button id="refreshMyShops" class="btn btn-g btn-sm">Refresh</button>
               </div>
             </div>
@@ -4890,6 +4891,21 @@ async function loadMyShops(){
   }catch(e){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Error</div><div class="et">${esc(e.message)}</div></div>`;setFieldHint('myShopsStatus','Could not load your shops.','err');}
 }
 $('refreshMyShops').addEventListener('click',loadMyShops);
+$('ownerGeocodeShopsBtn')?.addEventListener('click',async()=>{
+  try{
+    setBtnBusy('ownerGeocodeShopsBtn',true,'Refreshing...');
+    setFieldHint('myShopsStatus','Refreshing map coordinates for shops missing location pins...');
+    const res=await api('/admin/shops/geocode-missing',{method:'POST',auth:true});
+    await loadMyShops();
+    toast('Map data refreshed',`${res.updated||0} shop${(res.updated||0)===1?'':'s'} updated`);
+    setFieldHint('myShopsStatus',`${res.updated||0} shop${(res.updated||0)===1?' was':'s were'} updated with map coordinates.`,'ok');
+  }catch(e){
+    toast('Map refresh failed',e.message,'err');
+    setFieldHint('myShopsStatus',e.message,'err');
+  }finally{
+    setBtnBusy('ownerGeocodeShopsBtn',false);
+  }
+});
 ['ownerFilterCountry','ownerFilterRegion','ownerFilterCity'].forEach(id=>$(id)?.addEventListener('input',()=>loadMyShops()));
 $('ownerFilterQuality')?.addEventListener('change',()=>loadMyShops());
 $('ownerExportShopsBtn')?.addEventListener('click',async()=>{try{await downloadAdminExport('/admin/export/shops.csv','shops_export.csv');}catch(e){toast('Export failed',e.message,'err');}});

@@ -2793,6 +2793,35 @@ def my_shops(authorization: Optional[str] = Header(None)):
         r["quality_flags"] = shop_completeness_flags(r, stats)
     return {"ok": True, "shops": rows}
 
+@app.post("/admin/shops/geocode-missing")
+def admin_geocode_missing_shop_coords(authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    shops_res = supabase.table("shops").select("*").eq("owner_user_id", user.id).execute()
+    updated = 0
+    checked = 0
+    for row in shops_res.data or []:
+        checked += 1
+        current = normalize_shop_record(row)
+        try:
+            lat = float(current.get("latitude"))
+            lng = float(current.get("longitude"))
+            if math.isfinite(lat) and math.isfinite(lng):
+                continue
+        except Exception:
+            pass
+        geo = geocode_structured_address(current)
+        if geo.get("latitude") is None or geo.get("longitude") is None:
+            continue
+        try:
+            supabase.table("shops").update({
+                "latitude": geo["latitude"],
+                "longitude": geo["longitude"],
+            }).eq("shop_id", current["shop_id"]).execute()
+            updated += 1
+        except Exception as e:
+            print(f"[Admin Geocode Warning] {current.get('shop_id')}: {e}")
+    return {"ok": True, "checked": checked, "updated": updated}
+
 @app.get("/admin/export/shops.csv")
 def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
