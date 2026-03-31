@@ -312,7 +312,7 @@ a{color:inherit;text-decoration:none}
 .shop-side-prompt:active{transform:scale(.985);background:var(--sf2)}
 .map-sheet-bg{position:fixed;inset:0;background:rgba(15,23,42,.46);backdrop-filter:blur(8px);z-index:460;display:none;align-items:center;justify-content:center;padding:22px}
 .map-sheet-bg.on{display:flex}
-.map-sheet{width:min(1240px,100%);height:min(88dvh,860px);display:grid;grid-template-rows:auto auto auto minmax(0,1fr);overflow:hidden;border-radius:32px;border:1px solid rgba(191,174,149,.38);background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));box-shadow:0 30px 80px rgba(18,23,34,.24)}
+.map-sheet{width:min(1240px,100%);height:min(88dvh,860px);display:grid;grid-template-rows:auto auto minmax(0,1fr);overflow:hidden;border-radius:32px;border:1px solid rgba(191,174,149,.38);background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));box-shadow:0 30px 80px rgba(18,23,34,.24)}
 .map-sheet-side{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:flex-end;gap:18px;padding:22px 20px 16px;border-bottom:1px solid rgba(191,174,149,.28);background:linear-gradient(180deg,rgba(255,252,247,.98),rgba(248,241,231,.94))}
 .map-sheet-head{display:grid;gap:10px;min-width:0}
 .map-sheet-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2)}
@@ -320,15 +320,7 @@ a{color:inherit;text-decoration:none}
 .map-sheet-copy{font-size:13px;color:var(--ink3);line-height:1.7}
 .map-sheet-actions{display:flex;gap:8px;flex-wrap:wrap}
 .map-sheet-status{padding:12px 20px;border-bottom:1px solid rgba(191,174,149,.28);font-size:12px;color:var(--ink3);background:rgba(255,255,255,.55)}
-.map-sheet-list{padding:12px 20px;border-bottom:1px solid rgba(191,174,149,.28);display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;background:rgba(255,252,247,.72)}
-.map-spot-card{display:grid;gap:8px;padding:14px;border-radius:20px;border:1px solid rgba(191,174,149,.28);background:rgba(255,255,255,.76);cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;min-width:260px;max-width:320px;flex:0 0 auto}
-.map-spot-card:hover{transform:translateY(-2px);border-color:rgba(162,76,46,.3);box-shadow:0 16px 28px rgba(48,33,15,.08)}
-.map-spot-card.active{border-color:rgba(162,76,46,.4);background:linear-gradient(180deg,#fff8ef,#f7e6db)}
-.map-spot-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-.map-spot-name{font-family:'Sora',sans-serif;font-size:16px;font-weight:800;line-height:1.15}
-.map-spot-meta{font-size:11px;color:var(--ink4);margin-top:4px;line-height:1.5}
-.map-spot-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:rgba(255,250,242,.9);border:1px solid rgba(191,174,149,.32);font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2)}
-.map-spot-copy{font-size:12px;color:var(--ink3);line-height:1.65}
+.map-sheet-list{display:none}
 .map-sheet-mapwrap{position:relative;min-width:0;min-height:0;overflow:hidden;background:linear-gradient(180deg,#f6efe3,#eadbc6)}
 .map-sheet-canvas{position:relative;width:100%;height:100%;min-height:320px}
 .map-sheet-floating{position:absolute;left:18px;right:18px;top:18px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start;pointer-events:none}
@@ -343,7 +335,7 @@ a{color:inherit;text-decoration:none}
 .wave-map-pin::after{content:'';position:absolute;left:50%;bottom:-10px;width:14px;height:14px;background:inherit;border-right:1px solid rgba(162,76,46,.28);border-bottom:1px solid rgba(162,76,46,.28);transform:translateX(-50%) rotate(45deg);border-bottom-right-radius:3px}
 .wave-map-pin.focus{transform:scale(1.06)}
 .wave-map-pin-badge{position:relative;z-index:1;width:28px;height:28px;border-radius:999px;background:linear-gradient(180deg,#b25735,#8e3c21);display:grid;place-items:center;color:#fff;font-size:14px;box-shadow:0 8px 18px rgba(92,47,24,.24)}
-.wave-map-pin.user{width:16px;height:16px;background:#0284c7;border-color:#e0f2fe;box-shadow:0 8px 18px rgba(2,132,199,.26)}
+.wave-map-pin.user{width:24px;height:24px;border-radius:999px;background:radial-gradient(circle at center,#38bdf8 0 38%,#e0f2fe 40% 70%,rgba(14,165,233,.18) 72% 100%);border:2px solid rgba(255,255,255,.96);box-shadow:0 12px 28px rgba(2,132,199,.32)}
 .wave-map-pin.user::after{display:none}
 .wave-map-popup{display:grid;gap:8px;min-width:220px}
 .wave-map-popup-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.15}
@@ -367,10 +359,8 @@ a{color:inherit;text-decoration:none}
   .map-sheet-actions{display:grid;grid-template-columns:1fr;gap:8px}
   .map-sheet-actions .btn{width:100%;justify-content:center}
   .map-sheet-status{padding:10px 16px}
-  .map-sheet-list{padding:10px 16px;gap:8px}
   .map-sheet-floating{left:12px;right:12px;top:12px}
   .map-floating-chip{font-size:11px;padding:7px 10px}
-  .map-spot-card{min-width:220px}
 }
 .shop-main{padding:18px 22px}
 @media(max-width:680px){.shop-main{padding:12px}}
@@ -2000,7 +1990,6 @@ a{color:inherit;text-decoration:none}
         </div>
       </div>
       <div id="mapSheetStatus" class="map-sheet-status">Preparing map…</div>
-      <div id="mapSheetList" class="map-sheet-list"></div>
     </div>
     <div class="map-sheet-mapwrap">
       <div class="map-sheet-floating">
@@ -2101,7 +2090,7 @@ const App = {
   pdVariantSelection: {},
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
   mapSupport: null,
-  mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false},
+  mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:''},
   requestWatch: {timer:null,lastStatus:'',lastRequestId:'',hidden:false},
 };
 const $=id=>document.getElementById(id);
@@ -2228,13 +2217,14 @@ function mapPopupHtml(shop={}){
   const chips=[
     shop.category?`<span class="wave-map-popup-chip">${esc(shop.category)}</span>`:'',
     stats.product_count!=null?`<span class="wave-map-popup-chip">${stats.product_count} products</span>`:'',
-    shop.is_open_now?`<span class="wave-map-popup-chip">Open now</span>`:''
+    shop.is_open_now?`<span class="wave-map-popup-chip">Open now</span>`:'',
+    shop.city?`<span class="wave-map-popup-chip">${esc(shop.city)}</span>`:''
   ].filter(Boolean).join('');
   const ref=shopPublicRef(shop);
   return `
     <div class="wave-map-popup">
       <div class="wave-map-popup-name">${esc(shop.name||'Shop')}</div>
-      <div class="wave-map-popup-copy">${esc(shopDisplayAddress(shop)||'Address coming soon')}</div>
+      <div class="wave-map-popup-copy">${esc((shop.overview||'Open the shop page to browse products, ask questions, and see what this shop offers.').slice(0,140))}</div>
       <div class="wave-map-popup-meta">${chips}</div>
       <button class="btn btn-A btn-sm" type="button" onclick="window.visitShopFromMap('${esc(ref)}')">Visit Shop</button>
     </div>`;
@@ -2259,6 +2249,7 @@ function resetMapSheetMarkers(){
   App.mapSheet.markers=[];
   if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
   App.mapSheet.shopLookup={};
+  App.mapSheet.pinnedPopupKey='';
 }
 function setMapSheetStatus(text=''){
   if($('mapSheetStatus')) $('mapSheetStatus').textContent=text||'';
@@ -2271,29 +2262,7 @@ function setMapSheetEmpty(title='',copy=''){
 }
 function buildMapSpotCards(shops=[],focusShopId=''){
   const host=$('mapSheetList');
-  if(!host) return;
-  host.innerHTML='';
-  if(!shops.length){
-    host.innerHTML='<div class="empty"><div class="ei">Map</div><div class="et">No mapped shops yet.</div></div>';
-    return;
-  }
-  shops.forEach(shop=>{
-    const card=document.createElement('button');
-    card.type='button';
-    card.className='map-spot-card'+((shop.shop_id===focusShopId||shopPublicRef(shop)===focusShopId)?' active':'');
-    const distance=shop._distance_km!=null?`${shop._distance_km.toFixed(shop._distance_km<10?1:0)} km away`:shop.city||shop.region||'';
-    card.innerHTML=`
-      <div class="map-spot-top">
-        <div>
-          <div class="map-spot-name">${esc(shop.name||'Shop')}</div>
-          <div class="map-spot-meta">${esc(shopDisplayAddress(shop)||'Address coming soon')}</div>
-        </div>
-        ${distance?`<span class="map-spot-badge">${esc(distance)}</span>`:''}
-      </div>
-      <div class="map-spot-copy">${esc((shop.overview||'Open the shop page to browse products, ask questions, and view photos.').slice(0,120))}</div>`;
-    card.addEventListener('click',()=>focusMapShop(shop));
-    host.appendChild(card);
-  });
+  if(host) host.innerHTML='';
 }
 function focusMapShop(shop={}){
   if(!App.mapSheet.map || !hasShopCoords(shop)) return;
@@ -2306,10 +2275,19 @@ function focusMapShop(shop={}){
 }
 function addUserMapMarker(loc){
   if(!App.mapSheet.map || !loc || !window.L) return;
+  const ring=L.circleMarker([loc.lat,loc.lng],{
+    radius:18,
+    weight:2,
+    color:'rgba(14,165,233,.35)',
+    fillColor:'rgba(56,189,248,.16)',
+    fillOpacity:1
+  });
   const el=document.createElement('div');
   el.className='wave-map-pin user';
-  const icon=L.divIcon({className:'',html:el.outerHTML,iconSize:[16,16],iconAnchor:[8,8]});
-  App.mapSheet.userMarker=L.marker([loc.lat,loc.lng],{icon}).addTo(App.mapSheet.map);
+  const icon=L.divIcon({className:'',html:el.outerHTML,iconSize:[24,24],iconAnchor:[12,12]});
+  const marker=L.marker([loc.lat,loc.lng],{icon});
+  marker.bindPopup('<div class="wave-map-popup"><div class="wave-map-popup-name">Your location</div><div class="wave-map-popup-copy">Nearby shop distances are measured from here when permission is granted.</div></div>',{closeButton:true,autoClose:false,offset:[0,-10],className:'wave-map-popup-shell'});
+  App.mapSheet.userMarker=L.layerGroup([ring,marker]).addTo(App.mapSheet.map);
 }
 function renderMapMarkers(shops=[],focusShopId=''){
   if(!App.mapSheet.map || !window.L) return;
@@ -2322,8 +2300,16 @@ function renderMapMarkers(shops=[],focusShopId=''){
     el.innerHTML=`<span class="wave-map-pin-badge">${shopCategoryMapIcon(shop.category)}</span>`;
     const icon=L.divIcon({className:'',html:el.outerHTML,iconSize:isFocus?[42,52]:[42,52],iconAnchor:[21,50],popupAnchor:[0,-42]});
     const marker=L.marker([Number(shop.latitude),Number(shop.longitude)],{icon}).addTo(App.mapSheet.map);
+    const markerKey=shop.shop_id || shopPublicRef(shop);
     marker.bindPopup(mapPopupHtml(shop),{closeButton:true,autoClose:false,offset:[0,-22],className:'wave-map-popup-shell'});
-    marker.on('click',()=>marker.openPopup());
+    marker.on('mouseover',()=>marker.openPopup());
+    marker.on('mouseout',()=>{ if(App.mapSheet.pinnedPopupKey!==markerKey) marker.closePopup(); });
+    marker.on('click',(e)=>{
+      if(e?.originalEvent && window.L?.DomEvent) L.DomEvent.stopPropagation(e.originalEvent);
+      App.mapSheet.pinnedPopupKey=markerKey;
+      marker.openPopup();
+    });
+    marker.on('popupclose',()=>{ if(App.mapSheet.pinnedPopupKey!==markerKey) return; });
     const popup=marker.getPopup();
     App.mapSheet.markers.push({shop,marker,popup});
     App.mapSheet.shopLookup[shop.shop_id]={shop,marker,popup};
@@ -2352,6 +2338,10 @@ async function ensureMapSheetBase(){
       attribution:'&copy; OpenStreetMap contributors'
     }).addTo(App.mapSheet.map);
     App.mapSheet.map.setView([44.6488,-63.5752],11);
+    App.mapSheet.map.on('click',()=>{
+      App.mapSheet.pinnedPopupKey='';
+      (App.mapSheet.markers||[]).forEach(entry=>{ try{entry.marker.closePopup();}catch{} });
+    });
     App.mapSheet.loaded=true;
   }
   return {ok:true,enabled:true,provider:'leaflet'};
