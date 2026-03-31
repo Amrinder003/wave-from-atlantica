@@ -2385,6 +2385,11 @@ def public_location_support():
         countries.append({"code": code, "name": meta["name"], "currency_code": meta["currency"]})
     return {"ok": True, "countries": countries, "address_autocomplete": bool(MAPBOX_TOKEN)}
 
+@app.get("/public/map-support")
+def public_map_support():
+    token = MAPBOX_TOKEN if MAPBOX_TOKEN.startswith("pk.") else ""
+    return {"ok": True, "enabled": bool(token), "provider": "mapbox", "public_token": token}
+
 @app.get("/public/timezone-support")
 def public_timezone_support():
     zones = sorted([

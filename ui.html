@@ -179,6 +179,7 @@ a{color:inherit;text-decoration:none}
 .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:16px}
 .sec-title{font-family:'Sora',sans-serif;font-size:26px;font-weight:800;letter-spacing:-.04em}
 .sec-sub{font-size:13px;color:var(--ink3)}
+.sec-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .section-kicker{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--A2);margin-bottom:6px}
 .srch-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r3);padding:12px 18px}
 .srch-title{font-size:15px;font-weight:600}
@@ -198,6 +199,8 @@ a{color:inherit;text-decoration:none}
   .shop-card-overview{margin-top:10px;min-height:0}
   .shop-card-foot{margin-top:12px;gap:6px}
   .sc-chip{font-size:10px;padding:3px 7px}
+  .sec-actions{width:100%}
+  .sec-actions .btn{width:100%;justify-content:center}
 }
 .shop-card{background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.92));border:1px solid rgba(191,174,149,.46);border-radius:24px;overflow:hidden;cursor:pointer;transition:.18s;box-shadow:0 18px 40px rgba(58,38,22,.08);position:relative}
 .shop-card:hover{transform:translateY(-5px);box-shadow:0 28px 54px rgba(58,38,22,.14);border-color:rgba(162,76,46,.42)}
@@ -307,6 +310,61 @@ a{color:inherit;text-decoration:none}
 .shop-side-prompt{padding:9px 11px;border-radius:14px;background:var(--sf);border:1px solid rgba(191,174,149,.32);font-size:12px;color:var(--ink2);cursor:pointer;text-align:left;transition:.12s}
 .shop-side-prompt:hover{border-color:rgba(162,76,46,.32);transform:translateY(-1px)}
 .shop-side-prompt:active{transform:scale(.985);background:var(--sf2)}
+.map-sheet-bg{position:fixed;inset:0;background:rgba(15,23,42,.46);backdrop-filter:blur(8px);z-index:460;display:none;align-items:center;justify-content:center;padding:22px}
+.map-sheet-bg.on{display:flex}
+.map-sheet{width:min(1240px,100%);height:min(88dvh,860px);display:grid;grid-template-columns:minmax(280px,340px) 1fr;overflow:hidden;border-radius:32px;border:1px solid rgba(191,174,149,.38);background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));box-shadow:0 30px 80px rgba(18,23,34,.24)}
+.map-sheet-side{display:grid;grid-template-rows:auto auto 1fr;min-width:0;border-right:1px solid rgba(191,174,149,.3);background:linear-gradient(180deg,rgba(255,252,247,.98),rgba(248,241,231,.94))}
+.map-sheet-head{padding:22px 20px 16px;display:grid;gap:10px;border-bottom:1px solid rgba(191,174,149,.28)}
+.map-sheet-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2)}
+.map-sheet-title{font-family:'Sora',sans-serif;font-size:24px;font-weight:800;letter-spacing:-.05em;line-height:1.05}
+.map-sheet-copy{font-size:13px;color:var(--ink3);line-height:1.7}
+.map-sheet-actions{display:flex;gap:8px;flex-wrap:wrap}
+.map-sheet-status{padding:12px 20px;border-bottom:1px solid rgba(191,174,149,.28);font-size:12px;color:var(--ink3);background:rgba(255,255,255,.55)}
+.map-sheet-list{padding:14px;display:grid;gap:10px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.map-spot-card{display:grid;gap:8px;padding:14px;border-radius:20px;border:1px solid rgba(191,174,149,.28);background:rgba(255,255,255,.76);cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+.map-spot-card:hover{transform:translateY(-2px);border-color:rgba(162,76,46,.3);box-shadow:0 16px 28px rgba(48,33,15,.08)}
+.map-spot-card.active{border-color:rgba(162,76,46,.4);background:linear-gradient(180deg,#fff8ef,#f7e6db)}
+.map-spot-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.map-spot-name{font-family:'Sora',sans-serif;font-size:16px;font-weight:800;line-height:1.15}
+.map-spot-meta{font-size:11px;color:var(--ink4);margin-top:4px;line-height:1.5}
+.map-spot-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:rgba(255,250,242,.9);border:1px solid rgba(191,174,149,.32);font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2)}
+.map-spot-copy{font-size:12px;color:var(--ink3);line-height:1.65}
+.map-sheet-mapwrap{position:relative;min-width:0;background:linear-gradient(180deg,#f6efe3,#eadbc6)}
+.map-sheet-canvas{position:absolute;inset:0}
+.map-sheet-floating{position:absolute;left:18px;right:18px;top:18px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start;pointer-events:none}
+.map-sheet-floating > *{pointer-events:auto}
+.map-floating-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,253,248,.94);border:1px solid rgba(191,174,149,.34);font-size:12px;font-weight:700;color:var(--ink2);backdrop-filter:blur(8px);box-shadow:0 12px 28px rgba(48,33,15,.08)}
+.map-sheet-empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:24px;text-align:center;background:linear-gradient(180deg,rgba(255,253,248,.94),rgba(246,239,227,.92))}
+.map-sheet-empty.on{display:flex}
+.map-empty-card{max-width:420px;display:grid;gap:10px;padding:24px;border-radius:26px;background:rgba(255,255,255,.86);border:1px solid rgba(191,174,149,.32);box-shadow:0 20px 40px rgba(48,33,15,.1)}
+.map-empty-title{font-family:'Sora',sans-serif;font-size:20px;font-weight:800}
+.map-empty-copy{font-size:13px;color:var(--ink3);line-height:1.7}
+.wave-map-pin{width:18px;height:18px;border-radius:999px;background:var(--A);border:2px solid rgba(255,250,242,.96);box-shadow:0 10px 20px rgba(92,47,24,.22)}
+.wave-map-pin.focus{width:22px;height:22px;background:var(--A2)}
+.wave-map-pin.user{width:16px;height:16px;background:#0284c7;border-color:#e0f2fe;box-shadow:0 8px 18px rgba(2,132,199,.26)}
+.wave-map-popup{display:grid;gap:8px;min-width:220px}
+.wave-map-popup-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.15}
+.wave-map-popup-copy{font-size:12px;color:var(--ink3);line-height:1.6}
+.wave-map-popup-meta{display:flex;flex-wrap:wrap;gap:6px}
+.wave-map-popup-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:rgba(255,250,242,.88);border:1px solid rgba(191,174,149,.28);font-size:10px;font-weight:800;color:var(--ink2)}
+.mapboxgl-popup-content{border-radius:20px!important;padding:14px!important;box-shadow:0 18px 36px rgba(48,33,15,.16)!important;border:1px solid rgba(191,174,149,.28)}
+.mapboxgl-popup-close-button{font-size:18px;color:var(--ink3);padding:4px 8px}
+@media(max-width:980px){
+  .map-sheet{grid-template-columns:1fr;height:min(92dvh,100%)}
+  .map-sheet-side{grid-template-rows:auto auto minmax(140px,34dvh);border-right:none;border-bottom:1px solid rgba(191,174,149,.28)}
+}
+@media(max-width:560px){
+  .map-sheet-bg{padding:0;align-items:flex-end}
+  .map-sheet{height:94dvh;width:100%;border-radius:28px 28px 0 0}
+  .map-sheet-head{padding:18px 16px 14px}
+  .map-sheet-title{font-size:21px}
+  .map-sheet-actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .map-sheet-actions .btn{width:100%;justify-content:center}
+  .map-sheet-status{padding:10px 16px}
+  .map-sheet-list{padding:12px;gap:8px}
+  .map-sheet-floating{left:12px;right:12px;top:12px}
+  .map-floating-chip{font-size:11px;padding:7px 10px}
+}
 .shop-main{padding:18px 22px}
 @media(max-width:680px){.shop-main{padding:12px}}
 .shop-toolbar > div:last-child{display:flex;gap:8px;flex-wrap:wrap}
@@ -1060,10 +1118,13 @@ a{color:inherit;text-decoration:none}
           <div class="sec-title" id="shopsSectionTitle">All Shops</div>
           <div class="sec-sub">Open a shop to browse its products and talk to its assistant with shop-specific answers.</div>
         </div>
-        <button id="shopFilterToggleBtn" class="shop-filter-trigger" type="button">
-          <span>Filter Shops</span>
-          <span id="shopFilterCount" class="filter-count" style="display:none">0</span>
-        </button>
+        <div class="sec-actions">
+          <button id="homeMapToggleBtn" class="btn btn-o btn-sm" type="button">Show Map</button>
+          <button id="shopFilterToggleBtn" class="shop-filter-trigger" type="button">
+            <span>Filter Shops</span>
+            <span id="shopFilterCount" class="filter-count" style="display:none">0</span>
+          </button>
+        </div>
       </div>
       <div id="shopFiltersPanel" class="shop-filter-shell">
         <div class="shop-filter-bar" style="margin-top:0">
@@ -1918,6 +1979,37 @@ a{color:inherit;text-decoration:none}
 <div id="lboxBg" class="lbox-bg"><button id="lboxClose" class="lbox-x">×</button><img id="lboxImg" src="" alt=""/></div>
 <div id="toastStack" class="toast-stack"></div>
 
+<div id="mapSheetBg" class="map-sheet-bg">
+  <div class="map-sheet">
+    <div class="map-sheet-side">
+      <div class="map-sheet-head">
+        <div class="map-sheet-kicker" id="mapSheetKicker">Map View</div>
+        <div class="map-sheet-title" id="mapSheetTitle">Explore local shops on the map.</div>
+        <div class="map-sheet-copy" id="mapSheetCopy">Open nearby storefronts, tap a shop pin, and jump straight into the shop page.</div>
+        <div class="map-sheet-actions">
+          <button id="mapSheetLocateBtn" class="btn btn-o btn-sm" type="button">Use My Location</button>
+          <button id="mapSheetCloseBtn" class="btn btn-g btn-sm" type="button">Close</button>
+        </div>
+      </div>
+      <div id="mapSheetStatus" class="map-sheet-status">Preparing map…</div>
+      <div id="mapSheetList" class="map-sheet-list"></div>
+    </div>
+    <div class="map-sheet-mapwrap">
+      <div class="map-sheet-floating">
+        <div id="mapSheetFloatingMeta" class="map-floating-chip">Shops with map pins</div>
+        <div id="mapSheetFloatingHint" class="map-floating-chip">Tap a pin to preview the shop</div>
+      </div>
+      <div id="mapSheetCanvas" class="map-sheet-canvas"></div>
+      <div id="mapSheetEmpty" class="map-sheet-empty">
+        <div class="map-empty-card">
+          <div class="map-empty-title" id="mapSheetEmptyTitle">Map unavailable</div>
+          <div class="map-empty-copy" id="mapSheetEmptyCopy">Map support is not configured yet for this deployment.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="orderBg" class="auth-bg">
   <div class="auth-box">
     <div class="auth-head">
@@ -2000,6 +2092,8 @@ const App = {
   productVariantMatrixDraft: [],
   pdVariantSelection: {},
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
+  mapSupport: null,
+  mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false},
   requestWatch: {timer:null,lastStatus:'',lastRequestId:'',hidden:false},
 };
 const $=id=>document.getElementById(id);
@@ -2051,6 +2145,270 @@ function absUrl(p){
   if(m) return `${App.srv}/shops/${encodeURIComponent(m[1])}/images/${encodeURIComponent(m[2])}`;
   return `${App.srv}${p.startsWith('/')?'':'/'}${p}`;
 }
+function hasShopCoords(shop={}){
+  return Number.isFinite(Number(shop?.longitude)) && Number.isFinite(Number(shop?.latitude));
+}
+function shopPublicRef(shop={}){
+  return shop?.shop_slug || shop?.shop_id || '';
+}
+function shopDisplayAddress(shop={}){
+  return shop?.formatted_address || shop?.address || [shop?.city,shop?.region,shop?.country_name||shop?.country_code].filter(Boolean).join(', ');
+}
+function shopDistanceKm(shop={},userLoc=null){
+  if(!userLoc || !hasShopCoords(shop)) return null;
+  const toRad=v=>v*Math.PI/180;
+  const lat1=toRad(Number(userLoc.lat)), lat2=toRad(Number(shop.latitude));
+  const dLat=lat2-lat1;
+  const dLng=toRad(Number(shop.longitude)-Number(userLoc.lng));
+  const a=Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function visibleHomeShops(){
+  let shops=[...(App.allShops||[])];
+  if(App.activeCat) shops=shops.filter(s=>`${s.name||''} ${s.overview||''} ${s.category||''}`.toLowerCase().includes(App.activeCat.toLowerCase()));
+  return shops;
+}
+async function getMapSupport(){
+  if(App.mapSupport) return App.mapSupport;
+  try{ App.mapSupport=await api('/public/map-support'); }
+  catch{ App.mapSupport={ok:true,enabled:false,provider:'mapbox',public_token:''}; }
+  return App.mapSupport;
+}
+async function ensureMapboxLoaded(token=''){
+  if(window.mapboxgl) return window.mapboxgl;
+  await new Promise((resolve,reject)=>{
+    if(!document.getElementById('mapbox-gl-css')){
+      const link=document.createElement('link');
+      link.id='mapbox-gl-css';
+      link.rel='stylesheet';
+      link.href='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css';
+      document.head.appendChild(link);
+    }
+    const existing=document.getElementById('mapbox-gl-js');
+    if(existing){
+      existing.addEventListener('load',()=>resolve(),{once:true});
+      existing.addEventListener('error',()=>reject(new Error('Could not load the map library.')),{once:true});
+      return;
+    }
+    const script=document.createElement('script');
+    script.id='mapbox-gl-js';
+    script.src='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js';
+    script.onload=()=>resolve();
+    script.onerror=()=>reject(new Error('Could not load the map library.'));
+    document.head.appendChild(script);
+  });
+  if(window.mapboxgl && token) window.mapboxgl.accessToken=token;
+  return window.mapboxgl;
+}
+async function tryGetUserLocation(){
+  if(!navigator.geolocation) return null;
+  return await new Promise(resolve=>{
+    navigator.geolocation.getCurrentPosition(
+      pos=>resolve({lng:pos.coords.longitude,lat:pos.coords.latitude}),
+      ()=>resolve(null),
+      {enableHighAccuracy:true,timeout:7000,maximumAge:120000}
+    );
+  });
+}
+function mapPopupHtml(shop={}){
+  const stats=shop.stats||{};
+  const chips=[
+    shop.category?`<span class="wave-map-popup-chip">${esc(shop.category)}</span>`:'',
+    stats.product_count!=null?`<span class="wave-map-popup-chip">${stats.product_count} products</span>`:'',
+    shop.is_open_now?`<span class="wave-map-popup-chip">Open now</span>`:''
+  ].filter(Boolean).join('');
+  const ref=shopPublicRef(shop);
+  return `
+    <div class="wave-map-popup">
+      <div class="wave-map-popup-name">${esc(shop.name||'Shop')}</div>
+      <div class="wave-map-popup-copy">${esc(shopDisplayAddress(shop)||'Address coming soon')}</div>
+      <div class="wave-map-popup-meta">${chips}</div>
+      <button class="btn btn-A btn-sm" type="button" onclick="window.visitShopFromMap('${esc(ref)}')">Visit Shop</button>
+    </div>`;
+}
+window.visitShopFromMap=(shopRef)=>{
+  closeMapSheet();
+  if(shopRef) openShopPage(shopRef);
+};
+function resetMapSheetMarkers(){
+  (App.mapSheet.markers||[]).forEach(entry=>{ try{entry.marker.remove();}catch{} });
+  App.mapSheet.markers=[];
+  if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
+  App.mapSheet.shopLookup={};
+}
+function setMapSheetStatus(text=''){
+  if($('mapSheetStatus')) $('mapSheetStatus').textContent=text||'';
+}
+function setMapSheetEmpty(title='',copy=''){
+  const empty=$('mapSheetEmpty');
+  if($('mapSheetEmptyTitle')) $('mapSheetEmptyTitle').textContent=title||'Map unavailable';
+  if($('mapSheetEmptyCopy')) $('mapSheetEmptyCopy').textContent=copy||'Map support is not configured yet for this deployment.';
+  if(empty) empty.classList.toggle('on',!!title);
+}
+function buildMapSpotCards(shops=[],focusShopId=''){
+  const host=$('mapSheetList');
+  if(!host) return;
+  host.innerHTML='';
+  if(!shops.length){
+    host.innerHTML='<div class="empty"><div class="ei">Map</div><div class="et">No mapped shops yet.</div></div>';
+    return;
+  }
+  shops.forEach(shop=>{
+    const card=document.createElement('button');
+    card.type='button';
+    card.className='map-spot-card'+((shop.shop_id===focusShopId||shopPublicRef(shop)===focusShopId)?' active':'');
+    const distance=shop._distance_km!=null?`${shop._distance_km.toFixed(shop._distance_km<10?1:0)} km away`:shop.city||shop.region||'';
+    card.innerHTML=`
+      <div class="map-spot-top">
+        <div>
+          <div class="map-spot-name">${esc(shop.name||'Shop')}</div>
+          <div class="map-spot-meta">${esc(shopDisplayAddress(shop)||'Address coming soon')}</div>
+        </div>
+        ${distance?`<span class="map-spot-badge">${esc(distance)}</span>`:''}
+      </div>
+      <div class="map-spot-copy">${esc((shop.overview||'Open the shop page to browse products, ask questions, and view photos.').slice(0,120))}</div>`;
+    card.addEventListener('click',()=>focusMapShop(shop));
+    host.appendChild(card);
+  });
+}
+function focusMapShop(shop={}){
+  if(!App.mapSheet.map || !hasShopCoords(shop)) return;
+  const popupEntry=App.mapSheet.shopLookup[shop.shop_id] || App.mapSheet.shopLookup[shopPublicRef(shop)];
+  App.mapSheet.map.flyTo({center:[Number(shop.longitude),Number(shop.latitude)],zoom:15.2,essential:true});
+  if(popupEntry?.popup){
+    popupEntry.popup.setLngLat([Number(shop.longitude),Number(shop.latitude)]).addTo(App.mapSheet.map);
+  }
+  buildMapSpotCards(Object.values(App.mapSheet.shopLookup).map(entry=>entry.shop).filter((shop,idx,self)=>self.findIndex(s=>s.shop_id===shop.shop_id)===idx), shop.shop_id);
+}
+function addUserMapMarker(loc){
+  if(!App.mapSheet.map || !loc) return;
+  const el=document.createElement('div');
+  el.className='wave-map-pin user';
+  App.mapSheet.userMarker=new mapboxgl.Marker({element:el}).setLngLat([loc.lng,loc.lat]).addTo(App.mapSheet.map);
+}
+function renderMapMarkers(shops=[],focusShopId=''){
+  if(!App.mapSheet.map || !window.mapboxgl) return;
+  resetMapSheetMarkers();
+  const finePointer=window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+  shops.forEach(shop=>{
+    if(!hasShopCoords(shop)) return;
+    const el=document.createElement('div');
+    const isFocus=shop.shop_id===focusShopId || shopPublicRef(shop)===focusShopId;
+    el.className='wave-map-pin'+(isFocus?' focus':'');
+    const popup=new mapboxgl.Popup({offset:16,closeButton:!finePointer,closeOnClick:false,maxWidth:'280px'}).setHTML(mapPopupHtml(shop));
+    const marker=new mapboxgl.Marker({element:el,anchor:'bottom'})
+      .setLngLat([Number(shop.longitude),Number(shop.latitude)])
+      .addTo(App.mapSheet.map);
+    el.addEventListener('click',()=>popup.setLngLat([Number(shop.longitude),Number(shop.latitude)]).addTo(App.mapSheet.map));
+    if(finePointer){
+      el.addEventListener('mouseenter',()=>popup.setLngLat([Number(shop.longitude),Number(shop.latitude)]).addTo(App.mapSheet.map));
+      el.addEventListener('mouseleave',()=>popup.remove());
+    }
+    App.mapSheet.markers.push({shop,marker,popup});
+    App.mapSheet.shopLookup[shop.shop_id]={shop,marker,popup};
+    App.mapSheet.shopLookup[shopPublicRef(shop)]={shop,marker,popup};
+  });
+}
+function fitMapToShops(shops=[],focusShop=null,userLoc=null){
+  if(!App.mapSheet.map || !window.mapboxgl || !shops.length) return;
+  const bounds=new mapboxgl.LngLatBounds();
+  let count=0;
+  if(userLoc){ bounds.extend([userLoc.lng,userLoc.lat]); count++; }
+  const fitShops=focusShop
+    ? [focusShop,...shops.filter(s=>s.shop_id!==focusShop.shop_id).slice(0,8)]
+    : shops.slice(0,12);
+  fitShops.forEach(shop=>{ if(hasShopCoords(shop)){ bounds.extend([Number(shop.longitude),Number(shop.latitude)]); count++; }});
+  if(!count) return;
+  if(count===1 && focusShop) App.mapSheet.map.easeTo({center:[Number(focusShop.longitude),Number(focusShop.latitude)],zoom:14.8,essential:true});
+  else App.mapSheet.map.fitBounds(bounds,{padding:{top:90,right:70,bottom:70,left:70},maxZoom:14.8,duration:900});
+}
+async function ensureMapSheetBase(){
+  const support=await getMapSupport();
+  if(!support?.enabled || !support?.public_token){
+    setMapSheetEmpty('Map not ready','Add a public Mapbox token in Railway so Wave can render live shop maps.');
+    setMapSheetStatus('Map support is not configured on this deployment.');
+    return null;
+  }
+  setMapSheetEmpty('','');
+  await ensureMapboxLoaded(support.public_token);
+  if(!App.mapSheet.map){
+    App.mapSheet.map=new mapboxgl.Map({
+      container:'mapSheetCanvas',
+      style:'mapbox://styles/mapbox/streets-v12',
+      center:[-63.5752,44.6488],
+      zoom:11.4,
+      attributionControl:false
+    });
+    App.mapSheet.map.addControl(new mapboxgl.NavigationControl({visualizePitch:true}),'bottom-right');
+    App.mapSheet.loaded=true;
+  }
+  setTimeout(()=>App.mapSheet.map?.resize(),80);
+  return support;
+}
+async function ensureMapShopsLoaded(){
+  if(App.allShops?.length) return App.allShops;
+  try{
+    const d=await api('/public/shops');
+    App.allShops=d.shops||[];
+  }catch{}
+  return App.allShops||[];
+}
+async function openMapSheet(mode='home',focusRef=''){
+  $('mapSheetBg')?.classList.add('on');
+  document.body.style.overflow='hidden';
+  App.mapSheet.mode=mode;
+  App.mapSheet.focusShopId=focusRef||'';
+  setMapSheetStatus('Loading map…');
+  if($('mapSheetTitle')) $('mapSheetTitle').textContent=mode==='shop'?'View this shop on the map.':'Explore nearby shops on the map.';
+  if($('mapSheetCopy')) $('mapSheetCopy').textContent=mode==='shop'
+    ? 'Start with this shop, then zoom out to discover nearby storefronts around it.'
+    : 'See nearby storefronts, tap a pin for a quick preview, and jump straight into the shop page.';
+  const support=await ensureMapSheetBase();
+  if(!support) return;
+  let shops=mode==='home' ? visibleHomeShops() : await ensureMapShopsLoaded();
+  shops=(shops||[]).filter(hasShopCoords);
+  const focusShop=mode==='shop'
+    ? shops.find(s=>shopPublicRef(s)===focusRef || s.shop_id===focusRef) || (hasShopCoords(App.shopData?.shop)?App.shopData.shop:null)
+    : null;
+  if(focusShop && !shops.find(s=>s.shop_id===focusShop.shop_id)) shops.unshift(focusShop);
+  let userLoc=null;
+  if(mode==='home'){
+    userLoc=await tryGetUserLocation();
+    App.mapSheet.userLocation=userLoc;
+  }else{
+    App.mapSheet.userLocation=null;
+  }
+  if(userLoc){
+    shops=shops.map(shop=>({...shop,_distance_km:shopDistanceKm(shop,userLoc)}))
+      .sort((a,b)=>(a._distance_km??999999)-(b._distance_km??999999));
+  }else if(focusShop){
+    shops=shops.map(shop=>({...shop,_distance_km:shopDistanceKm(shop,{lng:Number(focusShop.longitude),lat:Number(focusShop.latitude)})}))
+      .sort((a,b)=>(a.shop_id===focusShop.shop_id?-1:b.shop_id===focusShop.shop_id?1:(a._distance_km??999999)-(b._distance_km??999999)));
+  }
+  if(!shops.length){
+    setMapSheetEmpty('No mapped shops yet','Shops need a verified address with coordinates before they can appear on the map.');
+    setMapSheetStatus('No shop locations are ready for the map yet.');
+    buildMapSpotCards([]);
+    return;
+  }
+  setMapSheetEmpty('','');
+  renderMapMarkers(shops,focusShop?.shop_id||focusRef||'');
+  if(userLoc) addUserMapMarker(userLoc);
+  buildMapSpotCards(shops.slice(0,12),focusShop?.shop_id||focusRef||'');
+  fitMapToShops(shops,focusShop,userLoc);
+  const mappedCount=shops.length;
+  if($('mapSheetFloatingMeta')) $('mapSheetFloatingMeta').textContent=mode==='shop'&&focusShop ? `${focusShop.name} + ${Math.max(mappedCount-1,0)} nearby shops` : `${mappedCount} mapped shop${mappedCount===1?'':'s'}`;
+  if($('mapSheetFloatingHint')) $('mapSheetFloatingHint').textContent=userLoc ? 'Your location is shown when permission is granted' : 'Tap a pin or a shop card to preview it';
+  setMapSheetStatus(userLoc ? `Showing shops nearest to your current location.` : (focusShop ? `Focused on ${focusShop.name}. Zoom out to explore more shops.` : `Showing mapped storefronts available right now.`));
+}
+function closeMapSheet(){
+  $('mapSheetBg')?.classList.remove('on');
+  if(!$('pdBg')?.classList.contains('on') && !$('cartBg')?.classList.contains('on') && !$('authBg')?.classList.contains('on') && !$('orderBg')?.classList.contains('on') && !$('trackReqBg')?.classList.contains('on')) document.body.style.overflow='';
+}
+$('homeMapToggleBtn')?.addEventListener('click',()=>openMapSheet('home'));
+$('mapSheetCloseBtn')?.addEventListener('click',closeMapSheet);
+$('mapSheetLocateBtn')?.addEventListener('click',()=>openMapSheet(App.mapSheet.mode||'home',App.mapSheet.focusShopId||''));
+$('mapSheetBg')?.addEventListener('click',e=>{ if(e.target===$('mapSheetBg')) closeMapSheet(); });
 const COUNTRY_META={
   AU:{name:'Australia',currency:'AUD',regions:['Australian Capital Territory','New South Wales','Northern Territory','Queensland','South Australia','Tasmania','Victoria','Western Australia']},
   BD:{name:'Bangladesh',currency:'BDT',regions:['Barisal','Chattogram','Dhaka','Khulna','Mymensingh','Rajshahi','Rangpur','Sylhet']},
@@ -3853,7 +4211,7 @@ async function submitReview(){
 function closePD(){$('pdBg').classList.remove('on');if(location.pathname.startsWith('/product/')){const shopRef=App.shopData?.shop?.shop_slug||App.curSid||App.shopId;if(shopRef) setPublicPath(buildShopPublicPath(shopRef),true);}document.body.style.overflow='';}
 $('pdClose').addEventListener('click',closePD);
 $('pdBg').addEventListener('click',e=>{if(e.target===$('pdBg'))closePD();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePD();closeCart();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePD();closeCart();closeMapSheet();}});
 
 /* ═════════════════════════════════════════════
    LIGHTBOX
@@ -4038,6 +4396,7 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
     const fulfillButtons=[
       `<button class="btn btn-A btn-sm" onclick="openChatFor('${esc(shopId)}','${esc(s.name)}','')">Chat with Shop</button>`,
       `<button class="btn btn-o btn-sm" style="border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.8)" onclick="openChatFor('${esc(shopId)}','${esc(s.name)}','Show all images')">View Photos</button>`,
+      hasShopCoords(s)?`<button class="btn btn-o btn-sm" style="border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.8)" onclick="openMapSheet('shop','${esc(s.shop_slug||s.shop_id||shopId)}')">View on Map</button>`:'',
       s.supports_pickup!==false?`<button class="btn btn-gr btn-sm" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${esc(shopId)}');saveCart();updateCartBadge();openCart();">Pickup Order</button>`:'',
       s.supports_delivery?`<button class="btn btn-gr btn-sm" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${esc(shopId)}');saveCart();updateCartBadge();openCart();">Request Delivery</button>`:'',
       s.supports_walk_in!==false?`<button class="btn btn-o btn-sm" onclick="toast('Visit Shop',decodeURIComponent('${encodeURIComponent(s.address||'Visit the shop to buy in person.')}'))">Buy in Shop</button>`:'',
