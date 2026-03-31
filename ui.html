@@ -246,6 +246,10 @@ a{color:inherit;text-decoration:none}
 .pc-noprice{font-size:12px;color:var(--ink4);margin-top:8px}
 .pc-stock{font-size:11px;font-weight:700;margin-top:5px;text-transform:uppercase;letter-spacing:.04em}
 .pc-stock.in{color:var(--G)}.pc-stock.low{color:var(--Y)}.pc-stock.out{color:var(--R)}
+.pc-variants,.admin-pc-variants{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.pc-vchip,.admin-pc-vchip{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:rgba(255,250,242,.88);border:1px solid rgba(191,174,149,.34);font-size:10px;font-weight:800;letter-spacing:.03em;color:var(--ink2);max-width:100%}
+.pc-vchip-label,.admin-pc-vchip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-vchip.more,.admin-pc-vchip.more{color:var(--ink4);background:rgba(255,255,255,.72)}
 .pc-shop{font-size:12px;color:var(--ink3);margin-top:8px}
 .pc-shop-link{color:var(--A2);font-weight:700;cursor:pointer}.pc-shop-link:hover{text-decoration:underline}
 .pc-rating{display:flex;align-items:center;gap:4px;margin-top:8px;font-size:11px;color:var(--ink3)}
@@ -363,9 +367,10 @@ a{color:inherit;text-decoration:none}
 .pd-lbl{font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
 .pd-desc{font-size:14px;color:var(--ink2);line-height:1.8}
 .var-row{display:flex;gap:6px;flex-wrap:wrap}
-.var-pill{padding:5px 13px;border-radius:99px;border:1px solid var(--bd);font-size:13px;color:var(--ink2);cursor:pointer;transition:.12s}
+.var-pill{padding:5px 13px;border-radius:99px;border:1px solid var(--bd);font-size:13px;color:var(--ink2);cursor:pointer;transition:.12s;display:inline-flex;align-items:center;gap:8px}
 .var-pill:hover,.var-pill.on{border-color:var(--A);background:var(--Ap);color:var(--A)}
 .var-pill:active{transform:scale(.97)}
+.color-swatch{width:12px;height:12px;border-radius:999px;border:1px solid rgba(31,27,22,.22);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4);flex-shrink:0}
 .share-row{display:flex;gap:6px}
 .share-inp{flex:1;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--r1);font-size:12px;color:var(--ink3);background:var(--sf2);outline:none}
 .pd-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:8px}
@@ -597,19 +602,32 @@ a{color:inherit;text-decoration:none}
 .hours-closed input{margin:0}
 .attr-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .attr-list{display:grid;gap:8px;margin-top:12px}
-.variant-builder{display:grid;gap:10px}
-.variant-row{display:grid;grid-template-columns:1.1fr 1.2fr .8fr auto;gap:10px;align-items:end;padding:12px;border-radius:16px;background:rgba(255,255,255,.76);border:1px solid rgba(191,174,149,.28)}
-.variant-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.variant-stage{display:grid;gap:12px;padding:14px;border-radius:18px;background:linear-gradient(180deg,rgba(255,251,246,.95),rgba(245,237,226,.92));border:1px solid rgba(191,174,149,.3)}
+.variant-stage-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.variant-stage-copy{display:grid;gap:4px;max-width:720px}
+.variant-stage-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2)}
+.variant-stage-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;line-height:1.15}
+.variant-stage-desc{font-size:12px;color:var(--ink3);line-height:1.65}
+.variant-stage-actions{display:flex;gap:8px;flex-wrap:wrap}
+.variant-builder{display:grid;gap:12px}
+.variant-row{display:grid;grid-template-columns:1fr;gap:12px;align-items:start;padding:14px;border-radius:18px;background:rgba(255,255,255,.84);border:1px solid rgba(191,174,149,.28)}
+.variant-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .variant-help{font-size:12px;color:var(--ink3);line-height:1.6}
-.variant-row-main{display:grid;grid-template-columns:1.1fr 1.2fr .8fr .8fr auto;gap:10px;align-items:end}
+.variant-row-main{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;align-items:end}
 .variant-assets{display:grid;gap:10px;grid-column:1/-1}
 .variant-summary-card{padding:10px 12px;border-radius:14px;background:rgba(247,240,230,.92);border:1px solid rgba(191,174,149,.28);font-size:12px;font-weight:700;color:var(--ink2)}
+.variant-label-preview{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:12px;background:rgba(255,247,237,.88);border:1px solid rgba(191,174,149,.28);font-size:12px;font-weight:700;color:var(--ink2);min-height:38px}
+.variant-empty{padding:16px;border-radius:16px;background:rgba(255,255,255,.72);border:1px dashed rgba(191,174,149,.4);display:grid;gap:6px}
+.variant-empty-title{font-size:13px;font-weight:800;color:var(--ink2)}
+.variant-empty-copy{font-size:12px;color:var(--ink3);line-height:1.6}
 .variant-img-grid{display:flex;flex-wrap:wrap;gap:8px}
 .variant-img-item{width:58px;height:58px;border-radius:12px;overflow:hidden;border:1px solid rgba(191,174,149,.34);position:relative;background:rgba(255,255,255,.82)}
 .variant-img-item img{width:100%;height:100%;object-fit:cover}
 .variant-img-del{position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:999px;border:none;background:rgba(31,27,22,.74);color:#fff;font-size:11px;cursor:pointer}
 .variant-img-empty{font-size:11px;color:var(--ink4)}
-@media(max-width:760px){.variant-row{grid-template-columns:1fr}.variant-row .btn{width:100%;justify-content:center}}
+@media(max-width:1100px){.variant-row-main{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:860px){.variant-stage-head{grid-template-columns:1fr}}
+@media(max-width:760px){.variant-row .btn{width:100%;justify-content:center}}
 @media(max-width:760px){.variant-row-main{grid-template-columns:1fr}}
 .suggest-list{display:grid;gap:8px;margin-top:10px}
 .suggest-item{border:1px solid rgba(191,174,149,.3);border-radius:16px;background:rgba(255,255,255,.84);padding:11px 13px;cursor:pointer;text-align:left;transition:border-color .16s ease,transform .16s ease,box-shadow .16s ease}
@@ -1539,21 +1557,32 @@ a{color:inherit;text-decoration:none}
                   <div class="fstack">
                     <div class="fld"><label>Stock Status</label><select id="prodStock"><option value="in">In Stock</option><option value="low">Low Stock</option><option value="out">Out of Stock</option></select><div class="fld-hint">This is used directly on product cards and in chat responses.</div></div>
                     <div class="fld"><label>Stock Quantity</label><input id="prodQty" type="number" min="0" step="1" inputmode="numeric" placeholder="12"/><div class="fld-hint">Use a real quantity. Wave will derive the status from this number.</div></div>
-                    <div class="fld">
-                      <div class="variant-head">
-                        <label>Variant options</label>
-                        <button id="addVariantBtn" class="btn btn-g btn-sm" type="button">+ Add Option</button>
+                    <div class="variant-stage">
+                      <div class="variant-stage-head">
+                        <div class="variant-stage-copy">
+                          <div class="variant-stage-kicker">Options</div>
+                          <div class="variant-stage-title">Variant options</div>
+                          <div class="variant-stage-desc">Create shopper-facing choices like size, color, flavor, or material. Each option can carry its own price change, stock level, and image set.</div>
+                        </div>
+                        <div class="variant-stage-actions">
+                          <button id="addVariantSizeBtn" class="btn btn-g btn-sm" type="button">+ Size</button>
+                          <button id="addVariantColorBtn" class="btn btn-g btn-sm" type="button">+ Color</button>
+                          <button id="addVariantBtn" class="btn btn-o btn-sm" type="button">+ Other</button>
+                        </div>
                       </div>
-                      <div class="variant-help">Add real options like size or color, set an option-level price change, and upload option-specific images. Example: <code>Large +2.00</code> or <code>Red +0.00</code>.</div>
-                      <datalist id="variantGroupList"><option value="Size"></option><option value="Color"></option><option value="Flavor"></option><option value="Pack"></option><option value="Material"></option><option value="Style"></option><option value="Other"></option></datalist>
                       <div id="variantBuilder" class="variant-builder"></div>
                     </div>
-                    <div class="fld">
-                      <div class="variant-head">
-                        <label>Combination overrides</label>
-                        <button id="refreshVariantMatrixBtn" class="btn btn-g btn-sm" type="button">Refresh Combinations</button>
+                    <div class="variant-stage">
+                      <div class="variant-stage-head">
+                        <div class="variant-stage-copy">
+                          <div class="variant-stage-kicker">Combinations</div>
+                          <div class="variant-stage-title">Combination overrides</div>
+                          <div class="variant-stage-desc">When a product has more than one option group, Wave can generate exact combinations like <code>Size: Large + Color: Red</code>. Those combinations can override price, quantity, and gallery.</div>
+                        </div>
+                        <div class="variant-stage-actions">
+                          <button id="refreshVariantMatrixBtn" class="btn btn-g btn-sm" type="button">Refresh Combinations</button>
+                        </div>
                       </div>
-                      <div class="variant-help">When a product has more than one option group, Wave can create full combinations like <code>Size: Large + Color: Red</code>. Each combination can have its own extra price, stock quantity, and image gallery.</div>
                       <div id="variantMatrixBuilder" class="variant-builder"></div>
                     </div>
                   </div>
@@ -2183,6 +2212,49 @@ function variantSummary(variantData=[]){
   });
   return Object.entries(grouped).map(([group,labels])=>`${group}: ${labels.join(', ')}`).join(' | ');
 }
+const COLOR_SWATCH_MAP={
+  black:'#171717',white:'#f5f3ef',red:'#d84c47',blue:'#2f6fed',green:'#2f8f57',yellow:'#e5b83d',
+  orange:'#e58a2f',purple:'#7b55d3',pink:'#db6e9f',brown:'#8a5b36',gray:'#8a8d91',grey:'#8a8d91',
+  silver:'#b8bdc7',gold:'#c6a052',beige:'#d7c0a1',cream:'#efe4cf',navy:'#223a73',teal:'#2c8b8b',
+  maroon:'#7c2c3b',olive:'#6f7b35',lime:'#95bf47',cyan:'#3ab7d6'
+};
+function swatchColorFor(label=''){
+  const raw=String(label||'').trim().toLowerCase();
+  if(!raw) return '#d7c0a1';
+  if(COLOR_SWATCH_MAP[raw]) return COLOR_SWATCH_MAP[raw];
+  if(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(raw)) return raw;
+  if(/^rgb(a)?\(/i.test(raw) || /^hsl(a)?\(/i.test(raw)) return raw;
+  return raw;
+}
+function renderOptionLabelContent(group='',label='',meta=''){
+  const safeLabel=esc(label||'Option');
+  const safeMeta=meta?`<span>${esc(meta)}</span>`:'';
+  if(String(group||'').trim().toLowerCase()!=='color') return `<span>${safeLabel}</span>${safeMeta}`;
+  const swatch=swatchColorFor(label);
+  return `<span class="color-swatch" style="background:${esc(swatch)}"></span><span>${safeLabel}</span>${safeMeta}`;
+}
+function variantCardPreviewData(variantData=[]){
+  const groups=getVariantGroups(variantData||[]);
+  return groups.slice(0,2).map(entry=>({
+    group:entry.group,
+    labels:entry.items.slice(0,2).map(item=>item.label).filter(Boolean),
+    remaining:Math.max(0, entry.items.length-2)
+  })).filter(entry=>entry.labels.length);
+}
+function renderVariantPreviewChips(variantData=[],prefix='pc'){
+  const groups=variantCardPreviewData(variantData);
+  if(!groups.length) return '';
+  const chips=groups.map(entry=>{
+    const groupName=String(entry.group||'Option').trim();
+    const labelText=entry.labels.join(', ');
+    const extra=entry.remaining>0?` +${entry.remaining}`:'';
+    const content=groupName.toLowerCase()==='color' && entry.labels[0]
+      ? `<span class="color-swatch" style="background:${esc(swatchColorFor(entry.labels[0]))}"></span><span class="${prefix}-vchip-label">${esc(groupName)}: ${esc(labelText)}${esc(extra)}</span>`
+      : `<span class="${prefix}-vchip-label">${esc(groupName)}: ${esc(labelText)}${esc(extra)}</span>`;
+    return `<span class="${prefix}-vchip">${content}</span>`;
+  }).join('');
+  return `<div class="${prefix}-variants">${chips}</div>`;
+}
 function normalizeVariantDraftRows(prefill=[]){
   const rows=(Array.isArray(prefill)&&prefill.length?prefill:[{group:'Size',label:'',price_delta:0,stock_quantity:'',images:[]}]);
   return rows.map(item=>({
@@ -2248,14 +2320,18 @@ function renderVariantMatrixBuilder(prefill=[],variantData=null){
   App.productVariantMatrixDraft=rows;
   wrap.innerHTML='';
   if(!rows.length){
-    wrap.innerHTML='<div class="variant-img-empty">Add at least two option groups, like Size and Color, to generate full combination rows.</div>';
+    wrap.innerHTML='<div class="variant-empty"><div class="variant-empty-title">No combinations yet</div><div class="variant-empty-copy">Add at least two option groups, like <strong>Size</strong> and <strong>Color</strong>, then refresh combinations to manage exact stock, price, and images for each pairing.</div></div>';
     return;
   }
   rows.forEach((item,idx)=>{
+    const comboMeta=[];
+    if(item.price_delta) comboMeta.push(`${item.price_delta>0?'+':''}${Number(item.price_delta).toFixed(2)}`);
+    if(item.stock_quantity!=null && item.stock_quantity!=='') comboMeta.push(`${Number(item.stock_quantity)} qty`);
+    const comboParts=Object.entries(item.selections||{}).map(([group,label])=>renderOptionLabelContent(group,label)).join(' <span style="color:var(--ink4)">/</span> ');
     const row=document.createElement('div');
     row.className='variant-row';
     row.innerHTML=`
-      <div class="variant-summary-card">${esc(item.selection_key)}</div>
+      <div class="variant-summary-card">${comboParts}${comboMeta.length?` <span style="color:var(--ink4)">• ${esc(comboMeta.join(' • '))}</span>`:''}</div>
       <div class="variant-row-main">
         <div class="fld"><label>Extra Price Change</label><input data-combo-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/></div>
         <div class="fld"><label>Combo Qty</label><input data-combo-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="8"/></div>
@@ -2300,17 +2376,26 @@ function renderVariantBuilder(prefill=[]){
   const rows=normalizeVariantDraftRows(prefill);
   App.productVariantDraft=rows;
   wrap.innerHTML='';
+  if(!rows.length){
+    wrap.innerHTML='<div class="variant-empty"><div class="variant-empty-title">No variant options yet</div><div class="variant-empty-copy">Start with a common shopper choice like <strong>Size</strong> or <strong>Color</strong>. You can add price changes, stock, and separate images under each option.</div></div>';
+    renderVariantMatrixBuilder(App.productVariantMatrixDraft,rows);
+    return;
+  }
   rows.forEach((item,idx)=>{
+    const optionMeta=[];
+    if(item.price_delta) optionMeta.push(`${item.price_delta>0?'+':''}${Number(item.price_delta).toFixed(2)}`);
+    if(item.stock_quantity!=null && item.stock_quantity!=='') optionMeta.push(`${Number(item.stock_quantity)} in stock`);
     const row=document.createElement('div');
     row.className='variant-row';
     row.innerHTML=`
       <div class="variant-row-main">
-        <div class="fld"><label>Type</label><input data-variant-group value="${esc(item.group)}" list="variantGroupList" placeholder="Size"/></div>
+        <div class="fld"><label>Type</label><select data-variant-group>${VARIANT_GROUP_OPTIONS.map(opt=>`<option value="${esc(opt)}"${(item.group||'')===opt?' selected':''}>${esc(opt)}</option>`).join('')}</select></div>
         <div class="fld"><label>Option</label><input data-variant-label value="${esc(item.label)}" placeholder="Large"/></div>
         <div class="fld"><label>Price Change</label><input data-variant-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/></div>
         <div class="fld"><label>Option Qty</label><input data-variant-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="12"/></div>
         <button class="btn btn-r btn-sm" type="button" data-variant-remove="${idx}">Remove</button>
       </div>
+      <div class="variant-label-preview">${renderOptionLabelContent(item.group,item.label||'Preview option',optionMeta.join(' • '))}</div>
       <div class="variant-assets">
         <div class="fld">
           <label>Option Images</label>
@@ -2329,7 +2414,7 @@ function renderVariantBuilder(prefill=[]){
     wrap.appendChild(row);
   });
   wrap.querySelectorAll('[data-variant-group],[data-variant-label],[data-variant-delta],[data-variant-stock]').forEach(el=>el.addEventListener('input',markProductFormDirty));
-  wrap.querySelectorAll('[data-variant-group],[data-variant-label]').forEach(el=>el.addEventListener('change',()=>renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData())));
+  wrap.querySelectorAll('[data-variant-group],[data-variant-label]').forEach(el=>el.addEventListener('change',()=>{renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData());markProductFormDirty();}));
   wrap.querySelectorAll('[data-variant-files]').forEach(input=>input.addEventListener('change',e=>{
     const idx=Number(e.target.getAttribute('data-variant-files'));
     if(!App.productVariantDraft[idx]) return;
@@ -2376,6 +2461,12 @@ function collectVariantData(){
   });
   App.productVariantDraft=normalizeVariantDraftRows(out);
   return out;
+}
+function appendVariantOption(group='Other'){
+  const data=collectVariantData();
+  data.push({group,label:'',price_delta:0,stock_quantity:null});
+  renderVariantBuilder(data);
+  markProductFormDirty();
 }
 function collectVariantMatrixData(){
   const out=[];
@@ -3253,6 +3344,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
   const isFav=!!(p.is_favourite);
   const desc=p.overview?esc(p.overview):'Add a sharper description so customers and chat both understand this product better.';
   const attrPreview=((p.attribute_lines||[]).slice(0,2).join(' • ')).trim();
+  const variantPreview=renderVariantPreviewChips(Array.isArray(p.variant_data)?p.variant_data:[],mode==='admin'?'admin-pc':'pc');
   const isSelected=App.adminSelectedProducts.includes(p.product_id);
 
   if(mode==='admin'){
@@ -3279,6 +3371,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
           ${(p.avg_rating>0)?`<div class="admin-pc-chip">Rating ${p.avg_rating.toFixed(1)}${p.review_count?` (${p.review_count})`:''}</div>`:`<div class="admin-pc-chip">No Reviews</div>`}
         </div>
         <div class="owner-flag-list">${flags.length?flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join(''):'<span class="owner-good">Catalog ready</span>'}</div>
+        ${variantPreview}
         ${attrPreview?`<div class="admin-pc-attr">${esc(attrPreview)}</div>`:''}
         <div class="admin-pc-desc">${desc}</div>
         <div class="admin-pc-actions">
@@ -3306,6 +3399,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
       <div class="pc-name">${esc(p.name)}</div>
       ${p.price?`<div class="pc-price">${esc(p.price)}</div>`:`<div class="pc-noprice">Price on request</div>`}
       <div class="pc-stock ${st}">${stMap[st]}</div>
+      ${variantPreview}
       ${p.overview?`<div style="font-size:12px;color:var(--ink3);margin-top:7px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.overview)}</div>`:''}
       ${attrPreview?`<div class="pc-attr">${esc(attrPreview)}</div>`:''}
       ${showShop&&shopName?`<div class="pc-shop">🏪 <span class="pc-shop-link" data-sid="${esc(shopRef)}">${esc(shopName)}</span></div>`:''}
@@ -3504,8 +3598,9 @@ async function openPD(p,mode,sid,sname){
         b.className='var-pill'+(idx===0?' on':'');
         if(idx===0) App.pdVariantSelection[group]=item.label;
         const delta=Number(item.price_delta||0);
-        const qtyLabel=item.stock_quantity==null?'':` • ${item.stock_quantity} left`;
-        b.textContent=`${item.label}${delta?` ${delta>0?'+':''}${delta.toFixed(2)}`:''}${qtyLabel}`;
+        const qtyLabel=item.stock_quantity==null?'':`${item.stock_quantity} left`;
+        const meta=[delta?`${delta>0?'+':''}${delta.toFixed(2)}`:'',qtyLabel].filter(Boolean).join(' • ');
+        b.innerHTML=renderOptionLabelContent(group,item.label,meta);
         b.addEventListener('click',()=>{
           row.querySelectorAll('.var-pill').forEach(x=>x.classList.remove('on'));
           b.classList.add('on');
@@ -4443,7 +4538,9 @@ $('detailEditShopBtn').addEventListener('click',openEditShopView);
 $('detailAddProductBtn').addEventListener('click',()=>openProductForm());
 $('detailEditShopBtnSide').addEventListener('click',openEditShopView);
 $('detailAddProductBtnSide').addEventListener('click',()=>openProductForm());
-$('addVariantBtn')?.addEventListener('click',()=>{const data=collectVariantData();data.push({group:'Size',label:'',price_delta:0});renderVariantBuilder(data);markProductFormDirty();});
+$('addVariantBtn')?.addEventListener('click',()=>appendVariantOption('Other'));
+$('addVariantSizeBtn')?.addEventListener('click',()=>appendVariantOption('Size'));
+$('addVariantColorBtn')?.addEventListener('click',()=>appendVariantOption('Color'));
 $('refreshVariantMatrixBtn')?.addEventListener('click',()=>{renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData());markProductFormDirty();});
 $('detailOpenLiveShopBtn').addEventListener('click',()=>{
   const shopId=App.adminShopId||$('shopId').value.trim();
