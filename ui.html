@@ -2212,6 +2212,22 @@ async function tryGetUserLocation(){
     );
   });
 }
+async function locateUserOnMap(){
+  if(!App.mapSheet.map) return;
+  setMapSheetStatus('Finding your current location…');
+  const loc=await tryGetUserLocation();
+  if(!loc){
+    App.mapSheet.userLocation=null;
+    if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
+    setMapSheetStatus('Your location could not be determined. Check browser location permission and try again.');
+    return;
+  }
+  App.mapSheet.userLocation=loc;
+  if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
+  addUserMapMarker(loc);
+  try{ App.mapSheet.map.flyTo([loc.lat,loc.lng], 13, {duration:0.8}); }catch{}
+  setMapSheetStatus('Showing your current location on the map.');
+}
 function mapPopupHtml(shop={}){
   const stats=shop.stats||{};
   const chips=[
@@ -2384,7 +2400,7 @@ async function openMapSheet(mode='home',focusRef=''){
     userLoc=await tryGetUserLocation();
     App.mapSheet.userLocation=userLoc;
   }else{
-    App.mapSheet.userLocation=null;
+    userLoc=App.mapSheet.userLocation;
   }
   if(userLoc){
     shops=shops.map(shop=>({...shop,_distance_km:shopDistanceKm(shop,userLoc)}))
@@ -2416,7 +2432,7 @@ function closeMapSheet(){
 }
 $('homeMapToggleBtn')?.addEventListener('click',()=>openMapSheet('home'));
 $('mapSheetCloseBtn')?.addEventListener('click',closeMapSheet);
-$('mapSheetLocateBtn')?.addEventListener('click',()=>openMapSheet(App.mapSheet.mode||'home',App.mapSheet.focusShopId||''));
+$('mapSheetLocateBtn')?.addEventListener('click',locateUserOnMap);
 $('mapSheetBg')?.addEventListener('click',e=>{ if(e.target===$('mapSheetBg')) closeMapSheet(); });
 const COUNTRY_META={
   AU:{name:'Australia',currency:'AUD',regions:['Australian Capital Territory','New South Wales','Northern Territory','Queensland','South Australia','Tasmania','Victoria','Western Australia']},
