@@ -6,7 +6,7 @@ from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Req
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-import os, re, json, time, uuid, shutil
+import os, re, json, time, uuid, shutil, math
 import csv
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
@@ -774,6 +774,60 @@ def build_formatted_address(data: Dict[str, Any]) -> str:
     ]
     return ", ".join([p for p in parts if p])
 
+def geocode_structured_address(data: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    if not MAPBOX_TOKEN:
+        return {"latitude": None, "longitude": None}
+    query = (data.get("formatted_address") or build_formatted_address(data) or data.get("address") or "").strip()
+    if not query:
+        return {"latitude": None, "longitude": None}
+    params = {
+        "access_token": MAPBOX_TOKEN,
+        "limit": 1,
+        "autocomplete": "false",
+        "types": "address,place,postcode",
+    }
+    country_code = clean_code(data.get("country_code", ""))
+    if country_code:
+        params["country"] = country_code.lower()
+    try:
+        res = requests.get(
+            f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(query)}.json",
+            params=params,
+            timeout=8,
+        )
+        res.raise_for_status()
+        feature = ((res.json() or {}).get("features") or [None])[0]
+        center = (feature or {}).get("center") or [None, None]
+        return {"latitude": center[1], "longitude": center[0]}
+    except Exception as e:
+        print(f"[Map Geocode Warning] {e}")
+        return {"latitude": None, "longitude": None}
+
+def ensure_shop_coordinates(row: Dict[str, Any]) -> Dict[str, Any]:
+    out = normalize_shop_record(row or {})
+    try:
+        lat = float(out.get("latitude"))
+        lng = float(out.get("longitude"))
+        if math.isfinite(lat) and math.isfinite(lng):
+            return out
+    except Exception:
+        pass
+    geo = geocode_structured_address(out)
+    if geo.get("latitude") is None or geo.get("longitude") is None:
+        return out
+    out["latitude"] = geo["latitude"]
+    out["longitude"] = geo["longitude"]
+    shop_id = out.get("shop_id")
+    if shop_id:
+        try:
+            supabase.table("shops").update({
+                "latitude": geo["latitude"],
+                "longitude": geo["longitude"],
+            }).eq("shop_id", shop_id).execute()
+        except Exception as e:
+            print(f"[Map Backfill Warning] {shop_id}: {e}")
+    return out
+
 def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(row or {})
     out["shop_slug"] = (out.get("shop_slug") or slug_base(out.get("name") or out.get("shop_id") or "shop", "shop", 50)).strip()
@@ -1321,6 +1375,11 @@ def validate_shop_payload(shop: ShopInfo) -> Dict[str, Any]:
     data["formatted_address"] = data.get("formatted_address") or build_formatted_address(data)
     data["address"] = data["formatted_address"]
     data["hours"] = format_hours_structured(data["hours_structured"])
+    if data.get("latitude") in (None, "") or data.get("longitude") in (None, ""):
+        geo = geocode_structured_address(data)
+        if geo.get("latitude") is not None and geo.get("longitude") is not None:
+            data["latitude"] = geo["latitude"]
+            data["longitude"] = geo["longitude"]
     return data
 
 def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[str, Any]:
@@ -2355,7 +2414,7 @@ def public_shops(
     rows = q.execute().data
     filtered = []
     for r in rows:
-        nr = normalize_shop_record(r)
+        nr = ensure_shop_coordinates(r)
         r.update(nr)
         if country_code and r.get("country_code", "") != clean_code(country_code):
             continue
@@ -2482,7 +2541,7 @@ def public_address_search(q: str = Query(..., min_length=3), country: str = Quer
 
 @app.get("/public/shop/{shop_ref}")
 def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), stock: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
-    shop_row = resolve_shop_by_ref(shop_ref)
+    shop_row = ensure_shop_coordinates(resolve_shop_by_ref(shop_ref))
     shop_id = shop_row["shop_id"]
     
     user_id = None

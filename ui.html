@@ -2363,7 +2363,14 @@ async function openMapSheet(mode='home',focusRef=''){
   if($('mapSheetCopy')) $('mapSheetCopy').textContent=mode==='shop'
     ? 'Start with this shop, then zoom out to discover nearby storefronts around it.'
     : 'See nearby storefronts, tap a pin for a quick preview, and jump straight into the shop page.';
-  const support=await ensureMapSheetBase();
+  let support=null;
+  try{
+    support=await ensureMapSheetBase();
+  }catch(e){
+    setMapSheetEmpty('Map could not load','The map library could not be loaded on this device right now. Try again or check that external scripts are allowed.');
+    setMapSheetStatus(e?.message || 'Map library failed to load.');
+    return;
+  }
   if(!support) return;
   let shops=mode==='home' ? visibleHomeShops() : await ensureMapShopsLoaded();
   shops=(shops||[]).filter(hasShopCoords);
