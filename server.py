@@ -445,13 +445,38 @@ def unique_product_slug(shop_id: str, name: str, ignore_product_id: str = "") ->
     base = slug_base(name, "product", 50)
     candidate = base
     for i in range(20):
-        q = supabase.table("products").select("product_id").eq("shop_id", shop_id).eq("product_slug", candidate)
-        rows = q.execute().data or []
+        try:
+            q = supabase.table("products").select("product_id").eq("shop_id", shop_id).eq("product_slug", candidate)
+            rows = q.execute().data or []
+        except Exception:
+            return candidate
         if not rows or all(str(r.get("product_id", "")) == str(ignore_product_id or "") for r in rows):
             return candidate
         suffix = f"-{i+2}"
         candidate = f"{base[:max(1, 50-len(suffix))]}{suffix}"
     return f"{base[:40]}-{uuid.uuid4().hex[:6]}"
+
+PRODUCT_OPTIONAL_WRITE_COLUMNS = ["price_amount", "stock_quantity", "product_slug", "variant_data", "variant_matrix", "attribute_data", "currency_code"]
+
+def product_write_payload_with_fallback(shop_id: str, product_id: str, data: Dict[str, Any], existing: bool) -> Tuple[Dict[str, Any], List[str]]:
+    payload = dict(data or {})
+    unsupported: List[str] = []
+    for _ in range(len(PRODUCT_OPTIONAL_WRITE_COLUMNS) + 1):
+        try:
+            if existing:
+                supabase.table("products").update(payload).eq("shop_id", shop_id).eq("product_id", product_id).execute()
+            else:
+                supabase.table("products").insert({**payload, "shop_id": shop_id, "product_id": product_id}).execute()
+            return payload, unsupported
+        except Exception as e:
+            msg = str(e or "")
+            missing = [col for col in PRODUCT_OPTIONAL_WRITE_COLUMNS if col not in unsupported and col in msg]
+            if not missing:
+                raise
+            for col in missing:
+                payload.pop(col, None)
+                unsupported.append(col)
+    raise HTTPException(500, "Could not save the product because the database schema is missing required fields.")
 
 def norm_ext(ext: str) -> str:
     return ".jpg" if ext.lower() in {".jfif", ".jif"} else ext.lower()
@@ -3109,8 +3134,9 @@ def admin_upsert_product(shop_id: str, product: Product, authorization: Optional
     imgs = data["images"]
     if existing and not imgs: imgs = existing[0].get("images", [])
     data["images"] = imgs
-    if existing: supabase.table("products").update(data).eq("shop_id", shop_id).eq("product_id", pid).execute()
-    else: supabase.table("products").insert({**data, "shop_id": shop_id, "product_id": pid}).execute()
+    data, unsupported_cols = product_write_payload_with_fallback(shop_id, pid, data, bool(existing))
+    if unsupported_cols:
+        print(f"[Product Schema Warning] {shop_id}/{pid}: saved without optional columns {unsupported_cols}")
     
     rebuild_kb(shop_id)
     return {"ok": True, "product_id": pid}
@@ -3210,8 +3236,9 @@ async def admin_product_with_images(
         images=merged,
     ), shop)
     data["product_slug"] = unique_product_slug(shop_id, name.strip(), pid if existing else "")
-    if existing: supabase.table("products").update(data).eq("shop_id", shop_id).eq("product_id", pid).execute()
-    else: supabase.table("products").insert({**data, "shop_id": shop_id, "product_id": pid}).execute()
+    data, unsupported_cols = product_write_payload_with_fallback(shop_id, pid, data, bool(existing))
+    if unsupported_cols:
+        print(f"[Product Schema Warning] {shop_id}/{pid}: saved without optional columns {unsupported_cols}")
     
     rebuild_kb(shop_id)
     return {"ok": True, "product_id": pid, "images": merged}
