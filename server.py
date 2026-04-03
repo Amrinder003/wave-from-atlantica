@@ -459,9 +459,10 @@ def unique_product_slug(shop_id: str, name: str, ignore_product_id: str = "") ->
 
 PRODUCT_OPTIONAL_WRITE_COLUMNS = ["price_amount", "stock_quantity", "product_slug", "variant_data", "variant_matrix", "attribute_data", "currency_code"]
 
-def product_write_payload_with_fallback(shop_id: str, product_id: str, data: Dict[str, Any], existing: bool) -> Tuple[Dict[str, Any], List[str]]:
+def product_write_payload_with_fallback(shop_id: str, product_id: str, data: Dict[str, Any], existing: bool, strict_cols: Optional[List[str]] = None) -> Tuple[Dict[str, Any], List[str]]:
     payload = dict(data or {})
     unsupported: List[str] = []
+    strict = set(strict_cols or [])
     for _ in range(len(PRODUCT_OPTIONAL_WRITE_COLUMNS) + 1):
         try:
             if existing:
@@ -474,6 +475,8 @@ def product_write_payload_with_fallback(shop_id: str, product_id: str, data: Dic
             missing = [col for col in PRODUCT_OPTIONAL_WRITE_COLUMNS if col not in unsupported and col in msg]
             if not missing:
                 raise
+            if any(col in strict for col in missing):
+                raise HTTPException(500, "The database is missing the latest product variant fields. Run the latest Supabase migration before saving products with variants.")
             for col in missing:
                 payload.pop(col, None)
                 unsupported.append(col)
@@ -3135,7 +3138,8 @@ def admin_upsert_product(shop_id: str, product: Product, authorization: Optional
     imgs = data["images"]
     if existing and not imgs: imgs = existing[0].get("images", [])
     data["images"] = imgs
-    data, unsupported_cols = product_write_payload_with_fallback(shop_id, pid, data, bool(existing))
+    strict_cols = ["variant_data", "variant_matrix"] if data.get("variant_data") or data.get("variant_matrix") else []
+    data, unsupported_cols = product_write_payload_with_fallback(shop_id, pid, data, bool(existing), strict_cols)
     if unsupported_cols:
         print(f"[Product Schema Warning] {shop_id}/{pid}: saved without optional columns {unsupported_cols}")
     
@@ -3237,7 +3241,8 @@ async def admin_product_with_images(
         images=merged,
     ), shop)
     data["product_slug"] = unique_product_slug(shop_id, name.strip(), pid if existing else "")
-    data, unsupported_cols = product_write_payload_with_fallback(shop_id, pid, data, bool(existing))
+    strict_cols = ["variant_data", "variant_matrix"] if data.get("variant_data") or data.get("variant_matrix") else []
+    data, unsupported_cols = product_write_payload_with_fallback(shop_id, pid, data, bool(existing), strict_cols)
     if unsupported_cols:
         print(f"[Product Schema Warning] {shop_id}/{pid}: saved without optional columns {unsupported_cols}")
     
