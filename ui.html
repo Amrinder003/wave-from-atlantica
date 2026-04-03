@@ -2246,6 +2246,7 @@ const App = {
   srchPage: 1,
   activeCat: '',
   homeMobileView: 'products',
+  favouriteProductIds: {},
   adminProducts: [],
   recoveryToken: '',
   locationSupport: null,
@@ -3661,7 +3662,14 @@ function saveUser(data){
   localStorage.setItem('lm_user',JSON.stringify(App.user));
   renderUserUI();
 }
-function clearUser(){App.user=null;localStorage.removeItem('lm_user');renderUserUI();setRequestBanner(null);}
+function clearUser(){
+  App.user=null;
+  App.favouriteProductIds={};
+  localStorage.removeItem('lm_user');
+  renderUserUI();
+  refreshVisibleProductCards();
+  setRequestBanner(null);
+}
 
 function renderUserUI(){
   const u=App.user;
@@ -3709,7 +3717,16 @@ $('resendVerifyBtn').addEventListener('click',async()=>{
 
 async function doLogin(){
   const email=$('loginEmail').value.trim(),pw=$('loginPass').value.trim();
-  try{setS('loginStatus','Signing in...');const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});saveUser(d);closeAuthModal();toast('Welcome back!',d.display_name||d.email);await loadMyShops();}
+  try{
+    setS('loginStatus','Signing in...');
+    const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
+    saveUser(d);
+    await refreshViewerFavourites();
+    closeAuthModal();
+    toast('Welcome back!',d.display_name||d.email);
+    await loadAllShops();
+    await loadMyShops();
+  }
   catch(e){setS('loginStatus',e.message,'err');}
 }
 async function doRegister(){
@@ -3757,7 +3774,16 @@ $('backToLoginBtn').addEventListener('click',()=>switchAuthTab('login'));
 $('resetSubmitBtn').addEventListener('click',doResetPassword);
 $('adminLoginBtn').addEventListener('click',async()=>{
   const email=$('authEmail').value.trim(),pw=$('authPass').value.trim();
-  try{setS('authStatus','Signing in...');const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});saveUser(d);setS('authStatus',`Welcome, ${d.display_name||d.email}!`,'ok');toast('Logged in');await loadMyShops();}catch(e){setS('authStatus',e.message,'err');}
+  try{
+    setS('authStatus','Signing in...');
+    const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
+    saveUser(d);
+    await refreshViewerFavourites();
+    setS('authStatus',`Welcome, ${d.display_name||d.email}!`,'ok');
+    toast('Logged in');
+    await loadAllShops();
+    await loadMyShops();
+  }catch(e){setS('authStatus',e.message,'err');}
 });
 $('adminRegisterBtn').addEventListener('click',async()=>{
   const email=$('authEmail').value.trim(),pw=$('authPass').value.trim();
@@ -4161,9 +4187,52 @@ function setDetailFavouriteButtonState(btn,saved=false){
   btn.setAttribute('aria-label',label);
   btn.setAttribute('aria-pressed',active?'true':'false');
 }
-function syncProductFavouriteState(productId='',saved=false){
-  const pid=String(productId||'').trim();
+function normalizeProductId(productId=''){
+  return String(productId||'').trim();
+}
+function rememberFavouriteProducts(products=[]){
+  const next={};
+  (products||[]).forEach(item=>{
+    const pid=normalizeProductId(item?.product_id);
+    if(pid) next[pid]=true;
+  });
+  App.favouriteProductIds=next;
+}
+function isRememberedFavourite(productId=''){
+  const pid=normalizeProductId(productId);
+  return !!(pid && App.favouriteProductIds?.[pid]);
+}
+function syncRememberedFavourite(productId='',saved=false){
+  const pid=normalizeProductId(productId);
   if(!pid) return;
+  if(!App.favouriteProductIds) App.favouriteProductIds={};
+  if(saved) App.favouriteProductIds[pid]=true;
+  else delete App.favouriteProductIds[pid];
+}
+function applyFavouriteStateToProducts(products=[]){
+  return (products||[]).map(item=>{
+    const pid=normalizeProductId(item?.product_id);
+    if(!pid) return item;
+    return {...item,is_favourite:!!(item?.is_favourite || isRememberedFavourite(pid))};
+  });
+}
+async function refreshViewerFavourites(){
+  if(!tok()){
+    App.favouriteProductIds={};
+    refreshVisibleProductCards();
+    return;
+  }
+  try{
+    const d=await api('/customer/favourites',{auth:true});
+    rememberFavouriteProducts(d.favourites||[]);
+    if($('pg-favs')?.classList.contains('show')) loadFavourites();
+  }catch{}
+  refreshVisibleProductCards();
+}
+function syncProductFavouriteState(productId='',saved=false){
+  const pid=normalizeProductId(productId);
+  if(!pid) return;
+  syncRememberedFavourite(pid,saved);
   document.querySelectorAll('.pc,.admin-pc').forEach(card=>{
     if(card?.__waveCardProduct?.product_id===pid) card.__waveCardProduct.is_favourite=!!saved;
   });
@@ -4181,7 +4250,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
   const n=imgs.length||p.image_count||0;
   const stMap={in:'In Stock',low:'Low Stock',out:'Out of Stock'};
   const st=p.stock||'in';
-  const isFav=!!(p.is_favourite);
+  const isFav=!!(p.is_favourite || isRememberedFavourite(p.product_id));
   const desc=p.overview?esc(p.overview):'Add a sharper description so customers and chat both understand this product better.';
   const attrPreview=((p.attribute_lines||[]).slice(0,2).join(' • ')).trim();
   const savedSelection=getSavedCardVariantSelection(p,shopId);
@@ -4292,18 +4361,19 @@ function fillGrid(container,products,opts={}){
   products.forEach(p=>container.appendChild(makeCard(p,opts)));
 }
 function refreshVisibleProductCards(productId=''){
-  const pid=String(productId||'').trim();
-  if(!pid) return;
+  const pid=normalizeProductId(productId);
   document.querySelectorAll('.pgrid,.admin-pgrid,.inline-pgrid').forEach(grid=>{
     if(!grid.children?.length) return;
     const cards=[...grid.children].filter(node=>node.nodeType===1);
     if(!cards.length) return;
-    const context=cards.map(card=>card.__waveCardProduct).find(p=>p?.product_id===pid);
-    if(!context) return;
     const opts=cards.map(card=>card.__waveCardOpts).find(Boolean)||{};
     const nextCards=cards.map(card=>{
-      const product=card.__waveCardProduct||context;
-      return product?.product_id===pid ? makeCard(product,card.__waveCardOpts||opts) : card;
+      const product=card.__waveCardProduct;
+      const cardPid=normalizeProductId(product?.product_id);
+      if(!cardPid) return card;
+      if(pid && cardPid!==pid) return card;
+      product.is_favourite=isRememberedFavourite(cardPid);
+      return makeCard(product,card.__waveCardOpts||opts);
     });
     grid.replaceChildren(...nextCards);
   });
@@ -4746,9 +4816,9 @@ async function doSearch(page=1){
     const attrParams=[];
     if(App.marketAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.marketAttrFilter.key)}`);
     if(App.marketAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.marketAttrFilter.value)}`);
-    const d=await api(withViewerCurrency(`/public/search/global?q=${encodeURIComponent(q)}&page=${page}&limit=24${attrParams.length?`&${attrParams.join('&')}`:''}`));
+    const d=await api(withViewerCurrency(`/public/search/global?q=${encodeURIComponent(q)}&page=${page}&limit=24${attrParams.length?`&${attrParams.join('&')}`:''}`),{auth:!!tok()});
     $('srchTitle').textContent=`"${q}" — ${d.total||0} results`;
-    const prods=(d.results||[]).map(p=>({...p,_shopId:p.shop_id,_shopName:p.shop_name}));
+    const prods=applyFavouriteStateToProducts((d.results||[]).map(p=>({...p,_shopId:p.shop_id,_shopName:p.shop_name})));
     const categories=[...new Set(prods.map(p=>p.shop_category||p.category||'').filter(Boolean))];
     renderMarketAttributeFilter(categories.length===1?categories[0]:'','search');
     fillGrid($('srchResultGrid'),prods,{mode:'browse',showShop:true});
@@ -4821,8 +4891,8 @@ async function loadFeatured(page=1){
     const attrParams=[];
     if(App.marketAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.marketAttrFilter.key)}`);
     if(App.marketAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.marketAttrFilter.value)}`);
-    const d=await api(withViewerCurrency(`/public/top-products?limit=24${cat?`&category=${encodeURIComponent(cat)}`:''}${attrParams.length?`&${attrParams.join('&')}`:''}` ));
-    const prods=d.products||[];
+    const d=await api(withViewerCurrency(`/public/top-products?limit=24${cat?`&category=${encodeURIComponent(cat)}`:''}${attrParams.length?`&${attrParams.join('&')}`:''}` ),{auth:!!tok()});
+    const prods=applyFavouriteStateToProducts(d.products||[]);
     $('featuredSub').textContent=`${prods.length} products found${App.marketAttrFilter?.value?` matching ${App.marketAttrFilter.value}`:''}`;
     fillGrid($('featuredGrid'),prods,{mode:'browse',showShop:true});
     syncHomeMobileLayout();
@@ -4846,6 +4916,7 @@ $('featuredAttrValue')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.pre
 async function loadFavourites(){
   if(!App.user){$('favGrid').innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">❤️</div><div class="et">Sign in to see your saved products.</div></div>`;return;}
   try{const d=await api('/customer/favourites',{auth:true});
+    rememberFavouriteProducts(d.favourites||[]);
     const prods=(d.favourites||[]).map(p=>({...p,_shopId:p.shop_id}));
     fillGrid($('favGrid'),prods,{mode:'browse',showShop:true});
   }catch(e){toast('Error loading favourites',e.message,'err');}
@@ -6081,6 +6152,7 @@ async function init(){
     try{const d=await api('/auth/me',{auth:true});App.user={...App.user,email:d.email,display_name:d.display_name||'',avatar_url:d.avatar_url||'',email_verified:d.email_verified,role:d.role};localStorage.setItem('lm_user',JSON.stringify(App.user));renderUserUI();}
     catch{clearUser();}
   }
+  await refreshViewerFavourites();
   await loadAllShops();
   if(tok())await loadMyShops();
   await refreshRequestNotification();
