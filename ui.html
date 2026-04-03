@@ -135,12 +135,34 @@ a{color:inherit;text-decoration:none}
 .shop-filter-trigger{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border-radius:999px;border:1px solid rgba(191,174,149,.36);background:rgba(255,250,242,.9);font-size:12px;font-weight:800;color:var(--ink2)}
 .shop-filter-trigger .filter-count{display:inline-flex;min-width:22px;height:22px;padding:0 7px;align-items:center;justify-content:center;border-radius:999px;background:var(--A);color:#fff;font-size:11px}
 .shop-filter-summary{font-size:12px;color:var(--ink3);margin-top:10px}
+.home-mobile-switcher{display:none}
+.hero-mobile-stats{display:none}
+.mobile-panel-scrim{display:none}
+.shop-filter-panel-head{display:none}
 @media(max-width:900px){.shop-filter-bar{grid-template-columns:1fr 1fr 1fr}.shop-filter-actions{grid-column:1/-1}}
 @media(max-width:680px){.shop-filter-bar{grid-template-columns:1fr}}
 @media(max-width:680px){
   .hero-panel,.hero-stat-card{border-radius:24px;padding:20px 18px}
   .hero-title{font-size:30px}
   .hero-text{font-size:14px;line-height:1.7}
+  .hero-stat-card{display:none}
+  .hero-mobile-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:4px}
+  .hero-mobile-stat{padding:10px 11px;border-radius:16px;background:rgba(255,248,240,.14);border:1px solid rgba(255,241,230,.18)}
+  .hero-mobile-stat-k{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,241,230,.74)}
+  .hero-mobile-stat-v{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:#fff;margin-top:3px}
+  .home-mobile-switcher{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .home-mobile-switch{padding:12px 14px;border-radius:20px;border:1px solid rgba(191,174,149,.34);background:rgba(255,253,248,.88);font-size:13px;font-weight:800;color:var(--ink2);box-shadow:0 10px 24px rgba(48,33,15,.06)}
+  .home-mobile-switch.on{background:linear-gradient(180deg,#7e341d,#a24c2e);color:#fff;border-color:rgba(126,52,29,.8);box-shadow:0 16px 30px rgba(92,47,24,.18)}
+  .home-mobile-hidden{display:none!important}
+  #featuredSection{order:1}
+  #shopsSection{order:2}
+  .section-shell{scroll-margin-top:calc(var(--nh) + var(--sh) + 20px)}
+  .shop-filter-shell{position:fixed;left:0;right:0;bottom:0;top:auto;max-height:78dvh;overflow:auto;z-index:430;border-radius:26px 26px 0 0;padding:0 14px 16px;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));box-shadow:0 -24px 60px rgba(18,23,34,.2);border:1px solid rgba(191,174,149,.32);transform:translateY(108%);transition:transform .24s ease;display:block}
+  .shop-filter-shell.on{transform:translateY(0)}
+  .shop-filter-bar{margin-top:0}
+  .shop-filter-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 2px 12px;position:sticky;top:0;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));z-index:2}
+  .shop-filter-panel-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;letter-spacing:-.04em}
+  #shopFilterScrim.on{display:block;position:fixed;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(4px);z-index:420}
 }
 @media(max-width:460px){
   .home-wrap{padding:12px 10px 64px;gap:18px}
@@ -155,10 +177,15 @@ a{color:inherit;text-decoration:none}
   .hero-stat-grid{grid-template-columns:1fr 1fr;gap:8px}
   .hero-stat{padding:10px 11px;border-radius:16px}
   .hero-stat-value{font-size:20px}
+  .hero-mobile-stats{gap:6px}
+  .hero-mobile-stat{padding:9px 9px 10px}
+  .hero-mobile-stat-v{font-size:18px}
   .sec-head{align-items:flex-start;flex-direction:column;gap:4px;margin-bottom:12px}
   .sec-title{font-size:22px}
   .sec-sub{font-size:12px}
   .srch-bar{padding:10px 12px;align-items:flex-start;flex-direction:column}
+  .home-mobile-switcher{gap:8px}
+  .home-mobile-switch{padding:11px 12px;border-radius:18px;font-size:12px}
 }
 .hero-panel{background:linear-gradient(135deg,#2f221b,#7e341d 45%,#c0734a);border-radius:30px;padding:28px 28px 24px;color:#fff;position:relative;overflow:hidden;box-shadow:0 26px 60px rgba(73,40,19,.18)}
 .hero-panel::before{content:'';position:absolute;right:-40px;top:-24px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.09)}
@@ -272,6 +299,22 @@ a{color:inherit;text-decoration:none}
   .pc-noprice,.pc-shop,.pc-rating{font-size:11px}
   .pc-stock{font-size:10px}
 }
+@media(max-width:760px){
+  #featuredGrid.pgrid,#shopProdGrid.pgrid,#srchResultGrid.pgrid,#favGrid.pgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .pc{border-radius:20px}
+  .pc-photo-wrap{aspect-ratio:1/1.02}
+  .pc-body{padding:12px 12px 14px}
+  .pc-name{font-size:14px;line-height:1.28}
+  .pc-price{font-size:15px;margin-top:5px}
+  .pc-stock{font-size:10px;margin-top:4px}
+  .pc-attr,.pc-views,.pc-shop{display:none}
+  .pc-rating{font-size:10px;margin-top:6px}
+  .pc-variants{margin-top:7px;gap:5px}
+  .pc-vchip{padding:5px 8px;font-size:9px;border-radius:12px}
+}
+@media(max-width:380px){
+  #featuredGrid.pgrid,#shopProdGrid.pgrid,#srchResultGrid.pgrid,#favGrid.pgrid{grid-template-columns:1fr}
+}
 .star-filled{color:var(--Y)}
 
 /* ── PAGINATION ── */
@@ -294,6 +337,7 @@ a{color:inherit;text-decoration:none}
 .shop-hdr-chip{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:99px;background:rgba(255,247,239,.14);border:1px solid rgba(255,247,239,.18);color:#fff;font-size:12px;font-weight:700;letter-spacing:.01em}
 .shop-hdr-desc{font-size:15px;color:rgba(255,243,234,.84);margin-top:12px;max-width:620px;line-height:1.8}
 .shop-hdr-actions{display:flex;gap:8px;flex-wrap:wrap;position:relative;z-index:2}
+.shop-mobile-tools,.shop-mobile-sheet-head{display:none}
 .shop-body{display:grid;grid-template-columns:224px 1fr;min-height:calc(100vh - var(--nh) - var(--sh) - 130px);min-height:calc(100dvh - var(--nh) - var(--sh) - 130px)}
 @media(max-width:860px){.shop-body{grid-template-columns:1fr}}
 .shop-sidebar{border-right:1px solid rgba(191,174,149,.38);background:linear-gradient(180deg,rgba(255,253,248,.96),rgba(246,239,227,.86));padding:16px 0;position:sticky;top:calc(var(--nh) + var(--sh));height:calc(100vh - var(--nh) - var(--sh));height:calc(100dvh - var(--nh) - var(--sh));overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -366,17 +410,35 @@ a{color:inherit;text-decoration:none}
 @media(max-width:680px){.shop-main{padding:12px}}
 .shop-toolbar > div:last-child{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:860px){
+  .breadcrumb{display:none}
   .shop-header{padding:24px 18px 22px;border-radius:0 0 22px 22px}
   .shop-hdr-name{font-size:30px}
   .shop-hdr-desc{font-size:14px;line-height:1.7}
-  .shop-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid rgba(191,174,149,.32);padding:12px 0 4px}
-  .shop-sidebar-sec{padding:0 12px 12px}
+  .shop-hdr-chips,.shop-hdr-actions{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .shop-hdr-chips::-webkit-scrollbar,.shop-hdr-actions::-webkit-scrollbar{display:none}
+  .shop-hdr-desc{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .shop-mobile-tools{display:flex;gap:8px;padding:12px 12px 8px;background:linear-gradient(180deg,rgba(247,241,232,.96),rgba(247,241,232,.82));position:sticky;top:calc(var(--nh) + var(--sh));z-index:32;border-bottom:1px solid rgba(191,174,149,.28)}
+  .shop-mobile-tools .btn{flex:1;justify-content:center}
+  .shop-sidebar{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:430;height:min(76dvh,620px);border-right:none;border-top:1px solid rgba(191,174,149,.32);padding:0 0 10px;border-radius:28px 28px 0 0;transform:translateY(105%);transition:transform .24s ease;box-shadow:0 -24px 60px rgba(18,23,34,.24)}
+  .shop-mobile-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 12px;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));border-bottom:1px solid rgba(191,174,149,.24);position:sticky;top:0;z-index:2}
+  .shop-mobile-sheet-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;letter-spacing:-.04em}
+  .shop-sidebar-sec{display:none;padding:0 14px 14px}
+  #pg-shop.mobile-sheet-on .shop-sidebar{transform:translateY(0)}
+  #pg-shop.mobile-sheet-on .shop-mobile-scrim{opacity:1;pointer-events:auto}
+  #pg-shop[data-mobile-sheet="info"] .shop-sidebar-sec[data-mobile-group="info"],
+  #pg-shop[data-mobile-sheet="filters"] .shop-sidebar-sec[data-mobile-group="filters"]{display:block}
+  .shop-mobile-scrim{display:block;position:fixed;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(4px);z-index:420;opacity:0;pointer-events:none;transition:opacity .2s ease}
+  .shop-side-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shop-side-prompts{grid-template-columns:1fr 1fr}
 }
 @media(max-width:680px){
   .shop-toolbar{padding:12px;gap:12px}
   .shop-search-box{max-width:none;width:100%}
   .shop-toolbar > div:last-child{width:100%}
   .shop-toolbar > div:last-child .sort-sel{width:100%}
+  .qchips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .qchips::-webkit-scrollbar{display:none}
+  .qchip{white-space:nowrap;flex:0 0 auto}
 }
 .shop-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap;padding:12px 14px;border-radius:22px;background:rgba(255,253,248,.84);border:1px solid rgba(191,174,149,.32)}
 .shop-search-box{display:flex;align-items:center;border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden;background:var(--sf);flex:1;max-width:340px;transition:.13s;box-shadow:var(--s1)}
@@ -1081,13 +1143,18 @@ a{color:inherit;text-decoration:none}
           <div class="hero-title">Browse neighborhood shops and ask each one like you are already inside the store.</div>
           <div class="hero-text">Wave gives every shop its own live assistant, product catalog, and storefront. Search across Atlantica, open a shop, and get direct answers about price, stock, photos, hours, and what fits your budget.</div>
           <div class="hero-actions">
-            <button class="btn btn-A" onclick="document.getElementById('shopsSection').scrollIntoView({behavior:'smooth'})">Explore Shops</button>
+            <button class="btn btn-A" onclick="focusHomeSection('shops')">Explore Shops</button>
             <button class="btn btn-o" onclick="showPage('chat')">Open Chat</button>
           </div>
           <div class="hero-note">
             <span>Real shop-specific answers</span>
             <span>Browse by category</span>
             <span>Ask direct budget questions</span>
+          </div>
+          <div class="hero-mobile-stats">
+            <div class="hero-mobile-stat"><div class="hero-mobile-stat-k">Shops</div><div id="heroMobileShopCount" class="hero-mobile-stat-v">0</div></div>
+            <div class="hero-mobile-stat"><div class="hero-mobile-stat-k">Products</div><div id="heroMobileProductCount" class="hero-mobile-stat-v">0</div></div>
+            <div class="hero-mobile-stat"><div class="hero-mobile-stat-k">Categories</div><div id="heroMobileCategoryCount" class="hero-mobile-stat-v">0</div></div>
           </div>
         </div>
       </div>
@@ -1104,6 +1171,10 @@ a{color:inherit;text-decoration:none}
         </div>
       </div>
     </section>
+    <div id="homeMobileSwitcher" class="home-mobile-switcher">
+      <button class="home-mobile-switch on" data-home-mobile-view="products" type="button">Top Products</button>
+      <button class="home-mobile-switch" data-home-mobile-view="shops" type="button">Top Shops</button>
+    </div>
     <div id="srchBar" class="srch-bar" style="display:none">
       <div class="srch-title" id="srchTitle">Results</div>
       <span class="srch-clear" id="srchClear">Clear</span>
@@ -1135,6 +1206,10 @@ a{color:inherit;text-decoration:none}
         </div>
       </div>
       <div id="shopFiltersPanel" class="shop-filter-shell">
+        <div class="shop-filter-panel-head">
+          <div class="shop-filter-panel-title">Filter Shops</div>
+          <button id="shopFilterCloseBtn" class="btn btn-g btn-sm" type="button">Done</button>
+        </div>
         <div class="shop-filter-bar" style="margin-top:0">
           <div class="fld"><label>Country</label><select id="shopFilterCountry"><option value="">All countries</option></select></div>
           <div class="fld"><label>Province / State</label><input id="shopFilterRegion" placeholder="Any region"/></div>
@@ -1150,6 +1225,7 @@ a{color:inherit;text-decoration:none}
         </div>
         <div id="shopFilterSummary" class="shop-filter-summary">No filters applied.</div>
       </div>
+      <div id="shopFilterScrim" class="mobile-panel-scrim"></div>
       <div id="homeShopGrid" class="shop-grid">
         <div class="empty"><div class="ei">...</div><div class="et">Loading shops...</div></div>
       </div>
@@ -1189,13 +1265,22 @@ a{color:inherit;text-decoration:none}
       <div class="shop-hdr-actions" id="shopHdrActions"></div>
     </div>
   </div>
+  <div class="shop-mobile-tools">
+    <button id="shopMobileInfoBtn" class="btn btn-o btn-sm" type="button">Shop Info</button>
+    <button id="shopMobileFiltersBtn" class="btn btn-g btn-sm" type="button">Filters</button>
+  </div>
+  <div id="shopMobileScrim" class="shop-mobile-scrim"></div>
   <div class="shop-body shop-page-wrap">
     <aside class="shop-sidebar" id="shopSidebar">
-      <div class="shop-sidebar-sec">
+      <div class="shop-mobile-sheet-head">
+        <div id="shopMobileSheetTitle" class="shop-mobile-sheet-title">Shop Info</div>
+        <button id="shopMobileSheetClose" class="btn btn-g btn-sm" type="button">Close</button>
+      </div>
+      <div class="shop-sidebar-sec" data-mobile-group="info">
         <div class="shop-sidebar-lbl">Shop Snapshot</div>
         <div id="shopSideStats" class="shop-side-stats"></div>
       </div>
-      <div class="shop-sidebar-sec">
+      <div class="shop-sidebar-sec" data-mobile-group="filters">
         <div class="shop-sidebar-lbl">Availability</div>
         <div id="stockFilterList">
           <label class="filter-row"><input type="radio" name="stk" value="" checked/> All</label>
@@ -1203,7 +1288,7 @@ a{color:inherit;text-decoration:none}
           <label class="filter-row"><input type="radio" name="stk" value="low"/> Low Stock</label>
         </div>
       </div>
-      <div class="shop-sidebar-sec" id="shopAttrFilterSec" style="display:none">
+      <div class="shop-sidebar-sec" id="shopAttrFilterSec" data-mobile-group="filters" style="display:none">
         <div class="shop-sidebar-lbl">Product Details</div>
         <div class="fld" style="margin-bottom:8px">
           <label>Filter By</label>
@@ -1218,7 +1303,7 @@ a{color:inherit;text-decoration:none}
           <button id="shopAttrClear" class="btn btn-g btn-sm">Clear</button>
         </div>
       </div>
-      <div class="shop-sidebar-sec">
+      <div class="shop-sidebar-sec" data-mobile-group="info">
         <div class="shop-sidebar-lbl">Ask This Shop</div>
         <div id="shopSidePrompts" class="shop-side-prompts"></div>
       </div>
@@ -2087,6 +2172,7 @@ const App = {
   pdVariant: '', pdStar: 0,
   srchPage: 1,
   activeCat: '',
+  homeMobileView: 'products',
   adminProducts: [],
   recoveryToken: '',
   locationSupport: null,
@@ -2106,6 +2192,7 @@ const App = {
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
   mapSupport: null,
   mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:''},
+  shopMobileSheet: '',
   requestWatch: {timer:null,lastStatus:'',lastRequestId:'',hidden:false},
 };
 const $=id=>document.getElementById(id);
@@ -3370,9 +3457,58 @@ async function api(path,opts={}){
 function showPage(pg){
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('show',p.id===`pg-${pg}`));
   if(pg!=='chat') setChatMobileSide(false);
+  if(pg!=='shop') setShopMobileSheet('',false);
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function goHome(){App.activeCat='';App.marketAttrFilter={key:'',value:'',category:''};highlightCat('');showPage('home');setPublicPath(appUiRootPath());}
+function isMobileHomeLayout(){return window.matchMedia('(max-width: 680px)').matches;}
+function isMobileShopLayout(){return window.matchMedia('(max-width: 860px)').matches;}
+function setHomeMobileView(view='products'){
+  App.homeMobileView=view||'products';
+  const mobile=isMobileHomeLayout();
+  const featured=$('featuredSection');
+  const shops=$('shopsSection');
+  $('homeMobileSwitcher')?.classList.toggle('on',mobile);
+  document.querySelectorAll('[data-home-mobile-view]').forEach(btn=>btn.classList.toggle('on',btn.dataset.homeMobileView===App.homeMobileView));
+  if(!featured||!shops) return;
+  if(!mobile){
+    featured.classList.remove('home-mobile-hidden');
+    shops.classList.remove('home-mobile-hidden');
+    return;
+  }
+  featured.classList.toggle('home-mobile-hidden',App.homeMobileView!=='products');
+  shops.classList.toggle('home-mobile-hidden',App.homeMobileView!=='shops');
+}
+function focusHomeSection(view='products'){
+  showPage('home');
+  setHomeMobileView(view);
+  const target=view==='shops' ? $('shopsSection') : $('featuredSection');
+  target?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function syncHomeMobileLayout(){setHomeMobileView(App.homeMobileView||'products');}
+function setShopMobileSheet(mode='info',open=true){
+  const page=$('pg-shop');
+  if(!page) return;
+  const mobile=isMobileShopLayout();
+  if(!open || !mobile){
+    page.classList.remove('mobile-sheet-on');
+    page.dataset.mobileSheet='';
+    App.shopMobileSheet='';
+    $('shopMobileInfoBtn')?.classList.remove('btn-A');
+    $('shopMobileInfoBtn')?.classList.add('btn-o');
+    $('shopMobileFiltersBtn')?.classList.remove('btn-A');
+    $('shopMobileFiltersBtn')?.classList.add('btn-g');
+    return;
+  }
+  App.shopMobileSheet=mode||'info';
+  page.dataset.mobileSheet=App.shopMobileSheet;
+  page.classList.add('mobile-sheet-on');
+  if($('shopMobileSheetTitle')) $('shopMobileSheetTitle').textContent=App.shopMobileSheet==='filters'?'Filter Products':'Shop Info';
+  $('shopMobileInfoBtn')?.classList.toggle('btn-A',App.shopMobileSheet==='info');
+  $('shopMobileInfoBtn')?.classList.toggle('btn-o',App.shopMobileSheet!=='info');
+  $('shopMobileFiltersBtn')?.classList.toggle('btn-A',App.shopMobileSheet==='filters');
+  $('shopMobileFiltersBtn')?.classList.toggle('btn-g',App.shopMobileSheet!=='filters');
+}
 
 /* ═════════════════════════════════════════════
    SERVER CHECK
@@ -4499,9 +4635,15 @@ async function loadAllShops(){
 }
 function renderHomeShops(){
   let shops=App.allShops;
-  if($('heroShopCount')) $('heroShopCount').textContent=String(App.allShops.length||0);
-  if($('heroProductCount')) $('heroProductCount').textContent=String(App.allShops.reduce((n,s)=>n+(s.stats?.product_count||0),0));
-  if($('heroCategoryCount')) $('heroCategoryCount').textContent=String(new Set(App.allShops.map(s=>(s.category||'').trim()).filter(Boolean)).size||0);
+  const totalShops=String(App.allShops.length||0);
+  const totalProducts=String(App.allShops.reduce((n,s)=>n+(s.stats?.product_count||0),0));
+  const totalCategories=String(new Set(App.allShops.map(s=>(s.category||'').trim()).filter(Boolean)).size||0);
+  if($('heroShopCount')) $('heroShopCount').textContent=totalShops;
+  if($('heroProductCount')) $('heroProductCount').textContent=totalProducts;
+  if($('heroCategoryCount')) $('heroCategoryCount').textContent=totalCategories;
+  if($('heroMobileShopCount')) $('heroMobileShopCount').textContent=totalShops;
+  if($('heroMobileProductCount')) $('heroMobileProductCount').textContent=totalProducts;
+  if($('heroMobileCategoryCount')) $('heroMobileCategoryCount').textContent=totalCategories;
   if(App.activeCat)shops=shops.filter(s=>`${s.name} ${s.overview||''} ${s.category||''}`.toLowerCase().includes(App.activeCat.toLowerCase()));
   $('shopsSectionTitle').textContent=`${App.activeCat||'All'} Shops (${shops.length})`;
   const grid=$('homeShopGrid');grid.innerHTML='';
@@ -4516,6 +4658,7 @@ function renderHomeShops(){
     card.addEventListener('click',()=>openShopPage(s.shop_slug||s.shop_id));
     grid.appendChild(card);
   });
+  syncHomeMobileLayout();
 }
 async function loadFeatured(page=1){
   const cat=App.activeCat;
@@ -4563,6 +4706,7 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
   if(changedShop) App.shopAttrFilter={key:'',value:''};
   App.shopId=shopId;App.shopPage=page;App.shopSort=sort;App.shopStock=stock;save();
   showPage('shop');
+  setShopMobileSheet('',false);
   $('shopBreadName').textContent=shopId;
   $('shopHdrName').textContent='Loading shop...';$('shopHdrChips').innerHTML='';$('shopHdrDesc').textContent='';$('shopHdrActions').innerHTML='';
   $('shopProdGrid').innerHTML=`<div class="empty"><div class="ei">...</div><div class="et">Loading products...</div></div>`;
@@ -4802,7 +4946,12 @@ $('clearChatBtn').addEventListener('click',()=>{App.chatHistory=[];$('chatMeta')
 /* ═════════════════════════════════════════════
    ADMIN
 ═════════════════════════════════════════════ */
-window.addEventListener('resize',()=>{if(!isMobileChat()) setChatMobileSide(false);});
+window.addEventListener('resize',()=>{
+  if(!isMobileChat()) setChatMobileSide(false);
+  if(!isMobileShopLayout()) setShopMobileSheet('',false);
+  if(!isMobileHomeLayout()) toggleShopFilters(false);
+  syncHomeMobileLayout();
+});
 {
   let chatSheetTouchStartY=0;
   const head=document.querySelector('.chat-side-head');
@@ -5679,6 +5828,7 @@ function toggleShopFilters(force){
   if(!panel) return;
   const open=typeof force==='boolean' ? force : !panel.classList.contains('on');
   panel.classList.toggle('on',open);
+  $('shopFilterScrim')?.classList.toggle('on',open && isMobileHomeLayout());
 }
 async function downloadAdminExport(path,filename){
   const headers={};
@@ -5744,6 +5894,8 @@ async function init(){
   syncShopFilterControls();
   refreshWorkspaceHeader();
   renderUserUI();renderFilePrev([]);renderChatSide([]);renderCQchips([]);renderChatPromptList();renderChatFacts();autoSizeChatInput();updateCartBadge();
+  syncHomeMobileLayout();
+  setShopMobileSheet('',false);
   await loadLocationSupport();
   await loadTimezoneSupport();
   await checkServer();
@@ -5763,7 +5915,14 @@ async function init(){
 $('shopFilterApply')?.addEventListener('click',()=>{loadAllShops();toggleShopFilters(false);});
 $('shopFilterClear')?.addEventListener('click',()=>{clearShopFilters();loadAllShops();toggleShopFilters(false);});
 $('shopFilterToggleBtn')?.addEventListener('click',()=>toggleShopFilters());
+$('shopFilterCloseBtn')?.addEventListener('click',()=>toggleShopFilters(false));
+$('shopFilterScrim')?.addEventListener('click',()=>toggleShopFilters(false));
 $('shopFilterOpenNow')?.addEventListener('change',()=>{if($('shopFilterOpenNow').checked){$('shopFilterDay').value='';$('shopFilterTime').value='';}});
+document.querySelectorAll('[data-home-mobile-view]').forEach(btn=>btn.addEventListener('click',()=>setHomeMobileView(btn.dataset.homeMobileView||'products')));
+$('shopMobileInfoBtn')?.addEventListener('click',()=>setShopMobileSheet('info',true));
+$('shopMobileFiltersBtn')?.addEventListener('click',()=>setShopMobileSheet('filters',true));
+$('shopMobileSheetClose')?.addEventListener('click',()=>setShopMobileSheet('',false));
+$('shopMobileScrim')?.addEventListener('click',()=>setShopMobileSheet('',false));
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshRequestNotification(); });
 window.addEventListener('popstate',()=>{handlePathDeepLink().catch(()=>{});});
 init();
