@@ -153,9 +153,6 @@ a{color:inherit;text-decoration:none}
   .home-mobile-switcher{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .home-mobile-switch{padding:12px 14px;border-radius:20px;border:1px solid rgba(191,174,149,.34);background:rgba(255,253,248,.88);font-size:13px;font-weight:800;color:var(--ink2);box-shadow:0 10px 24px rgba(48,33,15,.06)}
   .home-mobile-switch.on{background:linear-gradient(180deg,#7e341d,#a24c2e);color:#fff;border-color:rgba(126,52,29,.8);box-shadow:0 16px 30px rgba(92,47,24,.18)}
-  .home-mobile-hidden{display:none!important}
-  #featuredSection{order:1}
-  #shopsSection{order:2}
   .section-shell{scroll-margin-top:calc(var(--nh) + var(--sh) + 20px)}
   .shop-filter-shell{position:fixed;left:0;right:0;bottom:0;top:auto;max-height:78dvh;overflow:auto;z-index:430;border-radius:26px 26px 0 0;padding:0 14px 16px;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));box-shadow:0 -24px 60px rgba(18,23,34,.2);border:1px solid rgba(191,174,149,.32);transform:translateY(108%);transition:transform .24s ease;display:block}
   .shop-filter-shell.on{transform:translateY(0)}
@@ -266,9 +263,9 @@ a{color:inherit;text-decoration:none}
 .pc:hover .pc-img{transform:scale(1.04)}
 .pc-nophoto{font-size:36px;color:var(--bd2)}
 .pc-n{position:absolute;top:10px;right:10px;background:rgba(31,27,22,.68);color:#fff;font-size:10px;font-weight:700;padding:4px 8px;border-radius:99px;backdrop-filter:blur(4px)}
-.pc-fav{position:absolute;top:10px;left:10px;width:30px;height:30px;border-radius:99px;background:rgba(255,250,242,.95);display:grid;place-items:center;font-size:14px;opacity:0;transition:.14s;cursor:pointer;border:1px solid rgba(191,174,149,.55)}
+.pc-fav{position:absolute;top:10px;left:10px;width:30px;height:30px;border-radius:99px;background:rgba(255,250,242,.95);display:grid;place-items:center;font-size:17px;font-weight:800;line-height:1;color:var(--ink3);opacity:0;transition:.14s;cursor:pointer;border:1px solid rgba(191,174,149,.55);box-shadow:0 10px 22px rgba(48,33,15,.1)}
 .pc:hover .pc-fav{opacity:1}
-.pc-fav.saved{opacity:1;color:var(--R)}
+.pc-fav.saved{opacity:1;color:var(--R);background:rgba(255,239,242,.98);border-color:rgba(225,29,72,.2);box-shadow:0 12px 24px rgba(225,29,72,.16)}
 .pc-add{position:absolute;bottom:10px;right:10px;width:30px;height:30px;border-radius:99px;background:var(--A);color:#fff;font-size:15px;font-weight:700;display:grid;place-items:center;opacity:0;transition:.14s;box-shadow:var(--s2)}
 .pc:hover .pc-add{opacity:1}
 .pc-fav:active,.pc-add:active{transform:scale(.94)}
@@ -300,7 +297,6 @@ a{color:inherit;text-decoration:none}
   .pc-stock{font-size:10px}
 }
 @media(max-width:760px){
-  #featuredGrid.pgrid,#shopProdGrid.pgrid,#srchResultGrid.pgrid,#favGrid.pgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .pc{border-radius:20px}
   .pc-photo-wrap{aspect-ratio:1/1.02}
   .pc-body{padding:12px 12px 14px}
@@ -311,9 +307,6 @@ a{color:inherit;text-decoration:none}
   .pc-rating{font-size:10px;margin-top:6px}
   .pc-variants{margin-top:7px;gap:5px}
   .pc-vchip{padding:5px 8px;font-size:9px;border-radius:12px}
-}
-@media(max-width:380px){
-  #featuredGrid.pgrid,#shopProdGrid.pgrid,#srchResultGrid.pgrid,#favGrid.pgrid{grid-template-columns:1fr}
 }
 .star-filled{color:var(--Y)}
 
@@ -417,19 +410,14 @@ a{color:inherit;text-decoration:none}
   .shop-hdr-chips,.shop-hdr-actions{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
   .shop-hdr-chips::-webkit-scrollbar,.shop-hdr-actions::-webkit-scrollbar{display:none}
   .shop-hdr-desc{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-  .shop-mobile-tools{display:flex;gap:8px;padding:12px 12px 8px;background:linear-gradient(180deg,rgba(247,241,232,.96),rgba(247,241,232,.82));position:sticky;top:calc(var(--nh) + var(--sh));z-index:32;border-bottom:1px solid rgba(191,174,149,.28)}
-  .shop-mobile-tools .btn{flex:1;justify-content:center}
-  .shop-sidebar{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:430;height:min(76dvh,620px);border-right:none;border-top:1px solid rgba(191,174,149,.32);padding:0 0 10px;border-radius:28px 28px 0 0;transform:translateY(105%);transition:transform .24s ease;box-shadow:0 -24px 60px rgba(18,23,34,.24)}
-  .shop-mobile-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 12px;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));border-bottom:1px solid rgba(191,174,149,.24);position:sticky;top:0;z-index:2}
-  .shop-mobile-sheet-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;letter-spacing:-.04em}
-  .shop-sidebar-sec{display:none;padding:0 14px 14px}
-  #pg-shop.mobile-sheet-on .shop-sidebar{transform:translateY(0)}
-  #pg-shop.mobile-sheet-on .shop-mobile-scrim{opacity:1;pointer-events:auto}
-  #pg-shop[data-mobile-sheet="info"] .shop-sidebar-sec[data-mobile-group="info"],
-  #pg-shop[data-mobile-sheet="filters"] .shop-sidebar-sec[data-mobile-group="filters"]{display:block}
-  .shop-mobile-scrim{display:block;position:fixed;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(4px);z-index:420;opacity:0;pointer-events:none;transition:opacity .2s ease}
+  .shop-mobile-tools,.shop-mobile-sheet-head,.shop-mobile-scrim{display:none!important}
+  .shop-sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid rgba(191,174,149,.32);padding:12px 0 4px;transform:none;box-shadow:none;border-top:none;border-radius:0}
+  .shop-sidebar-sec{display:block;padding:0 12px 12px}
   .shop-side-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
   .shop-side-prompts{grid-template-columns:1fr 1fr}
+}
+@media(max-width:560px){
+  .shop-side-stats,.shop-side-prompts{grid-template-columns:1fr}
 }
 @media(max-width:680px){
   .shop-toolbar{padding:12px;gap:12px}
@@ -502,6 +490,11 @@ a{color:inherit;text-decoration:none}
 .share-row{display:flex;gap:6px}
 .share-inp{flex:1;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--r1);font-size:12px;color:var(--ink3);background:var(--sf2);outline:none}
 .pd-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:8px}
+.pd-fav-btn{justify-content:center}
+.pd-fav-icon{font-size:16px;line-height:1;color:var(--ink4);transition:color .12s ease,transform .12s ease}
+.pd-fav-btn.saved{background:rgba(255,239,242,.98);border-color:rgba(225,29,72,.22);color:var(--R)}
+.pd-fav-btn.saved:hover{background:rgba(255,232,237,.98);border-color:rgba(225,29,72,.3);color:var(--R)}
+.pd-fav-btn.saved .pd-fav-icon{color:var(--R)}
 @media(max-width:600px){
   .pd-bg{padding:0;align-items:stretch;overflow:hidden}
   .pd-box{display:grid;grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);height:100dvh;max-height:100dvh;overflow:hidden;-webkit-overflow-scrolling:touch;border-radius:0}
@@ -1176,8 +1169,8 @@ a{color:inherit;text-decoration:none}
       </div>
     </section>
     <div id="homeMobileSwitcher" class="home-mobile-switcher">
-      <button class="home-mobile-switch on" data-home-mobile-view="products" type="button">Top Products</button>
-      <button class="home-mobile-switch" data-home-mobile-view="shops" type="button">Top Shops</button>
+      <button class="home-mobile-switch on" data-home-mobile-view="shops" type="button">Shops</button>
+      <button class="home-mobile-switch" data-home-mobile-view="products" type="button">Products</button>
     </div>
     <div id="srchBar" class="srch-bar" style="display:none">
       <div class="srch-title" id="srchTitle">Results</div>
@@ -2045,7 +2038,7 @@ a{color:inherit;text-decoration:none}
       </div>
       <div class="pd-actions">
         <button id="pdCartBtn" class="btn btn-A">Add to Cart</button>
-        <button id="pdFavBtn" class="btn btn-o">Save</button>
+        <button id="pdFavBtn" class="btn btn-o pd-fav-btn"><span class="pd-fav-icon" aria-hidden="true">♡</span><span class="pd-fav-label">Save</span></button>
         <button id="pdChatBtn" class="btn btn-o">Ask Shop Assistant</button>
         <button id="pdEditBtn" class="btn btn-g btn-sm" style="display:none">Edit</button>
       </div>
@@ -2176,7 +2169,7 @@ const App = {
   pdVariant: '', pdStar: 0,
   srchPage: 1,
   activeCat: '',
-  homeMobileView: 'products',
+  homeMobileView: 'shops',
   adminProducts: [],
   recoveryToken: '',
   locationSupport: null,
@@ -3467,29 +3460,21 @@ function showPage(pg){
 function goHome(){App.activeCat='';App.marketAttrFilter={key:'',value:'',category:''};highlightCat('');showPage('home');setPublicPath(appUiRootPath());}
 function isMobileHomeLayout(){return window.matchMedia('(max-width: 680px)').matches;}
 function isMobileShopLayout(){return window.matchMedia('(max-width: 860px)').matches;}
-function setHomeMobileView(view='products'){
-  App.homeMobileView=view||'products';
-  const mobile=isMobileHomeLayout();
+function setHomeMobileView(view='shops'){
+  App.homeMobileView=view||'shops';
   const featured=$('featuredSection');
   const shops=$('shopsSection');
-  $('homeMobileSwitcher')?.classList.toggle('on',mobile);
   document.querySelectorAll('[data-home-mobile-view]').forEach(btn=>btn.classList.toggle('on',btn.dataset.homeMobileView===App.homeMobileView));
-  if(!featured||!shops) return;
-  if(!mobile){
-    featured.classList.remove('home-mobile-hidden');
-    shops.classList.remove('home-mobile-hidden');
-    return;
-  }
-  featured.classList.toggle('home-mobile-hidden',App.homeMobileView!=='products');
-  shops.classList.toggle('home-mobile-hidden',App.homeMobileView!=='shops');
+  featured?.classList.remove('home-mobile-hidden');
+  shops?.classList.remove('home-mobile-hidden');
 }
-function focusHomeSection(view='products'){
+function focusHomeSection(view='shops'){
   showPage('home');
   setHomeMobileView(view);
-  const target=view==='shops' ? $('shopsSection') : $('featuredSection');
+  const target=view==='products' ? $('featuredSection') : $('shopsSection');
   target?.scrollIntoView({behavior:'smooth',block:'start'});
 }
-function syncHomeMobileLayout(){setHomeMobileView(App.homeMobileView||'products');}
+function syncHomeMobileLayout(){setHomeMobileView(App.homeMobileView||'shops');}
 function setShopMobileSheet(mode='info',open=true){
   const page=$('pg-shop');
   if(!page) return;
@@ -4049,6 +4034,37 @@ $('requestBannerDismissBtn')?.addEventListener('click',()=>{localStorage.setItem
 /* ═════════════════════════════════════════════
    PRODUCT CARD
 ═════════════════════════════════════════════ */
+function setCardFavouriteButtonState(btn,saved=false){
+  if(!btn) return;
+  const active=!!saved;
+  btn.classList.toggle('saved',active);
+  btn.textContent=active?'♥':'♡';
+  const label=active?'Remove from favourites':'Save to favourites';
+  btn.title=label;
+  btn.setAttribute('aria-label',label);
+  btn.setAttribute('aria-pressed',active?'true':'false');
+}
+function setDetailFavouriteButtonState(btn,saved=false){
+  if(!btn) return;
+  const active=!!saved;
+  btn.classList.toggle('saved',active);
+  btn.innerHTML=`<span class="pd-fav-icon" aria-hidden="true">${active?'♥':'♡'}</span><span class="pd-fav-label">${active?'Saved':'Save'}</span>`;
+  const label=active?'Remove from favourites':'Save to favourites';
+  btn.title=label;
+  btn.setAttribute('aria-label',label);
+  btn.setAttribute('aria-pressed',active?'true':'false');
+}
+function syncProductFavouriteState(productId='',saved=false){
+  const pid=String(productId||'').trim();
+  if(!pid) return;
+  document.querySelectorAll('.pc,.admin-pc').forEach(card=>{
+    if(card?.__waveCardProduct?.product_id===pid) card.__waveCardProduct.is_favourite=!!saved;
+  });
+  if(App.curProd?.product_id===pid) App.curProd.is_favourite=!!saved;
+  refreshVisibleProductCards(pid);
+  if(App.curProd?.product_id===pid) setDetailFavouriteButtonState($('pdFavBtn'),saved);
+  if(!saved && $('pg-favs')?.classList.contains('show')) loadFavourites();
+}
 function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
   const shopId=sid||p._shopId||p.shop_id||App.shopId||'';
   const shopRef=p.shop_slug||p._shopRef||shopId;
@@ -4115,7 +4131,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
     <div class="pc-photo-wrap">
       ${main?`<img class="pc-img" src="${esc(main)}" alt="${esc(p.name)}" loading="lazy"/>`:`<div class="pc-nophoto">📦</div>`}
       ${n>1?`<div class="pc-n">📷 ${n}</div>`:''}
-      <button class="pc-fav${isFav?' saved':''}" data-fav="1" title="${isFav?'Unsave':'Save'}">
+      <button class="pc-fav" data-fav="1" type="button">
         ${isFav?'❤️':'🤍'}
       </button>
       <button class="pc-add" data-add="1" title="Quick add to cart">+</button>
@@ -4146,12 +4162,13 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
   const sl=art.querySelector('.pc-shop-link');
   if(sl)sl.addEventListener('click',e=>{e.stopPropagation();openShopPage(sl.dataset.sid);});
   const favBtn=art.querySelector('.pc-fav');
+  setCardFavouriteButtonState(favBtn,isFav);
   favBtn.addEventListener('click',async e=>{
     e.stopPropagation();
     if(!App.user){openAuthModal('login');toast('Sign in to save favourites','','err');return;}
     try{
       const d=await api(`/customer/favourite/${encodeURIComponent(shopId)}/${encodeURIComponent(p.product_id)}`,{method:'POST',auth:true});
-      favBtn.innerHTML=d.saved?'Saved':'Save';favBtn.classList.toggle('saved',d.saved);
+      syncProductFavouriteState(p.product_id,d.saved);
       toast(d.saved?'Saved':'Removed from favourites');
     }catch(e2){toast('Error',e2.message,'err');}
   });
@@ -4475,10 +4492,14 @@ async function openPD(p,mode,sid,sname){
   $('pdChatBtn').onclick=()=>{closePD();openChatFor(App.curSid,App.curSname,`Tell me about ${p.name}`);};
 
   const favBtn=$('pdFavBtn');
-  favBtn.textContent=p.is_favourite?'Saved':'Save';
+  setDetailFavouriteButtonState(favBtn,!!p.is_favourite);
   favBtn.onclick=async()=>{
-    if(!App.user){openAuthModal('login');return;}
-    try{const d=await api(`/customer/favourite/${encodeURIComponent(App.curSid)}/${encodeURIComponent(p.product_id)}`,{method:'POST',auth:true});favBtn.textContent=d.saved?'Saved':'Save';toast(d.saved?'Saved':'Removed');}
+    if(!App.user){openAuthModal('login');toast('Sign in to save favourites','','err');return;}
+    try{
+      const d=await api(`/customer/favourite/${encodeURIComponent(App.curSid)}/${encodeURIComponent(p.product_id)}`,{method:'POST',auth:true});
+      syncProductFavouriteState(p.product_id,d.saved);
+      toast(d.saved?'Saved':'Removed from favourites');
+    }
     catch(e2){toast('Error',e2.message,'err');}
   };
 
@@ -5922,7 +5943,7 @@ $('shopFilterToggleBtn')?.addEventListener('click',()=>toggleShopFilters());
 $('shopFilterCloseBtn')?.addEventListener('click',()=>toggleShopFilters(false));
 $('shopFilterScrim')?.addEventListener('click',()=>toggleShopFilters(false));
 $('shopFilterOpenNow')?.addEventListener('change',()=>{if($('shopFilterOpenNow').checked){$('shopFilterDay').value='';$('shopFilterTime').value='';}});
-document.querySelectorAll('[data-home-mobile-view]').forEach(btn=>btn.addEventListener('click',()=>setHomeMobileView(btn.dataset.homeMobileView||'products')));
+document.querySelectorAll('[data-home-mobile-view]').forEach(btn=>btn.addEventListener('click',()=>focusHomeSection(btn.dataset.homeMobileView||'shops')));
 $('shopMobileInfoBtn')?.addEventListener('click',()=>setShopMobileSheet('info',true));
 $('shopMobileFiltersBtn')?.addEventListener('click',()=>setShopMobileSheet('filters',true));
 $('shopMobileSheetClose')?.addEventListener('click',()=>setShopMobileSheet('',false));
