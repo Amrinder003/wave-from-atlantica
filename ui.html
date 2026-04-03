@@ -2306,6 +2306,8 @@ const App = {
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
   mapSupport: null,
   mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:''},
+  chatShopId: '',
+  chatContextToken: 0,
   shopMobileSheet: '',
   shopSnapshotOpen: false,
   requestWatch: {timer:null,lastStatus:'',lastRequestId:'',hidden:false},
@@ -3718,6 +3720,8 @@ function saveUser(data){
 function clearUser(){
   App.user=null;
   App.favouriteProductIds={};
+  App.chatShopId='';
+  App.chatContextToken+=1;
   localStorage.removeItem('lm_user');
   renderUserUI();
   refreshVisibleProductCards();
@@ -5150,8 +5154,7 @@ function renderChatFacts(shop={},stats={},productCount=0){
   ] : [['Status','Open a shop to load live context']];
   wrap.innerHTML=facts.map(([k,v])=>`<div class="chat-side-fact"><div class="chat-side-fact-k">${esc(k)}</div><div class="chat-side-fact-v">${esc(v)}</div></div>`).join('');
 }
-function buildChatWelcome(sid,sname){
-  const shop=App.shopData?.shop||{};
+function buildChatWelcomeLegacy(sid,sname,shop={}){
   const shopName=sname||shop.name||sid;
   const bits=[];
   if(shop.category) bits.push(`${shop.category} shop`);
@@ -5171,18 +5174,97 @@ Good starters:
 - **What do you recommend?**
 - **Do you have anything below 10 dollars?**`;
 }
-function openChatFor(sid,sname,preset){
-  App.shopId=sid;save();
-  $('chatSN').textContent=sname||sid;
+function chatContextMatchesShop(ref=''){
+  const shop=App.shopData?.shop||{};
+  const target=String(ref||'').trim();
+  if(!target) return false;
+  return [shop.shop_id,shop.shop_slug,App.chatShopId].filter(Boolean).includes(target);
+}
+async function syncChatShopContextLegacy(sid='',fallbackName=''){
+  let data=chatContextMatchesShop(sid)?App.shopData:null;
+  if(!data){
+    try{
+      data=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(sid)}`),{auth:!!tok()});
+      App.shopData=data;
+    }catch{
+      data={shop:{shop_id:sid,shop_slug:'',name:fallbackName||sid,overview:'',address:'',hours:'',category:''},stats:{},suggested_questions:[],products:[],pagination:{total:0}};
+    }
+  }
+  const shop=data?.shop||{};
+  const effectiveRef=shop.shop_slug||shop.shop_id||sid;
+  const productCount=data?.pagination?.total ?? data?.products?.length ?? 0;
+  const summary=[shop.address||'',productCount?`${productCount} products`:'' ].filter(Boolean).join(' Â· ');
+  $('chatSN').textContent=shop.name||fallbackName||effectiveRef||sid;
+  $('chatSM').textContent=summary||'Ask about products, pricing, hours, or availability';
+  renderCQchips(data?.suggested_questions);
+  renderChatPromptList(data?.suggested_questions);
+  renderChatFacts(shop,data?.stats||{},productCount);
+  return {data,shop,effectiveRef,productCount};
+}
+function resetChatForShop(sid,sname,shop={}){
+  App.chatHistory=[];
+  $('chatMeta').textContent='Ready';
+  renderChatSide([]);
+  $('chatMsgs').innerHTML='';
+  addMsg(buildChatWelcome(sid,sname,shop),'assistant');
+}
+async function openChatFor(sid,sname,preset){
+  const targetRef=String(sid||'').trim();
+  if(!targetRef) return;
+  const sameShop=chatContextMatchesShop(targetRef);
+  App.shopId=targetRef;save();
   showPage('chat');
   setChatMobileSide(false);
-  if(!App.chatHistory?.length){
-    $('chatMsgs').innerHTML='';
-    addMsg(buildChatWelcome(sid,sname),'assistant');
-  }
+  const token=++App.chatContextToken;
+  const ctx=await syncChatShopContext(targetRef,sname);
+  if(token!==App.chatContextToken) return;
+  App.chatShopId=ctx.effectiveRef||targetRef;
+  App.shopId=App.chatShopId;save();
+  if(!sameShop || !App.chatHistory?.length || $('chatMsgs')?.querySelector('.empty')) resetChatForShop(App.chatShopId,ctx.shop.name||sname||App.chatShopId,ctx.shop);
   if(preset){$('chatIn').value=preset;sendChatMsg();}
 }
 App.chatHistory=[];
+function buildChatWelcome(sid,sname,shop={}){
+  const shopName=sname||shop.name||sid;
+  const bits=[];
+  if(shop.category) bits.push(`${shop.category} shop`);
+  if(shop.address) bits.push(shop.address);
+  const summary=bits.length ? `You are chatting with a ${bits.join(' - ')}.` : 'Ask naturally like you are already in the shop.';
+  const brandNote=shop.overview ? `${shop.overview.slice(0,140)}${shop.overview.length>140?'...':''}` : 'Ask about products, prices, stock, opening hours, or recommendations.';
+  return `Welcome to **${shopName}**.
+
+${summary}
+
+${brandNote}
+
+Good starters:
+- **Show all products**
+- **What's in stock?**
+- **What are your opening hours?**
+- **What do you recommend?**
+- **Do you have anything below 10 dollars?**`;
+}
+async function syncChatShopContext(sid='',fallbackName=''){
+  let data=chatContextMatchesShop(sid)?App.shopData:null;
+  if(!data){
+    try{
+      data=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(sid)}`),{auth:!!tok()});
+      App.shopData=data;
+    }catch{
+      data={shop:{shop_id:sid,shop_slug:'',name:fallbackName||sid,overview:'',address:'',hours:'',category:''},stats:{},suggested_questions:[],products:[],pagination:{total:0}};
+    }
+  }
+  const shop=data?.shop||{};
+  const effectiveRef=shop.shop_slug||shop.shop_id||sid;
+  const productCount=data?.pagination?.total ?? data?.products?.length ?? 0;
+  const summary=[shop.address||'',productCount?`${productCount} products`:'' ].filter(Boolean).join(' - ');
+  $('chatSN').textContent=shop.name||fallbackName||effectiveRef||sid;
+  $('chatSM').textContent=summary||'Ask about products, pricing, hours, or availability';
+  renderCQchips(data?.suggested_questions);
+  renderChatPromptList(data?.suggested_questions);
+  renderChatFacts(shop,data?.stats||{},productCount);
+  return {data,shop,effectiveRef,productCount};
+}
 function addMsg(text,role='assistant',loading=false,products=[]){
   const msgs=$('chatMsgs');
   if(msgs.querySelector('.empty'))msgs.innerHTML='';
@@ -5223,7 +5305,7 @@ function autoSizeChatInput(){
 }
 function sendPreset(q){$('chatIn').value=q;setChatMobileSide(false);sendChatMsg();}
 async function sendChatMsg(){
-  const sid=App.shopId,q=$('chatIn').value.trim();
+  const sid=App.chatShopId||App.shopId,q=$('chatIn').value.trim();
   if(!sid)return toast('Open a shop first','Go to Home, open a shop, then tap Chat with Shop.','err');
   if(!q)return;
   setChatMobileSide(false);
@@ -5232,6 +5314,7 @@ async function sendChatMsg(){
   const lr=addMsg('','assistant',true);
   try{
     const d=await api(withViewerCurrency(`/chat?shop_id=${encodeURIComponent(sid)}&q=${encodeURIComponent(q)}`));
+    if(sid!==(App.chatShopId||App.shopId)){lr.remove();$('sendChatBtn').disabled=false;return;}
     lr.remove();const prods=d.products||[];
     addMsg(d.answer||'No answer.','assistant',false,prods);
     App.chatHistory.push({q,a:d.answer});
@@ -5249,7 +5332,14 @@ $('chatInfoBtn').addEventListener('click',()=>setChatMobileSide(!$('pg-chat').cl
 $('chatSideScrim').addEventListener('click',()=>setChatMobileSide(false));
 $('chatSideClose').addEventListener('click',()=>setChatMobileSide(false));
 $('clearChatBtn').addEventListener('click',renderChatPromptList);
-$('clearChatBtn').addEventListener('click',()=>{App.chatHistory=[];$('chatMeta').textContent='Ready';renderChatSide([]);$('chatMsgs').innerHTML=`<div class="empty"><div class="ei">Chat</div><div class="et">Open a shop and click <strong>Chat with Shop</strong> to start.</div></div>`;});
+$('clearChatBtn').addEventListener('click',()=>{
+  const shop=App.shopData?.shop||{};
+  const ref=App.chatShopId||shop.shop_slug||shop.shop_id||App.shopId;
+  const name=shop.name||$('chatSN')?.textContent||ref;
+  const suggestions=App.shopData?.suggested_questions||[];
+  if(ref){renderCQchips(suggestions);renderChatPromptList(suggestions);resetChatForShop(ref,name,shop);return;}
+  App.chatHistory=[];$('chatMeta').textContent='Ready';renderChatSide([]);$('chatMsgs').innerHTML=`<div class="empty"><div class="ei">Chat</div><div class="et">Open a shop and click <strong>Chat with Shop</strong> to start.</div></div>`;
+});
 
 /* ═════════════════════════════════════════════
    ADMIN
@@ -6218,7 +6308,7 @@ async function init(){
   await refreshRequestNotification();
   startRequestWatcher();
   if(App.shopId){
-    try{const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(App.shopId)}`));App.shopData=d;$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}catch{}
+    try{const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(App.shopId)}`));App.shopData=d;App.chatShopId=d.shop?.shop_slug||d.shop?.shop_id||App.shopId;$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}catch{}
   }
   await handlePathDeepLink();
 }

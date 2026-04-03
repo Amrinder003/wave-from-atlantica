@@ -1948,7 +1948,12 @@ def rank_products(products: List[Dict], q: str, category: str = "") -> List[Dict
     return [p for _, p in scored]
 
 def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Optional[List[str]] = None) -> str:
-    lines = [f"Shop: {shop['name']}", f"Address: {shop.get('address','')}"]
+    lines = [
+        f"Shop: {shop['name']}",
+        f"Shop ID: {shop.get('shop_id','')}",
+        f"Shop Slug: {shop.get('shop_slug','')}",
+        f"Address: {shop.get('address','')}",
+    ]
     if shop.get("phone"): lines.append(f"Phone: {shop['phone']}")
     if shop.get("hours"): lines.append(f"Hours: {shop['hours']}")
     if shop.get("category"): lines.append(f"Category: {shop['category']}")
@@ -1976,8 +1981,56 @@ def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Op
             lines.append(chunk.strip())
     return "\n".join(lines)
 
+CHAT_GENERIC_BOLD_TERMS = {
+    "price", "prices", "stock", "in stock", "out of stock", "low stock", "hours", "opening hours",
+    "address", "phone", "whatsapp", "pickup", "delivery", "buy in shop", "open", "closed",
+    "available", "not available", "today", "shop", "shops", "product", "products", "catalog"
+}
+
+def extract_markdown_bold_terms(text: str) -> List[str]:
+    return [m.group(1).strip() for m in re.finditer(r"\*\*([^*\n]{1,120})\*\*", text or "")]
+
+def find_out_of_scope_bold_terms_legacy(answer: str, shop: dict, prod_rows: List[Dict]) -> List[str]:
+    allowed = {norm_text(shop.get("name", "")), norm_text(shop.get("shop_id", "")), norm_text(shop.get("shop_slug", ""))}
+    allowed.update(norm_text(row.get("name", "")) for row in prod_rows if row.get("name"))
+    flagged: List[str] = []
+    seen = set()
+    for term in extract_markdown_bold_terms(answer):
+        normalized = norm_text(term)
+        if not normalized or normalized in allowed or normalized in CHAT_GENERIC_BOLD_TERMS:
+            continue
+        if re.fullmatch(r"[\d\s.,:$€£cadusdinr-]+", normalized):
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        flagged.append(term)
+    return flagged[:4]
+
+# Override with an ASCII-safe version so scope-guard checks do not rely on legacy encoded currency symbols.
+def find_out_of_scope_bold_terms(answer: str, shop: dict, prod_rows: List[Dict]) -> List[str]:
+    allowed = {norm_text(shop.get("name", "")), norm_text(shop.get("shop_id", "")), norm_text(shop.get("shop_slug", ""))}
+    allowed.update(norm_text(row.get("name", "")) for row in prod_rows if row.get("name"))
+    flagged: List[str] = []
+    seen = set()
+    for term in extract_markdown_bold_terms(answer):
+        normalized = norm_text(term)
+        if not normalized or normalized in allowed or normalized in CHAT_GENERIC_BOLD_TERMS:
+            continue
+        price_like = normalized.replace("cad", "").replace("usd", "").replace("inr", "")
+        if re.fullmatch(r"[\d\s.,:$-]+", price_like):
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        flagged.append(term)
+    return flagged[:4]
+
 SHOP_ASSISTANT_SYSTEM = """You are the live shopping assistant for a local marketplace shop.
 Answer using ONLY the supplied shop context.
+Never mention another shop, owner workspace, or any product that is not explicitly present in the supplied context.
+Never invent catalog items, prices, stock, hours, or policies.
+If a requested item or fact is not in the current shop context, say you do not see it in this shop right now.
 Be concise, warm, and professional.
 Mention price and stock when available.
 If the user asks what the shop sells, summarize first and then list examples.
@@ -2726,8 +2779,31 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
         return answer_catalog_query(shop, prod_rows)
 
     try:
-        system_prompt = SHOP_ASSISTANT_SYSTEM + "\n" + shop_voice_instructions(shop) + "\n" + shop_persona_instructions(shop) + "\n" + response_style_instructions(q)
+        system_prompt = (
+            SHOP_ASSISTANT_SYSTEM
+            + "\n"
+            + f"Current live shop: {shop.get('name','Shop')} (shop_id: {shop.get('shop_id','')}, shop_slug: {shop.get('shop_slug','')})."
+            + "\n"
+            + shop_voice_instructions(shop)
+            + "\n"
+            + shop_persona_instructions(shop)
+            + "\n"
+            + response_style_instructions(q)
+        )
         llm_res = llm_chat(system_prompt, f"CONTEXT:\n{build_context(shop, picked, prod_rows, rag.get('chunks', []))}\n\nCUSTOMER: {q}")
+        flagged_terms = find_out_of_scope_bold_terms(llm_res["content"], shop, prod_rows)
+        if flagged_terms:
+            print(f"[Chat Scope Guard] shop={shop_id} blocked out-of-scope terms: {flagged_terms}")
+            return {
+                "answer": fallback_answer_v2(shop, picked, q),
+                "products": abs_picked,
+                "meta": {
+                    "llm_used": False,
+                    "reason": "scope_guard",
+                    "suggestions": suggestions,
+                    "rag_matches": len(rag.get('matches', [])),
+                }
+            }
         attached = choose_chat_products(prod_rows, q, llm_res["content"], prefer_images=wants_product_image(q), limit=4, category=shop.get("category", ""))
         if attached:
             abs_picked = serialize_products_bulk(attached, None, {shop_id: shop}, currency)
