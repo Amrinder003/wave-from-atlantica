@@ -1423,6 +1423,8 @@ a{color:inherit;text-decoration:none}
               <div class="workspace-stat"><div class="workspace-stat-label">Status</div><div id="wkStatus" class="workspace-stat-value">No shop loaded</div></div>
               <div class="workspace-stat"><div class="workspace-stat-label">Products</div><div id="wkProducts" class="workspace-stat-value">0</div></div>
               <div class="workspace-stat"><div class="workspace-stat-label">Chats / 30d</div><div id="wkChats" class="workspace-stat-value">0</div></div>
+              <div class="workspace-stat"><div class="workspace-stat-label">Shop Views / 30d</div><div id="wkShopViews" class="workspace-stat-value">0</div></div>
+              <div class="workspace-stat"><div class="workspace-stat-label">Product Views / 30d</div><div id="wkProductViews" class="workspace-stat-value">0</div></div>
               <div class="workspace-stat"><div class="workspace-stat-label">Rating</div><div id="wkRating" class="workspace-stat-value">0.0</div></div>
             </div>
           </div>
@@ -5113,6 +5115,8 @@ function refreshWorkspaceHeader(shop=null,stats={}){
   $('wkStatus').textContent=shop?.shop_id||'No shop loaded';
   $('wkProducts').textContent=String(stats.product_count??0);
   $('wkChats').textContent=String(stats.chat_hits_30d??0);
+  if($('wkShopViews')) $('wkShopViews').textContent=String(stats.shop_views_30d??0);
+  if($('wkProductViews')) $('wkProductViews').textContent=String(stats.product_views_30d??0);
   $('wkRating').textContent=Number.isFinite(ratingNum)?ratingNum.toFixed(1):'0.0';
   if($('ownerDetailName')) $('ownerDetailName').textContent=shop?.name||'Shop Name';
   if($('ownerDetailMeta')) $('ownerDetailMeta').textContent=shop ? `${shop.address||'No address yet'}${shop.category?` · ${shop.category}`:''}${shop.hours?` · ${shop.hours}`:''}` : 'Address · Category';
