@@ -5,6 +5,7 @@ Wave API  v4.0 — Supabase Edition (Stable & Fixed Chat)
 from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Form
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.datastructures import UploadFile as StarletteUploadFile
 from pydantic import BaseModel, Field
 import os, re, json, time, uuid, shutil, math
 import csv
@@ -3186,7 +3187,7 @@ async def admin_product_with_images(
     variant_upload_map: Dict[int, List[UploadFile]] = {}
     combo_upload_map: Dict[int, List[UploadFile]] = {}
     for key, value in variant_form_data.multi_items():
-        if not isinstance(value, UploadFile):
+        if not isinstance(value, (UploadFile, StarletteUploadFile)):
             continue
         m = re.match(r"^variant_images_(\d+)$", str(key))
         if m:
