@@ -252,9 +252,9 @@ a{color:inherit;text-decoration:none}
 .pc-stock{font-size:11px;font-weight:700;margin-top:5px;text-transform:uppercase;letter-spacing:.04em}
 .pc-stock.in{color:var(--G)}.pc-stock.low{color:var(--Y)}.pc-stock.out{color:var(--R)}
 .pc-variants,.admin-pc-variants{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-.pc-vchip,.admin-pc-vchip{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:rgba(255,250,242,.88);border:1px solid rgba(191,174,149,.34);font-size:10px;font-weight:800;letter-spacing:.03em;color:var(--ink2);max-width:100%}
+.pc-vchip,.admin-pc-vchip{display:inline-flex;align-items:flex-start;gap:6px;padding:6px 10px;border-radius:14px;background:rgba(255,250,242,.88);border:1px solid rgba(191,174,149,.34);font-size:10px;font-weight:800;letter-spacing:.03em;color:var(--ink2);max-width:100%}
 .pc-vchip.on,.admin-pc-vchip.on{background:var(--Ap);border-color:rgba(162,76,46,.34);color:var(--A2)}
-.pc-vchip-label,.admin-pc-vchip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-vchip-label,.admin-pc-vchip-label{overflow:visible;text-overflow:clip;white-space:normal;line-height:1.35;word-break:break-word}
 .pc-vchip.more,.admin-pc-vchip.more{color:var(--ink4);background:rgba(255,255,255,.72)}
 .pc-shop{font-size:12px;color:var(--ink3);margin-top:8px}
 .pc-shop-link{color:var(--A2);font-weight:700;cursor:pointer}.pc-shop-link:hover{text-decoration:underline}
@@ -2762,8 +2762,8 @@ function variantCardPreviewData(variantData=[]){
   const groups=getVariantGroups(variantData||[]);
   return groups.slice(0,2).map(entry=>({
     group:entry.group,
-    labels:entry.items.slice(0,2).map(item=>item.label).filter(Boolean),
-    remaining:Math.max(0, entry.items.length-2)
+    labels:entry.items.map(item=>item.label).filter(Boolean),
+    remaining:0
   })).filter(entry=>entry.labels.length);
 }
 function renderVariantPreviewChips(variantData=[],prefix='pc',selectedSelections=null){
@@ -3542,6 +3542,7 @@ $('adminLogoutBtn').addEventListener('click',async()=>{
 ═════════════════════════════════════════════ */
 function updateCartBadge(){const n=App.cart.reduce((s,i)=>s+i.qty,0);$('cartBadge').textContent=n;$('cartBadge').classList.toggle('off',n===0);}
 function addToCart(p,sid,sname){
+  if(!App.user){openAuthModal('login');toast('Sign in to add items to your cart','','err');return;}
   const ex=App.cart.find(i=>i.product_id===p.product_id&&i.shop_id===sid);
   if(ex){ex.qty++;}else{App.cart.push({product_id:p.product_id,name:p.name,price:p.price||'',image:(p.images||[]).map(absUrl)[0]||'',shop_id:sid,shop_name:sname||'',qty:1,variant:App.pdVariant||''});}
   saveCart();updateCartBadge();toast('Added to cart 🛒',p.name);
@@ -3593,6 +3594,7 @@ function getSavedCardSelectionPayload(p,sid=''){
   return buildCartSelectionPayload(p,selections);
 }
 function addToCart(p,sid,sname,selection=null){
+  if(!App.user){openAuthModal('login');toast('Sign in to add items to your cart','','err');return;}
   const chosen=selection || {selection_key:'',selections:{},combo_key:'',price:p.price||'',price_amount:Number.isFinite(Number(p.price_amount_native ?? p.price_amount))?Number(p.price_amount_native ?? p.price_amount):null,currency_code:(p.currency_code_native||p.currency_code||'').trim(),image:(p.images||[]).map(absUrl)[0]||''};
   const ex=App.cart.find(i=>i.product_id===p.product_id&&i.shop_id===sid&&(i.combo_key||'')===(chosen.combo_key||''));
   if(ex){ex.qty++;}else{App.cart.push({product_id:p.product_id,name:p.name,price:chosen.price||p.price||'',price_amount:chosen.price_amount,currency_code:chosen.currency_code||'',image:chosen.image||'',shop_id:sid,shop_name:sname||'',qty:1,variant:chosen.selection_key||'',variant_selections:chosen.selections||{},combo_key:chosen.combo_key||''});}
