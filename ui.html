@@ -153,12 +153,13 @@ a{color:inherit;text-decoration:none}
   .hero-mobile-stat{padding:10px 11px;border-radius:16px;background:rgba(255,248,240,.14);border:1px solid rgba(255,241,230,.18)}
   .hero-mobile-stat-k{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,241,230,.74)}
   .hero-mobile-stat-v{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:#fff;margin-top:3px}
-  .home-mobile-switcher{display:none;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:88}
+  .home-mobile-switcher{display:none;position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:88}
   .home-mobile-switcher.on{display:block}
-  .home-mobile-switch{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:14px 18px;border-radius:999px;border:1px solid rgba(126,52,29,.42);background:linear-gradient(180deg,#fff9f3,#f7eadc);font-size:13px;font-weight:800;color:var(--ink2);box-shadow:0 18px 36px rgba(48,33,15,.12)}
-  .home-mobile-switch.on{background:linear-gradient(180deg,#7e341d,#a24c2e);color:#fff;border-color:rgba(126,52,29,.8);box-shadow:0 16px 30px rgba(92,47,24,.18)}
-  .home-mobile-switch-icon{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;background:rgba(126,52,29,.1);font-size:14px;line-height:1}
-  .home-mobile-switch.on .home-mobile-switch-icon{background:rgba(255,255,255,.16)}
+  .home-mobile-switch-dock{display:inline-flex;align-items:center;gap:8px;padding:8px;border-radius:999px;background:rgba(255,253,248,.92);border:1px solid rgba(191,174,149,.42);box-shadow:0 18px 36px rgba(48,33,15,.14);backdrop-filter:blur(10px)}
+  .home-mobile-switch-btn{width:48px;height:48px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(180deg,#fff9f3,#f7eadc);border:1px solid rgba(191,174,149,.34);color:var(--ink2);transition:transform .16s ease,background .16s ease,border-color .16s ease,box-shadow .16s ease}
+  .home-mobile-switch-btn.on{background:linear-gradient(180deg,#7e341d,#a24c2e);color:#fff;border-color:rgba(126,52,29,.82);box-shadow:0 12px 24px rgba(92,47,24,.18)}
+  .home-mobile-switch-btn:active{transform:scale(.96)}
+  .home-mobile-switch-icon{font-size:20px;line-height:1}
   .section-shell{scroll-margin-top:calc(var(--nh) + var(--sh) + 20px)}
   .shop-filter-shell{position:fixed;left:0;right:0;bottom:0;top:auto;max-height:78dvh;overflow:auto;z-index:430;border-radius:26px 26px 0 0;padding:0 14px 16px;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));box-shadow:0 -24px 60px rgba(18,23,34,.2);border:1px solid rgba(191,174,149,.32);transform:translateY(108%);transition:transform .24s ease;display:block}
   .shop-filter-shell.on{transform:translateY(0)}
@@ -187,8 +188,10 @@ a{color:inherit;text-decoration:none}
   .sec-title{font-size:22px}
   .sec-sub{font-size:12px}
   .srch-bar{padding:10px 12px;align-items:flex-start;flex-direction:column}
-  .home-mobile-switch{padding:12px 14px;font-size:12px}
-  .home-mobile-switch-icon{width:24px;height:24px;font-size:13px}
+  .home-mobile-switcher{right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  .home-mobile-switch-dock{padding:7px;gap:7px}
+  .home-mobile-switch-btn{width:44px;height:44px}
+  .home-mobile-switch-icon{font-size:18px}
 }
 .hero-panel{background:linear-gradient(135deg,#2f221b,#7e341d 45%,#c0734a);border-radius:30px;padding:28px 28px 24px;color:#fff;position:relative;overflow:hidden;box-shadow:0 26px 60px rgba(73,40,19,.18)}
 .hero-panel::before{content:'';position:absolute;right:-40px;top:-24px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.09)}
@@ -1232,10 +1235,14 @@ a{color:inherit;text-decoration:none}
       </div>
     </section>
     <div id="homeMobileSwitcher" class="home-mobile-switcher">
-      <button id="homeMobileToggleBtn" class="home-mobile-switch on" type="button">
-        <span id="homeMobileToggleIcon" class="home-mobile-switch-icon" aria-hidden="true">🏪</span>
-        <span id="homeMobileToggleLabel">Top Shops</span>
-      </button>
+      <div class="home-mobile-switch-dock" role="group" aria-label="Home mobile view switcher">
+        <button id="homeMobileShopsBtn" class="home-mobile-switch-btn" type="button" aria-label="Show top shops" title="Top Shops">
+          <span class="home-mobile-switch-icon" aria-hidden="true">🏪</span>
+        </button>
+        <button id="homeMobileProductsBtn" class="home-mobile-switch-btn" type="button" aria-label="Show products" title="Products">
+          <span class="home-mobile-switch-icon" aria-hidden="true">🛍</span>
+        </button>
+      </div>
     </div>
     <div id="srchBar" class="srch-bar" style="display:none">
       <div class="srch-title" id="srchTitle">Results</div>
@@ -3539,23 +3546,28 @@ function setHomeMobileView(view='products'){
   const featured=$('featuredSection');
   const shops=$('shopsSection');
   const toggleWrap=$('homeMobileSwitcher');
-  const toggleBtn=$('homeMobileToggleBtn');
-  const toggleIcon=$('homeMobileToggleIcon');
-  const toggleLabel=$('homeMobileToggleLabel');
+  const shopsBtn=$('homeMobileShopsBtn');
+  const productsBtn=$('homeMobileProductsBtn');
+  const toggleIcon=null;
   toggleWrap?.classList.toggle('on',mobile && !searchActive);
   if(!featured||!shops) return;
   if(!mobile || searchActive){
     featured.classList.remove('home-mobile-hidden');
     shops.classList.remove('home-mobile-hidden');
+    shopsBtn?.classList.remove('on');
+    productsBtn?.classList.remove('on');
+    shopsBtn?.setAttribute('aria-pressed','false');
+    productsBtn?.setAttribute('aria-pressed','false');
     return;
   }
   featured.classList.toggle('home-mobile-hidden',App.homeMobileView!=='products');
   shops.classList.toggle('home-mobile-hidden',App.homeMobileView!=='shops');
-  const nextView=App.homeMobileView==='products'?'shops':'products';
-  if(toggleBtn) toggleBtn.dataset.homeMobileTarget=nextView;
+  const shopsActive=App.homeMobileView==='shops';
+  shopsBtn?.classList.toggle('on',shopsActive);
+  productsBtn?.classList.toggle('on',!shopsActive);
   if(toggleIcon) toggleIcon.textContent=nextView==='shops'?'🏪':'🛍';
-  if(toggleLabel) toggleLabel.textContent=nextView==='shops'?'Top Shops':'Products';
-  toggleBtn?.setAttribute('aria-label',nextView==='shops'?'Show Top Shops':'Show Recommended Products');
+  productsBtn?.setAttribute('aria-pressed',shopsActive?'false':'true');
+  shopsBtn?.setAttribute('aria-pressed',shopsActive?'true':'false');
 }
 function focusHomeSection(view='shops'){
   showPage('home');
@@ -6084,7 +6096,8 @@ $('shopFilterToggleBtn')?.addEventListener('click',()=>toggleShopFilters());
 $('shopFilterCloseBtn')?.addEventListener('click',()=>toggleShopFilters(false));
 $('shopFilterScrim')?.addEventListener('click',()=>toggleShopFilters(false));
 $('shopFilterOpenNow')?.addEventListener('change',()=>{if($('shopFilterOpenNow').checked){$('shopFilterDay').value='';$('shopFilterTime').value='';}});
-$('homeMobileToggleBtn')?.addEventListener('click',toggleHomeMobileView);
+$('homeMobileShopsBtn')?.addEventListener('click',()=>setHomeMobileView('shops'));
+$('homeMobileProductsBtn')?.addEventListener('click',()=>setHomeMobileView('products'));
 $('shopMobileInfoBtn')?.addEventListener('click',()=>setShopMobileSheet('info',true));
 $('shopMobileFiltersBtn')?.addEventListener('click',()=>setShopMobileSheet('filters',true));
 $('shopMobileSheetClose')?.addEventListener('click',()=>setShopMobileSheet('',false));
