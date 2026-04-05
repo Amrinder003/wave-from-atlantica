@@ -1028,6 +1028,19 @@ a{color:inherit;text-decoration:none}
 .setup-callout{padding:14px 16px;border-radius:20px;background:rgba(255,255,255,.76);border:1px solid rgba(191,174,149,.28);display:grid;gap:4px}
 .setup-callout-title{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)}
 .setup-callout-copy{font-size:13px;color:var(--ink2);line-height:1.62}
+.product-form-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+.product-form-meta .badge{padding:6px 10px}
+#productFormView .workspace-copy{gap:8px}
+#productFormView .workspace-desc{max-width:58ch}
+.product-media-grid{align-items:start}
+.product-upload-card,.product-preview-card,.product-existing-card{padding:14px;border-radius:20px;background:rgba(255,255,255,.76);border:1px solid rgba(191,174,149,.28)}
+.product-media-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.product-media-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink4)}
+.product-media-meta{font-size:11px;color:var(--ink4)}
+.prev-empty{padding:14px;border-radius:16px;background:rgba(255,250,242,.82);border:1px dashed rgba(191,174,149,.4);font-size:12px;color:var(--ink3);line-height:1.6}
+#productFormView #productStatus{padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.74);border:1px dashed rgba(191,174,149,.38);display:flex;align-items:center;line-height:1.55}
+#productFormView #productStatus.ok{background:rgba(209,250,229,.62);border-style:solid;border-color:rgba(5,150,105,.18)}
+#productFormView #productStatus.err{background:rgba(255,228,230,.72);border-style:solid;border-color:rgba(225,29,72,.18)}
 @media(max-width:720px){
   .owner-detail-shell{grid-template-columns:1fr}
   .owner-shop-card-stats{grid-template-columns:1fr}
@@ -1082,6 +1095,24 @@ a{color:inherit;text-decoration:none}
   .auth-tabs{margin:0 16px}
   .toast-stack{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px))}
   .toast{min-width:0;max-width:none;width:100%}
+  #productFormView{padding-bottom:110px}
+  #productFormView .workspace-hero{padding:18px 16px;gap:12px}
+  #productFormView .workspace-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #productFormView .workspace-actions #deleteProdBtn{grid-column:1/-1}
+  #productFormView .workspace-actions .btn{width:100%;justify-content:center}
+  #productFormView .setup-form{gap:14px}
+  #productFormView .setup-section{padding:15px;border-radius:22px}
+  #productFormView .attr-grid{grid-template-columns:1fr}
+  #productFormView .price-field{grid-template-columns:96px minmax(0,1fr)}
+  #productFormView .currency-pill{min-height:52px}
+  #productFormView .product-media-grid{grid-template-columns:1fr}
+  #productFormView .product-upload-card,
+  #productFormView .product-preview-card,
+  #productFormView .product-existing-card{padding:13px;border-radius:18px}
+  #productFormView .variant-stage-actions-quick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #productFormView .variant-stage-actions-quick .btn:last-child{grid-column:1/-1}
+  #productFormView .floating-form-actions{position:sticky;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:14;display:grid;grid-template-columns:1fr;gap:10px;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));margin-top:8px;background:linear-gradient(180deg,rgba(255,253,248,.92),rgba(246,239,227,.98));backdrop-filter:blur(12px);box-shadow:0 18px 34px rgba(48,33,15,.14)}
+  #productFormView .floating-form-actions .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-left:0}
 }
 
 /* ── BUTTONS ── */
@@ -1150,6 +1181,15 @@ a{color:inherit;text-decoration:none}
 
   .workspace-actions,.product-manager-tools,.btn-row{display:grid;grid-template-columns:1fr}
   .workspace-actions .btn,.product-manager-tools .btn,.btn-row .btn{width:100%;justify-content:center}
+  #productFormView .workspace-actions{grid-template-columns:1fr 1fr}
+  #productFormView .workspace-actions #deleteProdBtn{grid-column:1/-1}
+  #productFormView .price-field{grid-template-columns:88px minmax(0,1fr)}
+  #productFormView .product-media-head{align-items:flex-start;flex-direction:column}
+  #productFormView .prev-grid,#productFormView .img-mgr{gap:10px}
+  #productFormView .prev-item,#productFormView .img-mg-item{width:76px;height:76px}
+  #productFormView .prev-item img,#productFormView .img-mg-item img{padding:0;object-fit:cover}
+  #productFormView .variant-img-item{width:66px;height:66px}
+  #productFormView .floating-form-actions .btn-row{grid-template-columns:1fr 1.1fr}
   .owner-detail-card-top{gap:12px}
   .owner-detail-meta{font-size:12px}
   .owner-detail-tags{gap:6px}
@@ -1898,6 +1938,10 @@ a{color:inherit;text-decoration:none}
               <div class="workspace-copy">
                 <div class="workspace-kicker">Product Editor</div>
                 <div id="productFormTitle" class="workspace-title">Add a product</div>
+                <div class="product-form-meta">
+                  <span id="productFormModeBadge" class="badge a">Create Mode</span>
+                  <span id="productFormShopBadge" class="badge">No shop loaded</span>
+                </div>
                 <div class="workspace-desc">Add a product under the current shop, upload images, and keep the product page ready for customers.</div>
               </div>
               <div class="workspace-actions">
@@ -1941,7 +1985,7 @@ a{color:inherit;text-decoration:none}
                           <div class="variant-stage-title">Variant options</div>
                           <div class="variant-stage-desc">Create shopper-facing choices like size, color, flavor, or material. Each option can add or subtract from the base price, carry its own stock quantity, and show its own image set.</div>
                         </div>
-                        <div class="variant-stage-actions">
+                        <div class="variant-stage-actions variant-stage-actions-quick">
                           <button id="addVariantSizeBtn" class="btn btn-g btn-sm" type="button">+ Size</button>
                           <button id="addVariantColorBtn" class="btn btn-g btn-sm" type="button">+ Color</button>
                           <button id="addVariantBtn" class="btn btn-o btn-sm" type="button">+ Other</button>
@@ -1957,7 +2001,7 @@ a{color:inherit;text-decoration:none}
                           <div class="variant-stage-title">Combination overrides</div>
                           <div class="variant-stage-desc">When a product has more than one option group, Wave can generate exact combinations like <code>Size: Large + Color: Red</code>. Use these only when a specific combination needs its own extra price, quantity, or gallery.</div>
                         </div>
-                        <div class="variant-stage-actions">
+                        <div class="variant-stage-actions variant-stage-actions-single">
                           <button id="refreshVariantMatrixBtn" class="btn btn-g btn-sm" type="button">Refresh Combinations</button>
                         </div>
                       </div>
@@ -1984,11 +2028,11 @@ a{color:inherit;text-decoration:none}
                   <div class="setup-section-title">Photos and presentation</div>
                   <div class="setup-section-copy">Images make the product feel real and let chat show clickable product cards with photos.</div>
                 </div>
-                <div class="fg2">
-                  <div class="fld"><label>Add Images</label><input id="prodFiles" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.jfif"/><div class="fld-hint">PNG, JPG, WEBP. Images upload and save in one step.</div></div>
-                  <div><div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Preview</div><div id="filePreview" class="prev-grid"></div></div>
+                <div class="fg2 product-media-grid">
+                  <div class="fld product-upload-card"><label>Add Images</label><input id="prodFiles" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.jfif"/><div class="fld-hint">PNG, JPG, WEBP. Images upload and save in one step.</div></div>
+                  <div class="product-preview-card"><div class="product-media-head"><div class="product-media-label">Preview</div><div id="filePreviewMeta" class="product-media-meta">No files selected</div></div><div id="filePreview" class="prev-grid"></div></div>
                 </div>
-                <div id="existImgsWrap" style="display:none"><div class="fld-hint" style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--ink4);letter-spacing:.06em;margin-bottom:5px">Existing Images - click X to remove</div><div id="existImgsMgr" class="img-mgr"></div></div>
+                <div id="existImgsWrap" class="product-existing-card" style="display:none"><div class="product-media-head"><div class="product-media-label">Existing Images</div><div class="product-media-meta">Tap x to remove</div></div><div id="existImgsMgr" class="img-mgr"></div></div>
               </div>
               <div id="productStatus" class="stxt"></div>
             </div>
@@ -5482,6 +5526,15 @@ function canLeaveShopManagerView(view){
   return true;
 }
 
+function syncProductFormMeta(mode='create'){
+  const isEdit=mode==='edit';
+  const shopName=String(App.adminShopData?.shop?.name || $('shopName')?.value || '').trim();
+  if($('productFormModeBadge')){
+    $('productFormModeBadge').textContent=isEdit?'Edit Mode':'Create Mode';
+    $('productFormModeBadge').className=`badge ${isEdit?'g':'a'}`;
+  }
+  if($('productFormShopBadge')) $('productFormShopBadge').textContent=shopName?`Shop: ${shopName}`:'No shop loaded';
+}
 function syncProductEditorState(mode='create'){
   const isEdit=mode==='edit';
   if($('productFormTitle')) $('productFormTitle').textContent=isEdit?'Edit product':'Add a product';
@@ -5490,6 +5543,7 @@ function syncProductEditorState(mode='create'){
   if($('deleteProdBtn')) $('deleteProdBtn').style.display=isEdit?'':'none';
   if($('clearProdBtn')) $('clearProdBtn').textContent=isEdit?'Reset Form':'Clear';
   if($('prodIdRef')) $('prodIdRef').textContent=isEdit?($('prodId')?.value.trim()||'Saved product'):'Generated when you save';
+  syncProductFormMeta(mode);
   updateProductDraftState(false);
 }
 function syncShopFormActions(mode='create'){
@@ -5920,7 +5974,7 @@ function loadProdIntoEditor(p,{skipView=false}={}){
   renderProductAttributeFields(p.attribute_data||{});
   const imgs=(p.images||[]).map(absUrl).filter(Boolean);
   const mgr=$('existImgsMgr'),wrap=$('existImgsWrap');mgr.innerHTML='';
-  if(imgs.length){wrap.style.display='block';imgs.forEach(url=>{const item=document.createElement('div');item.className='img-mg-item';item.innerHTML=`<img src="${esc(url)}" alt=""/><button class="img-mg-del">✕</button>`;item.querySelector('.img-mg-del').addEventListener('click',async()=>{const sid=$('shopId').value.trim(),pid=$('prodId').value.trim();if(!sid||!pid)return;try{await api(`/admin/shop/${encodeURIComponent(sid)}/product/${encodeURIComponent(pid)}/image?image_path=${encodeURIComponent(url)}`,{method:'DELETE',auth:true});item.remove();toast('Image removed ✓');}catch(e){toast('Remove failed',e.message,'err');}});mgr.appendChild(item);});}
+  if(imgs.length){wrap.style.display='block';imgs.forEach(url=>{const item=document.createElement('div');item.className='img-mg-item';item.innerHTML=`<img src="${esc(url)}" alt=""/><button class="img-mg-del">✕</button>`;item.querySelector('.img-mg-del').addEventListener('click',async()=>{const sid=$('shopId').value.trim(),pid=$('prodId').value.trim();if(!sid||!pid)return;try{await api(`/admin/shop/${encodeURIComponent(sid)}/product/${encodeURIComponent(pid)}/image?image_path=${encodeURIComponent(url)}`,{method:'DELETE',auth:true});item.remove();if(!mgr.children.length) wrap.style.display='none';toast('Image removed ✓');}catch(e){toast('Remove failed',e.message,'err');}});mgr.appendChild(item);});}
   else{wrap.style.display='none';}
   setS('productStatus',`Editing: ${p.name}`,'ok');
   suspendFormDirty=false;
@@ -5928,7 +5982,27 @@ function loadProdIntoEditor(p,{skipView=false}={}){
   if(!skipView){switchAdminSub('shops');showShopManagerView('productform');$('prodId').scrollIntoView({behavior:'smooth',block:'center'});}
 }
 function clearProdForm(){suspendFormDirty=true;['prodId','prodName','prodPrice','prodQty','prodOverview'].forEach(id=>$(id).value='');if($('prodIdRef')) $('prodIdRef').textContent='Generated when you save';$('prodStock').value='in';$('prodFiles').value='';$('existImgsWrap').style.display='none';renderFilePrev([]);syncProductEditorState('create');updateShopCurrencyBadge();App.productVariantMatrixDraft=[];renderVariantBuilder([]);renderVariantMatrixBuilder([],[]);renderProductAttributeFields({});setS('productStatus','');suspendFormDirty=false;updateProductDraftState(false);}
-function renderFilePrev(files){const g=$('filePreview');g.innerHTML='';if(!files?.length){g.innerHTML=`<div style="font-size:11px;color:var(--ink4)">No files selected</div>`;return;}Array.from(files).forEach(f=>{const r=new FileReader();r.onload=()=>{const d=document.createElement('div');d.className='prev-item';d.innerHTML=`<img src="${r.result}" alt=""/>`;g.appendChild(d);};r.readAsDataURL(f);});}
+function renderFilePrev(files){
+  const g=$('filePreview'), meta=$('filePreviewMeta');
+  if(!g) return;
+  const list=Array.from(files||[]);
+  g.innerHTML='';
+  if(meta) meta.textContent=list.length?`${list.length} file${list.length===1?'':'s'} ready`:'No files selected';
+  if(!list.length){
+    g.innerHTML=`<div class="prev-empty">No files selected yet. Pick product photos and they will appear here.</div>`;
+    return;
+  }
+  list.forEach(f=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      const d=document.createElement('div');
+      d.className='prev-item';
+      d.innerHTML=`<img src="${r.result}" alt=""/>`;
+      g.appendChild(d);
+    };
+    r.readAsDataURL(f);
+  });
+}
 async function saveProd(){
   if(!tok())return toast('Login required','','err');
   normalizePriceInput();
