@@ -2343,7 +2343,7 @@ a{color:inherit;text-decoration:none}
     <div class="auth-body" style="display:grid;gap:12px">
       <div class="fg2">
         <div class="fld"><label>Request ID</label><input id="trackReqId" placeholder="req_1234567890"/></div>
-        <div class="fld"><label>Phone</label><input id="trackReqPhone" placeholder="+1 902-555-0101"/></div>
+        <div class="fld"><label>Phone</label><input id="trackReqPhone" placeholder="+1 902-555-0101"/><div class="fld-hint">Only needed if you do not have a secure tracking link.</div></div>
       </div>
       <div id="trackReqStatus" class="stxt"></div>
       <button id="trackReqSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Check Status</button>
@@ -2481,13 +2481,12 @@ async function getMapSupport(){
 async function ensureLeafletLoaded(){
   if(window.L) return window.L;
   await new Promise((resolve,reject)=>{
+    const base=resolveSrv(App.srv);
     if(!document.getElementById('leaflet-css')){
       const link=document.createElement('link');
       link.id='leaflet-css';
       link.rel='stylesheet';
-      link.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      link.integrity='sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
-      link.crossOrigin='';
+      link.href=`${base}/vendor/leaflet/leaflet.css`;
       document.head.appendChild(link);
     }
     const existing=document.getElementById('leaflet-js');
@@ -2495,16 +2494,14 @@ async function ensureLeafletLoaded(){
       if(window.L){ resolve(); return; }
       if(existing.dataset.loaded==='1'){ resolve(); return; }
       existing.addEventListener('load',()=>resolve(),{once:true});
-      existing.addEventListener('error',()=>reject(new Error('Could not load the map library.')),{once:true});
+      existing.addEventListener('error',()=>reject(new Error('Local map assets are not installed on this server.')),{once:true});
       return;
     }
     const script=document.createElement('script');
     script.id='leaflet-js';
-    script.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.integrity='sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
-    script.crossOrigin='';
+    script.src=`${base}/vendor/leaflet/leaflet.js`;
     script.onload=()=>{ script.dataset.loaded='1'; resolve(); };
-    script.onerror=()=>reject(new Error('Could not load the map library.'));
+    script.onerror=()=>reject(new Error('Local map assets are not installed on this server.'));
     document.head.appendChild(script);
   });
   return window.L;
@@ -2753,7 +2750,7 @@ async function openMapSheet(mode='home',focusRef=''){
   try{
     support=await ensureMapSheetBase();
   }catch(e){
-    setMapSheetEmpty('Map could not load','The map library could not be loaded on this device right now. Try again or check that external scripts are allowed.');
+    setMapSheetEmpty('Map could not load','This server does not have the local Leaflet files installed yet. Add vetted assets under vendor/leaflet to enable the map.');
     setMapSheetStatus(e?.message || 'Map library failed to load.');
     return;
   }
@@ -4103,9 +4100,37 @@ function requestStatusTone(status=''){
   if(tone==='accepted' || tone==='ready') return 'warn';
   return '';
 }
-function rememberRequestLookup(requestId='',phone=''){
+function rememberRequestLookup(requestId='',trackToken=''){
   if(requestId) localStorage.setItem('wave_last_request_id',requestId);
-  if(phone) localStorage.setItem('wave_last_request_phone',phone);
+  else localStorage.removeItem('wave_last_request_id');
+  if(trackToken) localStorage.setItem('wave_last_request_token',trackToken);
+  else localStorage.removeItem('wave_last_request_token');
+  localStorage.removeItem('wave_last_request_phone');
+}
+function storedRequestTrackToken(requestId=''){
+  const savedId=localStorage.getItem('wave_last_request_id')||'';
+  if(requestId && savedId && savedId!==requestId) return '';
+  return localStorage.getItem('wave_last_request_token')||'';
+}
+function requestLookupQuery(requestId='',trackToken='',phone=''){
+  const rid=String(requestId||'').trim();
+  const token=String(trackToken||'').trim();
+  const phoneValue=String(phone||'').trim();
+  const params=[`request_id=${encodeURIComponent(rid)}`];
+  if(token) params.push(`track_token=${encodeURIComponent(token)}`);
+  else if(phoneValue) params.push(`phone=${encodeURIComponent(phoneValue)}`);
+  return `/public/order-request-status?${params.join('&')}`;
+}
+function hydrateRequestLookupFromUrl(){
+  try{
+    const params=new URLSearchParams(location.search||'');
+    const requestId=params.get('request_id')||'';
+    const trackToken=params.get('track_token')||'';
+    if(requestId){
+      rememberRequestLookup(requestId,trackToken);
+      localStorage.removeItem('wave_request_banner_hidden');
+    }
+  }catch{}
 }
 function setRequestBanner(req=null){
   const banner=$('requestBanner');
@@ -4126,15 +4151,15 @@ function setRequestBanner(req=null){
 }
 async function refreshRequestNotification({forceToast=false}={}){
   const requestId=localStorage.getItem('wave_last_request_id')||'';
-  const phone=localStorage.getItem('wave_last_request_phone')||'';
-  if(!requestId || !phone){
+  const trackToken=storedRequestTrackToken(requestId);
+  if(!requestId || !trackToken){
     App.requestWatch.lastRequestId='';
     App.requestWatch.lastStatus='';
     setRequestBanner(null);
     return;
   }
   try{
-    const res=await api(`/public/order-request-status?request_id=${encodeURIComponent(requestId)}&phone=${encodeURIComponent(phone)}`);
+    const res=await api(requestLookupQuery(requestId,trackToken,''));
     const req=res.request||{};
     const status=String(req.status||'new').toLowerCase();
     const previousId=App.requestWatch.lastRequestId||localStorage.getItem('wave_request_last_seen_id')||'';
@@ -4144,6 +4169,7 @@ async function refreshRequestNotification({forceToast=false}={}){
     App.requestWatch.lastStatus=status;
     localStorage.setItem('wave_request_last_seen_id',requestId);
     localStorage.setItem('wave_request_last_seen_status',status);
+    if(res.track_token) rememberRequestLookup(requestId,res.track_token);
     setRequestBanner(req);
     if(forceToast || changed){
       toast('Request update',`${requestStatusLabel(status)}${req.request_id?` · ${req.request_id}`:''}`);
@@ -4247,7 +4273,7 @@ async function submitOrderRequest(){
     const res=await api('/public/order-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     App.cart=App.cart.filter(item=>item.shop_id!==ctx.shop_id);
     saveCart();updateCartBadge();renderCart();updateCartFulfillmentState();
-    rememberRequestLookup(res.request_id,payload.phone);
+    rememberRequestLookup(res.request_id,res.track_token||'');
     localStorage.removeItem('wave_request_banner_hidden');
     App.requestWatch.lastRequestId=res.request_id;
     App.requestWatch.lastStatus='new';
@@ -4261,9 +4287,7 @@ async function submitOrderRequest(){
 }
 function openTrackRequestModal(){
   const lastId=localStorage.getItem('wave_last_request_id')||'';
-  const lastPhone=localStorage.getItem('wave_last_request_phone')||'';
   if($('trackReqId') && !$('trackReqId').value) $('trackReqId').value=lastId;
-  if($('trackReqPhone') && !$('trackReqPhone').value) $('trackReqPhone').value=lastPhone;
   setS('trackReqStatus','');
   if($('trackReqResult')){$('trackReqResult').style.display='none';$('trackReqResult').innerHTML='';}
   $('trackReqBg')?.classList.add('on');
@@ -4302,12 +4326,13 @@ function renderTrackedRequest(req){
 async function lookupRequestStatus(){
   const requestId=$('trackReqId')?.value.trim()||'';
   const phone=$('trackReqPhone')?.value.trim()||'';
-  if(!requestId || !phone) return setS('trackReqStatus','Enter your request ID and phone number.','err');
+  const savedToken=storedRequestTrackToken(requestId);
+  if(!requestId || (!savedToken && !phone)) return setS('trackReqStatus','Enter your request ID and phone number, or open a secure tracking link.','err');
   try{
     setBtnBusy('trackReqSubmitBtn',true,'Checking...');
     setS('trackReqStatus','Checking request...');
-    const res=await api(`/public/order-request-status?request_id=${encodeURIComponent(requestId)}&phone=${encodeURIComponent(phone)}`);
-    rememberRequestLookup(requestId,phone);
+    const res=await api(requestLookupQuery(requestId,savedToken,phone));
+    rememberRequestLookup(requestId,res.track_token||savedToken);
     localStorage.removeItem('wave_request_banner_hidden');
     renderTrackedRequest(res.request||{});
     setRequestBanner(res.request||null);
@@ -6487,6 +6512,7 @@ async function migrateLegacyUserSession(){
 
 async function init(){
   await handleHashAuth(); // <--- Catches Supabase Email Link
+  hydrateRequestLookupFromUrl();
   
   if($('srvUrl')) $('srvUrl').value=App.srv;
   suspendFormDirty=true;

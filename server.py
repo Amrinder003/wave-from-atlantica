@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from pydantic import BaseModel, Field
-import os, re, json, time, uuid, shutil, math
+import os, re, json, time, uuid, shutil, math, base64, hashlib, hmac
 import csv
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -40,6 +40,7 @@ except ImportError:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SERVER_DIR        = os.path.dirname(os.path.abspath(__file__))
 SHOPS_DIR         = os.path.join(SERVER_DIR, "shops")
+VENDOR_DIR        = os.path.join(SERVER_DIR, "vendor")
 os.makedirs(SHOPS_DIR, exist_ok=True)
 
 PAGE_SIZE         = 24                   
@@ -90,6 +91,7 @@ if AUTH_COOKIE_SAMESITE not in {"lax", "strict", "none"}:
 AUTH_COOKIE_SECURE = APP_BASE_URL.lower().startswith("https://") if AUTH_COOKIE_SECURE_RAW == "auto" else AUTH_COOKIE_SECURE_RAW not in {"0", "false", "no"}
 if AUTH_COOKIE_SAMESITE == "none" and not AUTH_COOKIE_SECURE:
     AUTH_COOKIE_SAMESITE = "lax"
+TRACK_TOKEN_SECRET = (os.environ.get("TRACK_TOKEN_SECRET", "").strip() or SUPABASE_KEY or OPENROUTER_KEY or APP_BASE_URL or "wave-track-secret").encode("utf-8")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY.")
@@ -434,6 +436,40 @@ def send_email_message(to_email: str, subject: str, text_body: str) -> bool:
         print(f"[Notification Warning] Email send failed for {recipient}: {e}")
         return False
 
+def request_track_payload(request_id: str, phone: str) -> str:
+    rid = str(request_id or "").strip()
+    phone_digits = re.sub(r"\D+", "", str(phone or ""))
+    if not rid or not phone_digits:
+        return ""
+    return f"{rid}:{phone_digits}"
+
+def issue_request_track_token(request_id: str, phone: str) -> str:
+    payload = request_track_payload(request_id, phone)
+    if not payload:
+        return ""
+    sig = hmac.new(TRACK_TOKEN_SECRET, payload.encode("utf-8"), hashlib.sha256).digest()
+    return (
+        base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=")
+        + "."
+        + base64.urlsafe_b64encode(sig).decode("ascii").rstrip("=")
+    )
+
+def verify_request_track_token(token: str, request_id: str, phone: str) -> bool:
+    token = str(token or "").strip()
+    if "." not in token:
+        return False
+    payload_part, sig_part = token.split(".", 1)
+    try:
+        payload = base64.urlsafe_b64decode(payload_part + "=" * (-len(payload_part) % 4)).decode("utf-8")
+        given_sig = base64.urlsafe_b64decode(sig_part + "=" * (-len(sig_part) % 4))
+    except Exception:
+        return False
+    expected_payload = request_track_payload(request_id, phone)
+    if not expected_payload or payload != expected_payload:
+        return False
+    expected_sig = hmac.new(TRACK_TOKEN_SECRET, payload.encode("utf-8"), hashlib.sha256).digest()
+    return hmac.compare_digest(given_sig, expected_sig)
+
 def format_request_items_text(items: List[Dict[str, Any]]) -> str:
     lines = []
     for item in items or []:
@@ -459,7 +495,8 @@ def send_request_confirmation_email(shop: Dict[str, Any], payload: Dict[str, Any
         return
     subject = f"Your {shop.get('name', 'shop')} request is confirmed"
     fulfillment = str(payload.get("fulfillment_type") or "pickup").replace("_", " ").title()
-    tracker_url = f"{ui_redirect_url()}?request_id={payload.get('request_id','')}"
+    track_token = issue_request_track_token(payload.get("request_id", ""), payload.get("phone", ""))
+    tracker_url = f"{ui_redirect_url()}?request_id={payload.get('request_id','')}{f'&track_token={track_token}' if track_token else ''}"
     body = "\n".join([
         f"Hi {payload.get('customer_name') or 'there'},",
         "",
@@ -483,7 +520,8 @@ def send_request_status_email(shop: Dict[str, Any], row: Dict[str, Any], status:
     if not email:
         return
     subject = f"Your {shop.get('name', 'shop')} request is now {request_status_human(status)}"
-    tracker_url = f"{ui_redirect_url()}?request_id={row.get('request_id','')}"
+    track_token = issue_request_track_token(row.get("request_id", ""), row.get("phone", ""))
+    tracker_url = f"{ui_redirect_url()}?request_id={row.get('request_id','')}{f'&track_token={track_token}' if track_token else ''}"
     body = "\n".join([
         f"Hi {row.get('customer_name') or 'there'},",
         "",
@@ -2499,6 +2537,19 @@ def serve_product_ui(shop_ref: str, product_ref: str):
 def favicon():
     raise HTTPException(204)
 
+@app.get("/vendor/leaflet/{asset_path:path}")
+def serve_leaflet_vendor(asset_path: str):
+    rel = str(asset_path or "").replace("\\", "/").lstrip("/")
+    if not rel:
+        raise HTTPException(404, "Asset not found")
+    base_dir = os.path.realpath(os.path.join(VENDOR_DIR, "leaflet"))
+    target = os.path.realpath(os.path.join(base_dir, rel))
+    if not target.startswith(base_dir + os.sep) and target != base_dir:
+        raise HTTPException(404, "Asset not found")
+    if not os.path.isfile(target):
+        raise HTTPException(404, "Asset not found")
+    return FileResponse(target)
+
 @app.get("/")
 def root(): return {"status": "running", "version": "4.1 Supabase"}
 
@@ -3409,24 +3460,28 @@ def public_order_request(body: OrderRequestReq, request: Request):
     }
     supabase.table("order_requests").insert(payload).execute()
     send_request_confirmation_email(shop, payload)
-    return {"ok": True, "request_id": request_id}
+    return {"ok": True, "request_id": request_id, "track_token": issue_request_track_token(request_id, phone)}
 
 @app.get("/public/order-request-status")
-def public_order_request_status(request: Request, request_id: str = Query(...), phone: str = Query(...)):
+def public_order_request_status(request: Request, request_id: str = Query(...), phone: str = Query(""), track_token: str = Query("")):
     enforce_rate_limit(request, "public_order_request_status", limit=20, window_seconds=300)
     rid = str(request_id or "").strip()
     phone_clean = re.sub(r"\D+", "", str(phone or ""))
-    if not rid or not phone_clean:
-        raise HTTPException(400, "Request ID and phone are required")
+    token_clean = str(track_token or "").strip()
+    if not rid or (not phone_clean and not token_clean):
+        raise HTTPException(400, "Request ID and a secure tracking link or phone number are required")
     rows = supabase.table("order_requests").select("*").eq("request_id", rid).limit(1).execute().data or []
     if not rows:
         raise HTTPException(404, "Request not found")
     row = rows[0]
     row_phone = re.sub(r"\D+", "", str(row.get("phone") or ""))
-    if row_phone != phone_clean:
+    token_ok = verify_request_track_token(token_clean, rid, row_phone) if token_clean else False
+    phone_ok = bool(phone_clean and row_phone == phone_clean)
+    if not token_ok and not phone_ok:
         raise HTTPException(404, "Request not found")
     return {
         "ok": True,
+        "track_token": issue_request_track_token(rid, row_phone),
         "request": {
             "request_id": row.get("request_id"),
             "shop_id": row.get("shop_id"),
