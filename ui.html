@@ -2411,6 +2411,9 @@ function setPublicPath(path, replace=false){
     history[replace?'replaceState':'pushState']({},'',target);
   }catch{}
 }
+function sameShopRef(a='',b=''){
+  return String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();
+}
 function resolveSrv(v=''){
   const raw=norm(v);
   const origin=norm(window.location.origin);
@@ -6276,7 +6279,7 @@ $('importCsvBtn').addEventListener('click',async()=>{
 /* ═════════════════════════════════════════════
    PUBLIC PATH DEEP LINKS
 ═════════════════════════════════════════════ */
-async function handlePathDeepLink(){
+async function handlePathDeepLink(source='init'){
   const path=location.pathname||'';
   let shopRef='', productRef='';
   let m=path.match(/^\/product\/([^/]+)\/([^/]+)\/?$/);
@@ -6296,6 +6299,11 @@ async function handlePathDeepLink(){
         return;
       }
     }
+  }
+  if(source==='init' && shopRef && !productRef && sameShopRef(App.shopId,shopRef)){
+    showPage('home');
+    setPublicPath(appUiRootPath(), true);
+    return;
   }
   try{
     const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(shopRef)}`));
@@ -6433,7 +6441,7 @@ async function init(){
   if(App.shopId){
     try{const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(App.shopId)}`));App.shopData=d;App.chatShopId=d.shop?.shop_slug||d.shop?.shop_id||App.shopId;$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}catch{}
   }
-  await handlePathDeepLink();
+  await handlePathDeepLink('init');
 }
 $('shopFilterApply')?.addEventListener('click',()=>{loadAllShops();toggleShopFilters(false);});
 $('shopFilterClear')?.addEventListener('click',()=>{clearShopFilters();loadAllShops();toggleShopFilters(false);});
@@ -6451,7 +6459,7 @@ $('shopMobileFiltersBtn')?.addEventListener('click',()=>setShopMobileSheet('filt
 $('shopMobileSheetClose')?.addEventListener('click',()=>setShopMobileSheet('',false));
 $('shopMobileScrim')?.addEventListener('click',()=>setShopMobileSheet('',false));
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshRequestNotification(); });
-window.addEventListener('popstate',()=>{handlePathDeepLink().catch(()=>{});});
+window.addEventListener('popstate',()=>{handlePathDeepLink('popstate').catch(()=>{});});
 init();
 </script>
 </body>
