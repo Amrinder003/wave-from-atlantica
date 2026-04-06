@@ -2,13 +2,14 @@
 Wave API  v4.0 — Supabase Edition (Stable & Fixed Chat)
 """
 
-from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Form
+from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Response, Form
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from pydantic import BaseModel, Field
 import os, re, json, time, uuid, shutil, math
 import csv
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 import requests
@@ -43,6 +44,17 @@ os.makedirs(SHOPS_DIR, exist_ok=True)
 
 PAGE_SIZE         = 24                   
 ALLOWED_IMG_EXTS  = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".jif"}
+ALLOWED_IMG_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
+MAX_UPLOAD_BYTES  = int(os.environ.get("MAX_UPLOAD_BYTES", "8388608") or 8388608)
+RATE_LIMIT_STATE: Dict[str, List[float]] = {}
+CURRENT_REQUEST: ContextVar[Optional[Request]] = ContextVar("current_request", default=None)
+PUBLIC_SHOP_FIELDS = (
+    "shop_id", "shop_slug", "name", "address", "formatted_address", "overview", "phone", "hours",
+    "hours_structured", "category", "whatsapp", "country_code", "country_name", "timezone_name",
+    "region", "city", "postal_code", "street_line1", "street_line2", "currency_code", "latitude",
+    "longitude", "supports_pickup", "supports_delivery", "supports_walk_in", "delivery_radius_km",
+    "delivery_fee", "pickup_notes",
+)
 
 OPENROUTER_KEY    = os.environ.get("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_MODEL  = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4.1-mini").strip()
@@ -65,6 +77,19 @@ SMTP_PASSWORD     = os.environ.get("SMTP_PASSWORD", "").strip()
 SMTP_FROM_EMAIL   = os.environ.get("SMTP_FROM_EMAIL", "").strip()
 SMTP_FROM_NAME    = os.environ.get("SMTP_FROM_NAME", "Wave from Atlantica").strip()
 SMTP_USE_TLS      = os.environ.get("SMTP_USE_TLS", "true").strip().lower() not in {"0", "false", "no"}
+AUTH_ACCESS_COOKIE = os.environ.get("AUTH_ACCESS_COOKIE", "wave_at").strip() or "wave_at"
+AUTH_REFRESH_COOKIE = os.environ.get("AUTH_REFRESH_COOKIE", "wave_rt").strip() or "wave_rt"
+AUTH_COOKIE_DOMAIN = os.environ.get("AUTH_COOKIE_DOMAIN", "").strip() or None
+AUTH_COOKIE_SAMESITE = os.environ.get("AUTH_COOKIE_SAMESITE", "lax").strip().lower()
+AUTH_COOKIE_SECURE_RAW = os.environ.get("AUTH_COOKIE_SECURE", "auto").strip().lower()
+AUTH_ACCESS_COOKIE_MAX_AGE = int(os.environ.get("AUTH_ACCESS_COOKIE_MAX_AGE", "3600") or 3600)
+AUTH_REFRESH_COOKIE_MAX_AGE = int(os.environ.get("AUTH_REFRESH_COOKIE_MAX_AGE", "2592000") or 2592000)
+
+if AUTH_COOKIE_SAMESITE not in {"lax", "strict", "none"}:
+    AUTH_COOKIE_SAMESITE = "lax"
+AUTH_COOKIE_SECURE = APP_BASE_URL.lower().startswith("https://") if AUTH_COOKIE_SECURE_RAW == "auto" else AUTH_COOKIE_SECURE_RAW not in {"0", "false", "no"}
+if AUTH_COOKIE_SAMESITE == "none" and not AUTH_COOKIE_SECURE:
+    AUTH_COOKIE_SAMESITE = "lax"
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY.")
@@ -135,6 +160,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def set_security_headers(request: Request, call_next):
+    ctx_token = CURRENT_REQUEST.set(request)
+    try:
+        response = await call_next(request)
+    finally:
+        CURRENT_REQUEST.reset(ctx_token)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if request.url.scheme == "https":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    if request.url.path.startswith("/auth/"):
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # PYDANTIC MODELS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -155,6 +197,10 @@ class ResetPasswordReq(BaseModel):
 
 class UpdateProfileReq(BaseModel):
     display_name: str = ""
+
+class BrowserSessionReq(BaseModel):
+    access_token: str
+    refresh_token: str = ""
 
 class ShopInfo(BaseModel):
     name: str
@@ -224,19 +270,23 @@ class ReviewReq(BaseModel):
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # AUTH HELPERS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-def bearer(auth: Optional[str]) -> str:
-    if not auth: raise HTTPException(401, "Missing Authorization header")
-    m = re.match(r"Bearer\s+(.+)", auth.strip(), re.I)
-    if not m: raise HTTPException(401, "Use: Bearer <token>")
-    return m.group(1).strip()
+def bearer(auth: Optional[str], request: Optional[Request] = None) -> str:
+    if auth:
+        m = re.match(r"Bearer\s+(.+)", auth.strip(), re.I)
+        if not m:
+            raise HTTPException(401, "Use: Bearer <token>")
+        return m.group(1).strip()
+    token = cookie_token(AUTH_ACCESS_COOKIE, request)
+    if token:
+        return token
+    raise HTTPException(401, "Not signed in")
 
-def get_user(auth: Optional[str]):
-    token = bearer(auth)
+def get_user(auth: Optional[str], request: Optional[Request] = None):
+    token = bearer(auth, request)
     try:
         res = supabase.auth.get_user(token)
         user = res.user
-        prof_res = supabase.table("profiles").select("*").eq("id", user.id).execute()
-        prof = prof_res.data[0] if prof_res.data else {}
+        prof = load_profile(user.id)
         return user, prof
     except Exception:
         raise HTTPException(401, "Session expired or invalid")
@@ -253,6 +303,72 @@ def require_supabase() -> Client:
 def ui_redirect_url() -> str:
     base = (APP_BASE_URL or "http://localhost:8001").strip().rstrip("/")
     return base if base.endswith("/ui") else f"{base}/ui"
+
+def active_request(request: Optional[Request] = None) -> Optional[Request]:
+    return request or CURRENT_REQUEST.get()
+
+def cookie_token(name: str, request: Optional[Request] = None) -> str:
+    req = active_request(request)
+    if req is None:
+        return ""
+    return str(req.cookies.get(name) or "").strip()
+
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str = "", access_max_age: Optional[int] = None) -> None:
+    common = {
+        "httponly": True,
+        "secure": AUTH_COOKIE_SECURE,
+        "samesite": AUTH_COOKIE_SAMESITE,
+        "path": "/",
+    }
+    if AUTH_COOKIE_DOMAIN:
+        common["domain"] = AUTH_COOKIE_DOMAIN
+    response.set_cookie(AUTH_ACCESS_COOKIE, access_token, max_age=max(60, int(access_max_age or AUTH_ACCESS_COOKIE_MAX_AGE)), **common)
+    if refresh_token:
+        response.set_cookie(AUTH_REFRESH_COOKIE, refresh_token, max_age=max(300, AUTH_REFRESH_COOKIE_MAX_AGE), **common)
+
+def clear_auth_cookies(response: Response) -> None:
+    common = {"path": "/"}
+    if AUTH_COOKIE_DOMAIN:
+        common["domain"] = AUTH_COOKIE_DOMAIN
+    response.delete_cookie(AUTH_ACCESS_COOKIE, **common)
+    response.delete_cookie(AUTH_REFRESH_COOKIE, **common)
+
+def client_ip(request: Request) -> str:
+    forwarded = str(request.headers.get("x-forwarded-for", "")).split(",")[0].strip()
+    if forwarded:
+        return forwarded
+    return getattr(request.client, "host", "") or "unknown"
+
+def enforce_rate_limit(request: Request, scope: str, limit: int, window_seconds: int, key_suffix: str = "") -> None:
+    now = time.time()
+    key = f"{scope}:{client_ip(request)}:{key_suffix}"
+    bucket = [ts for ts in RATE_LIMIT_STATE.get(key, []) if now - ts < window_seconds]
+    if len(bucket) >= limit:
+        raise HTTPException(429, "Too many requests. Please wait a moment and try again.")
+    bucket.append(now)
+    RATE_LIMIT_STATE[key] = bucket
+
+def load_profile(user_id: str) -> Dict[str, Any]:
+    prof_res = supabase.table("profiles").select("*").eq("id", user_id).execute()
+    return prof_res.data[0] if prof_res.data else {}
+
+def auth_user_payload(user: Any, prof: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    profile = prof or load_profile(user.id)
+    shops = supabase.table("shops").select("shop_id, name").eq("owner_user_id", user.id).execute().data
+    favs = supabase.table("favourites").select("shop_id").eq("user_id", user.id).execute().data
+    revs = supabase.table("reviews").select("id").eq("user_id", user.id).execute().data
+    return {
+        "ok": True,
+        "user_id": user.id,
+        "email": user.email,
+        "display_name": profile.get("display_name", ""),
+        "avatar_url": profile.get("avatar_url", ""),
+        "email_verified": user.email_confirmed_at is not None,
+        "role": profile.get("role", "customer"),
+        "my_shops": shops,
+        "fav_count": len(favs),
+        "review_count": len(revs),
+    }
 
 def supabase_auth_headers(token: Optional[str] = None) -> Dict[str, str]:
     api_key = SUPABASE_KEY or ""
@@ -272,6 +388,24 @@ def supabase_auth_post(path: str, payload: Dict[str, Any], token: Optional[str] 
         except Exception:
             detail = res.text or "Supabase auth request failed"
         raise HTTPException(400, detail)
+
+def supabase_refresh_session(refresh_token: str) -> Dict[str, Any]:
+    refresh = str(refresh_token or "").strip()
+    if not refresh:
+        raise HTTPException(401, "Session expired. Sign in again.")
+    url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/token?grant_type=refresh_token"
+    res = requests.post(url, headers=supabase_auth_headers(), json={"refresh_token": refresh}, timeout=20)
+    if res.status_code >= 400:
+        try:
+            detail = res.json().get("msg") or res.json().get("error_description") or res.json().get("message")
+        except Exception:
+            detail = res.text or "Could not refresh the session."
+        raise HTTPException(401, detail or "Could not refresh the session.")
+    data = res.json() or {}
+    access_token = str(data.get("access_token") or "").strip()
+    if not access_token:
+        raise HTTPException(401, "Could not refresh the session.")
+    return data
 
 def notifications_enabled() -> bool:
     return bool(SMTP_HOST and SMTP_FROM_EMAIL)
@@ -485,6 +619,30 @@ def product_write_payload_with_fallback(shop_id: str, product_id: str, data: Dic
 def norm_ext(ext: str) -> str:
     return ".jpg" if ext.lower() in {".jfif", ".jif"} else ext.lower()
 
+def image_content_type_for_ext(ext: str) -> str:
+    ext = norm_ext(ext)
+    if ext == ".png":
+        return "image/png"
+    if ext == ".webp":
+        return "image/webp"
+    return "image/jpeg"
+
+def read_validated_image(upload: UploadFile, label: str = "image") -> Tuple[str, bytes, str]:
+    if not upload or not getattr(upload, "filename", None):
+        raise HTTPException(400, f"No {label} provided")
+    ext = norm_ext(os.path.splitext(str(upload.filename).lower())[1])
+    if ext not in ALLOWED_IMG_EXTS:
+        raise HTTPException(400, f"Unsupported {label} type: {ext}")
+    content_type = str(upload.content_type or "").split(";")[0].strip().lower()
+    if content_type and content_type not in ALLOWED_IMG_CONTENT_TYPES:
+        raise HTTPException(400, f"Unsupported {label} content type")
+    data = upload.file.read(MAX_UPLOAD_BYTES + 1)
+    if not data:
+        raise HTTPException(400, f"{label.capitalize()} is empty")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(400, f"{label.capitalize()} exceeds the upload limit")
+    return ext, data, content_type or image_content_type_for_ext(ext)
+
 def dedup(items: List[str]) -> List[str]:
     out, seen = [], set()
     for x in items or []:
@@ -521,13 +679,12 @@ def save_images(shop_id: str, files: List[UploadFile]) -> List[str]:
     out = []
     for f in files or []:
         if not f or not getattr(f, "filename", None): continue
-        ext = os.path.splitext(f.filename.lower())[1]
-        if ext not in ALLOWED_IMG_EXTS: raise HTTPException(400, f"Unsupported image type: {ext}")
+        ext, data, content_type = read_validated_image(f, "image")
         name = f"{uuid.uuid4().hex}{norm_ext(ext)}"
         path = f"{shop_id}/{name}"
         
         try:
-            sb.storage.from_("product-images").upload(path, f.file.read(), {"content-type": f.content_type})
+            sb.storage.from_("product-images").upload(path, data, {"content-type": content_type})
             out.append(sb.storage.from_("product-images").get_public_url(path))
         except Exception as e:
             print(f"[Supabase Storage Error] {e}")
@@ -882,6 +1039,14 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out["pickup_notes"] = (out.get("pickup_notes") or "").strip()
     return out
 
+def public_shop_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+    safe = {key: row.get(key) for key in PUBLIC_SHOP_FIELDS}
+    safe = normalize_shop_record(safe)
+    safe["is_open_now"] = bool(row.get("is_open_now", shop_is_open_now(safe)))
+    if "stats" in row:
+        safe["stats"] = row.get("stats") or {}
+    return safe
+
 def resolve_shop_by_ref(shop_ref: str) -> Dict[str, Any]:
     ref = str(shop_ref or "").strip()
     if not ref:
@@ -892,6 +1057,71 @@ def resolve_shop_by_ref(shop_ref: str) -> Dict[str, Any]:
     if not rows:
         raise HTTPException(404, "Shop not found")
     return normalize_shop_record(rows[0])
+
+def normalize_order_variant_selections(raw: Any) -> Dict[str, str]:
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except Exception:
+            raw = {}
+    if not isinstance(raw, dict):
+        return {}
+    out: Dict[str, str] = {}
+    for key, value in raw.items():
+        group = re.sub(r"\s+", " ", str(key or "")).strip()[:40]
+        label = re.sub(r"\s+", " ", str(value or "")).strip()[:60]
+        if group and label:
+            out[group] = label
+    return out
+
+def selection_signature(selections: Dict[str, str]) -> Tuple[Tuple[str, str], ...]:
+    return tuple(sorted((norm_text(group), norm_text(label)) for group, label in (selections or {}).items() if group and label))
+
+def resolve_order_item(product_row: Dict[str, Any], shop_row: Dict[str, Any], raw_item: Dict[str, Any], qty: int) -> Dict[str, Any]:
+    variant_data = normalize_variant_data(product_row.get("variant_data") or product_row.get("variants", ""), product_row.get("shop_id", ""))
+    variant_matrix = normalize_variant_matrix(product_row.get("variant_matrix", []), variant_data, product_row.get("shop_id", ""))
+    requested_selections = normalize_order_variant_selections(raw_item.get("variant_selections") or {})
+    matched_selections: Dict[str, str] = {}
+    option_delta = 0.0
+    if requested_selections:
+        for group, label in requested_selections.items():
+            match = next((
+                item for item in variant_data
+                if norm_text(item.get("group", "")) == norm_text(group) and norm_text(item.get("label", "")) == norm_text(label)
+            ), None)
+            if match is None:
+                raise HTTPException(400, f"Invalid option selection for {product_row.get('name') or product_row.get('product_id')}")
+            matched_selections[str(match.get("group") or group)] = str(match.get("label") or label)
+            option_delta += float(match.get("price_delta") or 0)
+    combo = None
+    requested_sig = selection_signature(matched_selections)
+    if requested_sig:
+        combo = next((item for item in variant_matrix if selection_signature(item.get("selections") or {}) == requested_sig), None)
+    combo_delta = float((combo or {}).get("price_delta") or 0)
+    base_amount = get_row_price_amount(product_row)
+    currency_code = get_row_currency_code(product_row, shop_row)
+    if base_amount is not None:
+        final_amount = round(base_amount + option_delta + combo_delta, 2)
+        price_label = format_money(final_amount, currency_code)
+    else:
+        final_amount = None
+        price_label = get_display_price_fields(product_row, shop_row).get("price") or str(product_row.get("price", "")).strip()
+    variant_label = ""
+    if combo and combo.get("selection_key"):
+        variant_label = str(combo.get("selection_key"))
+    elif matched_selections:
+        variant_label = " / ".join(f"{group}: {label}" for group, label in sorted(matched_selections.items()))
+    return {
+        "product_id": str(product_row.get("product_id") or "").strip(),
+        "name": str(product_row.get("name") or "").strip(),
+        "qty": qty,
+        "price": price_label,
+        "price_amount": final_amount,
+        "currency_code": currency_code,
+        "variant": variant_label,
+        "variant_selections": matched_selections,
+        "combo_key": str((combo or {}).get("selection_key") or variant_label).strip(),
+    }
 
 def validate_postal_code(country_code: str, postal_code: str) -> bool:
     value = (postal_code or "").strip()
@@ -2299,7 +2529,8 @@ def serve_shop_image(shop_id: str, filename: str):
 # ROUTES — Auth
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 @app.post("/auth/register")
-def register(body: RegisterReq):
+def register(body: RegisterReq, request: Request):
+    enforce_rate_limit(request, "auth_register", limit=8, window_seconds=900, key_suffix=clean_email(body.email or "").lower())
     try:
         require_supabase()
         supabase.auth.sign_up({
@@ -2315,33 +2546,58 @@ def register(body: RegisterReq):
         raise HTTPException(400, str(e))
 
 @app.post("/auth/login")
-def login(body: LoginReq):
+def login(body: LoginReq, request: Request, response: Response):
+    enforce_rate_limit(request, "auth_login", limit=12, window_seconds=900, key_suffix=clean_email(body.email or "").lower())
     try:
         res = supabase.auth.sign_in_with_password({"email": body.email, "password": body.password})
         user = res.user
-        prof_res = supabase.table("profiles").select("*").eq("id", user.id).execute()
-        prof = prof_res.data[0] if prof_res.data else {}
-        return {"ok": True, "token": res.session.access_token, "email": user.email, "display_name": prof.get("display_name", ""), "avatar_url": prof.get("avatar_url", ""), "email_verified": user.email_confirmed_at is not None, "role": prof.get("role", "customer")}
+        prof = load_profile(user.id)
+        access_token = str(getattr(res.session, "access_token", "") or "").strip()
+        refresh_token = str(getattr(res.session, "refresh_token", "") or "").strip()
+        expires_in = int(getattr(res.session, "expires_in", AUTH_ACCESS_COOKIE_MAX_AGE) or AUTH_ACCESS_COOKIE_MAX_AGE)
+        set_auth_cookies(response, access_token, refresh_token, expires_in)
+        return auth_user_payload(user, prof)
     except Exception:
         raise HTTPException(401, "Invalid email or password")
+
+@app.post("/auth/session")
+def auth_session(body: BrowserSessionReq, request: Request, response: Response):
+    enforce_rate_limit(request, "auth_session", limit=12, window_seconds=900)
+    access_token = str(body.access_token or "").strip()
+    if not access_token:
+        raise HTTPException(400, "Missing access token")
+    user, prof = get_user(f"Bearer {access_token}")
+    set_auth_cookies(response, access_token, str(body.refresh_token or "").strip())
+    return auth_user_payload(user, prof)
+
+@app.post("/auth/refresh")
+def auth_refresh(request: Request, response: Response):
+    data = supabase_refresh_session(cookie_token(AUTH_REFRESH_COOKIE, request))
+    access_token = str(data.get("access_token") or "").strip()
+    refresh_token = str(data.get("refresh_token") or "").strip()
+    expires_in = int(data.get("expires_in") or AUTH_ACCESS_COOKIE_MAX_AGE)
+    set_auth_cookies(response, access_token, refresh_token, expires_in)
+    user, prof = get_user(f"Bearer {access_token}")
+    return auth_user_payload(user, prof)
 
 @app.get("/auth/me")
 def auth_me(authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
-    shops = supabase.table("shops").select("shop_id, name").eq("owner_user_id", user.id).execute().data
-    favs = supabase.table("favourites").select("shop_id").eq("user_id", user.id).execute().data
-    revs = supabase.table("reviews").select("id").eq("user_id", user.id).execute().data
-    return {
-        "ok": True, "user_id": user.id, "email": user.email,
-        "display_name": prof.get("display_name", ""),
-        "avatar_url": prof.get("avatar_url", ""),
-        "email_verified": user.email_confirmed_at is not None,
-        "role": prof.get("role", "customer"),
-        "my_shops": shops, "fav_count": len(favs), "review_count": len(revs),
-    }
+    return auth_user_payload(user, prof)
 
 @app.post("/auth/logout")
-def logout(authorization: Optional[str] = Header(None)): return {"ok": True}
+def logout(response: Response, authorization: Optional[str] = Header(None)):
+    try:
+        token = bearer(authorization)
+    except HTTPException:
+        token = ""
+    if token:
+        try:
+            requests.post(f"{SUPABASE_URL.rstrip('/')}/auth/v1/logout", headers=supabase_auth_headers(token), timeout=20)
+        except Exception:
+            pass
+    clear_auth_cookies(response)
+    return {"ok": True}
 
 @app.post("/auth/resend-verification")
 def resend_verification(authorization: Optional[str] = Header(None)):
@@ -2360,7 +2616,8 @@ def resend_verification(authorization: Optional[str] = Header(None)):
     return {"ok": True, "message": "Verification email sent"}
 
 @app.post("/auth/forgot-password")
-def forgot_password(body: ForgotPasswordReq):
+def forgot_password(body: ForgotPasswordReq, request: Request):
+    enforce_rate_limit(request, "auth_forgot_password", limit=6, window_seconds=900, key_suffix=clean_email(body.email or "").lower())
     try:
         supabase_auth_post("recover", {
             "email": body.email.strip(),
@@ -2400,10 +2657,10 @@ def upload_avatar(authorization: Optional[str] = Header(None), avatar: UploadFil
     sb = require_supabase()
     if not avatar.filename: raise HTTPException(400, "No file provided")
     try:
-        ext = norm_ext(os.path.splitext(avatar.filename.lower())[1])
+        ext, data, content_type = read_validated_image(avatar, "avatar")
         filename = f"user_{user.id}_{uuid.uuid4().hex[:8]}{ext}"
         path = f"avatars/{filename}"
-        sb.storage.from_("product-images").upload(path, avatar.file.read(), {"content-type": avatar.content_type})
+        sb.storage.from_("product-images").upload(path, data, {"content-type": content_type})
         url = sb.storage.from_("product-images").get_public_url(path)
         sb.table("profiles").update({"avatar_url": url}).eq("id", user.id).execute()
         return {"ok": True, "avatar_url": url}
@@ -2516,7 +2773,7 @@ def public_shops(
             print(f"[Shop Stats Warning] {r.get('shop_id')}: {e}")
             r["stats"] = {"product_count": 0, "image_count": 0, "products_with_images": 0, "chat_hits_30d": 0, "shop_views_30d": 0, "product_views_30d": 0, "avg_rating": 0}
         r["is_open_now"] = shop_is_open_now(r)
-        filtered.append(r)
+        filtered.append(public_shop_payload(r))
     return {"ok": True, "shops": filtered}
 
 @app.get("/public/location-support")
@@ -2561,7 +2818,8 @@ def public_timezone_support():
     return {"ok": True, "timezones": zones}
 
 @app.get("/public/address/search")
-def public_address_search(q: str = Query(..., min_length=3), country: str = Query("")):
+def public_address_search(request: Request, q: str = Query(..., min_length=3), country: str = Query("")):
+    enforce_rate_limit(request, "public_address_search", limit=30, window_seconds=300)
     if not MAPBOX_TOKEN:
         return {"ok": True, "suggestions": [], "provider": "disabled"}
     params = {
@@ -2647,7 +2905,7 @@ def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), s
     ser_prods = serialize_products_bulk(paged["items"], user_id, {shop_id: shop_row}, currency)
     
     return {
-        "ok": True, "shop_id": shop_id, "shop_slug": shop_row.get("shop_slug", ""), "shop": shop_row,
+        "ok": True, "shop_id": shop_id, "shop_slug": shop_row.get("shop_slug", ""), "shop": public_shop_payload(shop_row),
         "products": ser_prods,
         "pagination": paged["pagination"],
         "stats": shop_stats(shop_id),
@@ -2714,6 +2972,7 @@ def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Quer
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 @app.get("/chat")
 def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(...), currency: str = Query("")):
+    enforce_rate_limit(request, "chat", limit=40, window_seconds=300, key_suffix=str(shop_id or "").strip().lower())
     q = (q or "").strip()
     if not q: raise HTTPException(400, "Missing q")
     shop = resolve_shop_by_ref(shop_id)
@@ -3070,7 +3329,8 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
     return {"ok": True}
 
 @app.post("/public/order-request")
-def public_order_request(body: OrderRequestReq):
+def public_order_request(body: OrderRequestReq, request: Request):
+    enforce_rate_limit(request, "public_order_request", limit=12, window_seconds=600)
     shop_id = slug(body.shop_id or "", 80)
     if not shop_id:
         raise HTTPException(400, "Shop is required")
@@ -3103,6 +3363,9 @@ def public_order_request(body: OrderRequestReq):
         raise HTTPException(400, "Cart is empty")
     if len({str(item.get("shop_id") or shop_id) for item in items}) > 1:
         raise HTTPException(400, "Use one shop per request")
+    product_ids = list({str(item.get("product_id") or "").strip() for item in items if isinstance(item, dict) and str(item.get("product_id") or "").strip()})
+    product_rows = supabase.table("products").select("*").eq("shop_id", shop_id).in_("product_id", product_ids).execute().data if product_ids else []
+    product_map = {str(row.get("product_id")): row for row in (product_rows or [])}
     clean_items: List[Dict[str, Any]] = []
     for item in items:
         if not isinstance(item, dict):
@@ -3110,17 +3373,11 @@ def public_order_request(body: OrderRequestReq):
         qty = int(item.get("qty") or 1)
         if qty < 1:
             continue
-        clean_items.append({
-            "product_id": str(item.get("product_id") or "").strip(),
-            "name": str(item.get("name") or "").strip(),
-            "qty": qty,
-            "price": str(item.get("price") or "").strip(),
-            "price_amount": item.get("price_amount"),
-            "currency_code": str(item.get("currency_code") or shop.get("currency_code") or "").strip(),
-            "variant": str(item.get("variant") or "").strip(),
-            "variant_selections": item.get("variant_selections") or {},
-            "combo_key": str(item.get("combo_key") or "").strip(),
-        })
+        product_id = str(item.get("product_id") or "").strip()
+        product_row = product_map.get(product_id)
+        if not product_row:
+            raise HTTPException(400, "One or more cart items are no longer available.")
+        clean_items.append(resolve_order_item(product_row, shop, item, qty))
     if not clean_items:
         raise HTTPException(400, "Cart is empty")
     total_amount = 0.0
@@ -3155,7 +3412,8 @@ def public_order_request(body: OrderRequestReq):
     return {"ok": True, "request_id": request_id}
 
 @app.get("/public/order-request-status")
-def public_order_request_status(request_id: str = Query(...), phone: str = Query(...)):
+def public_order_request_status(request: Request, request_id: str = Query(...), phone: str = Query(...)):
+    enforce_rate_limit(request, "public_order_request_status", limit=20, window_seconds=300)
     rid = str(request_id or "").strip()
     phone_clean = re.sub(r"\D+", "", str(phone or ""))
     if not rid or not phone_clean:
@@ -3166,7 +3424,7 @@ def public_order_request_status(request_id: str = Query(...), phone: str = Query
     row = rows[0]
     row_phone = re.sub(r"\D+", "", str(row.get("phone") or ""))
     if row_phone != phone_clean:
-        raise HTTPException(403, "Phone does not match this request")
+        raise HTTPException(404, "Request not found")
     return {
         "ok": True,
         "request": {
@@ -3177,7 +3435,6 @@ def public_order_request_status(request_id: str = Query(...), phone: str = Query
             "created_at": row.get("created_at"),
             "updated_at": row.get("updated_at"),
             "items": row.get("items") or [],
-            "customer_email": row.get("customer_email", ""),
             "status_history": row.get("status_history") or [],
         }
     }

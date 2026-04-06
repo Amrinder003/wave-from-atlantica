@@ -3,3 +3,4 @@
 __pycache__/
 *.pyc
 app.db
+shops/*/api_key.txt
