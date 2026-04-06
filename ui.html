@@ -1983,7 +1983,7 @@ a{color:inherit;text-decoration:none}
                         <div class="variant-stage-copy">
                           <div class="variant-stage-kicker">Options</div>
                           <div class="variant-stage-title">Variant options</div>
-                          <div class="variant-stage-desc">Create shopper-facing choices like size, color, flavor, or material. Each option can add or subtract from the base price, carry its own stock quantity, and show its own image set.</div>
+                          <div class="variant-stage-desc">Add customer-facing options such as size, color, flavor, or material. Each option can have its own price adjustment, stock quantity, and images.</div>
                         </div>
                         <div class="variant-stage-actions variant-stage-actions-quick">
                           <button id="addVariantSizeBtn" class="btn btn-g btn-sm" type="button">+ Size</button>
@@ -1991,7 +1991,7 @@ a{color:inherit;text-decoration:none}
                           <button id="addVariantBtn" class="btn btn-o btn-sm" type="button">+ Other</button>
                         </div>
                       </div>
-                      <div class="setup-callout">Use <strong>Base Price</strong> for the standard product price. Then use <strong>Price Change</strong> inside an option only when that option should cost more or less than the base price. Example: base price 10.00, Size Large price change +2.00, customer pays 12.00 for Large.</div>
+                      <div class="setup-callout">Set the standard amount in <strong>Base Price</strong>. Use <strong>Price Change</strong> only when a specific option should increase or reduce that amount.</div>
                       <div id="variantBuilder" class="variant-builder"></div>
                     </div>
                     <div class="variant-stage">
@@ -1999,13 +1999,13 @@ a{color:inherit;text-decoration:none}
                         <div class="variant-stage-copy">
                           <div class="variant-stage-kicker">Combinations</div>
                           <div class="variant-stage-title">Combination overrides</div>
-                          <div class="variant-stage-desc">When a product has more than one option group, Wave can generate exact combinations like <code>Size: Large + Color: Red</code>. Use these only when a specific combination needs its own extra price, quantity, or gallery.</div>
+                          <div class="variant-stage-desc">If the product has multiple option groups, generate exact combinations such as <code>Size: Large + Color: Red</code>. Use overrides only when a specific combination needs its own price, quantity, or images.</div>
                         </div>
                         <div class="variant-stage-actions variant-stage-actions-single">
                           <button id="refreshVariantMatrixBtn" class="btn btn-g btn-sm" type="button">Refresh Combinations</button>
                         </div>
                       </div>
-                      <div class="setup-callout">Combination overrides are optional. If you do not need special handling for an exact pair like <strong>Large + Red</strong>, leave combinations alone and just use the option rows above.</div>
+                      <div class="setup-callout">Combination overrides are optional. Leave this section unchanged unless a specific combination needs separate pricing, stock, or images.</div>
                       <div id="variantMatrixBuilder" class="variant-builder"></div>
                     </div>
                   </div>
@@ -3173,7 +3173,7 @@ function renderVariantMatrixBuilder(prefill=[],variantData=null){
   App.productVariantMatrixDraft=rows;
   wrap.innerHTML='';
   if(!rows.length){
-    wrap.innerHTML='<div class="variant-empty"><div class="variant-empty-title">No combinations yet</div><div class="variant-empty-copy">Add at least two option groups, like <strong>Size</strong> and <strong>Color</strong>, then refresh combinations to manage exact stock, price, and images for each pairing.</div></div>';
+    wrap.innerHTML='<div class="variant-empty"><div class="variant-empty-title">No combinations yet</div><div class="variant-empty-copy">Add at least two option groups, such as <strong>Size</strong> and <strong>Color</strong>, then generate combinations to manage exact pricing, stock, and images.</div></div>';
     return;
   }
   rows.forEach((item,idx)=>{
@@ -3186,8 +3186,8 @@ function renderVariantMatrixBuilder(prefill=[],variantData=null){
     row.innerHTML=`
       <div class="variant-summary-card">${comboParts}${comboMeta.length?` <span style="color:var(--ink4)">• ${esc(comboMeta.join(' • '))}</span>`:''}</div>
       <div class="variant-row-main">
-        <div class="fld"><label>Extra Price For This Exact Combination</label><input data-combo-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Use this only if this exact pair should change the final price again.</div></div>
-        <div class="fld"><label>This Combination Quantity</label><input data-combo-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="8"/><div class="fld-hint">Leave blank unless this exact combination needs its own quantity.</div></div>
+        <div class="fld"><label>Combination Price Adjustment</label><input data-combo-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Optional. Use this only when the final price for this exact combination should change.</div></div>
+        <div class="fld"><label>Combination Quantity</label><input data-combo-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="8"/><div class="fld-hint">Optional. Leave blank to use the main or option-level quantity.</div></div>
       </div>
       <div class="variant-assets">
         <div class="fld">
@@ -3230,7 +3230,7 @@ function renderVariantBuilder(prefill=[]){
   App.productVariantDraft=rows;
   wrap.innerHTML='';
   if(!rows.length){
-    wrap.innerHTML='<div class="variant-empty"><div class="variant-empty-title">No variant options yet</div><div class="variant-empty-copy">Start with a common shopper choice like <strong>Size</strong> or <strong>Color</strong>. You can add price changes, stock, and separate images under each option.</div></div>';
+    wrap.innerHTML='<div class="variant-empty"><div class="variant-empty-title">No variant options yet</div><div class="variant-empty-copy">Start with a common option such as <strong>Size</strong> or <strong>Color</strong>. Each option can have its own price adjustment, stock, and images.</div></div>';
     renderVariantMatrixBuilder(App.productVariantMatrixDraft,rows);
     return;
   }
@@ -3244,7 +3244,7 @@ function renderVariantBuilder(prefill=[]){
       <div class="variant-row-main">
         <div class="fld"><label>Type</label><select data-variant-group>${VARIANT_GROUP_OPTIONS.map(opt=>`<option value="${esc(opt)}"${(item.group||'')===opt?' selected':''}>${esc(opt)}</option>`).join('')}</select></div>
         <div class="fld"><label>Option</label><input data-variant-label value="${esc(item.label)}" placeholder="Large"/></div>
-        <div class="fld"><label>Price Change From Base</label><input data-variant-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Use <code>2.00</code> to add 2, or <code>-1.00</code> to discount 1 from the base price.</div></div>
+        <div class="fld"><label>Price Adjustment</label><input data-variant-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Enter a positive value to add to the base price, or a negative value to reduce it.</div></div>
         <div class="fld"><label>This Option Quantity</label><input data-variant-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="12"/><div class="fld-hint">Leave blank to fall back to the main product quantity.</div></div>
         <button class="btn btn-r btn-sm" type="button" data-variant-remove="${idx}">Remove</button>
       </div>
