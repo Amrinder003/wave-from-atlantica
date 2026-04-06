@@ -810,7 +810,11 @@ a{color:inherit;text-decoration:none}
 .anav-btn{display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:12px;font-size:13px;font-weight:700;color:var(--ink2);transition:.11s;width:100%;text-align:left}
 .anav-btn:hover{background:rgba(255,250,242,.92);border-color:rgba(191,174,149,.34)}
 .anav-btn.on{background:linear-gradient(180deg,#fff7ef,#f6dfd2);color:var(--A2);box-shadow:0 10px 22px rgba(92,47,24,.08)}
+.anav-btn.logout{color:var(--R);background:rgba(255,228,230,.72);border:1px solid rgba(225,29,72,.14)}
+.anav-btn.logout:hover{background:rgba(255,228,230,.94);border-color:rgba(225,29,72,.22)}
+.anav-btn.logout.on{box-shadow:none}
 .anav-btn .ai{font-size:11px;flex-shrink:0;min-width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:rgba(162,76,46,.1);color:var(--A2);font-weight:800;letter-spacing:.04em}
+.anav-btn.logout .ai{background:rgba(225,29,72,.12);color:var(--R)}
 .admin-main{padding:22px 26px;display:flex;flex-direction:column;gap:16px}
 @media(max-width:680px){.admin-main{padding:12px}}
 .asub{display:none}.asub.on{display:flex;flex-direction:column;gap:16px}
@@ -1597,7 +1601,7 @@ a{color:inherit;text-decoration:none}
   <div class="admin-wrap">
     <aside class="admin-nav">
       <div class="anav-lbl">Account</div>
-      <button class="anav-btn on" data-sub="account"><span class="ai">ID</span>Login / Register</button>
+      <button class="anav-btn on" id="adminAccountNavBtn" data-sub="account"><span class="ai" id="adminAccountNavIcon">ID</span><span id="adminAccountNavLabel">Login / Register</span></button>
       <div class="anav-lbl">Manage</div>
       <button class="anav-btn" data-sub="shops"><span class="ai">SH</span>Shops</button>
       <div class="anav-lbl">Insights</div>
@@ -3812,6 +3816,27 @@ function clearUser(){
   setRequestBanner(null);
 }
 
+function syncAdminAccountNav(){
+  const btn=$('adminAccountNavBtn');
+  const label=$('adminAccountNavLabel');
+  const icon=$('adminAccountNavIcon');
+  if(!btn||!label||!icon) return;
+  const signedIn=!!App.user;
+  btn.classList.toggle('logout',signedIn);
+  if(signedIn){
+    btn.dataset.mode='logout';
+    label.textContent='Sign Out';
+    icon.textContent='OUT';
+    btn.setAttribute('aria-label','Sign out');
+    btn.title='Sign out';
+  }else{
+    btn.dataset.mode='account';
+    label.textContent='Login / Register';
+    icon.textContent='ID';
+    btn.setAttribute('aria-label','Login or register');
+    btn.title='Login or register';
+  }
+}
 function renderUserUI(){
   const u=App.user;
   if(u){
@@ -3843,6 +3868,7 @@ function renderUserUI(){
     $('adminUserActions').style.display='none';
     setS('authStatus','');
   }
+  syncAdminAccountNav();
 }
 $('profileBtn').addEventListener('click',()=>{
   if(!App.user){openAuthModal('login');return;}
@@ -5464,7 +5490,10 @@ function switchAdminSub(sub){
   if(sub==='analytics'&&App.adminShopId)loadAnalytics();
   if(sub==='shops'){ showShopManagerView('landing'); if(tok()) loadMyShops(); }
 }
-document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.addEventListener('click',()=>switchAdminSub(b.dataset.sub)));
+document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.addEventListener('click',()=>{
+  if(b.id==='adminAccountNavBtn' && b.dataset.mode==='logout'){ doLogout(); return; }
+  switchAdminSub(b.dataset.sub);
+}));
 
 function showShopManagerView(view){
   const current=document.querySelector('[data-shop-view].on')?.dataset.shopView||'';
