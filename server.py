@@ -3,11 +3,11 @@ Wave API  v4.0 — Supabase Edition (Stable & Fixed Chat)
 """
 
 from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Response, Form
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from pydantic import BaseModel, Field
-import os, re, json, time, uuid, shutil, math, base64, hashlib, hmac
+import os, re, json, time, uuid, shutil, math, base64, hashlib, hmac, secrets
 import csv
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -80,11 +80,14 @@ SMTP_FROM_NAME    = os.environ.get("SMTP_FROM_NAME", "Wave from Atlantica").stri
 SMTP_USE_TLS      = os.environ.get("SMTP_USE_TLS", "true").strip().lower() not in {"0", "false", "no"}
 AUTH_ACCESS_COOKIE = os.environ.get("AUTH_ACCESS_COOKIE", "wave_at").strip() or "wave_at"
 AUTH_REFRESH_COOKIE = os.environ.get("AUTH_REFRESH_COOKIE", "wave_rt").strip() or "wave_rt"
+AUTH_CSRF_COOKIE = os.environ.get("AUTH_CSRF_COOKIE", "wave_csrf").strip() or "wave_csrf"
+AUTH_CSRF_HEADER = os.environ.get("AUTH_CSRF_HEADER", "X-CSRF-Token").strip() or "X-CSRF-Token"
 AUTH_COOKIE_DOMAIN = os.environ.get("AUTH_COOKIE_DOMAIN", "").strip() or None
 AUTH_COOKIE_SAMESITE = os.environ.get("AUTH_COOKIE_SAMESITE", "lax").strip().lower()
 AUTH_COOKIE_SECURE_RAW = os.environ.get("AUTH_COOKIE_SECURE", "auto").strip().lower()
 AUTH_ACCESS_COOKIE_MAX_AGE = int(os.environ.get("AUTH_ACCESS_COOKIE_MAX_AGE", "3600") or 3600)
 AUTH_REFRESH_COOKIE_MAX_AGE = int(os.environ.get("AUTH_REFRESH_COOKIE_MAX_AGE", "2592000") or 2592000)
+AUTH_CSRF_COOKIE_MAX_AGE = int(os.environ.get("AUTH_CSRF_COOKIE_MAX_AGE", str(AUTH_REFRESH_COOKIE_MAX_AGE)) or AUTH_REFRESH_COOKIE_MAX_AGE)
 
 if AUTH_COOKIE_SAMESITE not in {"lax", "strict", "none"}:
     AUTH_COOKIE_SAMESITE = "lax"
@@ -92,6 +95,27 @@ AUTH_COOKIE_SECURE = APP_BASE_URL.lower().startswith("https://") if AUTH_COOKIE_
 if AUTH_COOKIE_SAMESITE == "none" and not AUTH_COOKIE_SECURE:
     AUTH_COOKIE_SAMESITE = "lax"
 TRACK_TOKEN_SECRET = (os.environ.get("TRACK_TOKEN_SECRET", "").strip() or SUPABASE_KEY or OPENROUTER_KEY or APP_BASE_URL or "wave-track-secret").encode("utf-8")
+CSRF_PROTECTED_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+CSRF_EXEMPT_PATHS = {
+    "/auth/login",
+    "/auth/register",
+    "/auth/session",
+    "/auth/refresh",
+    "/auth/forgot-password",
+    "/auth/update-password",
+}
+SECURITY_CSP = "; ".join([
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: blob: https:",
+    "connect-src 'self' https://ipapi.co",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+])
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY.")
@@ -165,14 +189,23 @@ app.add_middleware(
 @app.middleware("http")
 async def set_security_headers(request: Request, call_next):
     ctx_token = CURRENT_REQUEST.set(request)
+    response: Optional[Response] = None
     try:
-        response = await call_next(request)
+        if csrf_required(request) and not csrf_valid(request):
+            response = JSONResponse({"detail": "Session verification failed. Refresh and try again."}, status_code=403)
+        else:
+            response = await call_next(request)
     finally:
         CURRENT_REQUEST.reset(ctx_token)
+    if response is None:
+        response = JSONResponse({"detail": "Request failed."}, status_code=500)
+    if session_cookie_present(request) and not cookie_token(AUTH_CSRF_COOKIE, request):
+        set_csrf_cookie(response, request=request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault("Content-Security-Policy", SECURITY_CSP)
     if request.url.scheme == "https":
         response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     if request.url.path.startswith("/auth/"):
@@ -315,18 +348,49 @@ def cookie_token(name: str, request: Optional[Request] = None) -> str:
         return ""
     return str(req.cookies.get(name) or "").strip()
 
-def set_auth_cookies(response: Response, access_token: str, refresh_token: str = "", access_max_age: Optional[int] = None) -> None:
-    common = {
-        "httponly": True,
+def session_cookie_present(request: Optional[Request] = None) -> bool:
+    return bool(cookie_token(AUTH_ACCESS_COOKIE, request) or cookie_token(AUTH_REFRESH_COOKIE, request))
+
+def csrf_cookie_args(httponly: bool) -> Dict[str, Any]:
+    common: Dict[str, Any] = {
+        "httponly": httponly,
         "secure": AUTH_COOKIE_SECURE,
         "samesite": AUTH_COOKIE_SAMESITE,
         "path": "/",
     }
     if AUTH_COOKIE_DOMAIN:
         common["domain"] = AUTH_COOKIE_DOMAIN
+    return common
+
+def csrf_value(request: Optional[Request] = None) -> str:
+    existing = cookie_token(AUTH_CSRF_COOKIE, request)
+    return existing or secrets.token_urlsafe(32)
+
+def set_csrf_cookie(response: Response, request: Optional[Request] = None, token: str = "") -> str:
+    value = str(token or csrf_value(request)).strip()
+    response.set_cookie(AUTH_CSRF_COOKIE, value, max_age=max(300, AUTH_CSRF_COOKIE_MAX_AGE), **csrf_cookie_args(httponly=False))
+    return value
+
+def csrf_required(request: Request) -> bool:
+    if request.method.upper() not in CSRF_PROTECTED_METHODS:
+        return False
+    if request.url.path in CSRF_EXEMPT_PATHS:
+        return False
+    if str(request.headers.get("authorization") or "").strip():
+        return False
+    return session_cookie_present(request)
+
+def csrf_valid(request: Request) -> bool:
+    cookie = cookie_token(AUTH_CSRF_COOKIE, request)
+    header = str(request.headers.get(AUTH_CSRF_HEADER) or "").strip()
+    return bool(cookie and header and secrets.compare_digest(cookie, header))
+
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str = "", access_max_age: Optional[int] = None) -> None:
+    common = csrf_cookie_args(httponly=True)
     response.set_cookie(AUTH_ACCESS_COOKIE, access_token, max_age=max(60, int(access_max_age or AUTH_ACCESS_COOKIE_MAX_AGE)), **common)
     if refresh_token:
         response.set_cookie(AUTH_REFRESH_COOKIE, refresh_token, max_age=max(300, AUTH_REFRESH_COOKIE_MAX_AGE), **common)
+    set_csrf_cookie(response)
 
 def clear_auth_cookies(response: Response) -> None:
     common = {"path": "/"}
@@ -334,6 +398,7 @@ def clear_auth_cookies(response: Response) -> None:
         common["domain"] = AUTH_COOKIE_DOMAIN
     response.delete_cookie(AUTH_ACCESS_COOKIE, **common)
     response.delete_cookie(AUTH_REFRESH_COOKIE, **common)
+    response.delete_cookie(AUTH_CSRF_COOKIE, **common)
 
 def client_ip(request: Request) -> str:
     forwarded = str(request.headers.get("x-forwarded-for", "")).split(",")[0].strip()

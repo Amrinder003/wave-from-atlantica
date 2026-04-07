@@ -2437,6 +2437,23 @@ const save=()=>{localStorage.setItem('lm_srv',resolveSrv(App.srv));localStorage.
 const saveCart=()=>localStorage.setItem('lm_cart',JSON.stringify(App.cart));
 const saveCardVariantSelections=()=>localStorage.setItem('lm_card_variant_selections',JSON.stringify(App.cardVariantSelections||{}));
 const tok=()=>App.user?'cookie':'';
+const CSRF_COOKIE='wave_csrf';
+const CSRF_HEADER='X-CSRF-Token';
+function cookieValue(name=''){
+  const needle=`${String(name||'').trim()}=`;
+  if(!needle || needle==='=') return '';
+  return document.cookie.split(';').map(part=>part.trim()).find(part=>part.startsWith(needle))?.slice(needle.length)||'';
+}
+function csrfToken(){
+  return cookieValue(CSRF_COOKIE);
+}
+function withCsrfHeader(headers={},method='GET'){
+  const next={...(headers||{})};
+  if(!/^(POST|PUT|PATCH|DELETE)$/i.test(String(method||'GET'))) return next;
+  const token=csrfToken();
+  if(token && !next[CSRF_HEADER] && !next['x-csrf-token']) next[CSRF_HEADER]=token;
+  return next;
+}
 function esc(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function slugify(v,max=60){
   const s=String(v||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').replace(/-{2,}/g,'-');
@@ -3625,11 +3642,13 @@ function formatDate(ts){
    API
 ═════════════════════════════════════════════ */
 async function api(path,opts={}){
-  const h={...(opts.headers||{})};
+  const method=String(opts.method||'GET').toUpperCase();
+  const baseHeaders={...(opts.headers||{})};
   const primaryBase=resolveSrv(App.srv);
   const fallbackBase=resolveSrv(window.location.origin);
   async function fetchJson(base,retryAuth=true){
-    const r=await fetch(`${base}${path}`,{...opts,headers:h,credentials:'include'});
+    const headers=withCsrfHeader(baseHeaders,method);
+    const r=await fetch(`${base}${path}`,{...opts,method,headers,credentials:'include'});
     let d;try{d=await r.json();}catch{d=null;}
     if(r.status===401 && opts.auth && retryAuth && !String(path||'').startsWith('/auth/refresh')){
       const refreshed=await refreshBrowserSession(base);
@@ -3664,10 +3683,11 @@ async function api(path,opts={}){
 
 async function refreshBrowserSession(base=resolveSrv(App.srv)){
   try{
-    const r=await fetch(`${base}/auth/refresh`,{method:'POST',credentials:'include'});
+    const csrf=csrfToken();
+    const r=await fetch(`${base}/auth/refresh`,{method:'POST',credentials:'include',headers:csrf?{[CSRF_HEADER]:csrf}:{}});
     let d;try{d=await r.json();}catch{d=null;}
     if(!r.ok){
-      try{await fetch(`${base}/auth/logout`,{method:'POST',credentials:'include'});}catch{}
+      try{await fetch(`${base}/auth/logout`,{method:'POST',credentials:'include',headers:csrf?{[CSRF_HEADER]:csrf}:{}});}catch{}
       return false;
     }
     if(d?.email) saveUser(d);
