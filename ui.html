@@ -386,7 +386,7 @@ a{color:inherit;text-decoration:none}
 .map-sheet-bg{position:fixed;inset:0;background:rgba(15,23,42,.34);backdrop-filter:blur(6px);z-index:460;display:none;align-items:stretch;justify-content:stretch;padding:0}
 .map-sheet-bg.on{display:flex}
 .map-sheet{position:relative;width:100vw;width:100dvw;height:100vh;height:100dvh;overflow:hidden;border-radius:0;border:none;background:linear-gradient(180deg,#f8f1e4,#eadbc6);box-shadow:none}
-.map-sheet-side{position:absolute;left:0;right:0;top:0;z-index:3;display:grid;grid-template-columns:minmax(280px,440px) minmax(180px,250px);justify-content:space-between;align-items:start;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0;pointer-events:none}
+.map-sheet-side{position:absolute;left:0;right:0;top:0;z-index:6;display:grid;grid-template-columns:minmax(280px,440px) minmax(180px,250px);justify-content:space-between;align-items:start;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0;pointer-events:none}
 .map-sheet-head{display:grid;gap:8px;min-width:0;padding:14px 14px 12px;border-radius:24px;background:linear-gradient(180deg,rgba(255,253,248,.92),rgba(246,239,227,.84));border:1px solid rgba(191,174,149,.32);box-shadow:0 16px 36px rgba(18,23,34,.14);backdrop-filter:blur(12px);pointer-events:auto}
 .map-sheet-kicker{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2)}
 .map-sheet-title{font-family:'Sora',sans-serif;font-size:24px;font-weight:800;letter-spacing:-.05em;line-height:1.02}
@@ -394,7 +394,7 @@ a{color:inherit;text-decoration:none}
 .map-sheet-actions{display:flex;gap:6px;flex-wrap:wrap}
 .map-sheet-actions .btn{white-space:nowrap}
 .map-sheet-status{padding:10px 12px;border:none;border-radius:18px;font-size:11px;line-height:1.55;color:var(--ink2);background:linear-gradient(180deg,rgba(255,253,248,.92),rgba(246,239,227,.88));border:1px solid rgba(191,174,149,.32);box-shadow:0 14px 30px rgba(18,23,34,.12);backdrop-filter:blur(12px);pointer-events:auto}
-.map-sheet-list{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateX(-50%);width:min(980px,calc(100% - 32px));display:none;gap:10px;overflow-x:auto;overflow-y:hidden;padding:8px;border-radius:28px;background:linear-gradient(180deg,rgba(255,253,248,.94),rgba(246,239,227,.88));border:1px solid rgba(191,174,149,.34);box-shadow:0 18px 38px rgba(48,33,15,.12);backdrop-filter:blur(12px);scrollbar-width:none;-ms-overflow-style:none;z-index:2;pointer-events:auto}
+.map-sheet-list{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateX(-50%);width:min(980px,calc(100% - 32px));display:none;gap:10px;overflow-x:auto;overflow-y:hidden;padding:8px;border-radius:28px;background:linear-gradient(180deg,rgba(255,253,248,.94),rgba(246,239,227,.88));border:1px solid rgba(191,174,149,.34);box-shadow:0 18px 38px rgba(48,33,15,.12);backdrop-filter:blur(12px);scrollbar-width:none;-ms-overflow-style:none;z-index:4;pointer-events:auto}
 .map-sheet-list.on{display:flex}
 .map-sheet-list::-webkit-scrollbar{display:none}
 .map-spot-card{min-width:238px;max-width:238px;display:grid;gap:10px;padding:12px 12px 11px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(250,245,237,.92));border:1px solid rgba(191,174,149,.28);box-shadow:0 12px 28px rgba(48,33,15,.08);cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;background-clip:padding-box}
@@ -411,9 +411,9 @@ a{color:inherit;text-decoration:none}
 .map-spot-card-chips{display:flex;flex-wrap:wrap;gap:6px}
 .map-spot-card-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:rgba(255,250,242,.9);border:1px solid rgba(191,174,149,.26);font-size:10px;font-weight:800;color:var(--ink2)}
 .map-spot-card-visit{padding-inline:10px}
-.map-sheet-mapwrap{position:absolute;inset:0;min-width:0;min-height:0;height:100%;overflow:hidden;background:linear-gradient(180deg,#f6efe3,#eadbc6)}
-.map-sheet-canvas{position:relative;width:100%;height:100%;min-height:100%}
-.map-sheet-floating{position:absolute;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 126px);display:grid;gap:8px;justify-items:start;align-content:end;pointer-events:none;max-width:min(420px,calc(100% - 32px));transition:opacity .2s ease,transform .2s ease}
+.map-sheet-mapwrap{position:absolute;inset:0;min-width:0;min-height:0;height:100%;overflow:hidden;background:linear-gradient(180deg,#f6efe3,#eadbc6);isolation:isolate}
+.map-sheet-canvas{position:relative;width:100%;height:100%;min-height:100%;z-index:1}
+.map-sheet-floating{position:absolute;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 126px);display:grid;gap:8px;justify-items:start;align-content:end;pointer-events:none;max-width:min(420px,calc(100% - 32px));transition:opacity .2s ease,transform .2s ease;z-index:5}
 .map-sheet-floating > *{pointer-events:auto}
 .map-sheet-floating.hidden{opacity:0;transform:translateY(10px)}
 .map-sheet-floating.hidden > *{pointer-events:none}
@@ -423,7 +423,7 @@ a{color:inherit;text-decoration:none}
 .map-sheet.compact .map-sheet-kicker,.map-sheet.compact .map-sheet-copy,.map-sheet.compact .map-sheet-status{display:none}
 .map-sheet.compact .map-sheet-title{font-size:18px}
 .map-sheet.compact .map-sheet-actions{gap:6px}
-.map-sheet-empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:24px;text-align:center;background:linear-gradient(180deg,rgba(255,253,248,.94),rgba(246,239,227,.92))}
+.map-sheet-empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:24px;text-align:center;background:linear-gradient(180deg,rgba(255,253,248,.94),rgba(246,239,227,.92));z-index:7}
 .map-sheet-empty.on{display:flex}
 .map-empty-card{max-width:420px;display:grid;gap:10px;padding:24px;border-radius:26px;background:rgba(255,255,255,.86);border:1px solid rgba(191,174,149,.32);box-shadow:0 20px 40px rgba(48,33,15,.1)}
 .map-empty-title{font-family:'Sora',sans-serif;font-size:20px;font-weight:800}
@@ -2553,6 +2553,47 @@ function mapDirectionsUrl(shop={}){
     : '';
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}${origin}`;
 }
+function mapPopupOptions(offsetY=-22){
+  const mobile=window.innerWidth<=560;
+  return {
+    closeButton:true,
+    autoClose:false,
+    offset:[0,offsetY],
+    className:'wave-map-popup-shell',
+    autoPan:true,
+    autoPanPaddingTopLeft:[20,mobile?110:92],
+    autoPanPaddingBottomRight:[20,mobile?214:168]
+  };
+}
+function bindMapPopupActions(marker){
+  const popupEl=marker?.getPopup?.()?.getElement?.();
+  if(!popupEl) return;
+  if(window.L?.DomEvent){
+    L.DomEvent.disableClickPropagation(popupEl);
+    L.DomEvent.disableScrollPropagation(popupEl);
+    ['mousedown','mouseup','click','dblclick','touchstart','touchend','pointerdown','pointerup'].forEach(evt=>{
+      L.DomEvent.on(popupEl,evt,L.DomEvent.stopPropagation);
+    });
+  }
+  popupEl.querySelectorAll('[data-map-action]').forEach(btn=>{
+    if(btn.dataset.boundMapAction==='1') return;
+    btn.dataset.boundMapAction='1';
+    const triggerAction=e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      const now=Date.now();
+      const last=Number(e.currentTarget?.dataset?.lastMapActionTs||0);
+      if(now-last<320) return;
+      e.currentTarget.dataset.lastMapActionTs=String(now);
+      const action=e.currentTarget?.dataset?.mapAction||'';
+      const ref=e.currentTarget?.dataset?.shopRef||'';
+      if(action==='visit') window.visitShopFromMap(ref);
+      else if(action==='directions') window.openDirectionsFromMap(ref);
+    };
+    btn.addEventListener('pointerup',triggerAction);
+    btn.addEventListener('click',triggerAction);
+  });
+}
 function visibleHomeShops(){
   let shops=[...(App.allShops||[])];
   if(App.activeCat) shops=shops.filter(s=>`${s.name||''} ${s.overview||''} ${s.category||''}`.toLowerCase().includes(App.activeCat.toLowerCase()));
@@ -2697,8 +2738,8 @@ function mapPopupHtml(shop={}){
       <div class="wave-map-popup-copy">${esc((shop.overview||'Open the shop page to browse products, ask questions, and see what this shop offers.').slice(0,140))}</div>
       <div class="wave-map-popup-meta">${chips}</div>
       <div class="wave-map-popup-actions">
-        <button class="btn btn-A btn-sm" type="button" onclick="window.visitShopFromMap('${esc(ref)}')">Visit Shop</button>
-        ${directionsRef?`<button class="btn btn-o btn-sm" type="button" onclick="window.openDirectionsFromMap('${esc(directionsRef)}')">Directions</button>`:''}
+        <button class="btn btn-A btn-sm" type="button" data-map-action="visit" data-shop-ref="${esc(ref)}">Visit Shop</button>
+        ${directionsRef?`<button class="btn btn-o btn-sm" type="button" data-map-action="directions" data-shop-ref="${esc(directionsRef)}">Directions</button>`:''}
       </div>
     </div>`;
 }
@@ -3044,7 +3085,8 @@ function focusMapShop(shop={}){
   App.mapSheet.focusScrollRequested=true;
   App.mapSheet.map.flyTo([Number(shop.latitude),Number(shop.longitude)],15,{duration:0.8});
   if(popupEntry?.popup){
-    popupEntry.marker.bindPopup(mapPopupHtml(shop),{closeButton:true,autoClose:false}).openPopup();
+    popupEntry.marker.bindPopup(mapPopupHtml(shop),mapPopupOptions(-22)).openPopup();
+    bindMapPopupActions(popupEntry.marker);
   }
   refreshMapSpotCards();
 }
@@ -3081,7 +3123,7 @@ function renderMapMarkers(shops=[],focusShopId=''){
         popupAnchor:[0,-26]
       });
       const marker=L.marker([avgLat,avgLng],{icon}).addTo(App.mapSheet.map);
-      marker.bindPopup(clusterPopupHtml(clusterShops),{closeButton:true,autoClose:false,offset:[0,-24],className:'wave-map-popup-shell'});
+      marker.bindPopup(clusterPopupHtml(clusterShops),mapPopupOptions(-24));
       marker.on('mouseover',()=>marker.openPopup());
       marker.on('mouseout',()=>marker.closePopup());
       marker.on('click',(e)=>{
@@ -3100,10 +3142,11 @@ function renderMapMarkers(shops=[],focusShopId=''){
     const icon=L.divIcon({className:'',html:el.outerHTML,iconSize:isFocus?[42,52]:[42,52],iconAnchor:[21,50],popupAnchor:[0,-42]});
     const marker=L.marker([Number(shop.latitude),Number(shop.longitude)],{icon}).addTo(App.mapSheet.map);
     const markerKey=shop.shop_id || shopPublicRef(shop);
-    marker.bindPopup(mapPopupHtml(shop),{closeButton:true,autoClose:false,offset:[0,-22],className:'wave-map-popup-shell'});
+    marker.bindPopup(mapPopupHtml(shop),mapPopupOptions(-22));
     marker.on('mouseover',()=>marker.openPopup());
     marker.on('mouseout',()=>{ if(App.mapSheet.pinnedPopupKey!==markerKey) marker.closePopup(); });
     marker.on('popupopen',()=>{
+      bindMapPopupActions(marker);
       App.mapSheet.focusShopId=shopPublicRef(shop) || shop.shop_id || '';
       refreshMapSpotCards();
     });
@@ -3158,13 +3201,13 @@ async function ensureMapSheetBase(){
       (App.mapSheet.markers||[]).forEach(entry=>{ try{entry.marker.closePopup();}catch{} });
       refreshMapSpotCards();
     });
-    App.mapSheet.map.on('movestart zoomstart dragstart',()=>setMapSheetFloatingHidden(true));
+    App.mapSheet.map.on('movestart zoomstart dragstart',()=>setMapSheetFloatingHidden(false));
     App.mapSheet.map.on('moveend dragend',()=>{
-      setMapSheetFloatingHidden(false,240);
+      setMapSheetFloatingHidden(false);
       refreshMapSpotCards();
     });
     App.mapSheet.map.on('zoomend',()=>{
-      setMapSheetFloatingHidden(false,240);
+      setMapSheetFloatingHidden(false);
       refreshMapClustersOnly();
     });
     App.mapSheet.loaded=true;

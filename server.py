@@ -18,6 +18,13 @@ from typing import Any, Dict, List, Optional, Tuple
 from io import StringIO
 from email.message import EmailMessage
 from supabase import create_client, Client
+try:
+    from supabase.lib.client_options import ClientOptions
+except Exception:
+    try:
+        from supabase.client import ClientOptions  # type: ignore
+    except Exception:
+        ClientOptions = None  # type: ignore
 from zoneinfo import ZoneInfo
 
 try:
@@ -119,7 +126,19 @@ SECURITY_CSP = "; ".join([
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY.")
-supabase: Optional[Client] = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+def make_supabase_client(key: str) -> Optional[Client]:
+    if not SUPABASE_URL or not key:
+        return None
+    if ClientOptions is None:
+        return create_client(SUPABASE_URL, key)
+    return create_client(
+        SUPABASE_URL,
+        key,
+        options=ClientOptions(auto_refresh_token=False, persist_session=False),
+    )
+
+supabase: Optional[Client] = make_supabase_client(SUPABASE_KEY)
+supabase_auth: Optional[Client] = make_supabase_client(SUPABASE_KEY)
 FX_CACHE: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
 COUNTRY_META: Dict[str, Dict[str, Any]] = {
@@ -334,6 +353,11 @@ def require_supabase() -> Client:
     if supabase is None:
         raise HTTPException(503, "Server is missing Supabase configuration.")
     return supabase
+
+def require_supabase_auth() -> Client:
+    if supabase_auth is None:
+        raise HTTPException(503, "Server is missing Supabase configuration.")
+    return supabase_auth
 
 def ui_redirect_url() -> str:
     base = (APP_BASE_URL or "http://localhost:8001").strip().rstrip("/")
@@ -2648,8 +2672,8 @@ def serve_shop_image(shop_id: str, filename: str):
 def register(body: RegisterReq, request: Request):
     enforce_rate_limit(request, "auth_register", limit=8, window_seconds=900, key_suffix=clean_email(body.email or "").lower())
     try:
-        require_supabase()
-        supabase.auth.sign_up({
+        auth_client = require_supabase_auth()
+        auth_client.auth.sign_up({
             "email": body.email.strip(),
             "password": body.password,
             "options": {
@@ -2665,7 +2689,8 @@ def register(body: RegisterReq, request: Request):
 def login(body: LoginReq, request: Request, response: Response):
     enforce_rate_limit(request, "auth_login", limit=12, window_seconds=900, key_suffix=clean_email(body.email or "").lower())
     try:
-        res = supabase.auth.sign_in_with_password({"email": body.email, "password": body.password})
+        auth_client = require_supabase_auth()
+        res = auth_client.auth.sign_in_with_password({"email": body.email, "password": body.password})
         user = res.user
         prof = load_profile(user.id)
         access_token = str(getattr(res.session, "access_token", "") or "").strip()
