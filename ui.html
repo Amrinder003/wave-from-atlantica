@@ -447,14 +447,18 @@ a{color:inherit;text-decoration:none}
 .map-sheet-locate-btn:focus-visible{outline:none;border-color:rgba(59,130,246,.4);box-shadow:0 0 0 3px rgba(59,130,246,.14),0 14px 28px rgba(37,99,235,.18)}
 .map-sheet-locate-btn.is-active{background:linear-gradient(180deg,#eff6ff,#dbeafe);border-color:rgba(59,130,246,.28);box-shadow:0 14px 28px rgba(37,99,235,.18)}
 .map-sheet-locate-btn svg{width:22px;height:22px;display:block;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;fill:none}
-.wave-map-pin{width:42px;height:42px;border-radius:18px;background:linear-gradient(180deg,#fff8ef,#f2dfc8);border:1px solid rgba(162,76,46,.28);box-shadow:0 12px 24px rgba(92,47,24,.2);display:grid;place-items:center;position:relative;cursor:pointer}
-.wave-map-pin::after{content:'';position:absolute;left:50%;bottom:-10px;width:14px;height:14px;background:inherit;border-right:1px solid rgba(162,76,46,.28);border-bottom:1px solid rgba(162,76,46,.28);transform:translateX(-50%) rotate(45deg);border-bottom-right-radius:3px}
-.wave-map-pin.focus{transform:scale(1.06)}
-.wave-map-pin-badge{position:relative;z-index:1;width:28px;height:28px;border-radius:999px;background:linear-gradient(180deg,#b25735,#8e3c21);display:grid;place-items:center;color:#fff;font-size:14px;box-shadow:0 8px 18px rgba(92,47,24,.24)}
-.wave-map-pin.user{width:24px;height:24px;border-radius:999px;background:radial-gradient(circle at center,#38bdf8 0 38%,#e0f2fe 40% 70%,rgba(14,165,233,.18) 72% 100%);border:2px solid rgba(255,255,255,.96);box-shadow:0 12px 28px rgba(2,132,199,.32)}
+.wave-map-pin{--pin-scale:1;width:52px;height:52px;border-radius:22px;background:linear-gradient(160deg,#fffdf8 0%,#ffe7c7 54%,#d99050 100%);border:1px solid rgba(126,52,29,.32);box-shadow:0 20px 36px rgba(92,47,24,.24),inset 0 1px 0 rgba(255,255,255,.92),inset 0 -10px 18px rgba(126,52,29,.12);display:grid;place-items:center;position:relative;cursor:pointer;transform-origin:50% 100%;animation:waveMapPinFloat 3.2s ease-in-out infinite;transition:filter .18s ease}
+.wave-map-pin::before{content:'';position:absolute;left:50%;bottom:-24px;width:46px;height:13px;border-radius:999px;background:radial-gradient(ellipse at center,rgba(69,39,18,.24),rgba(69,39,18,.08) 48%,transparent 72%);filter:blur(1px);transform:translateX(-50%);animation:waveMapPinShadow 3.2s ease-in-out infinite;pointer-events:none}
+.wave-map-pin::after{content:'';position:absolute;left:50%;bottom:-12px;width:18px;height:18px;background:linear-gradient(135deg,#e9ad70,#c06c35);border-right:1px solid rgba(126,52,29,.28);border-bottom:1px solid rgba(126,52,29,.28);transform:translateX(-50%) rotate(45deg);border-bottom-right-radius:4px;box-shadow:6px 7px 12px rgba(92,47,24,.12)}
+.wave-map-pin:hover{filter:saturate(1.08) brightness(1.03)}
+.wave-map-pin.focus{--pin-scale:1.12;animation-duration:2.45s}
+.wave-map-pin-badge{position:relative;z-index:1;width:34px;height:34px;border-radius:999px;background:radial-gradient(circle at 30% 22%,#ffd7aa 0 13%,#c8673a 34%,#7e341d 100%);display:grid;place-items:center;color:#fff;font-size:16px;box-shadow:0 10px 20px rgba(92,47,24,.28),inset 0 1px 0 rgba(255,255,255,.28)}
+.wave-map-pin.user{width:24px;height:24px;border-radius:999px;background:radial-gradient(circle at center,#38bdf8 0 38%,#e0f2fe 40% 70%,rgba(14,165,233,.18) 72% 100%);border:2px solid rgba(255,255,255,.96);box-shadow:0 12px 28px rgba(2,132,199,.32);animation:none}
+.wave-map-pin.user::before{content:'';position:absolute;inset:-10px;width:auto;height:auto;border-radius:999px;background:rgba(56,189,248,.18);border:1px solid rgba(14,165,233,.24);filter:none;transform:none;animation:waveUserLocationPulse 1.9s ease-out infinite}
 .wave-map-pin.user::after{display:none}
-.wave-map-cluster{width:58px;height:58px;border-radius:999px;display:grid;place-items:center;background:radial-gradient(circle at center,rgba(162,76,46,.94),rgba(126,52,29,.98));border:3px solid rgba(255,250,242,.95);box-shadow:0 16px 34px rgba(92,47,24,.28);position:relative;cursor:pointer}
-.wave-map-cluster::after{content:'';position:absolute;inset:7px;border-radius:999px;border:1px solid rgba(255,244,232,.26)}
+.wave-map-cluster{width:62px;height:62px;border-radius:999px;display:grid;place-items:center;background:radial-gradient(circle at 35% 28%,#ffd6a3 0 12%,#b25735 38%,#7e341d 100%);border:3px solid rgba(255,250,242,.98);box-shadow:0 18px 38px rgba(92,47,24,.3),inset 0 1px 0 rgba(255,255,255,.26);position:relative;cursor:pointer;transition:transform .18s ease,filter .18s ease}
+.wave-map-cluster:hover{transform:translateY(-2px) scale(1.03);filter:saturate(1.08)}
+.wave-map-cluster::after{content:'';position:absolute;inset:7px;border-radius:999px;border:1px solid rgba(255,244,232,.3)}
 .wave-map-cluster-count{position:relative;z-index:1;font-family:'Sora',sans-serif;font-size:18px;font-weight:800;color:#fff;letter-spacing:-.04em}
 .wave-map-popup{display:grid;gap:8px;min-width:220px}
 .wave-map-popup-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.15}
@@ -468,11 +472,27 @@ a{color:inherit;text-decoration:none}
 .map-sheet-canvas .leaflet-top.leaflet-left{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 126px);left:auto;right:16px}
 .leaflet-container{font-family:'Inter',sans-serif;background:linear-gradient(180deg,#f6efe3,#eadbc6)}
 .map-sheet-canvas .leaflet-map-pane,.map-sheet-canvas .leaflet-tile-pane{will-change:transform}
+.map-sheet-canvas .leaflet-tile{filter:saturate(1.12) contrast(1.04) brightness(1.02) sepia(.06)}
 .leaflet-control-zoom a{color:var(--ink2)!important}
 .leaflet-popup-content-wrapper{border-radius:20px!important;padding:0!important;box-shadow:0 18px 36px rgba(48,33,15,.16)!important;border:1px solid rgba(191,174,149,.28);background:rgba(255,253,248,.98)!important}
 .leaflet-popup-content{margin:14px!important}
 .leaflet-popup-tip{background:rgba(255,253,248,.98)!important}
 .leaflet-popup-close-button{font-size:18px!important;color:var(--ink3)!important;padding:6px 10px!important}
+@keyframes waveMapPinFloat{
+  0%,100%{transform:translateY(0) scale(var(--pin-scale))}
+  50%{transform:translateY(-6px) scale(var(--pin-scale))}
+}
+@keyframes waveMapPinShadow{
+  0%,100%{opacity:.7;transform:translateX(-50%) scale(1)}
+  50%{opacity:.38;transform:translateX(-50%) scale(.76)}
+}
+@keyframes waveUserLocationPulse{
+  0%{opacity:.9;transform:scale(.6)}
+  100%{opacity:0;transform:scale(1.45)}
+}
+@media(prefers-reduced-motion:reduce){
+  .wave-map-pin,.wave-map-pin::before,.wave-map-pin.user::before{animation:none}
+}
 @media(max-width:980px){
   .map-sheet-side{grid-template-columns:minmax(0,1fr);justify-content:stretch;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 14px) 14px 0}
   .map-sheet-copy{max-width:36ch}
@@ -3665,8 +3685,8 @@ function renderMapMarkers(shops=[],focusShopId=''){
       const icon=L.divIcon({
         className:'',
         html:`<div class="wave-map-cluster"><span class="wave-map-cluster-count">${clusterShops.length}</span></div>`,
-        iconSize:[58,58],
-        iconAnchor:[29,29],
+        iconSize:[62,62],
+        iconAnchor:[31,31],
         popupAnchor:[0,-26]
       });
       const marker=L.marker([avgLat,avgLng],{icon}).addTo(App.mapSheet.map);
@@ -3685,7 +3705,7 @@ function renderMapMarkers(shops=[],focusShopId=''){
     const isFocus=shop.shop_id===focusShopId || shopPublicRef(shop)===focusShopId;
     el.className='wave-map-pin'+(isFocus?' focus':'');
     el.innerHTML=`<span class="wave-map-pin-badge">${shopCategoryMapIcon(shop.category)}</span>`;
-    const icon=L.divIcon({className:'',html:el.outerHTML,iconSize:isFocus?[42,52]:[42,52],iconAnchor:[21,50],popupAnchor:[0,-42]});
+    const icon=L.divIcon({className:'',html:el.outerHTML,iconSize:[52,72],iconAnchor:[26,66],popupAnchor:[0,-58]});
     const marker=L.marker([Number(shop.latitude),Number(shop.longitude)],{icon}).addTo(App.mapSheet.map);
     const markerKey=shop.shop_id || shopPublicRef(shop);
     marker.bindPopup(mapPopupHtml(shop),mapPopupOptions(-22));
