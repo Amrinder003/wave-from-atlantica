@@ -442,6 +442,11 @@ a{color:inherit;text-decoration:none}
 .map-empty-card{max-width:420px;display:grid;gap:10px;padding:24px;border-radius:26px;background:rgba(255,255,255,.86);border:1px solid rgba(191,174,149,.32);box-shadow:0 20px 40px rgba(48,33,15,.1)}
 .map-empty-title{font-family:'Sora',sans-serif;font-size:20px;font-weight:800}
 .map-empty-copy{font-size:13px;color:var(--ink3);line-height:1.7}
+.map-sheet-locate-btn{position:absolute;right:16px;bottom:184px;z-index:6;width:46px;height:46px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(245,237,226,.94));border:1px solid rgba(191,174,149,.42);box-shadow:0 12px 24px rgba(48,33,15,.12);color:#3b82f6;backdrop-filter:blur(10px);transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease,background .16s ease}
+.map-sheet-locate-btn:hover{border-color:rgba(59,130,246,.32);box-shadow:0 14px 28px rgba(37,99,235,.18);transform:translateY(-1px)}
+.map-sheet-locate-btn:focus-visible{outline:none;border-color:rgba(59,130,246,.4);box-shadow:0 0 0 3px rgba(59,130,246,.14),0 14px 28px rgba(37,99,235,.18)}
+.map-sheet-locate-btn.is-active{background:linear-gradient(180deg,#eff6ff,#dbeafe);border-color:rgba(59,130,246,.28);box-shadow:0 14px 28px rgba(37,99,235,.18)}
+.map-sheet-locate-btn svg{width:22px;height:22px;display:block;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;fill:none}
 .wave-map-pin{width:42px;height:42px;border-radius:18px;background:linear-gradient(180deg,#fff8ef,#f2dfc8);border:1px solid rgba(162,76,46,.28);box-shadow:0 12px 24px rgba(92,47,24,.2);display:grid;place-items:center;position:relative;cursor:pointer}
 .wave-map-pin::after{content:'';position:absolute;left:50%;bottom:-10px;width:14px;height:14px;background:inherit;border-right:1px solid rgba(162,76,46,.28);border-bottom:1px solid rgba(162,76,46,.28);transform:translateX(-50%) rotate(45deg);border-bottom-right-radius:3px}
 .wave-map-pin.focus{transform:scale(1.06)}
@@ -488,6 +493,7 @@ a{color:inherit;text-decoration:none}
   .map-sheet-actions .btn{width:100%;min-height:40px;justify-content:center;padding-inline:10px}
   .map-sheet-status{padding:8px 10px;border-radius:15px;font-size:10px;max-width:min(100%,300px)}
   .map-sheet-list{width:calc(100% - 12px);left:6px;right:6px;transform:none;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);padding:6px;border-radius:20px;gap:6px}
+  .map-sheet-locate-btn{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 136px)}
   .map-sheet-list-handle{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + 140px)}
   .map-spot-card{min-width:min(78vw,214px);max-width:min(78vw,214px);padding:10px}
   .map-spot-card-mark{width:38px;height:38px;border-radius:14px;font-size:17px}
@@ -495,11 +501,13 @@ a{color:inherit;text-decoration:none}
   .map-spot-card-copy{font-size:10px}
   .map-sheet-floating{display:none}
   .map-sheet-canvas .leaflet-top.leaflet-left{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 88px)}
+  .map-sheet.list-hidden .map-sheet-locate-btn{bottom:calc(env(safe-area-inset-bottom,0px) + 66px)}
   .map-sheet.list-hidden .map-sheet-list-handle{display:none!important}
   .map-sheet.list-hidden .map-sheet-mini-rail{display:flex}
   .map-sheet.list-hidden .map-sheet-canvas .leaflet-top.leaflet-left{bottom:calc(env(safe-area-inset-bottom,0px) + 60px)}
   .map-sheet.compact .map-sheet-side{left:8px;right:8px;padding-top:calc(env(safe-area-inset-top,0px) + 8px);pointer-events:none}
   .map-sheet.compact .map-sheet-head,.map-sheet.compact .map-sheet-status{opacity:0;visibility:hidden;transform:translateY(-8px);max-height:0;overflow:hidden;padding:0;margin:0;border:none;box-shadow:none}
+  .map-sheet.compact .map-sheet-locate-btn{bottom:calc(env(safe-area-inset-bottom,0px) + 18px)}
   .map-sheet.compact .map-sheet-canvas .leaflet-top.leaflet-left{bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}
 }
 @media(max-width:420px){
@@ -717,6 +725,7 @@ a{color:inherit;text-decoration:none}
 .auth-box{background:linear-gradient(180deg,rgba(255,253,248,.99),rgba(246,239,227,.95));border-radius:32px;box-shadow:var(--s4);width:min(440px,100%);overflow:hidden;animation:pop .2s ease;border:1px solid rgba(191,174,149,.34)}
 .auth-head{padding:22px 24px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .auth-title{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.04em}
+.auth-sub{font-size:13px;line-height:1.65;color:var(--ink3);margin-top:4px}
 .auth-close{font-size:20px;cursor:pointer;color:var(--ink3);padding:4px 8px;border-radius:999px;transition:.12s}
 .auth-close:hover{background:rgba(255,255,255,.8);color:var(--ink)}
 .auth-tabs{display:flex;border-bottom:1px solid var(--bd);margin:0 22px;gap:0}
@@ -729,6 +738,19 @@ a{color:inherit;text-decoration:none}
 .verify-notice strong{display:block;font-weight:700;margin-bottom:3px}
 .auth-mini-link{font-size:12px;font-weight:700;color:var(--A2);text-align:center;cursor:pointer}
 .auth-mini-link:hover{text-decoration:underline}
+.location-prompt-bg{z-index:490}
+.location-prompt-box{width:min(420px,100%)}
+.location-prompt-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2);margin-bottom:6px}
+.location-prompt-body{padding:4px 22px 22px;display:grid;gap:14px}
+.location-prompt-hero{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.location-prompt-icon{width:52px;height:52px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(180deg,#eff6ff,#dbeafe);border:1px solid rgba(59,130,246,.18);box-shadow:0 12px 24px rgba(37,99,235,.12);color:#2563eb}
+.location-prompt-icon svg{width:26px;height:26px;display:block;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.location-prompt-note{font-size:13px;line-height:1.65;color:var(--ink2)}
+.location-prompt-steps{display:grid;gap:8px;padding-left:18px;margin:0;font-size:13px;line-height:1.6;color:var(--ink2)}
+.location-prompt-steps li{padding-left:2px}
+.location-prompt-meta{font-size:12px;color:var(--ink3);line-height:1.6}
+.location-prompt-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.location-prompt-actions .btn{min-height:42px}
 
 /* ── USER PROFILE PANEL ── */
 .profile-bg{position:fixed;inset:0;background:rgba(15,23,42,.4);backdrop-filter:blur(4px);z-index:420;display:none;align-items:flex-start;justify-content:flex-end;padding-top:70px}
@@ -1232,6 +1254,10 @@ a{color:inherit;text-decoration:none}
   .auth-title{font-size:20px}
   .auth-tabs{margin:0 14px}
   .auth-tab{flex:1;text-align:center;padding:11px 10px;font-size:13px}
+  .location-prompt-body{gap:12px}
+  .location-prompt-hero{grid-template-columns:1fr}
+  .location-prompt-actions{flex-direction:column-reverse}
+  .location-prompt-actions .btn{width:100%;justify-content:center}
   .auth-form,.auth-body{padding:14px 14px calc(16px + env(safe-area-inset-bottom,0px))!important}
   .btn,.nav-btn,.nav-search-btn,.shop-search-btn,.sort-sel,.chat-side-close{min-height:44px}
   .nav-search input,
@@ -2372,6 +2398,16 @@ a{color:inherit;text-decoration:none}
         <div id="mapSheetFloatingMeta" class="map-floating-chip">Shops with map pins</div>
         <div id="mapSheetFloatingHint" class="map-floating-chip">Tap a pin to preview the shop</div>
       </div>
+      <button id="mapSheetLocateBtn" class="map-sheet-locate-btn" type="button" aria-label="Go to my location" title="Go to my location">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="5.5"></circle>
+          <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"></circle>
+          <path d="M12 2v3"></path>
+          <path d="M12 19v3"></path>
+          <path d="M2 12h3"></path>
+          <path d="M19 12h3"></path>
+        </svg>
+      </button>
       <button id="mapSheetListCollapseBtn" class="map-sheet-list-handle" type="button" aria-label="Collapse shop bar" title="Collapse shop bar">
         <span class="map-sheet-list-handle-grip" aria-hidden="true"></span>
         <span class="map-sheet-list-handle-icon" aria-hidden="true">
@@ -2397,6 +2433,40 @@ a{color:inherit;text-decoration:none}
           <div class="map-empty-title" id="mapSheetEmptyTitle">Map unavailable</div>
           <div class="map-empty-copy" id="mapSheetEmptyCopy">Map support is not configured yet for this deployment.</div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="locationPromptBg" class="auth-bg location-prompt-bg" aria-hidden="true">
+  <div class="auth-box location-prompt-box" role="dialog" aria-modal="true" aria-labelledby="locationPromptTitle">
+    <div class="auth-head">
+      <div>
+        <div class="location-prompt-kicker">Location</div>
+        <div class="auth-title" id="locationPromptTitle">Use your location?</div>
+        <div class="auth-sub" id="locationPromptCopy">Turn on location to show shop distances and jump to your place on the map.</div>
+      </div>
+      <button id="locationPromptClose" class="auth-close" type="button" aria-label="Close location prompt">×</button>
+    </div>
+    <div class="auth-body location-prompt-body">
+      <div class="location-prompt-hero">
+        <div class="location-prompt-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <circle cx="12" cy="12" r="5.5"></circle>
+            <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"></circle>
+            <path d="M12 2v3"></path>
+            <path d="M12 19v3"></path>
+            <path d="M2 12h3"></path>
+            <path d="M19 12h3"></path>
+          </svg>
+        </div>
+        <div class="location-prompt-note" id="locationPromptNote">Allow location and the site will show exact shop distances from you. If you skip it, the cards stay clean and no distance is shown.</div>
+      </div>
+      <ol id="locationPromptSteps" class="location-prompt-steps" style="display:none"></ol>
+      <div id="locationPromptMeta" class="location-prompt-meta"></div>
+      <div class="location-prompt-actions">
+        <button id="locationPromptSecondary" class="btn btn-g btn-sm" type="button">Not now</button>
+        <button id="locationPromptPrimary" class="btn btn-A" type="button">Use My Location</button>
       </div>
     </div>
   </div>
@@ -2487,6 +2557,13 @@ const App = {
   pdVariantSelection: {},
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
   mapSupport: null,
+  locationUi: {
+    permission: 'unknown',
+    statusHandle: null,
+    introDismissed: (()=>{ try{return sessionStorage.getItem('wave_location_intro_dismissed')==='1';}catch{return false;} })(),
+    promptMode: 'intro',
+    centerMapOnGrant: false
+  },
   mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',previewMode:'',previewDismissedKey:'',previewTimer:null,suppressPopupEvents:false,compact:window.innerWidth<=560,responsiveCompact:window.innerWidth<=560,listHidden:false,floatingHidden:false,floatingTimer:null,viewportTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false},
   chatShopId: '',
   chatContextToken: 0,
@@ -2738,6 +2815,154 @@ function requestCurrentPosition(options){
     );
   });
 }
+function rememberLocationIntroDismissed(){
+  App.locationUi.introDismissed=true;
+  try{ sessionStorage.setItem('wave_location_intro_dismissed','1'); }catch{}
+}
+function locationPromptSteps(){
+  if(window.matchMedia('(max-width: 920px)').matches){
+    return [
+      'Tap the site settings icon in your browser address bar.',
+      'Open Permissions or Site settings for this website.',
+      'Set Location to Allow, then return here and press Try again.'
+    ];
+  }
+  return [
+    'Click the lock or site settings icon next to the address bar.',
+    'Open Site settings or Permissions for this website.',
+    'Set Location to Allow, then return here and press Try again.'
+  ];
+}
+function closeLocationPrompt(){
+  $('locationPromptBg')?.classList.remove('on');
+  $('locationPromptBg')?.setAttribute('aria-hidden','true');
+}
+function openLocationPrompt(mode='intro',opts={}){
+  App.locationUi.promptMode=mode;
+  App.locationUi.centerMapOnGrant=!!opts.centerMap;
+  const title=$('locationPromptTitle');
+  const copy=$('locationPromptCopy');
+  const note=$('locationPromptNote');
+  const meta=$('locationPromptMeta');
+  const steps=$('locationPromptSteps');
+  const primary=$('locationPromptPrimary');
+  const secondary=$('locationPromptSecondary');
+  if(!title || !copy || !note || !meta || !steps || !primary || !secondary) return;
+  steps.innerHTML='';
+  steps.style.display='none';
+  secondary.style.display='';
+  if(mode==='denied'){
+    title.textContent='Location is blocked';
+    copy.textContent='Allow location for this site in your browser settings to show distance and center the map on you.';
+    note.textContent='Browsers do not let websites open the permission settings directly, so use the site settings control in your address bar.';
+    meta.textContent='After you change it to Allow, come back and press Try again.';
+    locationPromptSteps().forEach(text=>{
+      const item=document.createElement('li');
+      item.textContent=text;
+      steps.appendChild(item);
+    });
+    steps.style.display='grid';
+    primary.textContent='Try Again';
+    primary.dataset.action='retry';
+    secondary.textContent='Close';
+    secondary.dataset.action='close';
+  }else if(mode==='unsupported'){
+    title.textContent='Location is unavailable';
+    copy.textContent='This browser cannot provide location access for this site right now.';
+    note.textContent='You can keep browsing normally, but distance labels and the map recenter control will stay off.';
+    meta.textContent='Location access also requires HTTPS in supported browsers.';
+    primary.textContent='Close';
+    primary.dataset.action='close';
+    secondary.style.display='none';
+  }else{
+    title.textContent='Use your location?';
+    copy.textContent='Turn on location to show shop distances and jump to your place on the map.';
+    note.textContent='If you skip it, the site keeps working normally and simply hides distance labels.';
+    meta.textContent='The browser will ask for permission only after you press the button below.';
+    primary.textContent='Use My Location';
+    primary.dataset.action='request';
+    secondary.textContent='Not now';
+    secondary.dataset.action='dismiss';
+  }
+  $('locationPromptBg')?.classList.add('on');
+  $('locationPromptBg')?.setAttribute('aria-hidden','false');
+}
+async function queryLocationPermissionState(){
+  if(!navigator.permissions?.query) return App.locationUi.permission || 'unknown';
+  try{
+    const status=await navigator.permissions.query({name:'geolocation'});
+    App.locationUi.permission=status.state||'unknown';
+    if(App.locationUi.statusHandle!==status){
+      if(App.locationUi.statusHandle) App.locationUi.statusHandle.onchange=null;
+      App.locationUi.statusHandle=status;
+      status.onchange=()=>{
+        App.locationUi.permission=status.state||'unknown';
+        if(status.state==='granted'){
+          requestPreciseUserLocation({showPromptOnFailure:false,silent:true,centerMap:false}).catch(()=>{});
+        }else if(status.state==='denied'){
+          clearPreciseUserLocation();
+        }
+        syncMapSheetChrome();
+      };
+    }
+    return App.locationUi.permission;
+  }catch{
+    return App.locationUi.permission || 'unknown';
+  }
+}
+function clearPreciseUserLocation(){
+  App.mapSheet.userLocation=null;
+  if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
+  renderHomeShops();
+  if($('mapSheetBg')?.classList.contains('on') && App.mapSheet.map) rerenderCurrentMapSheet();
+  else syncMapSheetChrome();
+}
+function focusMapOnUserLocation(loc=null,zoom=14){
+  const source=loc || App.mapSheet.userLocation || null;
+  if(!App.mapSheet.map || !hasExactUserLocation(source)) return;
+  const nextZoom=Math.max(Number(App.mapSheet.map.getZoom?.()||0),Number(zoom)||14);
+  App.mapSheet.map.flyTo([Number(source.lat),Number(source.lng)],nextZoom,{duration:0.55});
+}
+async function requestPreciseUserLocation(opts={}){
+  if(!navigator.geolocation){
+    openLocationPrompt('unsupported',{centerMap:opts.centerMap});
+    return {ok:false,reason:'This browser does not support location access.'};
+  }
+  const result=await tryGetUserLocation();
+  if(!result?.ok || !result.loc){
+    await queryLocationPermissionState();
+    if(Number(result?.code||0)===1) App.locationUi.permission='denied';
+    clearPreciseUserLocation();
+    if(opts.showPromptOnFailure!==false && Number(result?.code||0)===1) openLocationPrompt('denied',{centerMap:opts.centerMap});
+    if($('mapSheetBg')?.classList.contains('on')){
+      setMapSheetStatus(result?.reason || 'Your current location could not be determined.');
+    }
+    return result;
+  }
+  App.locationUi.permission='granted';
+  rememberLocationIntroDismissed();
+  closeLocationPrompt();
+  App.mapSheet.userLocation=result.loc;
+  renderHomeShops();
+  if($('mapSheetBg')?.classList.contains('on') && App.mapSheet.map){
+    rerenderCurrentMapSheet();
+    if(opts.centerMap) focusMapOnUserLocation(result.loc,opts.zoom||14);
+    if(!opts.silent) setMapSheetStatus(`Showing your current location on the map${result.loc.accuracy ? ` (about ${Math.round(result.loc.accuracy)} m accuracy)` : ''}.`);
+  }else{
+    syncMapSheetChrome();
+  }
+  return result;
+}
+async function maybeOfferLocationOnLaunch(){
+  const permission=await queryLocationPermissionState();
+  if(permission==='granted'){
+    await requestPreciseUserLocation({showPromptOnFailure:false,silent:true});
+    return;
+  }
+  if((permission==='prompt' || permission==='unknown') && !App.locationUi.introDismissed && $('pg-home')?.classList.contains('show')){
+    openLocationPrompt('intro');
+  }
+}
 async function tryGetUserLocation(){
   if(!navigator.geolocation) return {ok:false,reason:'This browser does not support location access.'};
   const attempts=[
@@ -2756,43 +2981,10 @@ async function tryGetUserLocation(){
   }
   return {ok:false,reason:geolocationErrorMessage(lastErr),code:Number(lastErr?.code||0)};
 }
-async function tryGetApproxLocationFromIP(){
-  try{
-    const res=await fetch('https://ipapi.co/json/',{headers:{'Accept':'application/json'}});
-    if(!res.ok) throw new Error('IP lookup failed');
-    const data=await res.json();
-    const lat=Number(data?.latitude);
-    const lng=Number(data?.longitude);
-    if(!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error('IP lookup returned no coordinates');
-    return {
-      ok:true,
-      loc:{lat,lng,accuracy:null,approximate:true},
-      reason:`Showing an approximate location near ${data?.city || data?.region || data?.country_name || 'your area'}.`
-    };
-  }catch{
-    return {ok:false,reason:'Approximate network-based location is unavailable right now.'};
-  }
-}
 async function locateUserOnMap(){
-  if(!App.mapSheet.map) return;
+  if(!App.mapSheet.map) return {ok:false};
   setMapSheetStatus('Finding your current location...');
-  const result=await tryGetUserLocation();
-  const finalResult=(result?.ok && result?.loc)
-    ? result
-    : (Number(result?.code||0)===1 ? result : await tryGetApproxLocationFromIP());
-  if(!finalResult?.ok || !finalResult.loc){
-    App.mapSheet.userLocation=null;
-    if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
-    renderHomeShops();
-    setMapSheetStatus(result?.reason || finalResult?.reason || 'Your location could not be determined. Check browser location permission and try again.');
-    return;
-  }
-  const loc=finalResult.loc;
-  App.mapSheet.userLocation=loc;
-  renderHomeShops();
-  rerenderCurrentMapSheet();
-  if(loc.approximate) setMapSheetStatus(finalResult.reason || 'Showing an approximate location based on your network.');
-  else setMapSheetStatus(`Showing your current location on the map${loc.accuracy ? ` (about ${Math.round(loc.accuracy)} m accuracy)` : ''}.`);
+  return requestPreciseUserLocation({centerMap:false,showPromptOnFailure:true});
 }
 function mapPopupHtml(shop={}){
   const stats=shop.stats||{};
@@ -2910,7 +3102,7 @@ function syncMapSheetChrome(){
     toolsBtn.classList.toggle('btn-g',compact);
   }
   const nearBtn=$('mapSheetNearBtn');
-  const hasLoc=!!App.mapSheet.userLocation;
+  const hasLoc=hasExactUserLocation();
   const nearOn=hasLoc && App.mapSheet.sort==='nearest';
   if(nearBtn){
     nearBtn.textContent=hasLoc ? (nearOn ? 'Nearest On' : 'Near Me') : 'Near Me';
@@ -2923,6 +3115,13 @@ function syncMapSheetChrome(){
     radiusBtn.textContent=`Radius: ${mapRadiusLabel(App.mapSheet.radiusKm)}`;
     radiusBtn.disabled=false;
     radiusBtn.title=hasLoc ? 'Cycle the distance filter' : 'Use location first, then cycle the distance filter';
+  }
+  const locateBtn=$('mapSheetLocateBtn');
+  if(locateBtn){
+    const exactLoc=hasExactUserLocation();
+    locateBtn.classList.toggle('is-active',exactLoc);
+    locateBtn.title=exactLoc ? 'Go to your current location' : 'Enable location and center the map on you';
+    locateBtn.setAttribute('aria-label',exactLoc ? 'Go to my current location' : 'Enable location');
   }
   const collapseBtn=$('mapSheetListCollapseBtn');
   if(collapseBtn){
@@ -3353,8 +3552,7 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     const active=!!focusShopId && (focusShopId===ref || focusShopId===shop?.shop_id);
     const stats=shop?.stats||{};
     const distanceLabel=mapDistanceLabel(shop);
-    const locationMeta=!distanceLabel && App.mapSheet.mode==='home' ? 'Location unavailable' : '';
-    const metaText=[distanceLabel || locationMeta,shop?.category||'',shop?.city||''].filter(Boolean).slice(0,2).join(' · ') || 'Tap to preview this shop on the map';
+    const metaText=[distanceLabel,shop?.category||'',shop?.city||''].filter(Boolean).slice(0,2).join(' · ') || 'Tap to preview this shop on the map';
     const copyText=(shop?.overview||shopDisplayAddress(shop)||'Open the shop page to browse products and chat with the shop assistant.').slice(0,92);
     const chipText=[
       stats.product_count!=null ? `${stats.product_count} products` : '',
@@ -3608,11 +3806,13 @@ async function openMapSheet(mode='home',focusRef=''){
   if(focusShop && !shops.find(s=>s.shop_id===focusShop.shop_id)) shops.unshift(focusShop);
   App.mapSheet.baseShops=shops.map(shop=>({...shop}));
   if(mode==='home'){
-    const locationResult=await tryGetUserLocation();
-    const finalLocation=(locationResult?.ok && locationResult?.loc)
-      ? locationResult
-      : (Number(locationResult?.code||0)===1 ? locationResult : await tryGetApproxLocationFromIP());
-    App.mapSheet.userLocation=finalLocation?.ok ? finalLocation.loc : null;
+    const permission=await queryLocationPermissionState();
+    if(permission==='granted'){
+      const locationResult=await requestPreciseUserLocation({showPromptOnFailure:false,silent:true});
+      App.mapSheet.userLocation=locationResult?.ok ? locationResult.loc : null;
+    }else{
+      App.mapSheet.userLocation=null;
+    }
   }
   renderHomeShops();
   rerenderCurrentMapSheet();
@@ -3626,22 +3826,36 @@ function closeMapSheet(){
 $('homeMapToggleBtn')?.addEventListener('click',()=>openMapSheet('home'));
 $('mapSheetCompactBtn')?.addEventListener('click',()=>setMapSheetCompact(!App.mapSheet.compact));
 $('mapSheetToolsBtn')?.addEventListener('click',()=>setMapSheetCompact(!App.mapSheet.compact));
+$('mapSheetLocateBtn')?.addEventListener('click',async()=>{
+  if(hasExactUserLocation()){
+    focusMapOnUserLocation(App.mapSheet.userLocation,14);
+    setMapSheetStatus('Centered on your current location.');
+    return;
+  }
+  const permission=await queryLocationPermissionState();
+  if(permission==='denied'){
+    openLocationPrompt('denied',{centerMap:true});
+    setMapSheetStatus('Allow location in your browser settings to center the map on you.');
+    return;
+  }
+  const result=await requestPreciseUserLocation({centerMap:true,zoom:14,showPromptOnFailure:true});
+  if(!result?.ok && result?.reason && Number(result?.code||0)!==1) setMapSheetStatus(result.reason);
+});
 $('mapSheetNearBtn')?.addEventListener('click',async()=>{
-  if(!App.mapSheet.userLocation){
+  if(!hasExactUserLocation()){
+    const result=await requestPreciseUserLocation({centerMap:false,showPromptOnFailure:true});
+    if(!result?.ok) return;
     App.mapSheet.sort='nearest';
-    syncMapSheetChrome();
-    await locateUserOnMap();
+    rerenderCurrentMapSheet();
     return;
   }
   App.mapSheet.sort=App.mapSheet.sort==='nearest'?'default':'nearest';
   rerenderCurrentMapSheet();
 });
 $('mapSheetRadiusBtn')?.addEventListener('click',async()=>{
-  if(!App.mapSheet.userLocation){
-    App.mapSheet.sort='nearest';
-    syncMapSheetChrome();
-    await locateUserOnMap();
-    if(!App.mapSheet.userLocation) return;
+  if(!hasExactUserLocation()){
+    const result=await requestPreciseUserLocation({centerMap:false,showPromptOnFailure:true});
+    if(!result?.ok) return;
   }
   const radiusCycle=[0,2,5,10,25];
   const idx=Math.max(0,radiusCycle.indexOf(Number(App.mapSheet.radiusKm||0)));
@@ -3653,6 +3867,32 @@ $('mapSheetCloseIconBtn')?.addEventListener('click',closeMapSheet);
 $('mapSheetListCollapseBtn')?.addEventListener('click',()=>setMapSheetListHidden(true));
 $('mapSheetMiniExpandBtn')?.addEventListener('click',()=>setMapSheetListHidden(false));
 $('mapSheetBg')?.addEventListener('click',e=>{ if(e.target===$('mapSheetBg')) closeMapSheet(); });
+$('locationPromptClose')?.addEventListener('click',()=>{
+  if(App.locationUi.promptMode==='intro') rememberLocationIntroDismissed();
+  closeLocationPrompt();
+});
+$('locationPromptBg')?.addEventListener('click',e=>{
+  if(e.target!==$('locationPromptBg')) return;
+  if(App.locationUi.promptMode==='intro') rememberLocationIntroDismissed();
+  closeLocationPrompt();
+});
+$('locationPromptSecondary')?.addEventListener('click',()=>{
+  if(($('locationPromptSecondary')?.dataset.action||'')==='dismiss') rememberLocationIntroDismissed();
+  closeLocationPrompt();
+});
+$('locationPromptPrimary')?.addEventListener('click',async()=>{
+  const action=$('locationPromptPrimary')?.dataset.action||'';
+  if(action==='close'){
+    closeLocationPrompt();
+    return;
+  }
+  const result=await requestPreciseUserLocation({
+    centerMap:!!App.locationUi.centerMapOnGrant,
+    zoom:14,
+    showPromptOnFailure:true
+  });
+  if(result?.ok) closeLocationPrompt();
+});
 const COUNTRY_META={
   AU:{name:'Australia',currency:'AUD',regions:['Australian Capital Territory','New South Wales','Northern Territory','Queensland','South Australia','Tasmania','Victoria','Western Australia']},
   BD:{name:'Bangladesh',currency:'BDT',regions:['Barisal','Chattogram','Dhaka','Khulna','Mymensingh','Rajshahi','Rangpur','Sylhet']},
@@ -4541,6 +4781,7 @@ function showPage(pg){
   if(pg!=='shop') setShopMobileSheet('',false);
   if(pg!=='shop') setShopSnapshotModal(false);
   window.scrollTo({top:0,behavior:'smooth'});
+  if(pg==='home') setTimeout(()=>maybeOfferLocationOnLaunch().catch(()=>{}),0);
 }
 function goHome(){App.activeCat='';App.marketAttrFilter={key:'',value:'',category:''};highlightCat('');showPage('home');setPublicPath(appUiRootPath());}
 function isMobileHomeLayout(){return window.matchMedia('(max-width: 680px)').matches;}
@@ -5946,11 +6187,10 @@ function renderHomeShops(){
     const card=document.createElement('div');card.className='shop-card';
     const ico={'Food':'🍜','Electronics':'📱','Clothing':'👗','Home':'🏠','Beauty':'💄','Sports':'⚽','Books':'📚'}[s.category||'']||'🏪';
     const distanceLabel=hasExactUserLocation(userLoc) ? formatDistanceKm(shopDistanceKm(s,userLoc)) : '';
-    const locationChip=!distanceLabel && !hasExactUserLocation(userLoc) ? '<span class="sc-chip d">Location unavailable</span>' : '';
     card.innerHTML=`<div class="shop-card-banner"><div class="shop-card-mark">${ico}</div>${s.category?`<div class="shop-card-category">${esc(s.category)}</div>`:''}</div>
     <div class="shop-card-body"><div class="shop-card-name">${esc(s.name)}</div><div class="shop-card-addr">📍 ${esc(s.address||'Address coming soon')}</div>
     <div class="shop-card-overview">${esc((s.overview||'Local products, direct shop chat, and quick browsing in one storefront.').slice(0,120))}</div>
-    <div class="shop-card-foot"><span class="sc-chip a">${s.stats?.product_count??0} products</span>${distanceLabel?`<span class="sc-chip d">📍 ${esc(distanceLabel)}</span>`:locationChip}${(s.stats?.avg_rating>0)?`<span class="sc-chip g">★ ${s.stats.avg_rating}</span>`:''}<span class="sc-chip d">${s.stats?.chat_hits_30d??0} chats / 30d</span>${s.is_open_now?`<span class="sc-chip g">Open now</span>`:''}</div></div>`;
+    <div class="shop-card-foot"><span class="sc-chip a">${s.stats?.product_count??0} products</span>${distanceLabel?`<span class="sc-chip d">📍 ${esc(distanceLabel)}</span>`:''}${(s.stats?.avg_rating>0)?`<span class="sc-chip g">★ ${s.stats.avg_rating}</span>`:''}<span class="sc-chip d">${s.stats?.chat_hits_30d??0} chats / 30d</span>${s.is_open_now?`<span class="sc-chip g">Open now</span>`:''}</div></div>`;
     card.addEventListener('click',()=>openShopPage(s.shop_slug||s.shop_id));
     grid.appendChild(card);
   });
@@ -7400,6 +7640,7 @@ async function init(){
     try{const d=await api(withViewerCurrency(`/public/shop/${encodeURIComponent(App.shopId)}`));App.shopData=d;App.chatShopId=d.shop?.shop_slug||d.shop?.shop_id||App.shopId;$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}catch{}
   }
   await handlePathDeepLink('init');
+  await maybeOfferLocationOnLaunch();
 }
 $('shopFilterApply')?.addEventListener('click',()=>{loadAllShops();toggleShopFilters(false);});
 $('shopFilterClear')?.addEventListener('click',()=>{clearShopFilters();loadAllShops();toggleShopFilters(false);});
