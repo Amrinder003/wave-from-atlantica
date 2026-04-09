@@ -467,6 +467,7 @@ a{color:inherit;text-decoration:none}
 .wave-map-popup-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:rgba(255,250,242,.88);border:1px solid rgba(191,174,149,.28);font-size:10px;font-weight:800;color:var(--ink2)}
 .map-sheet-canvas .leaflet-top.leaflet-left{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 126px);left:auto;right:16px}
 .leaflet-container{font-family:'Inter',sans-serif;background:linear-gradient(180deg,#f6efe3,#eadbc6)}
+.map-sheet-canvas .leaflet-map-pane,.map-sheet-canvas .leaflet-tile-pane{will-change:transform}
 .leaflet-control-zoom a{color:var(--ink2)!important}
 .leaflet-popup-content-wrapper{border-radius:20px!important;padding:0!important;box-shadow:0 18px 36px rgba(48,33,15,.16)!important;border:1px solid rgba(191,174,149,.28);background:rgba(255,253,248,.98)!important}
 .leaflet-popup-content{margin:14px!important}
@@ -486,15 +487,16 @@ a{color:inherit;text-decoration:none}
   .map-sheet-tools-btn[aria-expanded="true"]{background:linear-gradient(180deg,#fff1e2,#f3d1a8)!important;border-color:rgba(162,76,46,.36)!important;color:var(--A2)!important}
   .map-sheet-tools-btn svg{width:20px;height:20px;display:block;stroke:currentColor;stroke-width:2.1;stroke-linecap:round}
   .map-sheet-close-icon{width:40px;height:40px;border-radius:999px;display:grid;place-items:center;background:rgba(255,253,248,.94);border:1px solid rgba(191,174,149,.34);box-shadow:0 10px 22px rgba(48,33,15,.08);font-size:22px;line-height:1;color:var(--ink2)}
-  .map-sheet-side{left:10px;right:auto;width:min(218px,calc(100vw - 20px));gap:8px;padding:calc(env(safe-area-inset-top,0px) + 8px) 0 0}
+  .map-sheet-side{left:10px;right:auto;width:min(188px,calc(100vw - 20px));gap:8px;padding:calc(env(safe-area-inset-top,0px) + 8px) 0 0}
   .map-sheet-actions #mapSheetCloseBtn{display:none}
   .map-sheet-kicker,.map-sheet-title,.map-sheet-copy{display:none}
-  .map-sheet-head{width:100%;margin-top:48px;padding:8px;border-radius:18px;gap:6px;background:linear-gradient(180deg,rgba(255,253,248,.96),rgba(246,239,227,.92));box-shadow:0 16px 34px rgba(48,33,15,.13)}
-  .map-sheet-actions{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px}
-  .map-sheet-actions #mapSheetNearBtn{grid-column:1}
-  .map-sheet-actions #mapSheetCompactBtn{grid-column:2;display:grid!important;place-items:center;width:34px;min-width:34px;min-height:34px;padding:0;border-radius:12px;font-size:18px;line-height:1}
-  .map-sheet-actions #mapSheetRadiusBtn{grid-column:1/-1}
-  .map-sheet-actions .btn{width:100%;min-height:34px;justify-content:center;padding-inline:9px;font-size:11px;border-radius:12px}
+  .map-sheet-head{width:100%;margin-top:48px;padding:7px;border-radius:18px;gap:0;background:linear-gradient(180deg,rgba(255,253,248,.97),rgba(246,239,227,.93));box-shadow:0 16px 34px rgba(48,33,15,.13)}
+  .map-sheet-actions{display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:6px;align-items:center}
+  .map-sheet-actions::before{content:'Map tools';grid-column:1;grid-row:1;align-self:center;padding-left:4px;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4);white-space:nowrap}
+  .map-sheet-actions #mapSheetNearBtn{grid-column:1/-1;grid-row:2}
+  .map-sheet-actions #mapSheetCompactBtn{grid-column:2;grid-row:1;display:grid!important;place-items:center;width:30px;min-width:30px;height:30px;min-height:30px;padding:0;border-radius:999px;font-size:18px;line-height:1}
+  .map-sheet-actions #mapSheetRadiusBtn{grid-column:1/-1;grid-row:3}
+  .map-sheet-actions .btn{width:100%;height:34px;min-height:34px;justify-content:center;padding-inline:9px;font-size:11px;border-radius:12px}
   .map-sheet-status{display:none}
   .map-sheet-list{width:calc(100% - 12px);left:6px;right:6px;transform:none;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);padding:6px;border-radius:20px;gap:6px}
   .map-sheet-locate-btn{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 186px)}
@@ -516,8 +518,8 @@ a{color:inherit;text-decoration:none}
   .map-sheet.compact .map-sheet-canvas .leaflet-top.leaflet-left{bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}
 }
 @media(max-width:420px){
-  .map-sheet-side{width:min(204px,calc(100vw - 20px))}
-  .map-sheet-actions{grid-template-columns:minmax(0,1fr) 34px}
+  .map-sheet-side{width:min(182px,calc(100vw - 20px))}
+  .map-sheet-actions{grid-template-columns:minmax(0,1fr) 30px}
   .map-sheet-actions #mapSheetRadiusBtn{grid-column:1/-1}
 }
 .shop-main{padding:18px 22px}
@@ -2575,7 +2577,7 @@ const App = {
     promptMode: 'intro',
     centerMapOnGrant: false
   },
-  mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',previewMode:'',previewDismissedKey:'',previewTimer:null,suppressPopupEvents:false,compact:window.innerWidth<=560,responsiveCompact:window.innerWidth<=560,listHidden:false,floatingHidden:false,floatingTimer:null,viewportTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false},
+  mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',previewMode:'',previewDismissedKey:'',previewTimer:null,moveRefreshTimer:null,suppressPopupEvents:false,compact:window.innerWidth<=560,responsiveCompact:window.innerWidth<=560,listHidden:false,floatingHidden:false,floatingTimer:null,viewportTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false},
   chatShopId: '',
   chatContextToken: 0,
   shopMobileSheet: '',
@@ -3357,6 +3359,19 @@ function scheduleMapShopPreviewSync(delay=140){
     syncMapShopPreview();
   },Math.max(0,Number(delay)||0));
 }
+function scheduleMapMoveRefresh(delay=90){
+  if(App.mapSheet.moveRefreshTimer){
+    clearTimeout(App.mapSheet.moveRefreshTimer);
+    App.mapSheet.moveRefreshTimer=null;
+  }
+  if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map) return;
+  App.mapSheet.moveRefreshTimer=setTimeout(()=>{
+    App.mapSheet.moveRefreshTimer=null;
+    if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map) return;
+    refreshMapSpotCards();
+    scheduleMapShopPreviewSync(130);
+  },Math.max(0,Number(delay)||0));
+}
 function mapClusterCellSizePx(zoom=0){
   const z=Number(zoom)||0;
   if(z>=15) return 0;
@@ -3743,7 +3758,16 @@ async function ensureMapSheetBase(){
   setMapSheetEmpty('','');
   await ensureLeafletLoaded();
   if(!App.mapSheet.map){
-    App.mapSheet.map=L.map('mapSheetCanvas',{zoomControl:true,attributionControl:true});
+    App.mapSheet.map=L.map('mapSheetCanvas',{
+      zoomControl:true,
+      attributionControl:true,
+      inertia:true,
+      inertiaDeceleration:2200,
+      inertiaMaxSpeed:1800,
+      easeLinearity:.2,
+      zoomAnimation:true,
+      markerZoomAnimation:true
+    });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
       maxZoom:19,
       attribution:'&copy; OpenStreetMap contributors'
@@ -3755,15 +3779,19 @@ async function ensureMapSheetBase(){
     App.mapSheet.map.on('movestart zoomstart dragstart',()=>{
       setMapSheetFloatingHidden(false);
       clearMapPreviewTimer();
+      if(App.mapSheet.moveRefreshTimer){
+        clearTimeout(App.mapSheet.moveRefreshTimer);
+        App.mapSheet.moveRefreshTimer=null;
+      }
     });
     App.mapSheet.map.on('moveend dragend',()=>{
       setMapSheetFloatingHidden(false);
-      refreshMapSpotCards();
-      scheduleMapShopPreviewSync(130);
+      scheduleMapMoveRefresh(80);
     });
     App.mapSheet.map.on('zoomend',()=>{
       setMapSheetFloatingHidden(false);
       refreshMapClustersOnly();
+      scheduleMapMoveRefresh(110);
     });
     App.mapSheet.loaded=true;
   }
@@ -3832,6 +3860,10 @@ async function openMapSheet(mode='home',focusRef=''){
 }
 function closeMapSheet(){
   clearMapPreviewTimer();
+  if(App.mapSheet.moveRefreshTimer){
+    clearTimeout(App.mapSheet.moveRefreshTimer);
+    App.mapSheet.moveRefreshTimer=null;
+  }
   setMapSheetFloatingHidden(false);
   $('mapSheetBg')?.classList.remove('on');
   if(!$('pdBg')?.classList.contains('on') && !$('cartBg')?.classList.contains('on') && !$('authBg')?.classList.contains('on') && !$('orderBg')?.classList.contains('on') && !$('trackReqBg')?.classList.contains('on')) document.body.style.overflow='';
