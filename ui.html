@@ -442,13 +442,13 @@ a{color:inherit;text-decoration:none}
 .map-empty-card{max-width:420px;display:grid;gap:10px;padding:24px;border-radius:26px;background:rgba(255,255,255,.86);border:1px solid rgba(191,174,149,.32);box-shadow:0 20px 40px rgba(48,33,15,.1)}
 .map-empty-title{font-family:'Sora',sans-serif;font-size:20px;font-weight:800}
 .map-empty-copy{font-size:13px;color:var(--ink3);line-height:1.7}
-.wave-map-pin{width:42px;height:42px;border-radius:18px;background:linear-gradient(180deg,#fff8ef,#f2dfc8);border:1px solid rgba(162,76,46,.28);box-shadow:0 12px 24px rgba(92,47,24,.2);display:grid;place-items:center;position:relative}
+.wave-map-pin{width:42px;height:42px;border-radius:18px;background:linear-gradient(180deg,#fff8ef,#f2dfc8);border:1px solid rgba(162,76,46,.28);box-shadow:0 12px 24px rgba(92,47,24,.2);display:grid;place-items:center;position:relative;cursor:pointer}
 .wave-map-pin::after{content:'';position:absolute;left:50%;bottom:-10px;width:14px;height:14px;background:inherit;border-right:1px solid rgba(162,76,46,.28);border-bottom:1px solid rgba(162,76,46,.28);transform:translateX(-50%) rotate(45deg);border-bottom-right-radius:3px}
 .wave-map-pin.focus{transform:scale(1.06)}
 .wave-map-pin-badge{position:relative;z-index:1;width:28px;height:28px;border-radius:999px;background:linear-gradient(180deg,#b25735,#8e3c21);display:grid;place-items:center;color:#fff;font-size:14px;box-shadow:0 8px 18px rgba(92,47,24,.24)}
 .wave-map-pin.user{width:24px;height:24px;border-radius:999px;background:radial-gradient(circle at center,#38bdf8 0 38%,#e0f2fe 40% 70%,rgba(14,165,233,.18) 72% 100%);border:2px solid rgba(255,255,255,.96);box-shadow:0 12px 28px rgba(2,132,199,.32)}
 .wave-map-pin.user::after{display:none}
-.wave-map-cluster{width:58px;height:58px;border-radius:999px;display:grid;place-items:center;background:radial-gradient(circle at center,rgba(162,76,46,.94),rgba(126,52,29,.98));border:3px solid rgba(255,250,242,.95);box-shadow:0 16px 34px rgba(92,47,24,.28);position:relative}
+.wave-map-cluster{width:58px;height:58px;border-radius:999px;display:grid;place-items:center;background:radial-gradient(circle at center,rgba(162,76,46,.94),rgba(126,52,29,.98));border:3px solid rgba(255,250,242,.95);box-shadow:0 16px 34px rgba(92,47,24,.28);position:relative;cursor:pointer}
 .wave-map-cluster::after{content:'';position:absolute;inset:7px;border-radius:999px;border:1px solid rgba(255,244,232,.26)}
 .wave-map-cluster-count{position:relative;z-index:1;font-family:'Sora',sans-serif;font-size:18px;font-weight:800;color:#fff;letter-spacing:-.04em}
 .wave-map-popup{display:grid;gap:8px;min-width:220px}
@@ -2487,7 +2487,7 @@ const App = {
   pdVariantSelection: {},
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
   mapSupport: null,
-  mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',compact:window.innerWidth<=560,responsiveCompact:window.innerWidth<=560,listHidden:false,floatingHidden:false,floatingTimer:null,viewportTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false},
+  mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',previewMode:'',previewDismissedKey:'',previewTimer:null,suppressPopupEvents:false,compact:window.innerWidth<=560,responsiveCompact:window.innerWidth<=560,listHidden:false,floatingHidden:false,floatingTimer:null,viewportTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false},
   chatShopId: '',
   chatContextToken: 0,
   shopMobileSheet: '',
@@ -2850,7 +2850,6 @@ function resetMapSheetMarkers(){
   App.mapSheet.markers=[];
   if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
   App.mapSheet.shopLookup={};
-  App.mapSheet.pinnedPopupKey='';
 }
 function setMapSheetStatus(text=''){
   if($('mapSheetStatus')) $('mapSheetStatus').textContent=text||'';
@@ -2973,6 +2972,158 @@ function refreshMapMarkerDistances(userLoc=null){
     if(secondaryKey && App.mapSheet.shopLookup[secondaryKey]) App.mapSheet.shopLookup[secondaryKey].shop=entry.shop;
   });
 }
+function clearMapPreviewTimer(){
+  if(App.mapSheet.previewTimer){
+    clearTimeout(App.mapSheet.previewTimer);
+    App.mapSheet.previewTimer=null;
+  }
+}
+function mapShopKey(shop={}){
+  return String(shop?.shop_id || shopPublicRef(shop) || '').trim();
+}
+function mapEntryByKey(key=''){
+  const ref=String(key||'').trim();
+  if(!ref) return null;
+  return App.mapSheet.shopLookup[ref] || null;
+}
+function closeOtherMapPopups(exceptKey=''){
+  const keepKey=String(exceptKey||'').trim();
+  App.mapSheet.suppressPopupEvents=true;
+  (App.mapSheet.markers||[]).forEach(entry=>{
+    if(!entry?.marker) return;
+    const entryKey=entry?.shop ? mapShopKey(entry.shop) : '';
+    if(keepKey && entryKey===keepKey) return;
+    try{ entry.marker.closePopup(); }catch{}
+  });
+  App.mapSheet.suppressPopupEvents=false;
+}
+function ensureMapShopPreviewOpen(key=''){
+  const ref=String(key||'').trim();
+  if(!ref) return false;
+  const entry=mapEntryByKey(ref);
+  if(!entry?.marker || !entry?.shop) return false;
+  closeOtherMapPopups(ref);
+  try{
+    const popup=entry.marker.getPopup?.();
+    if(popup) popup.setContent(mapPopupHtml(entry.shop));
+    else entry.marker.bindPopup(mapPopupHtml(entry.shop),mapPopupOptions(-22));
+    if(typeof entry.marker._openPopup==='function') entry.marker.off('click',entry.marker._openPopup,entry.marker);
+    entry.marker.openPopup();
+    bindMapPopupActions(entry.marker);
+    return true;
+  }catch{
+    return false;
+  }
+}
+function openMapShopPreview(shop={},opts={}){
+  if(!App.mapSheet.map || !hasShopCoords(shop)) return false;
+  const key=mapShopKey(shop);
+  if(!key) return false;
+  const mode=opts.mode==='auto' ? 'auto' : 'manual';
+  const recenter=!!opts.recenter;
+  const scroll=opts.scroll!==false;
+  clearMapPreviewTimer();
+  App.mapSheet.focusShopId=key;
+  App.mapSheet.pinnedPopupKey=key;
+  App.mapSheet.previewMode=mode;
+  App.mapSheet.focusScrollRequested=scroll;
+  App.mapSheet.previewDismissedKey='';
+  if(recenter){
+    const nextZoom=Number.isFinite(Number(opts.zoom)) ? Number(opts.zoom) : Math.max(Number(App.mapSheet.map.getZoom?.()||0),15);
+    App.mapSheet.map.flyTo([Number(shop.latitude),Number(shop.longitude)],nextZoom,{duration:0.55});
+  }
+  ensureMapShopPreviewOpen(key);
+  refreshMapSpotCards();
+  return true;
+}
+function closeMapShopPreview(opts={}){
+  const activeKey=String(App.mapSheet.focusShopId || App.mapSheet.pinnedPopupKey || '').trim();
+  const suppressAuto=!!opts.suppressAuto;
+  const preserveDismissed=!!opts.preserveDismissed;
+  clearMapPreviewTimer();
+  if(suppressAuto && activeKey) App.mapSheet.previewDismissedKey=activeKey;
+  else if(!preserveDismissed) App.mapSheet.previewDismissedKey='';
+  App.mapSheet.previewMode='';
+  App.mapSheet.pinnedPopupKey='';
+  App.mapSheet.focusShopId='';
+  App.mapSheet.focusScrollRequested=false;
+  closeOtherMapPopups('');
+  refreshMapSpotCards();
+}
+function mapViewportVisibleShops(shops=[]){
+  const bounds=App.mapSheet.map?.getBounds?.();
+  if(!bounds) return [];
+  return dedupeMapShops(shops).filter(shop=>hasShopCoords(shop) && bounds.contains([Number(shop.latitude),Number(shop.longitude)]));
+}
+function pickMapViewportFocusShop(shops=[]){
+  if(!App.mapSheet.map || !(shops||[]).length) return null;
+  let centerPoint=null;
+  try{
+    centerPoint=App.mapSheet.map.latLngToContainerPoint(App.mapSheet.map.getCenter());
+  }catch{}
+  if(!centerPoint) return shops[0] || null;
+  return shops.slice().sort((a,b)=>{
+    let aScreen=Infinity,bScreen=Infinity;
+    try{
+      const aPoint=App.mapSheet.map.latLngToContainerPoint([Number(a.latitude),Number(a.longitude)]);
+      aScreen=aPoint.distanceTo(centerPoint);
+    }catch{}
+    try{
+      const bPoint=App.mapSheet.map.latLngToContainerPoint([Number(b.latitude),Number(b.longitude)]);
+      bScreen=bPoint.distanceTo(centerPoint);
+    }catch{}
+    if(aScreen!==bScreen) return aScreen-bScreen;
+    return (a._distance_km??Infinity)-(b._distance_km??Infinity);
+  })[0] || null;
+}
+function syncMapShopPreview(){
+  clearMapPreviewTimer();
+  if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map || App.mapSheet.suppressPopupEvents) return;
+  const visible=mapViewportVisibleShops(App.mapSheet.preparedShops||[]);
+  const activeKey=String(App.mapSheet.focusShopId || '').trim();
+  const activeVisible=activeKey ? visible.some(shop=>mapShopKey(shop)===activeKey) : false;
+  if(App.mapSheet.previewDismissedKey && !visible.some(shop=>mapShopKey(shop)===App.mapSheet.previewDismissedKey)){
+    App.mapSheet.previewDismissedKey='';
+  }
+  if(App.mapSheet.previewMode==='manual'){
+    if(!activeVisible){
+      closeMapShopPreview({preserveDismissed:true});
+      return;
+    }
+    ensureMapShopPreviewOpen(activeKey);
+    refreshMapSpotCards();
+    return;
+  }
+  const shouldAutoPreview=visible.length>0 && visible.length<=3;
+  if(!shouldAutoPreview){
+    if(activeKey) closeMapShopPreview({preserveDismissed:true});
+    else refreshMapSpotCards();
+    return;
+  }
+  const candidate=pickMapViewportFocusShop(visible);
+  const candidateKey=mapShopKey(candidate);
+  if(!candidateKey || candidateKey===App.mapSheet.previewDismissedKey){
+    if(activeKey) closeMapShopPreview({preserveDismissed:true});
+    else refreshMapSpotCards();
+    return;
+  }
+  if(activeKey===candidateKey){
+    App.mapSheet.previewMode='auto';
+    App.mapSheet.pinnedPopupKey=candidateKey;
+    ensureMapShopPreviewOpen(candidateKey);
+    refreshMapSpotCards();
+    return;
+  }
+  openMapShopPreview(candidate,{mode:'auto',scroll:false});
+}
+function scheduleMapShopPreviewSync(delay=140){
+  clearMapPreviewTimer();
+  if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map) return;
+  App.mapSheet.previewTimer=setTimeout(()=>{
+    App.mapSheet.previewTimer=null;
+    syncMapShopPreview();
+  },Math.max(0,Number(delay)||0));
+}
 function mapClusterCellSizePx(zoom=0){
   const z=Number(zoom)||0;
   if(z>=15) return 0;
@@ -3053,6 +3204,10 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
     if(hasExactUserLocation(userLoc)) addUserMapMarker(userLoc);
     else if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
     setMapSheetStatus(`No shop locations are ready for the map${radiusNote}.`);
+    clearMapPreviewTimer();
+    App.mapSheet.previewMode='';
+    App.mapSheet.pinnedPopupKey='';
+    App.mapSheet.focusShopId='';
     buildMapSpotCards([]);
     return;
   }
@@ -3075,6 +3230,7 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
   }else{
     setMapSheetStatus('Showing mapped storefronts available right now.');
   }
+  scheduleMapShopPreviewSync(focusShop ? 90 : 140);
 }
 function rerenderCurrentMapSheet(){
   if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map) return;
@@ -3094,6 +3250,7 @@ function refreshMapClustersOnly(){
   if(App.mapSheet.userLocation) addUserMapMarker(App.mapSheet.userLocation);
   App.mapSheet.preparedShops=prepared.slice();
   refreshMapSpotCards();
+  scheduleMapShopPreviewSync(110);
 }
 function setMapSheetEmpty(title='',copy=''){
   const empty=$('mapSheetEmpty');
@@ -3231,18 +3388,7 @@ function buildMapSpotCards(shops=[],focusShopId=''){
   }
 }
 function focusMapShop(shop={}){
-  if(!App.mapSheet.map || !hasShopCoords(shop)) return;
-  const ref=shopPublicRef(shop) || shop?.shop_id || '';
-  const popupEntry=App.mapSheet.shopLookup[shop.shop_id] || App.mapSheet.shopLookup[shopPublicRef(shop)];
-  App.mapSheet.focusShopId=ref;
-  App.mapSheet.pinnedPopupKey=shop.shop_id || ref;
-  App.mapSheet.focusScrollRequested=true;
-  App.mapSheet.map.flyTo([Number(shop.latitude),Number(shop.longitude)],15,{duration:0.8});
-  if(popupEntry?.popup){
-    popupEntry.marker.bindPopup(mapPopupHtml(shop),mapPopupOptions(-22)).openPopup();
-    bindMapPopupActions(popupEntry.marker);
-  }
-  refreshMapSpotCards();
+  openMapShopPreview(shop,{mode:'manual',recenter:true,zoom:15,scroll:true});
 }
 function addUserMapMarker(loc){
   if(!App.mapSheet.map || !loc || !window.L || !hasExactUserLocation(loc)) return;
@@ -3278,8 +3424,7 @@ function renderMapMarkers(shops=[],focusShopId=''){
       });
       const marker=L.marker([avgLat,avgLng],{icon}).addTo(App.mapSheet.map);
       marker.bindPopup(clusterPopupHtml(clusterShops),mapPopupOptions(-24));
-      marker.on('mouseover',()=>marker.openPopup());
-      marker.on('mouseout',()=>marker.closePopup());
+      if(typeof marker._openPopup==='function') marker.off('click',marker._openPopup,marker);
       marker.on('click',(e)=>{
         if(e?.originalEvent && window.L?.DomEvent) L.DomEvent.stopPropagation(e.originalEvent);
         zoomToMapCluster(clusterShops);
@@ -3297,28 +3442,36 @@ function renderMapMarkers(shops=[],focusShopId=''){
     const marker=L.marker([Number(shop.latitude),Number(shop.longitude)],{icon}).addTo(App.mapSheet.map);
     const markerKey=shop.shop_id || shopPublicRef(shop);
     marker.bindPopup(mapPopupHtml(shop),mapPopupOptions(-22));
-    marker.on('mouseover',()=>marker.openPopup());
-    marker.on('mouseout',()=>{ if(App.mapSheet.pinnedPopupKey!==markerKey) marker.closePopup(); });
+    if(typeof marker._openPopup==='function') marker.off('click',marker._openPopup,marker);
     marker.on('popupopen',()=>{
       bindMapPopupActions(marker);
-      App.mapSheet.focusShopId=shopPublicRef(shop) || shop.shop_id || '';
-      refreshMapSpotCards();
+      if(App.mapSheet.suppressPopupEvents) return;
+      if(!App.mapSheet.focusShopId){
+        App.mapSheet.focusShopId=shopPublicRef(shop) || shop.shop_id || '';
+        App.mapSheet.pinnedPopupKey=App.mapSheet.focusShopId;
+        App.mapSheet.previewMode=App.mapSheet.previewMode || 'manual';
+        refreshMapSpotCards();
+      }
     });
     marker.on('click',(e)=>{
       if(e?.originalEvent && window.L?.DomEvent) L.DomEvent.stopPropagation(e.originalEvent);
-      App.mapSheet.pinnedPopupKey=markerKey;
-      App.mapSheet.focusShopId=shopPublicRef(shop) || shop.shop_id || '';
-      App.mapSheet.focusScrollRequested=true;
-      marker.openPopup();
-      refreshMapSpotCards();
+      const activeKey=String(App.mapSheet.focusShopId || '').trim();
+      if(activeKey && (activeKey===markerKey || activeKey===shop.shop_id || activeKey===shopPublicRef(shop))){
+        closeMapShopPreview({suppressAuto:true});
+        return;
+      }
+      openMapShopPreview(shop,{mode:'manual',scroll:true});
     });
     marker.on('popupclose',()=>{
-      if(App.mapSheet.pinnedPopupKey===markerKey) return;
-      const focusId=App.mapSheet.focusShopId||'';
-      if(focusId===markerKey || focusId===shop.shop_id || focusId===shopPublicRef(shop)){
-        App.mapSheet.focusShopId='';
-        refreshMapSpotCards();
-      }
+      if(App.mapSheet.suppressPopupEvents) return;
+      const focusId=String(App.mapSheet.focusShopId||'').trim();
+      if(focusId!==markerKey && focusId!==shop.shop_id && focusId!==shopPublicRef(shop)) return;
+      App.mapSheet.previewDismissedKey=markerKey;
+      App.mapSheet.previewMode='';
+      App.mapSheet.pinnedPopupKey='';
+      App.mapSheet.focusShopId='';
+      App.mapSheet.focusScrollRequested=false;
+      refreshMapSpotCards();
     });
     const popup=marker.getPopup();
     App.mapSheet.markers.push({shop,marker,popup});
@@ -3349,16 +3502,16 @@ async function ensureMapSheetBase(){
     }).addTo(App.mapSheet.map);
     App.mapSheet.map.setView([44.6488,-63.5752],11);
     App.mapSheet.map.on('click',()=>{
-      App.mapSheet.pinnedPopupKey='';
-      App.mapSheet.focusShopId='';
-      App.mapSheet.focusScrollRequested=false;
-      (App.mapSheet.markers||[]).forEach(entry=>{ try{entry.marker.closePopup();}catch{} });
-      refreshMapSpotCards();
+      closeMapShopPreview({suppressAuto:true});
     });
-    App.mapSheet.map.on('movestart zoomstart dragstart',()=>setMapSheetFloatingHidden(false));
+    App.mapSheet.map.on('movestart zoomstart dragstart',()=>{
+      setMapSheetFloatingHidden(false);
+      clearMapPreviewTimer();
+    });
     App.mapSheet.map.on('moveend dragend',()=>{
       setMapSheetFloatingHidden(false);
       refreshMapSpotCards();
+      scheduleMapShopPreviewSync(130);
     });
     App.mapSheet.map.on('zoomend',()=>{
       setMapSheetFloatingHidden(false);
@@ -3379,9 +3532,12 @@ async function ensureMapShopsLoaded(){
 async function openMapSheet(mode='home',focusRef=''){
   $('mapSheetBg')?.classList.add('on');
   document.body.style.overflow='hidden';
+  clearMapPreviewTimer();
   App.mapSheet.mode=mode;
   App.mapSheet.focusShopId=focusRef||'';
   App.mapSheet.pinnedPopupKey='';
+  App.mapSheet.previewMode='';
+  App.mapSheet.previewDismissedKey='';
   App.mapSheet.listFocusId='';
   App.mapSheet.listHidden=false;
   App.mapSheet.focusScrollRequested=!!focusRef;
@@ -3425,6 +3581,7 @@ async function openMapSheet(mode='home',focusRef=''){
   rerenderCurrentMapSheet();
 }
 function closeMapSheet(){
+  clearMapPreviewTimer();
   setMapSheetFloatingHidden(false);
   $('mapSheetBg')?.classList.remove('on');
   if(!$('pdBg')?.classList.contains('on') && !$('cartBg')?.classList.contains('on') && !$('authBg')?.classList.contains('on') && !$('orderBg')?.classList.contains('on') && !$('trackReqBg')?.classList.contains('on')) document.body.style.overflow='';
