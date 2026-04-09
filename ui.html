@@ -2603,6 +2603,13 @@ function shouldCompactMapSheet(){
   return window.matchMedia('(max-width: 560px)').matches
     || window.matchMedia('(max-width: 920px) and (max-height: 560px)').matches;
 }
+function canHoverMapMarkers(){
+  return window.matchMedia('(hover: hover) and (pointer: fine)').matches && !shouldCompactMapSheet();
+}
+function shouldAutoPreviewMapMarkers(){
+  const zoom=Number(App.mapSheet.map?.getZoom?.()||0);
+  return shouldCompactMapSheet() && zoom>=15;
+}
 function mapFitBoundsOptions(){
   const compact=!!App.mapSheet.compact;
   const smallMobile=window.matchMedia('(max-width: 560px)').matches
@@ -3019,7 +3026,7 @@ function openMapShopPreview(shop={},opts={}){
   if(!App.mapSheet.map || !hasShopCoords(shop)) return false;
   const key=mapShopKey(shop);
   if(!key) return false;
-  const mode=opts.mode==='auto' ? 'auto' : 'manual';
+  const mode=opts.mode==='auto' ? 'auto' : (opts.mode==='hover' ? 'hover' : 'manual');
   const recenter=!!opts.recenter;
   const scroll=opts.scroll!==false;
   clearMapPreviewTimer();
@@ -3092,6 +3099,20 @@ function syncMapShopPreview(){
     }
     ensureMapShopPreviewOpen(activeKey);
     refreshMapSpotCards();
+    return;
+  }
+  if(App.mapSheet.previewMode==='hover'){
+    if(activeVisible){
+      ensureMapShopPreviewOpen(activeKey);
+      refreshMapSpotCards();
+      return;
+    }
+    closeMapShopPreview({preserveDismissed:true});
+    return;
+  }
+  if(!shouldAutoPreviewMapMarkers()){
+    if(activeKey) closeMapShopPreview({preserveDismissed:true});
+    else refreshMapSpotCards();
     return;
   }
   const shouldAutoPreview=visible.length>0 && visible.length<=3;
@@ -3443,6 +3464,18 @@ function renderMapMarkers(shops=[],focusShopId=''){
     const markerKey=shop.shop_id || shopPublicRef(shop);
     marker.bindPopup(mapPopupHtml(shop),mapPopupOptions(-22));
     if(typeof marker._openPopup==='function') marker.off('click',marker._openPopup,marker);
+    marker.on('mouseover',()=>{
+      if(!canHoverMapMarkers()) return;
+      if(App.mapSheet.previewMode==='manual') return;
+      openMapShopPreview(shop,{mode:'hover',scroll:false});
+    });
+    marker.on('mouseout',()=>{
+      if(!canHoverMapMarkers()) return;
+      const activeKey=String(App.mapSheet.focusShopId || '').trim();
+      if(App.mapSheet.previewMode!=='hover') return;
+      if(activeKey!==markerKey && activeKey!==shop.shop_id && activeKey!==shopPublicRef(shop)) return;
+      closeMapShopPreview({preserveDismissed:true});
+    });
     marker.on('popupopen',()=>{
       bindMapPopupActions(marker);
       if(App.mapSheet.suppressPopupEvents) return;
@@ -3457,7 +3490,11 @@ function renderMapMarkers(shops=[],focusShopId=''){
       if(e?.originalEvent && window.L?.DomEvent) L.DomEvent.stopPropagation(e.originalEvent);
       const activeKey=String(App.mapSheet.focusShopId || '').trim();
       if(activeKey && (activeKey===markerKey || activeKey===shop.shop_id || activeKey===shopPublicRef(shop))){
-        closeMapShopPreview({suppressAuto:true});
+        if(App.mapSheet.previewMode==='manual'){
+          closeMapShopPreview({suppressAuto:true});
+          return;
+        }
+        openMapShopPreview(shop,{mode:'manual',scroll:true});
         return;
       }
       openMapShopPreview(shop,{mode:'manual',scroll:true});
@@ -3466,7 +3503,7 @@ function renderMapMarkers(shops=[],focusShopId=''){
       if(App.mapSheet.suppressPopupEvents) return;
       const focusId=String(App.mapSheet.focusShopId||'').trim();
       if(focusId!==markerKey && focusId!==shop.shop_id && focusId!==shopPublicRef(shop)) return;
-      App.mapSheet.previewDismissedKey=markerKey;
+      if(App.mapSheet.previewMode!=='hover') App.mapSheet.previewDismissedKey=markerKey;
       App.mapSheet.previewMode='';
       App.mapSheet.pinnedPopupKey='';
       App.mapSheet.focusShopId='';
