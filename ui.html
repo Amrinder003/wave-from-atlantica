@@ -394,10 +394,26 @@ a{color:inherit;text-decoration:none}
 .map-sheet-actions{display:flex;gap:6px;flex-wrap:wrap}
 .map-sheet-actions .btn{white-space:nowrap}
 .map-sheet-status{padding:10px 12px;border:none;border-radius:18px;font-size:11px;line-height:1.55;color:var(--ink2);background:linear-gradient(180deg,rgba(255,253,248,.92),rgba(246,239,227,.88));border:1px solid rgba(191,174,149,.32);box-shadow:0 14px 30px rgba(18,23,34,.12);backdrop-filter:blur(12px);pointer-events:auto}
-.map-sheet-list{display:none}
+.map-sheet-list{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateX(-50%);width:min(980px,calc(100% - 32px));display:none;gap:10px;overflow-x:auto;overflow-y:hidden;padding:8px;border-radius:28px;background:linear-gradient(180deg,rgba(255,253,248,.94),rgba(246,239,227,.88));border:1px solid rgba(191,174,149,.34);box-shadow:0 18px 38px rgba(48,33,15,.12);backdrop-filter:blur(12px);scrollbar-width:none;-ms-overflow-style:none;z-index:2;pointer-events:auto}
+.map-sheet-list.on{display:flex}
+.map-sheet-list::-webkit-scrollbar{display:none}
+.map-spot-card{min-width:238px;max-width:238px;display:grid;gap:10px;padding:12px 12px 11px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(250,245,237,.92));border:1px solid rgba(191,174,149,.28);box-shadow:0 12px 28px rgba(48,33,15,.08);cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;background-clip:padding-box}
+.map-spot-card:hover{transform:translateY(-2px);box-shadow:0 18px 32px rgba(48,33,15,.12);border-color:rgba(162,76,46,.28)}
+.map-spot-card:active{transform:scale(.988)}
+.map-spot-card.active{border-color:rgba(162,76,46,.52);box-shadow:0 18px 34px rgba(120,58,29,.16);background:linear-gradient(180deg,rgba(255,250,244,.98),rgba(246,234,220,.94))}
+.map-spot-card-top{display:flex;align-items:flex-start;gap:10px;min-width:0}
+.map-spot-card-mark{width:42px;height:42px;border-radius:16px;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.2);display:grid;place-items:center;font-size:19px;box-shadow:0 10px 20px rgba(92,47,24,.1);flex:0 0 auto}
+.map-spot-card-main{min-width:0;display:grid;gap:4px}
+.map-spot-card-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.15;letter-spacing:-.03em}
+.map-spot-card-meta{font-size:11px;font-weight:700;color:var(--A2);line-height:1.45}
+.map-spot-card-copy{font-size:11px;color:var(--ink3);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.map-spot-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.map-spot-card-chips{display:flex;flex-wrap:wrap;gap:6px}
+.map-spot-card-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:rgba(255,250,242,.9);border:1px solid rgba(191,174,149,.26);font-size:10px;font-weight:800;color:var(--ink2)}
+.map-spot-card-visit{padding-inline:10px}
 .map-sheet-mapwrap{position:absolute;inset:0;min-width:0;min-height:0;height:100%;overflow:hidden;background:linear-gradient(180deg,#f6efe3,#eadbc6)}
 .map-sheet-canvas{position:relative;width:100%;height:100%;min-height:100%}
-.map-sheet-floating{position:absolute;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);display:grid;gap:8px;justify-items:start;align-content:end;pointer-events:none;max-width:min(460px,calc(100% - 32px));transition:opacity .2s ease,transform .2s ease}
+.map-sheet-floating{position:absolute;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 126px);display:grid;gap:8px;justify-items:start;align-content:end;pointer-events:none;max-width:min(420px,calc(100% - 32px));transition:opacity .2s ease,transform .2s ease}
 .map-sheet-floating > *{pointer-events:auto}
 .map-sheet-floating.hidden{opacity:0;transform:translateY(10px)}
 .map-sheet-floating.hidden > *{pointer-events:none}
@@ -430,7 +446,7 @@ a{color:inherit;text-decoration:none}
 .wave-map-cluster-item{font-size:12px;color:var(--ink2);line-height:1.45}
 .wave-map-popup-meta{display:flex;flex-wrap:wrap;gap:6px}
 .wave-map-popup-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:rgba(255,250,242,.88);border:1px solid rgba(191,174,149,.28);font-size:10px;font-weight:800;color:var(--ink2)}
-.map-sheet-canvas .leaflet-top.leaflet-left{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);left:auto;right:16px}
+.map-sheet-canvas .leaflet-top.leaflet-left{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 126px);left:auto;right:16px}
 .leaflet-container{font-family:'Inter',sans-serif;background:linear-gradient(180deg,#f6efe3,#eadbc6)}
 .leaflet-control-zoom a{color:var(--ink2)!important}
 .leaflet-popup-content-wrapper{border-radius:20px!important;padding:0!important;box-shadow:0 18px 36px rgba(48,33,15,.16)!important;border:1px solid rgba(191,174,149,.28);background:rgba(255,253,248,.98)!important}
@@ -451,9 +467,14 @@ a{color:inherit;text-decoration:none}
   .map-sheet-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .map-sheet-actions .btn{width:100%;justify-content:center}
   .map-sheet-status{padding:9px 11px;border-radius:16px;font-size:10px;max-width:300px}
-  .map-sheet-floating{left:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);max-width:calc(100% - 20px);gap:7px}
+  .map-sheet-list{width:calc(100% - 16px);bottom:calc(env(safe-area-inset-bottom,0px) + 8px);padding:7px;border-radius:24px;gap:8px}
+  .map-spot-card{min-width:218px;max-width:218px;padding:11px}
+  .map-spot-card-mark{width:38px;height:38px;border-radius:14px;font-size:17px}
+  .map-spot-card-name{font-size:14px}
+  .map-spot-card-copy{font-size:10px}
+  .map-sheet-floating{left:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 104px);max-width:calc(100% - 20px);gap:7px}
   .map-floating-chip{font-size:10px;padding:6px 9px}
-  .map-sheet-canvas .leaflet-top.leaflet-left{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 78px)}
+  .map-sheet-canvas .leaflet-top.leaflet-left{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 102px)}
   .map-sheet.compact .map-sheet-head{max-width:calc(100vw - 20px);max-width:calc(100dvw - 20px)}
   .map-sheet.compact .map-sheet-title{font-size:17px}
 }
@@ -2323,6 +2344,7 @@ a{color:inherit;text-decoration:none}
         <div id="mapSheetFloatingMeta" class="map-floating-chip">Shops with map pins</div>
         <div id="mapSheetFloatingHint" class="map-floating-chip">Tap a pin to preview the shop</div>
       </div>
+      <div id="mapSheetList" class="map-sheet-list" aria-label="Visible shops on the map"></div>
       <div id="mapSheetCanvas" class="map-sheet-canvas"></div>
       <div id="mapSheetEmpty" class="map-sheet-empty">
         <div class="map-empty-card">
@@ -2419,7 +2441,7 @@ const App = {
   pdVariantSelection: {},
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
   mapSupport: null,
-  mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',compact:window.innerWidth<=560,floatingHidden:false,floatingTimer:null,sort:'nearest',radiusKm:0,baseShops:[]},
+  mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',compact:window.innerWidth<=560,floatingHidden:false,floatingTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false},
   chatShopId: '',
   chatContextToken: 0,
   shopMobileSheet: '',
@@ -2860,6 +2882,7 @@ function prepareMapShops(shops=[],focusShop=null,userLoc=null){
   return next;
 }
 function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
+  App.mapSheet.preparedShops=shops.slice();
   if(!shops.length){
     setMapSheetEmpty('No mapped shops yet','Shops need a verified address with coordinates before they can appear on the map.');
     const radiusNote=userLoc && Number(App.mapSheet.radiusKm||0)>0 ? ` within ${mapRadiusLabel(App.mapSheet.radiusKm)}` : '';
@@ -2874,8 +2897,8 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
   requestAnimationFrame(()=>setTimeout(()=>App.mapSheet.map?.invalidateSize?.(),60));
   renderMapMarkers(shops,focusShop?.shop_id||App.mapSheet.focusShopId||'');
   if(userLoc) addUserMapMarker(userLoc);
-  buildMapSpotCards(shops.slice(0,12),focusShop?.shop_id||App.mapSheet.focusShopId||'');
   fitMapToShops(shops,focusShop,userLoc);
+  buildMapSpotCards(shops,focusShop?.shop_id||App.mapSheet.focusShopId||'');
   const mappedCount=shops.length;
   if($('mapSheetFloatingMeta')) $('mapSheetFloatingMeta').textContent=App.mapSheet.mode==='shop'&&focusShop ? `${focusShop.name} + ${Math.max(mappedCount-1,0)} nearby shops` : `${mappedCount} mapped shop${mappedCount===1?'':'s'}`;
   if($('mapSheetFloatingHint')) $('mapSheetFloatingHint').textContent=userLoc
@@ -2905,6 +2928,8 @@ function refreshMapClustersOnly(){
   const prepared=prepareMapShops(base,focusShop,App.mapSheet.userLocation||null);
   renderMapMarkers(prepared,focusShop?.shop_id||App.mapSheet.focusShopId||'');
   if(App.mapSheet.userLocation) addUserMapMarker(App.mapSheet.userLocation);
+  App.mapSheet.preparedShops=prepared.slice();
+  refreshMapSpotCards();
 }
 function setMapSheetEmpty(title='',copy=''){
   const empty=$('mapSheetEmpty');
@@ -2912,18 +2937,116 @@ function setMapSheetEmpty(title='',copy=''){
   if($('mapSheetEmptyCopy')) $('mapSheetEmptyCopy').textContent=copy||'Map support is not configured yet for this deployment.';
   if(empty) empty.classList.toggle('on',!!title);
 }
+function dedupeMapShops(shops=[]){
+  const seen=new Set();
+  return (shops||[]).filter(shop=>{
+    const key=shopPublicRef(shop) || shop?.shop_id || '';
+    if(!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function mapVisibleSpotShops(shops=[]){
+  const focusId=App.mapSheet.focusShopId||'';
+  const unique=dedupeMapShops(shops).filter(hasShopCoords);
+  if(!unique.length) return [];
+  const bounds=App.mapSheet.map?.getBounds?.();
+  let next=unique;
+  if(bounds){
+    const visible=unique.filter(shop=>bounds.contains([Number(shop.latitude),Number(shop.longitude)]));
+    if(visible.length) next=visible;
+  }
+  if(focusId){
+    const focusShop=unique.find(shop=>shop.shop_id===focusId || shopPublicRef(shop)===focusId);
+    if(focusShop && !next.some(shop=>shop.shop_id===focusId || shopPublicRef(shop)===focusId)) next=[focusShop,...next];
+  }
+  return next.slice(0,10);
+}
+function refreshMapSpotCards(){
+  buildMapSpotCards(App.mapSheet.preparedShops||[],App.mapSheet.focusShopId||'');
+}
 function buildMapSpotCards(shops=[],focusShopId=''){
   const host=$('mapSheetList');
-  if(host) host.innerHTML='';
+  if(!host) return;
+  const cards=mapVisibleSpotShops(shops);
+  host.innerHTML='';
+  host.classList.toggle('on',!!cards.length);
+  if(!cards.length){
+    App.mapSheet.listFocusId='';
+    return;
+  }
+  let activeCard=null;
+  cards.forEach(shop=>{
+    const ref=shopPublicRef(shop) || shop?.shop_id || '';
+    const active=!!focusShopId && (focusShopId===ref || focusShopId===shop?.shop_id);
+    const stats=shop?.stats||{};
+    const distanceLabel=formatDistanceKm(shop._distance_km ?? shopDistanceKm(shop,App.mapSheet.userLocation));
+    const metaText=[distanceLabel,shop?.category||'',shop?.city||''].filter(Boolean).slice(0,2).join(' · ') || 'Tap to preview this shop on the map';
+    const copyText=(shop?.overview||shopDisplayAddress(shop)||'Open the shop page to browse products and chat with the shop assistant.').slice(0,92);
+    const chipText=[
+      stats.product_count!=null ? `${stats.product_count} products` : '',
+      Number(stats.avg_rating||0)>0 ? `★ ${Number(stats.avg_rating).toFixed(1)}` : '',
+      shop?.is_open_now ? 'Open now' : ''
+    ].filter(Boolean).slice(0,2);
+    const card=document.createElement('div');
+    card.className='map-spot-card'+(active?' active':'');
+    card.tabIndex=0;
+    card.setAttribute('role','button');
+    card.setAttribute('aria-pressed',active?'true':'false');
+    card.innerHTML=`
+      <div class="map-spot-card-top">
+        <div class="map-spot-card-mark">${shopCategoryMapIcon(shop?.category)}</div>
+        <div class="map-spot-card-main">
+          <div class="map-spot-card-name">${esc(shop?.name||'Shop')}</div>
+          <div class="map-spot-card-meta">${esc(metaText)}</div>
+          <div class="map-spot-card-copy">${esc(copyText)}</div>
+        </div>
+      </div>
+      <div class="map-spot-card-foot">
+        <div class="map-spot-card-chips">${chipText.map(text=>`<span class="map-spot-card-chip">${esc(text)}</span>`).join('')}</div>
+        <button class="btn btn-A btn-sm map-spot-card-visit" type="button">Visit</button>
+      </div>`;
+    card.addEventListener('click',e=>{
+      if(e.target.closest('button')) return;
+      focusMapShop(shop);
+    });
+    card.addEventListener('keydown',e=>{
+      if(e.key==='Enter' || e.key===' '){
+        e.preventDefault();
+        focusMapShop(shop);
+      }
+    });
+    const visitBtn=card.querySelector('.map-spot-card-visit');
+    visitBtn?.addEventListener('click',e=>{
+      e.stopPropagation();
+      if(ref) window.visitShopFromMap(ref);
+    });
+    host.appendChild(card);
+    if(active) activeCard=card;
+  });
+  if(activeCard && focusShopId && App.mapSheet.listFocusId!==focusShopId && App.mapSheet.focusScrollRequested){
+    App.mapSheet.listFocusId=focusShopId;
+    App.mapSheet.focusScrollRequested=false;
+    requestAnimationFrame(()=>activeCard.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}));
+  }else if(activeCard && focusShopId){
+    App.mapSheet.listFocusId=focusShopId;
+  }else if(!focusShopId){
+    App.mapSheet.listFocusId='';
+    App.mapSheet.focusScrollRequested=false;
+  }
 }
 function focusMapShop(shop={}){
   if(!App.mapSheet.map || !hasShopCoords(shop)) return;
+  const ref=shopPublicRef(shop) || shop?.shop_id || '';
   const popupEntry=App.mapSheet.shopLookup[shop.shop_id] || App.mapSheet.shopLookup[shopPublicRef(shop)];
+  App.mapSheet.focusShopId=ref;
+  App.mapSheet.pinnedPopupKey=shop.shop_id || ref;
+  App.mapSheet.focusScrollRequested=true;
   App.mapSheet.map.flyTo([Number(shop.latitude),Number(shop.longitude)],15,{duration:0.8});
   if(popupEntry?.popup){
     popupEntry.marker.bindPopup(mapPopupHtml(shop),{closeButton:true,autoClose:false}).openPopup();
   }
-  buildMapSpotCards(Object.values(App.mapSheet.shopLookup).map(entry=>entry.shop).filter((shop,idx,self)=>self.findIndex(s=>s.shop_id===shop.shop_id)===idx), shop.shop_id);
+  refreshMapSpotCards();
 }
 function addUserMapMarker(loc){
   if(!App.mapSheet.map || !loc || !window.L) return;
@@ -2980,12 +3103,26 @@ function renderMapMarkers(shops=[],focusShopId=''){
     marker.bindPopup(mapPopupHtml(shop),{closeButton:true,autoClose:false,offset:[0,-22],className:'wave-map-popup-shell'});
     marker.on('mouseover',()=>marker.openPopup());
     marker.on('mouseout',()=>{ if(App.mapSheet.pinnedPopupKey!==markerKey) marker.closePopup(); });
+    marker.on('popupopen',()=>{
+      App.mapSheet.focusShopId=shopPublicRef(shop) || shop.shop_id || '';
+      refreshMapSpotCards();
+    });
     marker.on('click',(e)=>{
       if(e?.originalEvent && window.L?.DomEvent) L.DomEvent.stopPropagation(e.originalEvent);
       App.mapSheet.pinnedPopupKey=markerKey;
+      App.mapSheet.focusShopId=shopPublicRef(shop) || shop.shop_id || '';
+      App.mapSheet.focusScrollRequested=true;
       marker.openPopup();
+      refreshMapSpotCards();
     });
-    marker.on('popupclose',()=>{ if(App.mapSheet.pinnedPopupKey!==markerKey) return; });
+    marker.on('popupclose',()=>{
+      if(App.mapSheet.pinnedPopupKey===markerKey) return;
+      const focusId=App.mapSheet.focusShopId||'';
+      if(focusId===markerKey || focusId===shop.shop_id || focusId===shopPublicRef(shop)){
+        App.mapSheet.focusShopId='';
+        refreshMapSpotCards();
+      }
+    });
     const popup=marker.getPopup();
     App.mapSheet.markers.push({shop,marker,popup});
     App.mapSheet.shopLookup[shop.shop_id]={shop,marker,popup};
@@ -3016,11 +3153,20 @@ async function ensureMapSheetBase(){
     App.mapSheet.map.setView([44.6488,-63.5752],11);
     App.mapSheet.map.on('click',()=>{
       App.mapSheet.pinnedPopupKey='';
+      App.mapSheet.focusShopId='';
+      App.mapSheet.focusScrollRequested=false;
       (App.mapSheet.markers||[]).forEach(entry=>{ try{entry.marker.closePopup();}catch{} });
+      refreshMapSpotCards();
     });
     App.mapSheet.map.on('movestart zoomstart dragstart',()=>setMapSheetFloatingHidden(true));
-    App.mapSheet.map.on('moveend zoomend dragend',()=>setMapSheetFloatingHidden(false,240));
-    App.mapSheet.map.on('zoomend',()=>refreshMapClustersOnly());
+    App.mapSheet.map.on('moveend dragend',()=>{
+      setMapSheetFloatingHidden(false,240);
+      refreshMapSpotCards();
+    });
+    App.mapSheet.map.on('zoomend',()=>{
+      setMapSheetFloatingHidden(false,240);
+      refreshMapClustersOnly();
+    });
     App.mapSheet.loaded=true;
   }
   return {ok:true,enabled:true,provider:'leaflet'};
@@ -3038,6 +3184,14 @@ async function openMapSheet(mode='home',focusRef=''){
   document.body.style.overflow='hidden';
   App.mapSheet.mode=mode;
   App.mapSheet.focusShopId=focusRef||'';
+  App.mapSheet.pinnedPopupKey='';
+  App.mapSheet.listFocusId='';
+  App.mapSheet.focusScrollRequested=!!focusRef;
+  App.mapSheet.preparedShops=[];
+  if($('mapSheetList')){
+    $('mapSheetList').innerHTML='';
+    $('mapSheetList').classList.remove('on');
+  }
   setMapSheetFloatingHidden(false);
   syncMapSheetChrome();
   setMapSheetStatus('Loading map…');
