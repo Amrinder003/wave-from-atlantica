@@ -399,14 +399,18 @@ a{color:inherit;text-decoration:none}
 .map-sheet-list.on{display:flex}
 .map-sheet.list-hidden .map-sheet-list{display:none!important}
 .map-sheet-list::-webkit-scrollbar{display:none}
-.map-sheet-list-handle{position:absolute;left:50%;transform:translateX(-50%);z-index:6;align-items:center;justify-content:center;width:62px;height:34px;border-radius:999px;background:linear-gradient(180deg,#a24c2e,#7e341d);border:1px solid rgba(126,52,29,.82);box-shadow:0 12px 24px rgba(92,47,24,.24);color:#fff;cursor:pointer}
-.map-sheet-list-handle-icon,.map-sheet-mini-arrow{font-size:20px;line-height:1;font-weight:900}
+.map-sheet-list-handle{position:absolute;left:50%;transform:translateX(-50%);z-index:6;display:flex;align-items:center;justify-content:center;gap:8px;width:78px;height:34px;border-radius:999px;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(245,237,226,.94));border:1px solid rgba(191,174,149,.42);box-shadow:0 12px 24px rgba(48,33,15,.12);color:var(--ink2);cursor:pointer;backdrop-filter:blur(10px);transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}
+.map-sheet-list-handle:hover,.map-sheet-mini-expand:hover{border-color:rgba(162,76,46,.32);box-shadow:0 14px 26px rgba(48,33,15,.15)}
+.map-sheet-list-handle:focus-visible,.map-sheet-mini-expand:focus-visible{outline:none;border-color:rgba(162,76,46,.4);box-shadow:0 0 0 3px rgba(162,76,46,.12),0 14px 26px rgba(48,33,15,.15)}
+.map-sheet-list-handle-grip{display:block;width:22px;height:4px;border-radius:999px;background:rgba(162,76,46,.22)}
+.map-sheet-list-handle-icon,.map-sheet-mini-arrow{display:grid;place-items:center;width:16px;height:16px;color:currentColor}
+.map-sheet-list-handle-icon svg,.map-sheet-mini-arrow svg{width:16px;height:16px;display:block;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;fill:none}
 .map-sheet-mini-rail{position:absolute;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);z-index:6;align-items:center;gap:8px;padding:6px 8px;border-radius:999px;background:rgba(255,253,248,.98);border:1px solid rgba(191,174,149,.38);box-shadow:0 10px 22px rgba(48,33,15,.12);backdrop-filter:blur(12px)}
 .map-sheet-mini-icons{flex:1;min-width:0;display:flex;align-items:center;gap:8px;overflow:hidden}
 .map-sheet-mini-chip{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.2);box-shadow:0 8px 18px rgba(92,47,24,.08);font-size:16px;line-height:1;color:var(--A2);flex:0 0 auto;cursor:pointer}
 .map-sheet-mini-chip.active{background:linear-gradient(180deg,#fff1e2,#f3d1a8);border-color:rgba(162,76,46,.45);box-shadow:0 10px 22px rgba(126,52,29,.16)}
 .map-sheet-mini-more{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 10px;border-radius:999px;background:rgba(255,250,242,.92);border:1px solid rgba(191,174,149,.28);font-size:11px;font-weight:800;color:var(--ink2);flex:0 0 auto}
-.map-sheet-mini-expand{width:40px;height:40px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(180deg,#a24c2e,#7e341d);border:1px solid rgba(126,52,29,.82);box-shadow:0 12px 24px rgba(92,47,24,.22);color:#fff;flex:0 0 auto;cursor:pointer}
+.map-sheet-mini-expand{width:42px;height:40px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(245,237,226,.94));border:1px solid rgba(191,174,149,.42);box-shadow:0 10px 22px rgba(48,33,15,.12);color:var(--A2);flex:0 0 auto;cursor:pointer;backdrop-filter:blur(10px);transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}
 .map-spot-card{min-width:238px;max-width:238px;display:grid;gap:10px;padding:12px 12px 11px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(250,245,237,.92));border:1px solid rgba(191,174,149,.28);box-shadow:0 12px 28px rgba(48,33,15,.08);cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;background-clip:padding-box}
 .map-spot-card:hover{transform:translateY(-2px);box-shadow:0 18px 32px rgba(48,33,15,.12);border-color:rgba(162,76,46,.28)}
 .map-spot-card:active{transform:scale(.988)}
@@ -2369,12 +2373,21 @@ a{color:inherit;text-decoration:none}
         <div id="mapSheetFloatingHint" class="map-floating-chip">Tap a pin to preview the shop</div>
       </div>
       <button id="mapSheetListCollapseBtn" class="map-sheet-list-handle" type="button" aria-label="Collapse shop bar" title="Collapse shop bar">
-        <span class="map-sheet-list-handle-icon" aria-hidden="true">&#9660;</span>
+        <span class="map-sheet-list-handle-grip" aria-hidden="true"></span>
+        <span class="map-sheet-list-handle-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <path d="M5 7.5 10 12.5 15 7.5"></path>
+          </svg>
+        </span>
       </button>
       <div id="mapSheetMiniRail" class="map-sheet-mini-rail" aria-label="Collapsed shop bar">
         <div id="mapSheetMiniIcons" class="map-sheet-mini-icons"></div>
         <button id="mapSheetMiniExpandBtn" class="map-sheet-mini-expand" type="button" aria-label="Expand shop bar" title="Expand shop bar">
-          <span class="map-sheet-mini-arrow" aria-hidden="true">&#9650;</span>
+          <span class="map-sheet-mini-arrow" aria-hidden="true">
+            <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+              <path d="M5 12.5 10 7.5 15 12.5"></path>
+            </svg>
+          </span>
         </button>
       </div>
       <div id="mapSheetList" class="map-sheet-list" aria-label="Visible shops on the map"></div>
