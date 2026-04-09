@@ -2441,7 +2441,7 @@ const App = {
   pdVariantSelection: {},
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
   mapSupport: null,
-  mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',compact:window.innerWidth<=560,floatingHidden:false,floatingTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false},
+  mapSheet: {map:null,markers:[],userMarker:null,shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',compact:window.innerWidth<=560,responsiveCompact:window.innerWidth<=560,floatingHidden:false,floatingTimer:null,viewportTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false},
   chatShopId: '',
   chatContextToken: 0,
   shopMobileSheet: '',
@@ -2544,6 +2544,31 @@ function formatDistanceKm(distanceKm=null){
 function mapRadiusLabel(radiusKm=0){
   const value=Number(radiusKm)||0;
   return value>0 ? `${value} km` : 'Any';
+}
+function shouldCompactMapSheet(){
+  return window.matchMedia('(max-width: 560px)').matches;
+}
+function mapFitBoundsOptions(){
+  const compact=!!App.mapSheet.compact;
+  if(window.matchMedia('(max-width: 560px)').matches){
+    return {
+      paddingTopLeft:[18,compact?72:108],
+      paddingBottomRight:[18,compact?208:236],
+      maxZoom:14
+    };
+  }
+  if(window.matchMedia('(max-width: 980px)').matches){
+    return {
+      paddingTopLeft:[24,compact?84:122],
+      paddingBottomRight:[24,compact?184:208],
+      maxZoom:14
+    };
+  }
+  return {
+    paddingTopLeft:[32,compact?82:118],
+    paddingBottomRight:[32,184],
+    maxZoom:14
+  };
 }
 function mapDirectionsUrl(shop={}){
   if(!hasShopCoords(shop)) return '';
@@ -2686,23 +2711,6 @@ async function tryGetApproxLocationFromIP(){
 }
 async function locateUserOnMap(){
   if(!App.mapSheet.map) return;
-  setMapSheetStatus('Finding your current location…');
-  const result=await tryGetUserLocation();
-  if(!result?.ok || !result.loc){
-    App.mapSheet.userLocation=null;
-    if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
-    setMapSheetStatus(result?.reason || 'Your location could not be determined. Check browser location permission and try again.');
-    return;
-  }
-  const loc=result.loc;
-  App.mapSheet.userLocation=loc;
-  if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
-  addUserMapMarker(loc);
-  try{ App.mapSheet.map.flyTo([loc.lat,loc.lng], 13, {duration:0.8}); }catch{}
-  setMapSheetStatus(`Showing your current location on the map${loc.accuracy ? ` (about ${Math.round(loc.accuracy)} m accuracy)` : ''}.`);
-}
-async function locateUserOnMap(){
-  if(!App.mapSheet.map) return;
   setMapSheetStatus('Finding your current location...');
   const result=await tryGetUserLocation();
   const finalResult=(result?.ok && result?.loc) ? result : await tryGetApproxLocationFromIP();
@@ -2788,6 +2796,32 @@ function resetMapSheetMarkers(){
 function setMapSheetStatus(text=''){
   if($('mapSheetStatus')) $('mapSheetStatus').textContent=text||'';
 }
+function syncMapSheetViewportState(force=false){
+  const nextCompact=shouldCompactMapSheet();
+  const changed=App.mapSheet.responsiveCompact!==nextCompact;
+  App.mapSheet.responsiveCompact=nextCompact;
+  if(force || changed) App.mapSheet.compact=nextCompact;
+  return changed;
+}
+function refreshMapSheetSize(delay=60){
+  if(!App.mapSheet.map) return;
+  try{ App.mapSheet.map.invalidateSize(); }catch{}
+  if(delay>0) requestAnimationFrame(()=>setTimeout(()=>App.mapSheet.map?.invalidateSize?.(),delay));
+}
+function scheduleMapSheetViewportRefresh(delay=90){
+  if(App.mapSheet.viewportTimer){
+    clearTimeout(App.mapSheet.viewportTimer);
+    App.mapSheet.viewportTimer=null;
+  }
+  App.mapSheet.viewportTimer=setTimeout(()=>{
+    App.mapSheet.viewportTimer=null;
+    syncMapSheetViewportState();
+    syncMapSheetChrome();
+    if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map) return;
+    refreshMapSheetSize(0);
+    rerenderCurrentMapSheet();
+  },Math.max(0,Number(delay)||0));
+}
 function syncMapSheetChrome(){
   const sheet=$('mapSheetBg')?.querySelector('.map-sheet');
   const compact=!!App.mapSheet.compact;
@@ -2817,7 +2851,7 @@ function syncMapSheetChrome(){
 function setMapSheetCompact(nextCompact=false){
   App.mapSheet.compact=!!nextCompact;
   syncMapSheetChrome();
-  requestAnimationFrame(()=>setTimeout(()=>App.mapSheet.map?.invalidateSize?.(),40));
+  refreshMapSheetSize(40);
 }
 function syncMapSheetFloating(){
   $('mapSheetBg')?.querySelector('.map-sheet-floating')?.classList.toggle('hidden',!!App.mapSheet.floatingHidden);
@@ -2927,7 +2961,7 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
   if(!shops.length){
     setMapSheetEmpty('No mapped shops yet','Shops need a verified address with coordinates before they can appear on the map.');
     const radiusNote=userLoc && Number(App.mapSheet.radiusKm||0)>0 ? ` within ${mapRadiusLabel(App.mapSheet.radiusKm)}` : '';
-    requestAnimationFrame(()=>setTimeout(()=>App.mapSheet.map?.invalidateSize?.(),60));
+    refreshMapSheetSize(60);
     renderMapMarkers([],focusShop?.shop_id||App.mapSheet.focusShopId||'');
     if(userLoc) addUserMapMarker(userLoc);
     setMapSheetStatus(`No shop locations are ready for the map${radiusNote}.`);
@@ -2935,7 +2969,7 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
     return;
   }
   setMapSheetEmpty('','');
-  requestAnimationFrame(()=>setTimeout(()=>App.mapSheet.map?.invalidateSize?.(),60));
+  refreshMapSheetSize(60);
   renderMapMarkers(shops,focusShop?.shop_id||App.mapSheet.focusShopId||'');
   if(userLoc) addUserMapMarker(userLoc);
   fitMapToShops(shops,focusShop,userLoc);
@@ -3182,7 +3216,7 @@ function fitMapToShops(shops=[],focusShop=null,userLoc=null){
   fitShops.forEach(shop=>{ if(hasShopCoords(shop)) points.push([Number(shop.latitude),Number(shop.longitude)]); });
   if(!points.length) return;
   if(points.length===1 && focusShop) App.mapSheet.map.setView([Number(focusShop.latitude),Number(focusShop.longitude)],14);
-  else App.mapSheet.map.fitBounds(points,{padding:[70,70],maxZoom:14});
+  else App.mapSheet.map.fitBounds(points,mapFitBoundsOptions());
 }
 async function ensureMapSheetBase(){
   setMapSheetEmpty('','');
@@ -3236,6 +3270,7 @@ async function openMapSheet(mode='home',focusRef=''){
     $('mapSheetList').classList.remove('on');
   }
   setMapSheetFloatingHidden(false);
+  syncMapSheetViewportState(true);
   syncMapSheetChrome();
   setMapSheetStatus('Loading map…');
   if($('mapSheetTitle')) $('mapSheetTitle').textContent=mode==='shop'?'View this shop on the map.':'Explore nearby shops on the map.';
@@ -6019,7 +6054,10 @@ window.addEventListener('resize',()=>{
   if(!isMobileShopLayout()) setShopSnapshotModal(false);
   if(!isMobileHomeLayout()) toggleShopFilters(false);
   syncHomeMobileLayout();
+  scheduleMapSheetViewportRefresh(100);
 });
+window.addEventListener('orientationchange',()=>scheduleMapSheetViewportRefresh(140));
+window.visualViewport?.addEventListener('resize',()=>scheduleMapSheetViewportRefresh(140));
 {
   let chatSheetTouchStartY=0;
   const head=document.querySelector('.chat-side-head');
