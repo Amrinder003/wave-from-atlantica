@@ -19,12 +19,15 @@ from io import StringIO
 from email.message import EmailMessage
 from supabase import create_client, Client
 try:
-    from supabase.lib.client_options import ClientOptions
+    from supabase.client import ClientOptions  # type: ignore
 except Exception:
     try:
-        from supabase.client import ClientOptions  # type: ignore
+        from supabase import ClientOptions  # type: ignore
     except Exception:
-        ClientOptions = None  # type: ignore
+        try:
+            from supabase.lib.client_options import ClientOptions  # type: ignore
+        except Exception:
+            ClientOptions = None  # type: ignore
 from zoneinfo import ZoneInfo
 
 try:
@@ -126,19 +129,37 @@ SECURITY_CSP = "; ".join([
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("⚠️ WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY.")
+
+def make_supabase_client_options() -> Optional[Any]:
+    if ClientOptions is None:
+        return None
+    try:
+        return ClientOptions(auto_refresh_token=False, persist_session=False)
+    except TypeError:
+        return None
+
+def is_supabase_option_error(exc: Exception) -> bool:
+    message = str(exc)
+    if isinstance(exc, TypeError):
+        return "unexpected keyword" in message or "required positional argument" in message
+    if isinstance(exc, AttributeError):
+        return any(token in message for token in ("storage", "persist_session", "auto_refresh_token"))
+    return False
+
 def make_supabase_client(key: str) -> Optional[Client]:
     if not SUPABASE_URL or not key:
         return None
-    if ClientOptions is None:
-        return create_client(SUPABASE_URL, key)
-    return create_client(
-        SUPABASE_URL,
-        key,
-        options=ClientOptions(auto_refresh_token=False, persist_session=False),
-    )
+    options = make_supabase_client_options()
+    if options is not None:
+        try:
+            return create_client(SUPABASE_URL, key, options=options)
+        except Exception as exc:
+            if not is_supabase_option_error(exc):
+                raise
+            print(f"WARNING: Supabase ClientOptions fallback triggered: {exc}")
+    return create_client(SUPABASE_URL, key)
 
 supabase: Optional[Client] = make_supabase_client(SUPABASE_KEY)
-supabase_auth: Optional[Client] = make_supabase_client(SUPABASE_KEY)
 FX_CACHE: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
 COUNTRY_META: Dict[str, Dict[str, Any]] = {
@@ -355,9 +376,10 @@ def require_supabase() -> Client:
     return supabase
 
 def require_supabase_auth() -> Client:
-    if supabase_auth is None:
+    auth_client = make_supabase_client(SUPABASE_KEY)
+    if auth_client is None:
         raise HTTPException(503, "Server is missing Supabase configuration.")
-    return supabase_auth
+    return auth_client
 
 def ui_redirect_url() -> str:
     base = (APP_BASE_URL or "http://localhost:8001").strip().rstrip("/")
