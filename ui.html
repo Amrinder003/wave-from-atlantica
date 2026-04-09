@@ -465,7 +465,7 @@ a{color:inherit;text-decoration:none}
 @media(max-width:560px), (max-width:920px) and (max-height:560px){
   .map-sheet-mobile-bar{position:absolute;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:8;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none}
   .map-sheet-mobile-bar > *{pointer-events:auto}
-  .map-sheet-tools-btn{min-height:40px;padding-inline:14px}
+  .map-sheet-tools-btn{min-height:42px;padding-inline:16px;background:linear-gradient(180deg,#a24c2e,#7e341d)!important;color:#fff!important;border:1px solid rgba(126,52,29,.82)!important;box-shadow:0 12px 24px rgba(92,47,24,.22)!important;font-weight:800}
   .map-sheet-close-icon{width:40px;height:40px;border-radius:999px;display:grid;place-items:center;background:rgba(255,253,248,.94);border:1px solid rgba(191,174,149,.34);box-shadow:0 10px 22px rgba(48,33,15,.08);font-size:22px;line-height:1;color:var(--ink2)}
   .map-sheet-side{left:10px;right:10px;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 8px) 0 0}
   .map-sheet-actions #mapSheetCompactBtn,.map-sheet-actions #mapSheetCloseBtn{display:none}
@@ -476,7 +476,7 @@ a{color:inherit;text-decoration:none}
   .map-sheet-actions .btn{width:100%;min-height:40px;justify-content:center;padding-inline:10px}
   .map-sheet-status{padding:8px 10px;border-radius:15px;font-size:10px;max-width:min(100%,300px)}
   .map-sheet-list{width:calc(100% - 12px);left:6px;right:6px;transform:none;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);padding:6px;border-radius:20px;gap:6px}
-  .map-sheet-list-toggle{position:absolute;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 88px);z-index:6;display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 12px;border-radius:999px;background:rgba(255,253,248,.94);border:1px solid rgba(191,174,149,.34);box-shadow:0 10px 22px rgba(48,33,15,.08)}
+  .map-sheet-list-toggle{position:absolute;left:50%;right:auto;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 132px);z-index:6;display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border-radius:999px;background:rgba(255,253,248,.98);border:1px solid rgba(191,174,149,.38);box-shadow:0 10px 22px rgba(48,33,15,.12);font-weight:800}
   .map-spot-card{min-width:min(78vw,214px);max-width:min(78vw,214px);padding:10px}
   .map-spot-card-mark{width:38px;height:38px;border-radius:14px;font-size:17px}
   .map-spot-card-name{font-size:14px}
@@ -2557,6 +2557,14 @@ function formatDistanceKm(distanceKm=null){
   if(value<10) return `${value.toFixed(1)} km away`;
   return `${Math.round(value)} km away`;
 }
+function hasExactUserLocation(loc=null){
+  const source=loc || App.mapSheet?.userLocation || null;
+  return !!source && !source.approximate && Number.isFinite(Number(source.lat)) && Number.isFinite(Number(source.lng));
+}
+function mapDistanceLabel(shop={}){
+  if(!hasExactUserLocation()) return '';
+  return formatDistanceKm(shop._distance_km ?? shopDistanceKm(shop,App.mapSheet.userLocation));
+}
 function mapRadiusLabel(radiusKm=0){
   const value=Number(radiusKm)||0;
   return value>0 ? `${value} km` : 'Any';
@@ -2732,7 +2740,9 @@ async function locateUserOnMap(){
   if(!App.mapSheet.map) return;
   setMapSheetStatus('Finding your current location...');
   const result=await tryGetUserLocation();
-  const finalResult=(result?.ok && result?.loc) ? result : await tryGetApproxLocationFromIP();
+  const finalResult=(result?.ok && result?.loc)
+    ? result
+    : (Number(result?.code||0)===1 ? result : await tryGetApproxLocationFromIP());
   if(!finalResult?.ok || !finalResult.loc){
     App.mapSheet.userLocation=null;
     if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
@@ -2749,7 +2759,7 @@ async function locateUserOnMap(){
 }
 function mapPopupHtml(shop={}){
   const stats=shop.stats||{};
-  const distanceLabel=formatDistanceKm(shop._distance_km ?? shopDistanceKm(shop,App.mapSheet.userLocation));
+  const distanceLabel=mapDistanceLabel(shop);
   const directionsRef=shopPublicRef(shop) || shop.shop_id || '';
   const chips=[
     shop.category?`<span class="wave-map-popup-chip">${esc(shop.category)}</span>`:'',
@@ -2773,7 +2783,7 @@ function mapPopupHtml(shop={}){
 function clusterPopupHtml(shops=[]){
   const count=shops.length;
   const rows=(shops||[]).slice(0,4).map(shop=>{
-    const distanceLabel=formatDistanceKm(shop._distance_km ?? shopDistanceKm(shop,App.mapSheet.userLocation));
+    const distanceLabel=mapDistanceLabel(shop);
     return `<div class="wave-map-cluster-item">${esc(shop.name||'Shop')}${distanceLabel?` · ${esc(distanceLabel)}`:''}</div>`;
   }).join('');
   return `
@@ -3005,7 +3015,8 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
     const radiusNote=userLoc && Number(App.mapSheet.radiusKm||0)>0 ? ` within ${mapRadiusLabel(App.mapSheet.radiusKm)}` : '';
     refreshMapSheetSize(60);
     renderMapMarkers([],focusShop?.shop_id||App.mapSheet.focusShopId||'');
-    if(userLoc) addUserMapMarker(userLoc);
+    if(hasExactUserLocation(userLoc)) addUserMapMarker(userLoc);
+    else if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
     setMapSheetStatus(`No shop locations are ready for the map${radiusNote}.`);
     buildMapSpotCards([]);
     return;
@@ -3013,7 +3024,8 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
   setMapSheetEmpty('','');
   refreshMapSheetSize(60);
   renderMapMarkers(shops,focusShop?.shop_id||App.mapSheet.focusShopId||'');
-  if(userLoc) addUserMapMarker(userLoc);
+  if(hasExactUserLocation(userLoc)) addUserMapMarker(userLoc);
+  else if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
   fitMapToShops(shops,focusShop,userLoc);
   buildMapSpotCards(shops,focusShop?.shop_id||App.mapSheet.focusShopId||'');
   const mappedCount=shops.length;
@@ -3097,8 +3109,9 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     const ref=shopPublicRef(shop) || shop?.shop_id || '';
     const active=!!focusShopId && (focusShopId===ref || focusShopId===shop?.shop_id);
     const stats=shop?.stats||{};
-    const distanceLabel=formatDistanceKm(shop._distance_km ?? shopDistanceKm(shop,App.mapSheet.userLocation));
-    const metaText=[distanceLabel,shop?.category||'',shop?.city||''].filter(Boolean).slice(0,2).join(' · ') || 'Tap to preview this shop on the map';
+    const distanceLabel=mapDistanceLabel(shop);
+    const locationMeta=!distanceLabel && App.mapSheet.mode==='home' ? 'Location unavailable' : '';
+    const metaText=[distanceLabel || locationMeta,shop?.category||'',shop?.city||''].filter(Boolean).slice(0,2).join(' · ') || 'Tap to preview this shop on the map';
     const copyText=(shop?.overview||shopDisplayAddress(shop)||'Open the shop page to browse products and chat with the shop assistant.').slice(0,92);
     const chipText=[
       stats.product_count!=null ? `${stats.product_count} products` : '',
@@ -3167,7 +3180,7 @@ function focusMapShop(shop={}){
   refreshMapSpotCards();
 }
 function addUserMapMarker(loc){
-  if(!App.mapSheet.map || !loc || !window.L) return;
+  if(!App.mapSheet.map || !loc || !window.L || !hasExactUserLocation(loc)) return;
   const ring=L.circleMarker([loc.lat,loc.lng],{
     radius:18,
     weight:2,
@@ -3338,7 +3351,9 @@ async function openMapSheet(mode='home',focusRef=''){
   App.mapSheet.baseShops=shops.map(shop=>({...shop}));
   if(mode==='home'){
     const locationResult=await tryGetUserLocation();
-    const finalLocation=(locationResult?.ok && locationResult?.loc) ? locationResult : await tryGetApproxLocationFromIP();
+    const finalLocation=(locationResult?.ok && locationResult?.loc)
+      ? locationResult
+      : (Number(locationResult?.code||0)===1 ? locationResult : await tryGetApproxLocationFromIP());
     App.mapSheet.userLocation=finalLocation?.ok ? finalLocation.loc : null;
   }
   renderHomeShops();
@@ -5670,11 +5685,12 @@ function renderHomeShops(){
   shops.forEach(s=>{
     const card=document.createElement('div');card.className='shop-card';
     const ico={'Food':'🍜','Electronics':'📱','Clothing':'👗','Home':'🏠','Beauty':'💄','Sports':'⚽','Books':'📚'}[s.category||'']||'🏪';
-    const distanceLabel=formatDistanceKm(shopDistanceKm(s,userLoc));
+    const distanceLabel=hasExactUserLocation(userLoc) ? formatDistanceKm(shopDistanceKm(s,userLoc)) : '';
+    const locationChip=!distanceLabel && !hasExactUserLocation(userLoc) ? '<span class="sc-chip d">Location unavailable</span>' : '';
     card.innerHTML=`<div class="shop-card-banner"><div class="shop-card-mark">${ico}</div>${s.category?`<div class="shop-card-category">${esc(s.category)}</div>`:''}</div>
     <div class="shop-card-body"><div class="shop-card-name">${esc(s.name)}</div><div class="shop-card-addr">📍 ${esc(s.address||'Address coming soon')}</div>
     <div class="shop-card-overview">${esc((s.overview||'Local products, direct shop chat, and quick browsing in one storefront.').slice(0,120))}</div>
-    <div class="shop-card-foot"><span class="sc-chip a">${s.stats?.product_count??0} products</span>${distanceLabel?`<span class="sc-chip d">📍 ${esc(distanceLabel)}</span>`:''}${(s.stats?.avg_rating>0)?`<span class="sc-chip g">★ ${s.stats.avg_rating}</span>`:''}<span class="sc-chip d">${s.stats?.chat_hits_30d??0} chats / 30d</span>${s.is_open_now?`<span class="sc-chip g">Open now</span>`:''}</div></div>`;
+    <div class="shop-card-foot"><span class="sc-chip a">${s.stats?.product_count??0} products</span>${distanceLabel?`<span class="sc-chip d">📍 ${esc(distanceLabel)}</span>`:locationChip}${(s.stats?.avg_rating>0)?`<span class="sc-chip g">★ ${s.stats.avg_rating}</span>`:''}<span class="sc-chip d">${s.stats?.chat_hits_30d??0} chats / 30d</span>${s.is_open_now?`<span class="sc-chip g">Open now</span>`:''}</div></div>`;
     card.addEventListener('click',()=>openShopPage(s.shop_slug||s.shop_id));
     grid.appendChild(card);
   });
