@@ -61,7 +61,7 @@ RATE_LIMIT_STATE: Dict[str, List[float]] = {}
 CURRENT_REQUEST: ContextVar[Optional[Request]] = ContextVar("current_request", default=None)
 PUBLIC_SHOP_FIELDS = (
     "shop_id", "shop_slug", "name", "address", "formatted_address", "overview", "phone", "hours",
-    "hours_structured", "category", "whatsapp", "country_code", "country_name", "timezone_name",
+    "hours_structured", "category", "business_type", "location_mode", "service_area", "whatsapp", "country_code", "country_name", "timezone_name",
     "region", "city", "postal_code", "street_line1", "street_line2", "currency_code", "latitude",
     "longitude", "supports_pickup", "supports_delivery", "supports_walk_in", "delivery_radius_km",
     "delivery_fee", "pickup_notes",
@@ -181,6 +181,34 @@ COUNTRY_META: Dict[str, Dict[str, Any]] = {
 }
 DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 DAY_LABELS = {"mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun"}
+BUSINESS_TYPE_META: Dict[str, Dict[str, str]] = {
+    "retail": {"label": "Retail business", "offering_type": "product", "singular": "product", "plural": "products", "business_label": "store"},
+    "service": {"label": "Service business", "offering_type": "service", "singular": "service", "plural": "services", "business_label": "business"},
+    "professional": {"label": "Professional practice", "offering_type": "service", "singular": "service", "plural": "services", "business_label": "business"},
+    "education": {"label": "Education business", "offering_type": "class", "singular": "class", "plural": "classes", "business_label": "business"},
+    "creator": {"label": "Creator portfolio", "offering_type": "portfolio", "singular": "offering", "plural": "offerings", "business_label": "studio"},
+    "other": {"label": "Local business", "offering_type": "offering", "singular": "offering", "plural": "offerings", "business_label": "business"},
+}
+OFFERING_TYPE_META: Dict[str, Dict[str, str]] = {
+    "product": {"label": "Product", "singular": "product", "plural": "products"},
+    "service": {"label": "Service", "singular": "service", "plural": "services"},
+    "class": {"label": "Class", "singular": "class", "plural": "classes"},
+    "event": {"label": "Event", "singular": "event", "plural": "events"},
+    "portfolio": {"label": "Portfolio item", "singular": "portfolio item", "plural": "portfolio items"},
+    "offering": {"label": "Offering", "singular": "offering", "plural": "offerings"},
+}
+LEGACY_CATEGORY_BUSINESS_TYPE: Dict[str, str] = {
+    "Food": "retail",
+    "Clothing": "retail",
+    "Electronics": "retail",
+    "Beauty": "retail",
+    "Books": "retail",
+    "Home": "retail",
+    "Sports": "retail",
+}
+LOCATION_MODE_VALUES = {"storefront", "service_area", "hybrid", "online"}
+PRICE_MODE_VALUES = {"fixed", "starting_at", "inquiry", "custom", "free"}
+AVAILABILITY_MODE_VALUES = {"in_stock", "available", "scheduled", "limited", "on_request", "unavailable"}
 PRODUCT_ATTRIBUTE_SCHEMA: Dict[str, List[Tuple[str, str]]] = {
     "Food": [("ingredients", "Ingredients"), ("allergens", "Allergens"), ("serving_size", "Serving size"), ("origin", "Origin")],
     "Clothing": [("brand", "Brand"), ("material", "Material"), ("sizes", "Sizes"), ("colors", "Colors")],
@@ -189,6 +217,13 @@ PRODUCT_ATTRIBUTE_SCHEMA: Dict[str, List[Tuple[str, str]]] = {
     "Books": [("author", "Author"), ("publisher", "Publisher"), ("format", "Format"), ("language", "Language")],
     "Home": [("brand", "Brand"), ("material", "Material"), ("dimensions", "Dimensions"), ("color", "Color")],
     "Sports": [("brand", "Brand"), ("size", "Size"), ("material", "Material"), ("skill_level", "Skill level")],
+}
+NON_PRODUCT_ATTRIBUTE_SCHEMA: Dict[str, List[Tuple[str, str]]] = {
+    "service": [("service_mode", "Service mode"), ("booking_notes", "Booking notes"), ("service_area_note", "Service area"), ("provider", "Provider")],
+    "class": [("level", "Level"), ("audience", "Audience"), ("materials", "Materials"), ("schedule_notes", "Schedule notes")],
+    "event": [("event_date", "Event date"), ("venue", "Venue"), ("ticket_notes", "Ticket notes"), ("audience", "Audience")],
+    "portfolio": [("medium", "Medium"), ("style", "Style"), ("commission_type", "Commission type"), ("turnaround", "Turnaround")],
+    "offering": [("details", "Details"), ("availability_notes", "Availability notes"), ("service_area_note", "Area served"), ("pricing_notes", "Pricing notes")],
 }
 ATTRIBUTE_QUERY_SYNONYMS: Dict[str, List[str]] = {
     "ingredients": ["ingredient", "ingredients", "made of", "contains", "contain", "inside"],
@@ -211,6 +246,24 @@ ATTRIBUTE_QUERY_SYNONYMS: Dict[str, List[str]] = {
     "language": ["language"],
     "dimensions": ["dimensions", "dimension", "size", "measurements"],
     "skill_level": ["skill level", "beginner", "intermediate", "advanced"],
+    "service_mode": ["service mode", "online", "remote", "in person", "virtual", "onsite", "on site"],
+    "booking_notes": ["booking", "appointment", "appointments", "booking notes"],
+    "service_area_note": ["service area", "area served", "travel area", "coverage area"],
+    "provider": ["provider", "teacher", "agent", "broker", "artist"],
+    "level": ["level", "beginner", "intermediate", "advanced"],
+    "audience": ["audience", "for whom", "who is this for"],
+    "materials": ["materials", "supplies", "what to bring"],
+    "schedule_notes": ["schedule", "when", "timing"],
+    "event_date": ["date", "when is it", "event date"],
+    "venue": ["venue", "location", "where is it"],
+    "ticket_notes": ["ticket", "tickets", "entry"],
+    "medium": ["medium", "made with"],
+    "style": ["style"],
+    "commission_type": ["commission", "commissions", "custom work"],
+    "turnaround": ["turnaround", "delivery time", "lead time"],
+    "details": ["details", "more info"],
+    "availability_notes": ["availability notes", "availability"],
+    "pricing_notes": ["pricing notes", "pricing"],
 }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -255,6 +308,197 @@ async def set_security_headers(request: Request, call_next):
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # PYDANTIC MODELS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+def normalize_business_type(value: str = "", category: str = "") -> str:
+    raw = re.sub(r"[^a-z]+", "", str(value or "").strip().lower())
+    aliases = {
+        "retail": "retail",
+        "shop": "retail",
+        "store": "retail",
+        "service": "service",
+        "services": "service",
+        "professional": "professional",
+        "education": "education",
+        "teacher": "education",
+        "school": "education",
+        "creator": "creator",
+        "artist": "creator",
+        "portfolio": "creator",
+        "other": "other",
+    }
+    normalized = aliases.get(raw, "")
+    if normalized:
+        return normalized
+    if category in LEGACY_CATEGORY_BUSINESS_TYPE:
+        return LEGACY_CATEGORY_BUSINESS_TYPE[category]
+    return "retail"
+
+def business_meta(value: str = "", category: str = "") -> Dict[str, str]:
+    normalized = normalize_business_type(value, category)
+    return BUSINESS_TYPE_META.get(normalized, BUSINESS_TYPE_META["other"])
+
+def default_offering_type_for_business(value: str = "", category: str = "") -> str:
+    return business_meta(value, category).get("offering_type", "offering")
+
+def normalize_location_mode(value: str = "", business_type: str = "", category: str = "") -> str:
+    raw = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if raw in LOCATION_MODE_VALUES:
+        return raw
+    business_type = normalize_business_type(business_type, category)
+    if business_type in {"service", "professional"}:
+        return "service_area"
+    if business_type == "creator":
+        return "online"
+    return "storefront"
+
+def normalize_offering_type(value: str = "", business_type: str = "", category: str = "") -> str:
+    raw = re.sub(r"[^a-z]+", "", str(value or "").strip().lower())
+    aliases = {
+        "product": "product",
+        "products": "product",
+        "service": "service",
+        "services": "service",
+        "class": "class",
+        "classes": "class",
+        "course": "class",
+        "courses": "class",
+        "event": "event",
+        "events": "event",
+        "portfolio": "portfolio",
+        "portfolioitem": "portfolio",
+        "offering": "offering",
+        "offerings": "offering",
+    }
+    normalized = aliases.get(raw, "")
+    if normalized:
+        return normalized
+    return default_offering_type_for_business(business_type, category)
+
+def offering_meta(value: str = "", business_type: str = "", category: str = "") -> Dict[str, str]:
+    normalized = normalize_offering_type(value, business_type, category)
+    return OFFERING_TYPE_META.get(normalized, OFFERING_TYPE_META["offering"])
+
+def normalize_price_mode(value: str = "") -> str:
+    raw = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "fixed": "fixed",
+        "startingat": "starting_at",
+        "starting_at": "starting_at",
+        "from": "starting_at",
+        "inquiry": "inquiry",
+        "contact": "inquiry",
+        "contactforprice": "inquiry",
+        "custom": "custom",
+        "quote": "custom",
+        "free": "free",
+    }
+    return aliases.get(raw, "fixed")
+
+def normalize_availability_mode(value: str = "", offering_type: str = "", business_type: str = "", category: str = "") -> str:
+    raw = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "in_stock": "in_stock",
+        "instock": "in_stock",
+        "available": "available",
+        "scheduled": "scheduled",
+        "limited": "limited",
+        "on_request": "on_request",
+        "onrequest": "on_request",
+        "unavailable": "unavailable",
+    }
+    normalized = aliases.get(raw, "")
+    if normalized in AVAILABILITY_MODE_VALUES:
+        return normalized
+    offering_type = normalize_offering_type(offering_type, business_type, category)
+    return "in_stock" if offering_type == "product" else "available"
+
+def tracks_inventory(offering_type: str = "", business_type: str = "", category: str = "") -> bool:
+    return normalize_offering_type(offering_type, business_type, category) == "product"
+
+def uses_variants(offering_type: str = "", business_type: str = "", category: str = "") -> bool:
+    return tracks_inventory(offering_type, business_type, category)
+
+def supports_capacity(offering_type: str = "", business_type: str = "", category: str = "") -> bool:
+    return normalize_offering_type(offering_type, business_type, category) in {"class", "event"}
+
+def supports_duration(offering_type: str = "", business_type: str = "", category: str = "") -> bool:
+    return normalize_offering_type(offering_type, business_type, category) in {"service", "class", "event"}
+
+def offering_attribute_schema(business_type: str = "", category: str = "", offering_type: str = "") -> List[Tuple[str, str]]:
+    normalized_offering_type = normalize_offering_type(offering_type, business_type, category)
+    if normalized_offering_type == "product":
+        return PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])
+    return NON_PRODUCT_ATTRIBUTE_SCHEMA.get(normalized_offering_type, NON_PRODUCT_ATTRIBUTE_SCHEMA.get("offering", []))
+
+def offering_nouns(shop: Optional[Dict[str, Any]] = None, rows: Optional[List[Dict[str, Any]]] = None, offering_type: str = "") -> Dict[str, str]:
+    shop = shop or {}
+    business_type = normalize_business_type(shop.get("business_type", ""), shop.get("category", ""))
+    explicit = normalize_offering_type(offering_type, business_type, shop.get("category", ""))
+    if explicit != "offering":
+        meta = offering_meta(explicit, business_type, shop.get("category", ""))
+        return {"singular": meta["singular"], "plural": meta["plural"]}
+    types = {
+        normalize_offering_type(row.get("offering_type", ""), business_type, shop.get("category", ""))
+        for row in (rows or [])
+        if isinstance(row, dict)
+    }
+    types.discard("")
+    if len(types) == 1:
+        only = next(iter(types))
+        meta = offering_meta(only, business_type, shop.get("category", ""))
+        return {"singular": meta["singular"], "plural": meta["plural"]}
+    meta = business_meta(business_type, shop.get("category", ""))
+    fallback = offering_meta(meta.get("offering_type", "offering"), business_type, shop.get("category", ""))
+    if len(types) > 1:
+        fallback = OFFERING_TYPE_META["offering"]
+    return {"singular": fallback["singular"], "plural": fallback["plural"]}
+
+def business_display_name(shop: Optional[Dict[str, Any]] = None) -> str:
+    shop = shop or {}
+    return business_meta(shop.get("business_type", ""), shop.get("category", "")).get("business_label", "business")
+
+def offering_status_label(row: Dict[str, Any], shop: Optional[Dict[str, Any]] = None) -> str:
+    shop = shop or {}
+    business_type = normalize_business_type(shop.get("business_type", ""), shop.get("category", ""))
+    offering_type = normalize_offering_type(row.get("offering_type", ""), business_type, shop.get("category", ""))
+    stock = str(row.get("stock", "in") or "in").strip().lower()
+    availability_mode = normalize_availability_mode(row.get("availability_mode", ""), offering_type, business_type, shop.get("category", ""))
+    if offering_type == "product":
+        return {"in": "In Stock", "low": "Low Stock", "out": "Out of Stock"}.get(stock, "Available")
+    if stock == "out" or availability_mode == "unavailable":
+        return "Unavailable"
+    if stock == "low" or availability_mode == "limited":
+        return "Limited availability"
+    if availability_mode == "scheduled":
+        return "Scheduled"
+    if availability_mode == "on_request":
+        return "On request"
+    if offering_type == "service":
+        return "Available for booking"
+    if offering_type == "class":
+        return "Open for enrollment"
+    if offering_type == "event":
+        return "Available"
+    if offering_type == "portfolio":
+        return "Available on request"
+    return "Available"
+
+def offering_summary_bits(row: Dict[str, Any], shop: Optional[Dict[str, Any]] = None) -> List[str]:
+    shop = shop or {}
+    business_type = normalize_business_type(shop.get("business_type", ""), shop.get("category", ""))
+    offering_type = normalize_offering_type(row.get("offering_type", ""), business_type, shop.get("category", ""))
+    bits: List[str] = []
+    price = str(row.get("price") or "").strip()
+    if price:
+        bits.append(price)
+    status = offering_status_label(row, shop)
+    if status:
+        bits.append(status)
+    if supports_duration(offering_type, business_type, shop.get("category", "")) and row.get("duration_minutes") not in (None, ""):
+        bits.append(f"{int(row['duration_minutes'])} min")
+    if supports_capacity(offering_type, business_type, shop.get("category", "")) and row.get("capacity") not in (None, ""):
+        bits.append(f"Capacity {int(row['capacity'])}")
+    return bits
+
 class RegisterReq(BaseModel):
     email: str
     password: str
@@ -285,6 +529,9 @@ class ShopInfo(BaseModel):
     hours: str = ""
     hours_structured: List[Dict[str, Any]] = []
     category: str = ""
+    business_type: str = "retail"
+    location_mode: str = ""
+    service_area: str = ""
     whatsapp: str = ""
     country_code: str = ""
     country_name: str = ""
@@ -306,7 +553,8 @@ class ShopInfo(BaseModel):
     pickup_notes: str = ""
 
 class OrderRequestReq(BaseModel):
-    shop_id: str
+    shop_id: str = ""
+    business_id: str = ""
     fulfillment_type: str
     customer_name: str
     phone: str
@@ -321,13 +569,19 @@ class OrderStatusUpdateReq(BaseModel):
 
 class Product(BaseModel):
     product_id: str = ""
+    offering_id: str = ""
     name: str
     overview: str = ""
     price: str = ""
     price_amount: Optional[float] = Field(default=None, ge=0)
     currency_code: str = ""
+    offering_type: str = ""
+    price_mode: str = "fixed"
+    availability_mode: str = ""
     stock: str = "in"
     stock_quantity: Optional[int] = Field(default=None, ge=0)
+    duration_minutes: Optional[int] = Field(default=None, ge=0)
+    capacity: Optional[int] = Field(default=None, ge=0)
     variants: str = ""
     variant_data: List[Dict[str, Any]] = []
     variant_matrix: List[Dict[str, Any]] = []
@@ -336,7 +590,9 @@ class Product(BaseModel):
 
 class CreateShopReq(BaseModel):
     shop_id: Optional[str] = None
-    shop: ShopInfo
+    business_id: Optional[str] = None
+    shop: Optional[ShopInfo] = None
+    business: Optional[ShopInfo] = None
 
 class ReviewReq(BaseModel):
     rating: int = Field(..., ge=1, le=5)
@@ -604,14 +860,14 @@ def send_request_confirmation_email(shop: Dict[str, Any], payload: Dict[str, Any
     email = clean_email(payload.get("customer_email", ""))
     if not email:
         return
-    subject = f"Your {shop.get('name', 'shop')} request is confirmed"
+    subject = f"Your {shop.get('name', 'business')} request is confirmed"
     fulfillment = str(payload.get("fulfillment_type") or "pickup").replace("_", " ").title()
     track_token = issue_request_track_token(payload.get("request_id", ""), payload.get("phone", ""))
     tracker_url = f"{ui_redirect_url()}?request_id={payload.get('request_id','')}{f'&track_token={track_token}' if track_token else ''}"
     body = "\n".join([
         f"Hi {payload.get('customer_name') or 'there'},",
         "",
-        f"Your request with {shop.get('name', 'the shop')} has been received.",
+        f"Your request with {shop.get('name', 'the business')} has been received.",
         f"Request ID: {payload.get('request_id', '')}",
         f"Fulfillment: {fulfillment}",
         f"Status: {request_status_human(payload.get('status', 'new'))}",
@@ -630,13 +886,13 @@ def send_request_status_email(shop: Dict[str, Any], row: Dict[str, Any], status:
     email = clean_email(row.get("customer_email", ""))
     if not email:
         return
-    subject = f"Your {shop.get('name', 'shop')} request is now {request_status_human(status)}"
+    subject = f"Your {shop.get('name', 'business')} request is now {request_status_human(status)}"
     track_token = issue_request_track_token(row.get("request_id", ""), row.get("phone", ""))
     tracker_url = f"{ui_redirect_url()}?request_id={row.get('request_id','')}{f'&track_token={track_token}' if track_token else ''}"
     body = "\n".join([
         f"Hi {row.get('customer_name') or 'there'},",
         "",
-        f"Your request with {shop.get('name', 'the shop')} was updated.",
+        f"Your request with {shop.get('name', 'the business')} was updated.",
         f"Request ID: {row.get('request_id', '')}",
         f"New status: {request_status_human(status)}",
         f"Fulfillment: {str(row.get('fulfillment_type') or 'pickup').replace('_', ' ').title()}",
@@ -740,7 +996,35 @@ def unique_product_slug(shop_id: str, name: str, ignore_product_id: str = "") ->
         candidate = f"{base[:max(1, 50-len(suffix))]}{suffix}"
     return f"{base[:40]}-{uuid.uuid4().hex[:6]}"
 
-PRODUCT_OPTIONAL_WRITE_COLUMNS = ["price_amount", "stock_quantity", "product_slug", "variant_data", "variant_matrix", "attribute_data", "currency_code"]
+SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area"]
+PRODUCT_OPTIONAL_WRITE_COLUMNS = [
+    "price_amount", "stock_quantity", "product_slug", "variant_data", "variant_matrix",
+    "attribute_data", "currency_code", "offering_type", "price_mode", "availability_mode",
+    "duration_minutes", "capacity",
+]
+
+def shop_write_payload_with_fallback(shop_id: str, data: Dict[str, Any], existing: bool, strict_cols: Optional[List[str]] = None) -> Tuple[Dict[str, Any], List[str]]:
+    payload = dict(data or {})
+    unsupported: List[str] = []
+    strict = set(strict_cols or [])
+    for _ in range(len(SHOP_OPTIONAL_WRITE_COLUMNS) + 1):
+        try:
+            if existing:
+                supabase.table("shops").update(payload).eq("shop_id", shop_id).execute()
+            else:
+                supabase.table("shops").insert({"shop_id": shop_id, **payload}).execute()
+            return payload, unsupported
+        except Exception as e:
+            msg = str(e or "")
+            missing = [col for col in SHOP_OPTIONAL_WRITE_COLUMNS if col not in unsupported and col in msg]
+            if not missing:
+                raise
+            if any(col in strict for col in missing):
+                raise HTTPException(500, "The database is missing the latest business template fields. Run the latest Supabase migration before saving this business setup.")
+            for col in missing:
+                payload.pop(col, None)
+                unsupported.append(col)
+    raise HTTPException(500, "Could not save the business because the database schema is missing required fields.")
 
 def product_write_payload_with_fallback(shop_id: str, product_id: str, data: Dict[str, Any], existing: bool, strict_cols: Optional[List[str]] = None) -> Tuple[Dict[str, Any], List[str]]:
     payload = dict(data or {})
@@ -759,11 +1043,11 @@ def product_write_payload_with_fallback(shop_id: str, product_id: str, data: Dic
             if not missing:
                 raise
             if any(col in strict for col in missing):
-                raise HTTPException(500, "The database is missing the latest product variant fields. Run the latest Supabase migration before saving products with variants.")
+                raise HTTPException(500, "The database is missing the latest offering fields. Run the latest Supabase migration before saving this offering.")
             for col in missing:
                 payload.pop(col, None)
                 unsupported.append(col)
-    raise HTTPException(500, "Could not save the product because the database schema is missing required fields.")
+    raise HTTPException(500, "Could not save the offering because the database schema is missing required fields.")
 
 def norm_ext(ext: str) -> str:
     return ".jpg" if ext.lower() in {".jfif", ".jif"} else ext.lower()
@@ -862,25 +1146,31 @@ def serialize_product(row: dict, user_id: str = None, shop: Optional[Dict[str, A
             favs = supabase.table("favourites").select("shop_id").eq("user_id", user_id).eq("shop_id", shop_id).eq("product_id", prod_id).execute().data
             is_fav = len(favs) > 0
         except: pass
-        
-    normalized_attributes = normalize_attribute_data(row.get("attribute_data"), shop_row.get("category", ""))
+    offering_type = normalize_offering_type(row.get("offering_type", ""), shop_row.get("business_type", ""), shop_row.get("category", ""))
+    normalized_attributes = normalize_attribute_data(row.get("attribute_data"), shop_row.get("category", ""), offering_type, shop_row.get("business_type", ""))
     variant_data = normalize_variant_data(row.get("variant_data") or row.get("variants", ""), shop_id)
     variant_matrix = normalize_variant_matrix(row.get("variant_matrix", []), variant_data, shop_id)
-    return {
+    return offering_record_with_aliases({
         "product_id": prod_id, "product_slug": row.get("product_slug") or slug_base(row.get("name") or prod_id or "product", "product", 50), "shop_id": shop_id, "shop_slug": shop_row.get("shop_slug", ""), "name": row.get("name", ""),
+        "offering_type": offering_type,
+        "price_mode": normalize_price_mode(row.get("price_mode", "")),
+        "availability_mode": normalize_availability_mode(row.get("availability_mode", ""), offering_type, shop_row.get("business_type", ""), shop_row.get("category", "")),
         "overview": row.get("overview", ""), **price_fields,
         "stock": row.get("stock", "in"), "stock_quantity": row.get("stock_quantity"),
+        "duration_minutes": row.get("duration_minutes"),
+        "capacity": row.get("capacity"),
+        "availability_label": offering_status_label(row, shop_row),
         "variants": row.get("variants", "") or summarize_variant_data(variant_data),
         "variant_data": variant_data,
         "variant_matrix": variant_matrix,
         "attribute_data": normalized_attributes,
-        "attribute_lines": format_attribute_lines(normalized_attributes, shop_row.get("category", "")),
+        "attribute_lines": format_attribute_lines(normalized_attributes, shop_row.get("category", ""), offering_type, shop_row.get("business_type", "")),
         "images": imgs, "image_count": len(imgs),
         "product_views": len(product_views),
         "avg_rating": round(sum(r["rating"] for r in rv)/len(rv) if rv else 0, 1),
         "review_count": len(rv), "is_favourite": is_fav,
-        "quality_flags": product_completeness_flags({**row, "images": imgs, "shop_id": shop_id, "attribute_data": normalized_attributes}, shop_row.get("category", "")),
-    }
+        "quality_flags": product_completeness_flags({**row, "images": imgs, "shop_id": shop_id, "attribute_data": normalized_attributes, "offering_type": offering_type}, shop_row.get("category", ""), shop_row.get("business_type", "")),
+    })
 
 def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Optional[Dict[str, Dict[str, Any]]] = None, viewer_currency: str = "") -> List[Dict[str, Any]]:
     if not rows:
@@ -930,32 +1220,39 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Opt
         ratings = review_map.get(key, [])
         imgs = normalize_image_list(shop_id, row.get("images", []))
         shop_row = normalize_shop_record((shop_map or {}).get(shop_id, {}))
-        normalized_attributes = normalize_attribute_data(row.get("attribute_data"), shop_row.get("category", ""))
+        offering_type = normalize_offering_type(row.get("offering_type", ""), shop_row.get("business_type", ""), shop_row.get("category", ""))
+        normalized_attributes = normalize_attribute_data(row.get("attribute_data"), shop_row.get("category", ""), offering_type, shop_row.get("business_type", ""))
         variant_data = normalize_variant_data(row.get("variant_data") or row.get("variants", ""), shop_id)
         variant_matrix = normalize_variant_matrix(row.get("variant_matrix", []), variant_data, shop_id)
-        out.append({
+        out.append(offering_record_with_aliases({
             "product_id": product_id,
             "product_slug": row.get("product_slug") or slug_base(row.get("name") or product_id or "product", "product", 50),
             "shop_id": shop_id,
             "shop_slug": shop_row.get("shop_slug", ""),
             "name": row.get("name", ""),
+            "offering_type": offering_type,
+            "price_mode": normalize_price_mode(row.get("price_mode", "")),
+            "availability_mode": normalize_availability_mode(row.get("availability_mode", ""), offering_type, shop_row.get("business_type", ""), shop_row.get("category", "")),
             "overview": row.get("overview", ""),
             **get_display_price_fields(row, shop_row, viewer_currency),
             "stock": row.get("stock", "in"),
             "stock_quantity": row.get("stock_quantity"),
+            "duration_minutes": row.get("duration_minutes"),
+            "capacity": row.get("capacity"),
+            "availability_label": offering_status_label(row, shop_row),
             "variants": row.get("variants", "") or summarize_variant_data(variant_data),
             "variant_data": variant_data,
             "variant_matrix": variant_matrix,
             "attribute_data": normalized_attributes,
-            "attribute_lines": format_attribute_lines(normalized_attributes, shop_row.get("category", "")),
+            "attribute_lines": format_attribute_lines(normalized_attributes, shop_row.get("category", ""), offering_type, shop_row.get("business_type", "")),
             "images": imgs,
             "image_count": len(imgs),
             "product_views": view_map.get(key, 0),
             "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else 0,
             "review_count": len(ratings),
             "is_favourite": key in fav_set,
-            "quality_flags": product_completeness_flags({**row, "images": imgs, "shop_id": shop_id, "attribute_data": normalized_attributes}, shop_row.get("category", "")),
-        })
+            "quality_flags": product_completeness_flags({**row, "images": imgs, "shop_id": shop_id, "attribute_data": normalized_attributes, "offering_type": offering_type}, shop_row.get("category", ""), shop_row.get("business_type", "")),
+        }))
     return out
 
 def shop_stats(shop_id: str) -> Dict:
@@ -976,12 +1273,15 @@ def shop_stats(shop_id: str) -> Dict:
     avg_r = sum(r["rating"] for r in rvs)/len(rvs) if rvs else 0
     
     return {
-        "product_count": len(prods), 
+        "product_count": len(prods),
+        "offering_count": len(prods),
         "image_count": imgs,
         "products_with_images": with_imgs,
+        "offerings_with_images": with_imgs,
         "chat_hits_30d": len(chats), 
         "shop_views_30d": len(shop_views),
-        "product_views_30d": len(product_views), 
+        "product_views_30d": len(product_views),
+        "offering_views_30d": len(product_views),
         "avg_rating": round(avg_r, 1)
     }
 
@@ -1034,11 +1334,12 @@ def rebuild_kb(shop_id: str):
             "product_id": p["product_id"], "name": p["name"], "overview": p.get("overview", ""),
             "price": get_display_price_fields(p, shop_row).get("price_native") or p.get("price", ""),
             "stock": p.get("stock", "in"), "variants": p.get("variants", ""),
-            "attribute_data": normalize_attribute_data(p.get("attribute_data"), shop_row.get("category", "")),
+            "offering_type": normalize_offering_type(p.get("offering_type", ""), shop_row.get("business_type", ""), shop_row.get("category", "")),
+            "attribute_data": normalize_attribute_data(p.get("attribute_data"), shop_row.get("category", ""), p.get("offering_type", ""), shop_row.get("business_type", "")),
             "images": imgs
         })
     
-    obj = {"shop": {k: shop_row.get(k, "") for k in ("name","address","overview","phone","hours","hours_structured","category","country_code","country_name","timezone_name","region","city","postal_code","street_line1","street_line2","currency_code")},
+    obj = {"shop": {k: shop_row.get(k, "") for k in ("name","address","overview","phone","hours","hours_structured","category","business_type","location_mode","service_area","country_code","country_name","timezone_name","region","city","postal_code","street_line1","street_line2","currency_code")},
            "products": p_serialized}
            
     d = os.path.join(SHOPS_DIR, shop_id)
@@ -1057,7 +1358,37 @@ def is_greeting(q: str) -> bool:
 
 def is_list_intent(q: str) -> bool:
     qn = norm_text(q)
-    return any(t in qn for t in ["what do you sell","what products","what items","what do you have","show products","product list","catalog","menu","inventory","show all products","list products","all products"])
+    return any(
+        t in qn
+        for t in [
+            "what do you sell",
+            "what products",
+            "what items",
+            "what do you have",
+            "what do you offer",
+            "what services",
+            "what classes",
+            "show products",
+            "show services",
+            "show classes",
+            "show offerings",
+            "product list",
+            "service list",
+            "catalog",
+            "menu",
+            "inventory",
+            "show all products",
+            "show all services",
+            "show all classes",
+            "show all offerings",
+            "list products",
+            "list services",
+            "list offerings",
+            "all products",
+            "all services",
+            "all offerings",
+        ]
+    )
 
 def wants_all_images(q: str) -> bool:
     qn = norm_text(q)
@@ -1166,13 +1497,25 @@ def ensure_shop_coordinates(row: Dict[str, Any]) -> Dict[str, Any]:
 def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(row or {})
     out["shop_slug"] = (out.get("shop_slug") or slug_base(out.get("name") or out.get("shop_id") or "shop", "shop", 50)).strip()
+    out["business_id"] = out.get("business_id") or out.get("shop_id", "")
+    out["business_slug"] = out.get("business_slug") or out.get("shop_slug", "")
+    out["business_type"] = normalize_business_type(out.get("business_type", ""), out.get("category", ""))
+    out["location_mode"] = normalize_location_mode(out.get("location_mode", ""), out.get("business_type", ""), out.get("category", ""))
+    out["service_area"] = re.sub(r"\s+", " ", str(out.get("service_area") or "")).strip()
     out["country_code"] = clean_code(out.get("country_code", ""))
     out["country_name"] = (out.get("country_name") or country_meta(out.get("country_code", "")).get("name", "")).strip()
     out["currency_code"] = clean_currency(out.get("currency_code") or currency_for_country(out.get("country_code", "")))
     out["timezone_name"] = (out.get("timezone_name") or timezone_for_country(out.get("country_code", ""))).strip()
     out["hours_structured"] = parse_hours_structured(out.get("hours_structured"))
     out["hours"] = (out.get("hours") or "").strip() or format_hours_structured(out["hours_structured"])
-    out["formatted_address"] = (out.get("formatted_address") or "").strip() or build_formatted_address(out)
+    formatted_address = (out.get("formatted_address") or "").strip()
+    if out["location_mode"] in {"storefront", "hybrid"}:
+        formatted_address = formatted_address or build_formatted_address(out)
+    elif out["location_mode"] == "service_area":
+        formatted_address = formatted_address or out["service_area"] or ", ".join([part for part in [out.get("city", ""), out.get("region", ""), out.get("country_name", "")] if part])
+    elif out["location_mode"] == "online":
+        formatted_address = formatted_address or "Online"
+    out["formatted_address"] = formatted_address
     out["address"] = out["formatted_address"] or (out.get("address") or "").strip()
     out["supports_pickup"] = bool(out.get("supports_pickup", True))
     out["supports_delivery"] = bool(out.get("supports_delivery", False))
@@ -1196,15 +1539,56 @@ def public_shop_payload(row: Dict[str, Any]) -> Dict[str, Any]:
         safe["stats"] = row.get("stats") or {}
     return safe
 
+def offering_record_with_aliases(row: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(row or {})
+    out["offering_id"] = out.get("offering_id") or out.get("product_id", "")
+    out["offering_slug"] = out.get("offering_slug") or out.get("product_slug", "")
+    out["business_id"] = out.get("business_id") or out.get("shop_id", "")
+    out["business_slug"] = out.get("business_slug") or out.get("shop_slug", "")
+    if out.get("product_views") is not None and out.get("offering_views") is None:
+        out["offering_views"] = out.get("product_views")
+    if out.get("shop_name") and not out.get("business_name"):
+        out["business_name"] = out.get("shop_name")
+    if out.get("shop_address") and not out.get("business_address"):
+        out["business_address"] = out.get("shop_address")
+    if out.get("shop_category") and not out.get("business_category"):
+        out["business_category"] = out.get("shop_category")
+    return out
+
+def alias_catalog_response(payload: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(payload or {})
+    if "shop_id" in out and "business_id" not in out:
+        out["business_id"] = out.get("shop_id", "")
+    if "shop_slug" in out and "business_slug" not in out:
+        out["business_slug"] = out.get("shop_slug", "")
+    if isinstance(out.get("shop"), dict) and "business" not in out:
+        out["business"] = out["shop"]
+    if isinstance(out.get("business"), dict) and "shop" not in out:
+        out["shop"] = out["business"]
+    if isinstance(out.get("shops"), list) and "businesses" not in out:
+        out["businesses"] = out["shops"]
+    if isinstance(out.get("businesses"), list) and "shops" not in out:
+        out["shops"] = out["businesses"]
+    if isinstance(out.get("products"), list):
+        out["products"] = [offering_record_with_aliases(item) for item in out.get("products") or []]
+        out.setdefault("offerings", out["products"])
+    elif isinstance(out.get("offerings"), list):
+        out["offerings"] = [offering_record_with_aliases(item) for item in out.get("offerings") or []]
+        out.setdefault("products", out["offerings"])
+    if isinstance(out.get("results"), list):
+        out["results"] = [offering_record_with_aliases(item) for item in out.get("results") or []]
+        out.setdefault("offerings", out["results"])
+    return out
+
 def resolve_shop_by_ref(shop_ref: str) -> Dict[str, Any]:
     ref = str(shop_ref or "").strip()
     if not ref:
-        raise HTTPException(404, "Shop not found")
+        raise HTTPException(404, "Business not found")
     rows = supabase.table("shops").select("*").eq("shop_id", ref).limit(1).execute().data or []
     if not rows:
         rows = supabase.table("shops").select("*").eq("shop_slug", ref).limit(1).execute().data or []
     if not rows:
-        raise HTTPException(404, "Shop not found")
+        raise HTTPException(404, "Business not found")
     return normalize_shop_record(rows[0])
 
 def normalize_order_variant_selections(raw: Any) -> Dict[str, str]:
@@ -1363,8 +1747,11 @@ def shop_is_open_now(shop: Dict[str, Any]) -> bool:
 
 def shop_completeness_flags(shop: Dict[str, Any], stats: Optional[Dict[str, Any]] = None) -> List[str]:
     flags = []
-    if not (shop.get("formatted_address") or shop.get("address")):
+    location_mode = normalize_location_mode(shop.get("location_mode", ""), shop.get("business_type", ""), shop.get("category", ""))
+    if location_mode in {"storefront", "hybrid"} and not (shop.get("formatted_address") or shop.get("address")):
         flags.append("Missing address")
+    if location_mode == "service_area" and not (shop.get("service_area") or "").strip():
+        flags.append("Missing service area")
     if not shop.get("country_code"):
         flags.append("Missing country")
     if not shop.get("timezone_name"):
@@ -1376,10 +1763,10 @@ def shop_completeness_flags(shop: Dict[str, Any], stats: Optional[Dict[str, Any]
     if not (shop.get("overview") or "").strip():
         flags.append("Missing overview")
     if stats is not None:
-        if not stats.get("product_count"):
-            flags.append("No products")
-        elif (stats.get("products_with_images", 0) or 0) < (stats.get("product_count", 0) or 0):
-            flags.append("Products missing images")
+        if not stats.get("offering_count", stats.get("product_count", 0)):
+            flags.append("No offerings")
+        elif (stats.get("offerings_with_images", stats.get("products_with_images", 0)) or 0) < (stats.get("offering_count", stats.get("product_count", 0)) or 0):
+            flags.append("Offerings missing images")
     return flags
 
 def parse_price_amount(value: Any) -> Optional[float]:
@@ -1555,7 +1942,7 @@ def summarize_variant_matrix(variant_matrix: List[Dict[str, Any]]) -> str:
         parts.append(summary)
     return " | ".join(parts)
 
-def normalize_attribute_data(raw: Any, category: str = "") -> Dict[str, str]:
+def normalize_attribute_data(raw: Any, category: str = "", offering_type: str = "", business_type: str = "") -> Dict[str, str]:
     if isinstance(raw, str):
         try:
             raw = json.loads(raw)
@@ -1563,7 +1950,7 @@ def normalize_attribute_data(raw: Any, category: str = "") -> Dict[str, str]:
             raw = {}
     if not isinstance(raw, dict):
         raw = {}
-    allowed = {key for key, _ in PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])}
+    allowed = {key for key, _ in offering_attribute_schema(business_type, category, offering_type)}
     out: Dict[str, str] = {}
     for key, value in raw.items():
         clean_key = re.sub(r"[^a-z0-9_]", "", str(key or "").lower())
@@ -1575,7 +1962,7 @@ def normalize_attribute_data(raw: Any, category: str = "") -> Dict[str, str]:
         out[clean_key] = clean_value
     return out
 
-def parse_attribute_data_strict(raw: Any, category: str = "") -> Dict[str, str]:
+def parse_attribute_data_strict(raw: Any, category: str = "", offering_type: str = "", business_type: str = "") -> Dict[str, str]:
     if isinstance(raw, str):
         try:
             raw = json.loads(raw)
@@ -1585,7 +1972,7 @@ def parse_attribute_data_strict(raw: Any, category: str = "") -> Dict[str, str]:
         raw = {}
     if not isinstance(raw, dict):
         raise HTTPException(400, "attribute_data must be a JSON object")
-    allowed = {key for key, _ in PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])}
+    allowed = {key for key, _ in offering_attribute_schema(business_type, category, offering_type)}
     invalid_keys = []
     out: Dict[str, str] = {}
     for key, value in raw.items():
@@ -1598,44 +1985,51 @@ def parse_attribute_data_strict(raw: Any, category: str = "") -> Dict[str, str]:
             continue
         out[clean_key] = clean_value
     if invalid_keys:
-        raise HTTPException(400, f"Unsupported category fields: {', '.join(sorted(set(invalid_keys)))}")
+        raise HTTPException(400, f"Unsupported offering detail fields: {', '.join(sorted(set(invalid_keys)))}")
     return out
 
-def format_attribute_lines(attribute_data: Dict[str, str], category: str = "") -> List[str]:
-    label_map = {key: label for key, label in PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])}
+def format_attribute_lines(attribute_data: Dict[str, str], category: str = "", offering_type: str = "", business_type: str = "") -> List[str]:
+    label_map = {key: label for key, label in offering_attribute_schema(business_type, category, offering_type)}
     lines = []
     for key, value in attribute_data.items():
         label = label_map.get(key, key.replace("_", " ").title())
         lines.append(f"{label}: {value}")
     return lines
 
-def product_attribute_label_map(category: str = "") -> Dict[str, str]:
-    return {key: label for key, label in PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])}
+def product_attribute_label_map(category: str = "", offering_type: str = "", business_type: str = "") -> Dict[str, str]:
+    return {key: label for key, label in offering_attribute_schema(business_type, category, offering_type)}
 
-def attribute_query_keys(q: str, category: str = "") -> List[str]:
+def attribute_query_keys(q: str, category: str = "", offering_type: str = "", business_type: str = "") -> List[str]:
     qn = norm_text(q)
     keys = []
-    label_map = product_attribute_label_map(category)
+    label_map = product_attribute_label_map(category, offering_type, business_type)
     for key, label in label_map.items():
         aliases = [key.replace("_", " "), label] + ATTRIBUTE_QUERY_SYNONYMS.get(key, [])
         if any(norm_text(alias) in qn for alias in aliases if alias):
             keys.append(key)
     return dedup(keys)
 
-def product_attribute_text(row: Dict[str, Any], category: str = "") -> str:
-    attribute_data = normalize_attribute_data(row.get("attribute_data"), category)
-    label_map = product_attribute_label_map(category)
+def product_attribute_text(row: Dict[str, Any], category: str = "", offering_type: str = "", business_type: str = "") -> str:
+    resolved_offering_type = normalize_offering_type(offering_type or row.get("offering_type", ""), business_type, category)
+    attribute_data = normalize_attribute_data(row.get("attribute_data"), category, resolved_offering_type, business_type)
+    label_map = product_attribute_label_map(category, resolved_offering_type, business_type)
     parts: List[str] = []
     for key, value in attribute_data.items():
         label = label_map.get(key, key.replace("_", " "))
         parts.extend([key.replace("_", " "), label, str(value)])
     return " ".join(parts)
 
-def product_search_blob(row: Dict[str, Any], category: str = "") -> str:
+def product_search_blob(row: Dict[str, Any], category: str = "", business_type: str = "") -> str:
+    offering_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
     return " ".join([
         str(row.get("product_id", "")),
         str(row.get("name", "")),
         str(row.get("overview", "")),
+        str(row.get("offering_type", "")),
+        str(row.get("price_mode", "")),
+        str(row.get("availability_mode", "")),
+        str(row.get("duration_minutes", "")),
+        str(row.get("capacity", "")),
         str(row.get("variants", "")),
         summarize_variant_data(normalize_variant_data(row.get("variant_data") or row.get("variants", ""), row.get("shop_id", ""))),
         summarize_variant_matrix(
@@ -1645,26 +2039,27 @@ def product_search_blob(row: Dict[str, Any], category: str = "") -> str:
                 row.get("shop_id", ""),
             )
         ),
-        product_attribute_text(row, category),
+        product_attribute_text(row, category, offering_type, business_type),
     ]).strip()
 
-def matches_attribute_filter(row: Dict[str, Any], category: str = "", attr_key: str = "", attr_value: str = "") -> bool:
+def matches_attribute_filter(row: Dict[str, Any], category: str = "", attr_key: str = "", attr_value: str = "", business_type: str = "") -> bool:
     attr_key = re.sub(r"[^a-z0-9_]", "", str(attr_key or "").lower())
     attr_value_n = norm_text(attr_value)
-    attribute_data = normalize_attribute_data(row.get("attribute_data"), category)
+    offering_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
+    attribute_data = normalize_attribute_data(row.get("attribute_data"), category, offering_type, business_type)
     if attr_key and attr_key not in attribute_data:
         return False
     if attr_value_n:
-        hay = product_attribute_text(row, category) if not attr_key else str(attribute_data.get(attr_key, ""))
+        hay = product_attribute_text(row, category, offering_type, business_type) if not attr_key else str(attribute_data.get(attr_key, ""))
         if attr_value_n not in norm_text(hay):
             return False
     return True
 
-def product_matches_query(row: Dict[str, Any], q: str, category: str = "") -> bool:
+def product_matches_query(row: Dict[str, Any], q: str, category: str = "", business_type: str = "") -> bool:
     qn = norm_text(q)
     if not qn:
         return True
-    return qn in norm_text(product_search_blob(row, category))
+    return qn in norm_text(product_search_blob(row, category, business_type))
 
 def derive_stock_from_quantity(quantity: Optional[int], fallback_stock: str) -> str:
     if quantity is None:
@@ -1675,18 +2070,25 @@ def derive_stock_from_quantity(quantity: Optional[int], fallback_stock: str) -> 
         return "low"
     return "in"
 
-def product_completeness_flags(product: Dict[str, Any], shop_category: str = "") -> List[str]:
+def product_completeness_flags(product: Dict[str, Any], shop_category: str = "", shop_business_type: str = "") -> List[str]:
     flags = []
-    if parse_price_amount(product.get("price_amount")) is None and parse_price_amount(product.get("price")) is None:
+    business_type = normalize_business_type(shop_business_type, shop_category)
+    offering_type = normalize_offering_type(product.get("offering_type", ""), business_type, shop_category)
+    price_mode = normalize_price_mode(product.get("price_mode", ""))
+    if price_mode not in {"inquiry", "custom", "free"} and parse_price_amount(product.get("price_amount")) is None and parse_price_amount(product.get("price")) is None:
         flags.append("Missing price")
     if not (product.get("overview") or "").strip():
         flags.append("Missing description")
     if not normalize_image_list(str(product.get("shop_id", "")), product.get("images", [])):
         flags.append("Missing images")
-    if product.get("stock_quantity") in (None, ""):
+    if tracks_inventory(offering_type, business_type, shop_category) and product.get("stock_quantity") in (None, ""):
         flags.append("Missing quantity")
-    if PRODUCT_ATTRIBUTE_SCHEMA.get(shop_category) and not normalize_attribute_data(product.get("attribute_data"), shop_category):
-        flags.append("Missing category details")
+    if supports_duration(offering_type, business_type, shop_category) and product.get("duration_minutes") in (None, ""):
+        flags.append("Missing duration")
+    if supports_capacity(offering_type, business_type, shop_category) and product.get("capacity") in (None, ""):
+        flags.append("Missing capacity")
+    if offering_attribute_schema(business_type, shop_category, offering_type) and not normalize_attribute_data(product.get("attribute_data"), shop_category, offering_type, business_type):
+        flags.append("Missing offering details")
     return flags
 
 def format_money(amount: Optional[float], currency_code: str) -> str:
@@ -1724,18 +2126,33 @@ def get_fx_rate(base_currency: str, target_currency: str) -> Optional[float]:
 def get_display_price_fields(row: Dict[str, Any], shop: Optional[Dict[str, Any]] = None, viewer_currency: str = "") -> Dict[str, Any]:
     amount = get_row_price_amount(row)
     source_currency = get_row_currency_code(row, shop)
-    original = format_money(amount, source_currency) if amount is not None else (str(row.get("price", "")) if row.get("price") else "")
+    price_mode = normalize_price_mode(row.get("price_mode", ""))
+    if price_mode == "free":
+        original = "Free"
+        amount = 0.0
+    elif price_mode == "inquiry":
+        original = "Price on request"
+        amount = None
+    elif price_mode == "custom":
+        original = "Contact for pricing"
+        amount = None
+    elif price_mode == "starting_at":
+        original = f"From {format_money(amount, source_currency)}" if amount is not None else "Starting price on request"
+    else:
+        original = format_money(amount, source_currency) if amount is not None else (str(row.get("price", "")) if row.get("price") else "")
     viewer = clean_currency(viewer_currency)
     converted_amount = None
     converted_code = source_currency
     price_text = original
     converted = False
-    if amount is not None and viewer and viewer != source_currency:
+    if price_mode in {"fixed", "starting_at"} and amount is not None and viewer and viewer != source_currency:
         rate = get_fx_rate(source_currency, viewer)
         if rate:
             converted_amount = round(amount * rate, 2)
             converted_code = viewer
             price_text = format_money(converted_amount, converted_code)
+            if price_mode == "starting_at":
+                price_text = f"From {price_text}"
             converted = True
     return {
         "price": price_text,
@@ -1751,39 +2168,56 @@ def validate_shop_payload(shop: ShopInfo) -> Dict[str, Any]:
     raw = shop.model_dump() if hasattr(shop, "model_dump") else shop.dict()
     data = normalize_shop_record(raw)
     if not data.get("name", "").strip():
-        raise HTTPException(400, "Shop name is required")
+        raise HTTPException(400, "Business name is required")
+    data["business_type"] = normalize_business_type(data.get("business_type", ""), data.get("category", ""))
+    data["location_mode"] = normalize_location_mode(data.get("location_mode", ""), data.get("business_type", ""), data.get("category", ""))
     if not data.get("country_code"):
-        raise HTTPException(400, "Select the shop country")
-    if not data.get("region", "").strip():
-        raise HTTPException(400, "Select or enter the shop province/state")
-    if not data.get("city", "").strip():
-        raise HTTPException(400, "Enter the shop city")
-    if not data.get("street_line1", "").strip():
-        raise HTTPException(400, "Enter the street address")
-    if not data.get("postal_code", "").strip():
-        raise HTTPException(400, "Enter the postal code")
-    if not validate_postal_code(data["country_code"], data["postal_code"]):
-        raise HTTPException(400, f"Postal code format is not valid for {data.get('country_name') or data['country_code']}")
+        raise HTTPException(400, "Select the business country")
+    location_mode = data["location_mode"]
+    if location_mode in {"storefront", "hybrid"}:
+        if not data.get("region", "").strip():
+            raise HTTPException(400, "Select or enter the business province/state")
+        if not data.get("city", "").strip():
+            raise HTTPException(400, "Enter the business city")
+        if not data.get("street_line1", "").strip():
+            raise HTTPException(400, "Enter the street address")
+        if not data.get("postal_code", "").strip():
+            raise HTTPException(400, "Enter the postal code")
+        if not validate_postal_code(data["country_code"], data["postal_code"]):
+            raise HTTPException(400, f"Postal code format is not valid for {data.get('country_name') or data['country_code']}")
+    elif location_mode == "service_area":
+        if not data.get("service_area", "").strip():
+            raise HTTPException(400, "Describe the service area")
     if not data.get("hours_structured"):
-        raise HTTPException(400, "Set the shop working days and hours")
+        raise HTTPException(400, "Set the business working days and hours")
     try:
         ZoneInfo(data.get("timezone_name") or "UTC")
     except Exception:
-        raise HTTPException(400, "Select a valid shop timezone")
+        raise HTTPException(400, "Select a valid business timezone")
     data["currency_code"] = clean_currency(data.get("currency_code") or currency_for_country(data["country_code"]))
     if not any([data.get("supports_pickup"), data.get("supports_delivery"), data.get("supports_walk_in")]):
-        raise HTTPException(400, "Enable at least one fulfillment option")
+        raise HTTPException(400, "Enable at least one customer access option")
     if data.get("supports_delivery"):
         if data.get("delivery_radius_km") in (None, ""):
-            raise HTTPException(400, "Set a delivery radius for shops that offer delivery")
+            raise HTTPException(400, "Set a travel or delivery radius")
         if float(data["delivery_radius_km"]) <= 0:
-            raise HTTPException(400, "Delivery radius must be greater than zero")
+            raise HTTPException(400, "Travel or delivery radius must be greater than zero")
         if data.get("delivery_fee") not in (None, "") and float(data["delivery_fee"]) < 0:
-            raise HTTPException(400, "Delivery fee cannot be negative")
-    data["formatted_address"] = data.get("formatted_address") or build_formatted_address(data)
+            raise HTTPException(400, "Travel or delivery fee cannot be negative")
+    if location_mode in {"storefront", "hybrid"}:
+        data["formatted_address"] = data.get("formatted_address") or build_formatted_address(data)
+    elif location_mode == "service_area":
+        data["formatted_address"] = data.get("formatted_address") or data.get("service_area", "").strip() or ", ".join([part for part in [data.get("city", ""), data.get("region", ""), data.get("country_name", "")] if part])
+        data["latitude"] = None
+        data["longitude"] = None
+    else:
+        data["formatted_address"] = data.get("formatted_address") or "Online"
+        data["address"] = data["formatted_address"]
+        data["latitude"] = None
+        data["longitude"] = None
     data["address"] = data["formatted_address"]
     data["hours"] = format_hours_structured(data["hours_structured"])
-    if data.get("latitude") in (None, "") or data.get("longitude") in (None, ""):
+    if location_mode in {"storefront", "hybrid"} and (data.get("latitude") in (None, "") or data.get("longitude") in (None, "")):
         geo = geocode_structured_address(data)
         if geo.get("latitude") is not None and geo.get("longitude") is not None:
             data["latitude"] = geo["latitude"]
@@ -1793,34 +2227,67 @@ def validate_shop_payload(shop: ShopInfo) -> Dict[str, Any]:
 def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[str, Any]:
     name = (product.name or "").strip()
     if not name:
-        raise HTTPException(400, "Product name required")
+        raise HTTPException(400, "Offering name required")
+    business_type = normalize_business_type(shop.get("business_type", ""), shop.get("category", ""))
+    offering_type = normalize_offering_type(product.offering_type or "", business_type, shop.get("category", ""))
+    price_mode = normalize_price_mode(product.price_mode or "")
     amount = parse_price_amount(product.price_amount if product.price_amount not in (None, "") else product.price)
-    if amount is None:
-        raise HTTPException(400, "Enter a valid numeric price")
-    if amount < 0:
-        raise HTTPException(400, "Price cannot be negative")
-    if product.stock_quantity in (None, ""):
-        raise HTTPException(400, "Enter a stock quantity")
-    stock_quantity = int(product.stock_quantity)
-    if stock_quantity < 0:
-        raise HTTPException(400, "Stock quantity cannot be negative")
+    if price_mode in {"fixed", "starting_at"}:
+        if amount is None:
+            raise HTTPException(400, "Enter a valid numeric price")
+        if amount < 0:
+            raise HTTPException(400, "Price cannot be negative")
+    elif price_mode == "free":
+        amount = 0.0
+    else:
+        amount = None
+    stock_quantity = None
+    if tracks_inventory(offering_type, business_type, shop.get("category", "")):
+        if product.stock_quantity in (None, ""):
+            raise HTTPException(400, "Enter an inventory quantity")
+        stock_quantity = int(product.stock_quantity)
+        if stock_quantity < 0:
+            raise HTTPException(400, "Inventory quantity cannot be negative")
+    elif product.stock_quantity not in (None, ""):
+        stock_quantity = int(product.stock_quantity)
+        if stock_quantity < 0:
+            raise HTTPException(400, "Quantity cannot be negative")
+    duration_minutes = int(product.duration_minutes) if product.duration_minutes not in (None, "") else None
+    if duration_minutes is not None and duration_minutes < 0:
+        raise HTTPException(400, "Duration cannot be negative")
+    if supports_duration(offering_type, business_type, shop.get("category", "")) and duration_minutes in (None, 0):
+        raise HTTPException(400, "Enter a duration")
+    capacity = int(product.capacity) if product.capacity not in (None, "") else None
+    if capacity is not None and capacity < 0:
+        raise HTTPException(400, "Capacity cannot be negative")
     stock_raw = str(product.stock or "in").strip().lower()
     if stock_raw not in {"in", "low", "out"}:
-        raise HTTPException(400, "Stock status must be in, low, or out")
+        raise HTTPException(400, "Availability status must be in, low, or out")
     currency_code = clean_currency(product.currency_code or shop.get("currency_code") or currency_for_country(shop.get("country_code", "")))
-    variant_data = normalize_variant_data(product.variant_data or product.variants, shop.get("shop_id", ""))
-    variant_matrix = normalize_variant_matrix(product.variant_matrix, variant_data, shop.get("shop_id", ""))
-    normalized_variants = summarize_variant_data(variant_data) or normalize_variants_text(product.variants)
-    stock_value = derive_stock_from_quantity(stock_quantity, stock_raw)
-    attribute_data = parse_attribute_data_strict(product.attribute_data, shop.get("category", ""))
+    variant_data = normalize_variant_data(product.variant_data or product.variants, shop.get("shop_id", "")) if uses_variants(offering_type, business_type, shop.get("category", "")) else []
+    variant_matrix = normalize_variant_matrix(product.variant_matrix, variant_data, shop.get("shop_id", "")) if uses_variants(offering_type, business_type, shop.get("category", "")) else []
+    normalized_variants = summarize_variant_data(variant_data) or normalize_variants_text(product.variants) if uses_variants(offering_type, business_type, shop.get("category", "")) else ""
+    stock_value = derive_stock_from_quantity(stock_quantity, stock_raw) if tracks_inventory(offering_type, business_type, shop.get("category", "")) else stock_raw
+    attribute_data = parse_attribute_data_strict(product.attribute_data, shop.get("category", ""), offering_type, business_type)
+    price_text = get_display_price_fields({
+        "price_amount": round(amount, 2) if amount is not None else None,
+        "price": product.price,
+        "currency_code": currency_code,
+        "price_mode": price_mode,
+    }, shop).get("price", "")
     return {
         "name": name,
         "overview": product.overview,
-        "price_amount": round(amount, 2),
+        "offering_type": offering_type,
+        "price_mode": price_mode,
+        "availability_mode": normalize_availability_mode(product.availability_mode or "", offering_type, business_type, shop.get("category", "")),
+        "price_amount": round(amount, 2) if amount is not None else None,
         "currency_code": currency_code,
-        "price": format_money(round(amount, 2), currency_code),
+        "price": price_text,
         "stock": stock_value,
         "stock_quantity": stock_quantity,
+        "duration_minutes": duration_minutes,
+        "capacity": capacity,
         "variants": normalized_variants,
         "variant_data": variant_data,
         "variant_matrix": variant_matrix,
@@ -1857,7 +2324,7 @@ def is_contact_query(q: str) -> bool:
 
 def is_stock_query(q: str) -> bool:
     qn = norm_text(q)
-    return any(t in qn for t in ["in stock", "available", "availability", "what's in stock", "what is in stock", "instock"])
+    return any(t in qn for t in ["in stock", "available", "availability", "what's in stock", "what is in stock", "instock", "available now", "what is available"])
 
 def is_cheapest_query(q: str) -> bool:
     qn = norm_text(q)
@@ -1871,50 +2338,100 @@ def is_price_lookup_query(q: str) -> bool:
     qn = norm_text(q)
     return any(t in qn for t in ["how much", "price of", "price for", "cost of", "cost for"])
 
+def default_catalog_question(shop: dict, rows: Optional[List[Dict[str, Any]]] = None) -> str:
+    nouns = offering_nouns(shop, rows or [])
+    plural = nouns["plural"]
+    return f"Show all {plural}" if plural != "offerings" else "Show all offerings"
+
+def default_availability_question(shop: dict, rows: Optional[List[Dict[str, Any]]] = None) -> str:
+    business_type = normalize_business_type(shop.get("business_type", ""), shop.get("category", ""))
+    offering_type = normalize_offering_type("", business_type, shop.get("category", ""))
+    if offering_type == "product":
+        return "What's in stock?"
+    return "What is available right now?"
+
+def row_is_available_for_chat(row: Dict[str, Any], shop: Optional[Dict[str, Any]] = None) -> bool:
+    shop = shop or {}
+    business_type = normalize_business_type(shop.get("business_type", ""), shop.get("category", ""))
+    offering_type = normalize_offering_type(row.get("offering_type", ""), business_type, shop.get("category", ""))
+    stock = str(row.get("stock", "in") or "in").strip().lower()
+    availability_mode = normalize_availability_mode(row.get("availability_mode", ""), offering_type, business_type, shop.get("category", ""))
+    if offering_type == "product":
+        return stock != "out"
+    return stock != "out" and availability_mode != "unavailable"
+
+def enrich_chat_row(row: Dict[str, Any], shop: Optional[Dict[str, Any]] = None, category: str = "", business_type: str = "") -> Dict[str, Any]:
+    shop = shop or {}
+    category = category or shop.get("category", "")
+    business_type = normalize_business_type(business_type or shop.get("business_type", ""), category)
+    offering_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
+    attr_data = normalize_attribute_data(row.get("attribute_data"), category, offering_type, business_type)
+    return {
+        "shop_id": row.get("shop_id", ""),
+        "product_id": row.get("product_id", ""),
+        "name": row.get("name", ""),
+        "overview": row.get("overview", ""),
+        "price": row.get("price", ""),
+        "price_amount": row.get("price_amount"),
+        "price_amount_native": row.get("price_amount_native"),
+        "currency_code": row.get("currency_code"),
+        "currency_code_native": row.get("currency_code_native"),
+        "price_native": row.get("price_native"),
+        "price_converted": row.get("price_converted"),
+        "stock": row.get("stock", "in"),
+        "stock_quantity": row.get("stock_quantity"),
+        "offering_type": offering_type,
+        "price_mode": row.get("price_mode", ""),
+        "availability_mode": row.get("availability_mode", ""),
+        "availability_label": offering_status_label(row, shop or {"business_type": business_type, "category": category}),
+        "duration_minutes": row.get("duration_minutes"),
+        "capacity": row.get("capacity"),
+        "variant_data": row.get("variant_data"),
+        "variant_matrix": row.get("variant_matrix"),
+        "variants": row.get("variants", ""),
+        "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
+        "attribute_data": attr_data,
+        "attribute_lines": format_attribute_lines(attr_data, category, offering_type, business_type),
+    }
+
+def chat_item_line(item: Dict[str, Any], shop: Optional[Dict[str, Any]] = None) -> str:
+    summary = " | ".join(offering_summary_bits(item, shop)) or "Details available on request"
+    return f"- **{item.get('name', 'Offering')}** - {summary}"
+
 def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     limit = extract_budget_limit(q)
     if limit is None:
         return None
+    nouns = offering_nouns(shop, prod_rows)
+    plural = nouns["plural"]
 
     matches = []
     for row in prod_rows:
         value = parse_price_value(row.get("price", ""))
         if value is None or value > limit:
             continue
-        enriched = {
-            "shop_id": row.get("shop_id", ""),
-            "product_id": row.get("product_id", ""),
-            "name": row.get("name", ""),
-            "overview": row.get("overview", ""),
-            "price": row.get("price", ""),
-            "price_amount": row.get("price_amount"),
-            "price_amount_native": row.get("price_amount_native"),
-            "currency_code": row.get("currency_code"),
-            "currency_code_native": row.get("currency_code_native"),
-            "price_native": row.get("price_native"),
-            "price_converted": row.get("price_converted"),
-            "stock": row.get("stock", "in"),
-            "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
-            "_price_value": value,
-        }
+        enriched = enrich_chat_row(row, shop)
+        enriched["_price_value"] = value
         matches.append(enriched)
 
     matches.sort(key=lambda item: (item["_price_value"], item["name"].lower()))
-    suggestions = ["Show all products", "What's in stock?", "Do you have anything cheaper?"]
+    suggestions = dedup([default_catalog_question(shop, prod_rows), default_availability_question(shop, prod_rows), "Do you have anything cheaper?"])
 
     if not matches:
         return {
-            "answer": f"I couldn't find anything at {shop_label(shop)} priced below **{limit:g}**.",
+            "answer": f"I couldn't find any {plural} at {shop_label(shop)} priced below **{limit:g}**.",
             "products": [],
             "meta": {"llm_used": False, "reason": "budget_filter", "suggestions": suggestions},
         }
 
     top = matches[:6]
-    lines = [f"Here {'is' if len(top)==1 else 'are'} what I found at {shop_label(shop)} under **{limit:g}**:"]
+    lines = [f"Here {'is' if len(top)==1 else 'are'} the {plural} I found at {shop_label(shop)} under **{limit:g}**:"]
     for item in top:
+        lines.append(chat_item_line(item, shop))
+        continue
         lines.append(f"• **{item['name']}** — {item.get('price','Price not listed')} *({item.get('stock','in')})*")
     if len(matches) > len(top):
-        lines.append(f"\nThere are **{len(matches)}** matching products in total.")
+        lines.append(f"\nThere are **{len(matches)}** matching {plural} in total.")
     return {
         "answer": "\n".join(lines),
         "products": serialize_products_bulk(top),
@@ -1922,12 +2439,26 @@ def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[D
     }
 
 def answer_shop_info_query(shop: dict, q: str) -> Optional[Dict[str, Any]]:
-    suggestions = ["Show all products", "What's in stock?", "What are your prices?"]
+    suggestions = dedup([default_catalog_question(shop), default_availability_question(shop), "What are your prices?"])
     if is_location_query(q):
+        location_mode = normalize_location_mode(shop.get("location_mode", ""), shop.get("business_type", ""), shop.get("category", ""))
+        service_area = (shop.get("service_area") or "").strip()
         address = (shop.get("address") or "").strip()
+        if location_mode == "online":
+            return {
+                "answer": f"{shop_label(shop)} operates online.",
+                "products": [],
+                "meta": {"llm_used": False, "reason": "shop_location", "suggestions": suggestions},
+            }
+        if location_mode == "service_area" and service_area:
+            return {
+                "answer": f"{shop_label(shop)} serves **{service_area}**.",
+                "products": [],
+                "meta": {"llm_used": False, "reason": "shop_location", "suggestions": suggestions},
+            }
         if address:
             return {
-                "answer": f"You can find {shop_label(shop)} at **{address}**.",
+                "answer": f"You can find {shop_label(shop)} at **{address}**." if location_mode != "hybrid" else f"{shop_label(shop)} has a location at **{address}** and may also serve nearby areas.",
                 "products": [],
                 "meta": {"llm_used": False, "reason": "shop_location", "suggestions": suggestions},
             }
@@ -1958,86 +2489,66 @@ def answer_shop_info_query(shop: dict, q: str) -> Optional[Dict[str, Any]]:
 def answer_stock_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     if not is_stock_query(q):
         return None
+    nouns = offering_nouns(shop, prod_rows)
+    plural = nouns["plural"]
+    business_type = normalize_business_type(shop.get("business_type", ""), shop.get("category", ""))
+    default_type = normalize_offering_type("", business_type, shop.get("category", ""))
+    inventory_mode = any(tracks_inventory(row.get("offering_type", ""), business_type, shop.get("category", "")) for row in prod_rows) or default_type == "product"
 
     matches = []
     for row in prod_rows:
-        stock = str(row.get("stock", "in") or "in").strip().lower()
-        if stock == "out":
+        if not row_is_available_for_chat(row, shop):
             continue
-        matches.append({
-            "shop_id": row.get("shop_id", ""),
-            "product_id": row.get("product_id", ""),
-            "name": row.get("name", ""),
-            "overview": row.get("overview", ""),
-            "price": row.get("price", ""),
-            "price_amount": row.get("price_amount"),
-            "price_amount_native": row.get("price_amount_native"),
-            "currency_code": row.get("currency_code"),
-            "currency_code_native": row.get("currency_code_native"),
-            "price_native": row.get("price_native"),
-            "price_converted": row.get("price_converted"),
-            "stock": row.get("stock", "in"),
-            "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
-        })
+        matches.append(enrich_chat_row(row, shop))
 
     if not matches:
+        empty_message = f"I don't see any in-stock {plural} at {shop_label(shop)} right now." if inventory_mode else f"I don't see any available {plural} at {shop_label(shop)} right now."
         return {
-            "answer": f"I don't see any in-stock products at {shop_label(shop)} right now.",
+            "answer": empty_message,
             "products": [],
-            "meta": {"llm_used": False, "reason": "stock_filter", "suggestions": ["Show all products", "Do you restock often?"]},
+            "meta": {"llm_used": False, "reason": "stock_filter", "suggestions": dedup([default_catalog_question(shop, prod_rows), "Do you have anything else available?"])},
         }
 
     top = matches[:6]
-    lines = [f"Here {'is' if len(top)==1 else 'are'} what {shop_label(shop)} currently has in stock:"]
+    intro = f"Here {'is' if len(top)==1 else 'are'} what {shop_label(shop)} currently has in stock:" if inventory_mode else f"Here {'is' if len(top)==1 else 'are'} the {plural} currently available from {shop_label(shop)}:"
+    lines = [intro]
     for item in top:
-        price = item.get("price") or "Price not listed"
-        lines.append(f"- **{item['name']}** - {price} *({item.get('stock', 'in')})*")
+        lines.append(chat_item_line(item, shop))
     if len(matches) > len(top):
-        lines.append(f"\nThere are **{len(matches)}** in-stock products in total.")
+        lines.append(f"\nThere are **{len(matches)}** matching {plural} in total.")
     return {
         "answer": "\n".join(lines),
         "products": serialize_products_bulk(top),
-        "meta": {"llm_used": False, "reason": "stock_filter", "suggestions": ["Show all products", "What are your prices?", "Do you have anything cheaper?"]},
+        "meta": {"llm_used": False, "reason": "stock_filter", "suggestions": dedup([default_catalog_question(shop, prod_rows), "What are your prices?", "Do you have anything cheaper?"])},
     }
 
 def answer_cheapest_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     if not is_cheapest_query(q):
         return None
 
+    nouns = offering_nouns(shop, prod_rows)
+    plural = nouns["plural"]
     ranked = []
     for row in prod_rows:
         value = parse_price_value(row.get("price", ""))
         if value is None:
             continue
-        ranked.append({
-            "shop_id": row.get("shop_id", ""),
-            "product_id": row.get("product_id", ""),
-            "name": row.get("name", ""),
-            "overview": row.get("overview", ""),
-            "price": row.get("price", ""),
-            "price_amount": row.get("price_amount"),
-            "price_amount_native": row.get("price_amount_native"),
-            "currency_code": row.get("currency_code"),
-            "currency_code_native": row.get("currency_code_native"),
-            "price_native": row.get("price_native"),
-            "price_converted": row.get("price_converted"),
-            "stock": row.get("stock", "in"),
-            "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
-            "_price_value": value,
-        })
+        enriched = enrich_chat_row(row, shop)
+        enriched["_price_value"] = value
+        ranked.append(enriched)
 
     if not ranked:
         return None
 
     ranked.sort(key=lambda item: (item["_price_value"], item["name"].lower()))
     top = ranked[:6]
-    lines = [f"These are the lowest-priced items I found at {shop_label(shop)}:"]
+    lines = [f"These are the lowest-priced {plural} I found at {shop_label(shop)}:"]
     for item in top:
-        lines.append(f"- **{item['name']}** - {item.get('price', 'Price not listed')} *({item.get('stock', 'in')})*")
+        lines.append(chat_item_line(item, shop))
     return {
         "answer": "\n".join(lines),
         "products": serialize_products_bulk(top),
-        "meta": {"llm_used": False, "reason": "cheapest_filter", "suggestions": ["Do you have anything below 5 dollars?", "What's in stock?", "Show all products"]},
+        "meta": {"llm_used": False, "reason": "cheapest_filter", "suggestions": [f"Do you have anything below 5 dollars?", default_availability_question(shop, prod_rows), default_catalog_question(shop, prod_rows)]},
     }
 
 def fuzzy_match_score(a: str, b: str) -> float:
@@ -2073,7 +2584,7 @@ def extract_candidate_phrases(q: str) -> List[str]:
             cleaned.append(phrase)
     return cleaned[:6]
 
-def choose_chat_products(prod_rows: List[Dict], q: str, answer_text: str = "", prefer_images: bool = False, limit: int = 4, category: str = "") -> List[Dict]:
+def choose_chat_products(prod_rows: List[Dict], q: str, answer_text: str = "", prefer_images: bool = False, limit: int = 4, category: str = "", business_type: str = "") -> List[Dict]:
     qn = norm_text(q)
     an = norm_text(answer_text)
     q_tokens = set(re.findall(r"[a-z0-9]+", qn))
@@ -2099,31 +2610,15 @@ def choose_chat_products(prod_rows: List[Dict], q: str, answer_text: str = "", p
             score += 7
         elif best_phrase >= 0.72:
             score += 4
-        attr_text = product_attribute_text(row, category)
+        row_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
+        attr_text = product_attribute_text(row, category, row_type, business_type)
         row_tokens = set(re.findall(r"[a-z0-9]+", norm_text(f"{name} {row.get('overview','')} {row.get('product_id','')} {row.get('variants','')} {attr_text}")))
         score += len(q_tokens & row_tokens) * 0.9
         if imgs:
             score += 0.5
         if score > 0:
-            attr_data = normalize_attribute_data(row.get("attribute_data"), category)
-            enriched = {
-                "shop_id": row.get("shop_id", ""),
-                "product_id": row.get("product_id", ""),
-                "name": name,
-                "overview": row.get("overview", ""),
-                "price": row.get("price", ""),
-                "price_amount": row.get("price_amount"),
-                "price_amount_native": row.get("price_amount_native"),
-                "currency_code": row.get("currency_code"),
-                "currency_code_native": row.get("currency_code_native"),
-                "price_native": row.get("price_native"),
-                "price_converted": row.get("price_converted"),
-                "stock": row.get("stock", "in"),
-                "images": imgs,
-                "attribute_data": attr_data,
-                "attribute_lines": format_attribute_lines(attr_data, category),
-                "_score": score,
-            }
+            enriched = enrich_chat_row(row, {"category": category, "business_type": business_type}, category, business_type)
+            enriched["_score"] = score
             ranked.append(enriched)
     ranked.sort(key=lambda item: (item["_score"], len(item.get("images", []))), reverse=True)
     return ranked[:limit]
@@ -2131,18 +2626,20 @@ def choose_chat_products(prod_rows: List[Dict], q: str, answer_text: str = "", p
 def answer_product_image_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     if not wants_product_image(q):
         return None
-    matches = choose_chat_products(prod_rows, q, prefer_images=True, limit=4, category=shop.get("category", ""))
+    nouns = offering_nouns(shop, prod_rows)
+    singular = nouns["singular"]
+    matches = choose_chat_products(prod_rows, q, prefer_images=True, limit=4, category=shop.get("category", ""), business_type=shop.get("business_type", ""))
     if not matches:
         return {
-            "answer": f"I couldn't find a matching product photo at {shop_label(shop)} yet. Try asking with the product name or say **show all products**.",
+            "answer": f"I couldn't find a matching {singular} photo at {shop_label(shop)} yet. Try asking with the {singular} name or say **{default_catalog_question(shop, prod_rows).lower()}**.",
             "products": [],
-            "meta": {"llm_used": False, "reason": "product_image_missing", "suggestions": ["Show all products", "Show all images", "What's in stock?"]},
+            "meta": {"llm_used": False, "reason": "product_image_missing", "suggestions": [default_catalog_question(shop, prod_rows), "Show all images", default_availability_question(shop, prod_rows)]},
         }
     top = matches[0]
     lines = [f"Here {'is' if len(matches)==1 else 'are'} the photo{'s' if len(matches)>1 else ''} I found from {shop_label(shop)}:"]
-    lines.append(f"- **{top['name']}** - {top.get('price','Price not listed')} *({top.get('stock','in')})*")
+    lines.append(chat_item_line(top, shop))
     if len(matches) > 1:
-        lines.append(f"\nI also found **{len(matches)-1}** more matching product card{'s' if len(matches)-1 != 1 else ''} below.")
+        lines.append(f"\nI also found **{len(matches)-1}** more matching listing card{'s' if len(matches)-1 != 1 else ''} below.")
     return {
         "answer": "\n".join(lines),
         "products": serialize_products_bulk(matches),
@@ -2152,73 +2649,60 @@ def answer_product_image_query(shop: dict, prod_rows: List[Dict], q: str) -> Opt
 def answer_price_lookup_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     if not is_price_lookup_query(q):
         return None
-    picked = rank_products(prod_rows, q, shop.get("category", ""))
+    picked = rank_products(prod_rows, q, shop.get("category", ""), shop.get("business_type", ""))
     if not picked:
         return None
     top = picked[0]
     price = top.get("price") or "Price not listed"
-    stock = top.get("stock") or "in"
+    status = top.get("availability_label") or offering_status_label(top, shop)
     answer = f"{shop_label(shop)} has **{top['name']}** listed at **{price}**"
-    if stock:
-        answer += f" and it is currently **{stock}**."
+    if status:
+        answer += f" and it is currently **{status.lower()}**."
     else:
         answer += "."
     return {
         "answer": answer,
         "products": serialize_products_bulk([top]),
-        "meta": {"llm_used": False, "reason": "price_lookup", "suggestions": [f"Show me photos of {top['name']}", f"Do you have more like {top['name']}?", "What's in stock?"]},
+        "meta": {"llm_used": False, "reason": "price_lookup", "suggestions": [f"Show me photos of {top['name']}", f"Do you have more like {top['name']}?", default_availability_question(shop, prod_rows)]},
     }
 
 def answer_attribute_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     category = shop.get("category", "")
-    keys = attribute_query_keys(q, category)
+    business_type = shop.get("business_type", "")
+    keys = attribute_query_keys(q, category, "", business_type)
     if not keys:
         return None
-    ranked = rank_products(prod_rows, q, category)
+    ranked = rank_products(prod_rows, q, category, business_type)
     matches = []
     for row in ranked or prod_rows:
-        attr_data = normalize_attribute_data(row.get("attribute_data"), category)
+        row_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
+        attr_data = normalize_attribute_data(row.get("attribute_data"), category, row_type, business_type)
         if not any(attr_data.get(key) for key in keys):
             continue
-        lines = format_attribute_lines(attr_data, category)
-        matches.append({
-            "shop_id": row.get("shop_id", ""),
-            "product_id": row.get("product_id", ""),
-            "name": row.get("name", ""),
-            "overview": row.get("overview", ""),
-            "price": row.get("price", ""),
-            "price_amount": row.get("price_amount"),
-            "price_amount_native": row.get("price_amount_native"),
-            "currency_code": row.get("currency_code"),
-            "currency_code_native": row.get("currency_code_native"),
-            "price_native": row.get("price_native"),
-            "price_converted": row.get("price_converted"),
-            "stock": row.get("stock", "in"),
-            "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
-            "attribute_data": attr_data,
-            "attribute_lines": lines,
-        })
+        matches.append(enrich_chat_row(row, shop, category, business_type))
         if len(matches) >= 5:
             break
 
     if not matches:
-        label_map = product_attribute_label_map(category)
+        default_type = normalize_offering_type("", business_type, category)
+        label_map = product_attribute_label_map(category, default_type, business_type)
         asked = ", ".join(label_map.get(key, key.replace("_", " ")) for key in keys)
         return {
-            "answer": f"I could not find any saved {asked} details for products at {shop_label(shop)} yet.",
+            "answer": f"I could not find any saved {asked} details for {offering_nouns(shop, prod_rows)['plural']} at {shop_label(shop)} yet.",
             "products": [],
-            "meta": {"llm_used": False, "reason": "attribute_missing", "suggestions": ["Show all products", "What's in stock?", "What do you recommend?"]},
+            "meta": {"llm_used": False, "reason": "attribute_missing", "suggestions": [default_catalog_question(shop, prod_rows), default_availability_question(shop, prod_rows), "What do you recommend?"]},
         }
 
     asked_key = keys[0]
-    asked_label = product_attribute_label_map(category).get(asked_key, asked_key.replace("_", " ").title())
+    top_type = normalize_offering_type(matches[0].get("offering_type", ""), business_type, category)
+    asked_label = product_attribute_label_map(category, top_type, business_type).get(asked_key, asked_key.replace("_", " ").title())
     top = matches[0]
     top_value = top["attribute_data"].get(asked_key)
     if top_value and len(matches) == 1:
         return {
             "answer": f"For **{top['name']}**, the **{asked_label.lower()}** is **{top_value}**.",
             "products": serialize_products_bulk(matches[:1]),
-            "meta": {"llm_used": False, "reason": "attribute_lookup", "suggestions": [f"Show me photos of {top['name']}", f"What is the price of {top['name']}?", "Show all products"]},
+            "meta": {"llm_used": False, "reason": "attribute_lookup", "suggestions": [f"Show me photos of {top['name']}", f"What is the price of {top['name']}?", default_catalog_question(shop, prod_rows)]},
         }
 
     lines = [f"Here are the {asked_label.lower()} details I found at {shop_label(shop)}:"]
@@ -2227,7 +2711,8 @@ def answer_attribute_query(shop: dict, prod_rows: List[Dict], q: str) -> Optiona
         for key in keys:
             value = item["attribute_data"].get(key)
             if value:
-                label = product_attribute_label_map(category).get(key, key.replace("_", " ").title())
+                item_type = normalize_offering_type(item.get("offering_type", ""), business_type, category)
+                label = product_attribute_label_map(category, item_type, business_type).get(key, key.replace("_", " ").title())
                 picked_lines.append(f"{label}: {value}")
         if not picked_lines:
             continue
@@ -2235,18 +2720,19 @@ def answer_attribute_query(shop: dict, prod_rows: List[Dict], q: str) -> Optiona
     return {
         "answer": "\n".join(lines),
         "products": serialize_products_bulk(matches),
-        "meta": {"llm_used": False, "reason": "attribute_lookup", "suggestions": ["Show all products", "What's in stock?", "What do you recommend?"]},
+        "meta": {"llm_used": False, "reason": "attribute_lookup", "suggestions": [default_catalog_question(shop, prod_rows), default_availability_question(shop, prod_rows), "What do you recommend?"]},
     }
 
 def answer_recommendation_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     if not is_recommendation_query(q):
         return None
 
+    nouns = offering_nouns(shop, prod_rows)
+    plural = nouns["plural"]
     budget = extract_budget_limit(q)
     candidates = []
     for row in prod_rows:
-        stock = str(row.get("stock", "in") or "in").strip().lower()
-        if stock == "out":
+        if not row_is_available_for_chat(row, shop):
             continue
         price_value = parse_price_value(row.get("price", ""))
         if budget is not None and price_value is not None and price_value > budget:
@@ -2255,39 +2741,22 @@ def answer_recommendation_query(shop: dict, prod_rows: List[Dict], q: str) -> Op
 
     if not candidates:
         return {
-            "answer": f"I could not find a good in-stock recommendation at {shop_label(shop)} for that request.",
+            "answer": f"I could not find a good recommendation from the available {plural} at {shop_label(shop)} for that request.",
             "products": [],
-            "meta": {"llm_used": False, "reason": "recommendation_empty", "suggestions": ["Show all products", "What's in stock?", "Do you have anything cheaper?"]},
+            "meta": {"llm_used": False, "reason": "recommendation_empty", "suggestions": [default_catalog_question(shop, prod_rows), default_availability_question(shop, prod_rows), "Do you have anything cheaper?"]},
         }
 
-    ranked = rank_products(candidates, q, shop.get("category", ""))
+    ranked = rank_products(candidates, q, shop.get("category", ""), shop.get("business_type", ""))
     if not ranked:
-        ranked = rank_products(candidates, shop.get("category", "")) or [
-            {
-                "shop_id": row.get("shop_id", ""),
-                "product_id": row.get("product_id", ""),
-                "name": row.get("name", ""),
-                "overview": row.get("overview", ""),
-                "price": row.get("price", ""),
-                "price_amount": row.get("price_amount"),
-                "price_amount_native": row.get("price_amount_native"),
-                "currency_code": row.get("currency_code"),
-                "currency_code_native": row.get("currency_code_native"),
-                "price_native": row.get("price_native"),
-                "price_converted": row.get("price_converted"),
-                "stock": row.get("stock", "in"),
-                "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
-            }
-            for row in candidates
-        ]
+        ranked = rank_products(candidates, "", shop.get("category", ""), shop.get("business_type", "")) or [enrich_chat_row(row, shop) for row in candidates]
 
     top = ranked[:4]
-    opener = f"Here are a few good options from {shop_label(shop)}:"
+    opener = f"Here are a few good {plural} from {shop_label(shop)}:"
     if budget is not None:
-        opener = f"Here are a few good options from {shop_label(shop)} under **{budget:g}**:"
+        opener = f"Here are a few good {plural} from {shop_label(shop)} under **{budget:g}**:"
     lines = [opener]
     for item in top:
-        line = f"- **{item['name']}** - {item.get('price', 'Price not listed')} *({item.get('stock', 'in')})*"
+        line = chat_item_line(item, shop)
         overview = (item.get("overview") or "").strip()
         if overview:
             line += f"\n  {overview[:120]}"
@@ -2298,62 +2767,83 @@ def answer_recommendation_query(shop: dict, prod_rows: List[Dict], q: str) -> Op
         "meta": {"llm_used": False, "reason": "recommendation", "suggestions": build_chat_suggestions(q, shop, top)},
     }
 
-def rank_products(products: List[Dict], q: str, category: str = "") -> List[Dict]:
+def rank_products(products: List[Dict], q: str, category: str = "", business_type: str = "") -> List[Dict]:
     qn = norm_text(q); qt = set(re.findall(r"[a-z0-9]+", qn))
     scored = []
     for r in products:
         name = (r.get("name") or "").strip(); ov = (r.get("overview") or "").strip()
-        attr_text = product_attribute_text(r, category)
+        row_type = normalize_offering_type(r.get("offering_type", ""), business_type, category)
+        attr_text = product_attribute_text(r, category, row_type, business_type)
         hay = norm_text(f"{name} {ov} {r.get('variants','')} {attr_text}"); ht = set(re.findall(r"[a-z0-9]+", hay))
         s = 0.0
-        if norm_text(name) and norm_text(name) in qn: s += 8
-        if qt & ht: s += len(qt & ht) * 1.4
-        if qn and qn in hay: s += 5
-        if s > 0: 
-            imgs = normalize_image_list(r.get("shop_id", ""), r.get("images", []))
-            attr_data = normalize_attribute_data(r.get("attribute_data"), category)
-            scored.append((s, {
-                "shop_id": r.get("shop_id", ""),
-                "product_id": r["product_id"], 
-                "name": r["name"], 
-                "overview": r.get("overview",""), 
-                "price": r.get("price",""), 
-                "stock": r.get("stock","in"), 
-                "images": imgs,
-                "attribute_data": attr_data,
-                "attribute_lines": format_attribute_lines(attr_data, category),
-            }))
+        if qn:
+            if norm_text(name) and norm_text(name) in qn:
+                s += 8
+            if qt & ht:
+                s += len(qt & ht) * 1.4
+            if qn in hay:
+                s += 5
+        else:
+            s = 1.0
+            if row_is_available_for_chat(r, {"category": category, "business_type": business_type}):
+                s += 1.0
+            if normalize_image_list(r.get("shop_id", ""), r.get("images", [])):
+                s += 0.4
+            if (r.get("overview") or "").strip():
+                s += 0.3
+            if parse_price_amount(r.get("price_amount")) is not None or parse_price_amount(r.get("price")) is not None:
+                s += 0.2
+            try:
+                s += min(float(r.get("avg_rating") or 0), 5.0) * 0.1
+            except Exception:
+                pass
+            try:
+                s += min(float(r.get("product_views") or 0), 100.0) * 0.01
+            except Exception:
+                pass
+        if s > 0:
+            scored.append((s, enrich_chat_row(r, {"category": category, "business_type": business_type}, category, business_type)))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [p for _, p in scored]
 
 def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Optional[List[str]] = None) -> str:
+    nouns = offering_nouns(shop, all_rows)
+    business_name = business_display_name(shop)
     lines = [
-        f"Shop: {shop['name']}",
+        f"Business: {shop['name']}",
+        f"Business type: {normalize_business_type(shop.get('business_type', ''), shop.get('category', ''))}",
+        f"Business label: {business_name}",
         f"Shop ID: {shop.get('shop_id','')}",
         f"Shop Slug: {shop.get('shop_slug','')}",
-        f"Address: {shop.get('address','')}",
     ]
+    if shop.get("address"): lines.append(f"Address: {shop.get('address','')}")
+    if shop.get("service_area"): lines.append(f"Service area: {shop.get('service_area','')}")
     if shop.get("phone"): lines.append(f"Phone: {shop['phone']}")
     if shop.get("hours"): lines.append(f"Hours: {shop['hours']}")
     if shop.get("category"): lines.append(f"Category: {shop['category']}")
+    if shop.get("location_mode"): lines.append(f"Location mode: {shop['location_mode']}")
     if shop.get("whatsapp"): lines.append(f"WhatsApp: {shop['whatsapp']}")
     if shop.get("overview"): lines.append(f"About: {shop['overview']}")
-    lines.append(f"Total products: {len(all_rows)}")
+    lines.append(f"Total {nouns['plural']}: {len(all_rows)}")
     if picked:
-        lines.append("\nRelevant products:")
+        lines.append(f"\nRelevant {nouns['plural']}:")
         for p in picked[:6]:
             img_part = f' | Photo: ![{p["name"]}]({p["images"][0]})' if p.get("images") else ""
-            attr_lines = format_attribute_lines(normalize_attribute_data(p.get("attribute_data"), shop.get("category", "")), shop.get("category", ""))
+            row_type = normalize_offering_type(p.get("offering_type", ""), shop.get("business_type", ""), shop.get("category", ""))
+            attr_lines = format_attribute_lines(normalize_attribute_data(p.get("attribute_data"), shop.get("category", ""), row_type, shop.get("business_type", "")), shop.get("category", ""), row_type, shop.get("business_type", ""))
             attr_part = f" | Details: {'; '.join(attr_lines[:3])}" if attr_lines else ""
-            lines.append(f'- {p["name"]} | Price: {p.get("price","N/A")} | Stock: {p.get("stock","in")}{img_part}{attr_part}')
+            summary = " | ".join(offering_summary_bits(p, shop)) or "Details available on request"
+            lines.append(f'- {p["name"]} | {summary}{img_part}{attr_part}')
     elif all_rows:
-        lines.append("\nSample products from this shop:")
+        lines.append(f"\nSample {nouns['plural']} from this business:")
         for row in all_rows[:8]:
             imgs = normalize_image_list(row.get("shop_id", ""), row.get("images", []))
-            img_part = f' | Photo: ![{row.get("name","Product")}]({imgs[0]})' if imgs else ""
-            attr_lines = format_attribute_lines(normalize_attribute_data(row.get("attribute_data"), shop.get("category", "")), shop.get("category", ""))
+            row_type = normalize_offering_type(row.get("offering_type", ""), shop.get("business_type", ""), shop.get("category", ""))
+            img_part = f' | Photo: ![{row.get("name","Offering")}]({imgs[0]})' if imgs else ""
+            attr_lines = format_attribute_lines(normalize_attribute_data(row.get("attribute_data"), shop.get("category", ""), row_type, shop.get("business_type", "")), shop.get("category", ""), row_type, shop.get("business_type", ""))
             attr_part = f" | Details: {'; '.join(attr_lines[:3])}" if attr_lines else ""
-            lines.append(f'- {row.get("name","Product")} | Price: {row.get("price","N/A")} | Stock: {row.get("stock","in")}{img_part}{attr_part}')
+            summary = " | ".join(offering_summary_bits(row, shop)) or "Details available on request"
+            lines.append(f'- {row.get("name","Offering")} | {summary}{img_part}{attr_part}')
     if rag_chunks:
         lines.append("\nKnowledge base notes:")
         for chunk in rag_chunks[:4]:
@@ -2363,7 +2853,8 @@ def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Op
 CHAT_GENERIC_BOLD_TERMS = {
     "price", "prices", "stock", "in stock", "out of stock", "low stock", "hours", "opening hours",
     "address", "phone", "whatsapp", "pickup", "delivery", "buy in shop", "open", "closed",
-    "available", "not available", "today", "shop", "shops", "product", "products", "catalog"
+    "available", "not available", "today", "shop", "shops", "business", "businesses", "product", "products",
+    "service", "services", "class", "classes", "event", "events", "offering", "offerings", "catalog"
 }
 
 def extract_markdown_bold_terms(text: str) -> List[str]:
@@ -2405,26 +2896,26 @@ def find_out_of_scope_bold_terms(answer: str, shop: dict, prod_rows: List[Dict])
         flagged.append(term)
     return flagged[:4]
 
-SHOP_ASSISTANT_SYSTEM = """You are the live shopping assistant for a local marketplace shop.
-Answer using ONLY the supplied shop context.
-Never mention another shop, owner workspace, or any product that is not explicitly present in the supplied context.
-Never invent catalog items, prices, stock, hours, or policies.
-If a requested item or fact is not in the current shop context, say you do not see it in this shop right now.
+SHOP_ASSISTANT_SYSTEM = """You are the live assistant for a local marketplace business.
+Answer using ONLY the supplied business context.
+Never mention another business, owner workspace, or any product, service, class, event, or portfolio item that is not explicitly present in the supplied context.
+Never invent offerings, prices, availability, hours, or policies.
+If a requested item or fact is not in the current business context, say you do not see it listed right now.
 Be concise, warm, and professional.
-Mention price and stock when available.
-If the user asks what the shop sells, summarize first and then list examples.
+Mention price and availability when available.
+If the user asks what the business offers, summarize first and then list examples.
 If information is missing, say so clearly and suggest a useful follow-up question.
 Use simple markdown.
 Prefer short sections or bullets over long paragraphs.
-If you mention products, format them as clean bullets with name, price, and stock when available.
+If you mention offerings, format them as clean bullets with name, price, and availability when available.
 Sound natural and conversational, not robotic or overly salesy.
 Do not say things like "based on the provided context" or "I found a likely match" unless necessary.
-When answering simple customer questions, speak like a real shop assistant would.
+When answering simple customer questions, speak like a real local business assistant would.
 Do not mention being an AI, model, chatbot, or system unless the user directly asks.
 Prefer clear direct answers over meta explanations.
-If the customer asks for a recommendation, suggest a few suitable products from the shop and briefly say why.
-If the customer asks a broad question, answer naturally as a helpful shopkeeper would, but stay grounded in the shop context.
-If the customer asks something unrelated to the shop, reply briefly and politely in a human tone without pretending the shop has facts you do not have.
+If the customer asks for a recommendation, suggest a few suitable offerings from the business and briefly say why.
+If the customer asks a broad question, answer naturally as a helpful business representative would, but stay grounded in the supplied context.
+If the customer asks something unrelated to the business, reply briefly and politely in a human tone without pretending the business has facts you do not have.
 """
 
 def shop_voice_instructions(shop: dict) -> str:
@@ -2471,13 +2962,13 @@ def response_style_instructions(q: str) -> str:
     qn = norm_text(q)
     if is_recommendation_query(qn) or any(t in qn for t in ["affordable", "budget", "gift", "best", "popular"]):
         return (
-            "Response format: start with one short natural sentence, then list up to 4 product bullets. "
-            "Each bullet should include name, price, stock, and a short reason it fits."
+            "Response format: start with one short natural sentence, then list up to 4 offering bullets. "
+            "Each bullet should include name, price, availability, and a short reason it fits."
         )
     if is_list_intent(qn):
         return (
-            "Response format: start with one short summary sentence, then list products as bullets with name, "
-            "price, and stock. Keep it tidy and easy to scan."
+            "Response format: start with one short summary sentence, then list offerings as bullets with name, "
+            "price, and availability. Keep it tidy and easy to scan."
         )
     if is_price_lookup_query(qn) or is_budget_query(qn) or is_cheapest_query(qn):
         return "Response format: answer directly in 1 to 4 lines. Put the exact price or budget result first."
@@ -2489,26 +2980,52 @@ def build_chat_suggestions(q: str, shop: dict, picked: List[Dict]) -> List[str]:
     suggestions: List[str] = []
     qn = norm_text(q)
     category = (shop.get("category") or "").strip()
+    nouns = offering_nouns(shop, picked)
+    plural = nouns["plural"]
     if picked:
         top = picked[0]
+        return "\n".join(
+            [f"**{top['name']}** - {' | '.join(offering_summary_bits(top, shop)) or 'Details available on request'}"]
+            + ([f"![{top['name']}]({top['images'][0]})"] if top.get("images") else [])
+        )
+        return "\n".join(
+            [f"**{top['name']}** - {' | '.join(offering_summary_bits(top, shop)) or 'Details available on request'}"]
+            + ([f"![{top['name']}]({top['images'][0]})"] if top.get("images") else [])
+        )
         suggestions.extend([
             f"What is the price of {top['name']}?",
             f"Show me photos of {top['name']}",
             f"Do you have more like {top['name']}?",
         ])
     else:
-        suggestions.extend(["Show all products", "What's in stock?", "What are your prices?"])
+        suggestions.extend(default_catalog_prompts(shop, picked))
     if category:
-        suggestions.append(f"What are your best {category.lower()} products?")
-        suggestions.append(f"Show me your most popular {category.lower()} items")
-        suggestions.extend(category_prompt_suggestions(category))
+        suggestions.append(f"What are your best {category.lower()} {plural}?")
+        suggestions.append(f"Show me your most popular {category.lower()} {plural}")
+        suggestions.extend(category_prompt_suggestions(category, shop.get("business_type", ""), picked))
     if "hour" not in qn and shop.get("hours"):
         suggestions.append("What are your opening hours?")
-    if "address" not in qn and shop.get("address"):
-        suggestions.append("Where is this shop located?")
+    if "address" not in qn and shop.get("address") and normalize_location_mode(shop.get("location_mode", ""), shop.get("business_type", ""), category) != "online":
+        suggestions.append("Where is this business located?")
     return dedup(suggestions)[:4]
 
-def category_prompt_suggestions(category: str = "") -> List[str]:
+def default_catalog_prompts(shop: dict, rows: Optional[List[Dict[str, Any]]] = None) -> List[str]:
+    nouns = offering_nouns(shop, rows or [])
+    business_type = normalize_business_type(shop.get("business_type", ""), shop.get("category", ""))
+    offering_type = normalize_offering_type("", business_type, shop.get("category", ""))
+    plural = nouns["plural"]
+    singular = nouns["singular"]
+    if offering_type == "product":
+        return [f"What {plural} do you have?", f"Show all {plural}", "What's in stock?", "What are your prices?"]
+    if offering_type == "service":
+        return [f"What {plural} do you offer?", f"Show all {plural}", "What is available right now?", f"Which {singular} do you recommend?"]
+    if offering_type == "class":
+        return [f"What {plural} do you offer?", f"Show all {plural}", "Which class is best for beginners?", "What are your prices?"]
+    if offering_type == "event":
+        return [f"What {plural} are coming up?", f"Show all {plural}", "What is available right now?", "What are your prices?"]
+    return ["What do you offer?", "Show all offerings", "What is available right now?", "What are your prices?"]
+
+def category_prompt_suggestions(category: str = "", business_type: str = "", rows: Optional[List[Dict[str, Any]]] = None) -> List[str]:
     category = str(category or "").strip()
     if category == "Food":
         return ["Which items are gluten free?", "What ingredients are in this product?"]
@@ -2524,22 +3041,34 @@ def category_prompt_suggestions(category: str = "") -> List[str]:
         return ["What material is this made from?", "What are the dimensions?"]
     if category == "Sports":
         return ["What size do you have?", "Is this for beginners or advanced users?"]
+    offering_type = normalize_offering_type("", business_type, category)
+    if offering_type == "service":
+        return ["How long does this take?", "Do I need an appointment?"]
+    if offering_type == "class":
+        return ["What level is this for?", "What should I bring?"]
+    if offering_type == "portfolio":
+        return ["Do you take commissions?", "What is the turnaround time?"]
     return []
 
-def attribute_analytics_for_products(products: List[Dict[str, Any]], category: str = "") -> Dict[str, Any]:
-    schema = PRODUCT_ATTRIBUTE_SCHEMA.get(str(category or "").strip(), [])
+def attribute_analytics_for_products(products: List[Dict[str, Any]], category: str = "", business_type: str = "") -> Dict[str, Any]:
+    inferred_type = ""
+    if products:
+        inferred_type = normalize_offering_type(products[0].get("offering_type", ""), business_type, category)
+    schema = offering_attribute_schema(business_type, category, inferred_type)
     if not schema:
         return {"category": category, "fields": [], "complete_products": 0, "total_products": len(products)}
     fields = []
     complete_products = 0
     for row in products:
-        if normalize_attribute_data(row.get("attribute_data"), category):
+        row_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
+        if normalize_attribute_data(row.get("attribute_data"), category, row_type, business_type):
             complete_products += 1
     for key, label in schema:
         value_counts: Dict[str, int] = {}
         filled_count = 0
         for row in products:
-            attr = normalize_attribute_data(row.get("attribute_data"), category)
+            row_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
+            attr = normalize_attribute_data(row.get("attribute_data"), category, row_type, business_type)
             value = str(attr.get(key, "")).strip()
             if not value:
                 continue
@@ -2567,6 +3096,7 @@ def shop_label(shop: dict) -> str:
 def fallback_answer_v2(shop: dict, picked: List[Dict], q: str) -> str:
     if is_greeting(q):
         category = (shop.get("category") or "").strip().lower()
+        nouns = offering_nouns(shop, picked)
         opener = "Hi"
         if "food" in category or "bakery" in category or "cafe" in category:
             opener = "Hi there"
@@ -2574,35 +3104,40 @@ def fallback_answer_v2(shop: dict, picked: List[Dict], q: str) -> str:
             opener = "Hello"
         elif "clothing" in category or "fashion" in category:
             opener = "Hey"
-        return f"{opener}! Welcome to {shop_label(shop)}. Ask me about products, prices, stock, hours, or just say **show all products**."
+        return f"{opener}! Welcome to {shop_label(shop)}. Ask me about {nouns['plural']}, prices, availability, hours, or just say **show all {nouns['plural']}**."
     if picked:
         top = picked[0]
+        summary = " | ".join(offering_summary_bits(top, shop)) or "Details available on request"
         lines = [
             f"This looks like a good match from {shop_label(shop)}:",
             "",
-            f"**{top['name']}** - {top.get('price','Price not listed')} *({top.get('stock','in')})*",
+            f"**{top['name']}** - {summary}",
         ]
         if top.get("overview"):
             lines.append(str(top["overview"])[:160])
         if top.get("images"):
             lines.append(f"![{top['name']}]({top['images'][0]})")
         return "\n".join(lines)
-    return f"I couldn't find a clear match at {shop_label(shop)}. Try **show all products**, **what's in stock**, or **do you have anything below 10 dollars**."
+    nouns = offering_nouns(shop, picked)
+    return f"I couldn't find a clear match at {shop_label(shop)}. Try **show all {nouns['plural']}**, **what is available right now**, or **do you have anything below 10 dollars**."
 
 def fallback_answer(shop: dict, picked: List[Dict], q: str) -> str:
-    if is_greeting(q): return f"Hi! Welcome to **{shop['name']}**! Ask me about our products, or say 'show all products'."
+    nouns = offering_nouns(shop, picked)
+    if is_greeting(q): return f"Hi! Welcome to **{shop['name']}**! Ask me about our {nouns['plural']}, or say '{default_catalog_question(shop, picked).lower()}'."
     if picked:
         top = picked[0]
         s = f"**{top['name']}** — {top.get('price','')} *({top.get('stock','in')})*"
         if top.get("images"): s += f"\n![{top['name']}]({top['images'][0]})"
         return s
-    return "I couldn't find a direct match. Try asking 'show all products' to see everything we have."
+    return f"I couldn't find a direct match. Try asking '{default_catalog_question(shop, picked).lower()}' to see everything available."
 
 def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
-    suggestions = build_chat_suggestions("show all products", shop, prod_rows)
+    nouns = offering_nouns(shop, prod_rows)
+    plural = nouns["plural"]
+    suggestions = build_chat_suggestions(default_catalog_question(shop, prod_rows), shop, prod_rows)
     if not prod_rows:
         return {
-            "answer": f"{shop_label(shop)} has not added any products yet.",
+            "answer": f"{shop_label(shop)} has not added any {plural} yet.",
             "products": [],
             "meta": {"llm_used": False, "reason": "catalog_empty", "suggestions": suggestions},
         }
@@ -2611,18 +3146,16 @@ def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
     category = (shop.get("category") or "").strip()
     intro = f"Here is what you can browse at {shop_label(shop)}:"
     if category:
-        intro = f"Here is a quick look at the {category.lower()} items available at {shop_label(shop)}:"
+        intro = f"Here is a quick look at the {category.lower()} {plural} available at {shop_label(shop)}:"
     lines = [intro]
     for item in top:
-        price = item.get("price") or "Price not listed"
-        stock = item.get("stock") or "in"
         overview = (item.get("overview") or "").strip()
-        detail = f"- **{item.get('name','Product')}** - {price} *({stock})*"
+        detail = chat_item_line(enrich_chat_row(item, shop), shop)
         if overview:
             detail += f"\n  {overview[:120]}"
         lines.append(detail)
     if len(prod_rows) > len(top):
-        lines.append(f"\nThere are **{len(prod_rows)}** products in total. Ask if you want something specific.")
+        lines.append(f"\nThere are **{len(prod_rows)}** {plural} in total. Ask if you want something specific.")
     return {
         "answer": "\n".join(lines),
         "products": serialize_products_bulk(top[:8]),
@@ -2636,10 +3169,12 @@ def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
 def serve_ui():
     with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
 
+@app.get("/business/{shop_ref}", response_class=HTMLResponse)
 @app.get("/shop/{shop_ref}", response_class=HTMLResponse)
 def serve_shop_ui(shop_ref: str):
     with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
 
+@app.get("/offering/{shop_ref}/{product_ref}", response_class=HTMLResponse)
 @app.get("/product/{shop_ref}/{product_ref}", response_class=HTMLResponse)
 def serve_product_ui(shop_ref: str, product_ref: str):
     with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
@@ -2833,15 +3368,18 @@ def upload_avatar(authorization: Optional[str] = Header(None), avatar: UploadFil
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Customer Interactions
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@app.post("/customer/favourite/{business_id}/{offering_id}")
 @app.post("/customer/favourite/{shop_id}/{product_id}")
-def toggle_favourite(shop_id: str, product_id: str, authorization: Optional[str] = Header(None)):
+def toggle_favourite(shop_id: str = "", product_id: str = "", business_id: str = "", offering_id: str = "", authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     require_verified(user)
+    shop_id = business_id or shop_id
+    product_id = offering_id or product_id
     favs = supabase.table("favourites").select("shop_id").eq("user_id", user.id).eq("shop_id", shop_id).eq("product_id", product_id).execute().data
     exists = len(favs) > 0
     if exists: supabase.table("favourites").delete().eq("user_id", user.id).eq("shop_id", shop_id).eq("product_id", product_id).execute()
     else: supabase.table("favourites").insert({"user_id": user.id, "shop_id": shop_id, "product_id": product_id}).execute()
-    return {"ok": True, "saved": not exists}
+    return {"ok": True, "saved": not exists, "business_id": shop_id, "offering_id": product_id}
 
 @app.get("/customer/favourites")
 def get_favourites(request: Request, authorization: Optional[str] = Header(None)):
@@ -2852,10 +3390,13 @@ def get_favourites(request: Request, authorization: Optional[str] = Header(None)
         p = supabase.table("products").select("*").eq("shop_id", f["shop_id"]).eq("product_id", f["product_id"]).execute().data
         if p: product_rows.append(p[0])
     out = serialize_products_bulk(product_rows, user.id)
-    return {"ok": True, "favourites": out}
+    return {"ok": True, "favourites": out, "offerings": out}
 
+@app.get("/public/reviews/{business_id}/{offering_id}")
 @app.get("/public/reviews/{shop_id}/{product_id}")
-def get_reviews(shop_id: str, product_id: str):
+def get_reviews(shop_id: str = "", product_id: str = "", business_id: str = "", offering_id: str = ""):
+    shop_id = business_id or shop_id
+    product_id = offering_id or product_id
     try:
         rows = supabase.table("reviews").select("*").eq("shop_id", shop_id).eq("product_id", product_id).order("created_at", desc=True).execute().data
         out = []
@@ -2871,35 +3412,42 @@ def get_reviews(shop_id: str, product_id: str):
                 "id": r["id"], "rating": r["rating"], "body": r["body"], 
                 "author": author_name, "created_at": r.get("created_at", "")
             })
-        return {"ok": True, "reviews": out}
+        return {"ok": True, "reviews": out, "business_id": shop_id, "offering_id": product_id}
     except Exception as e:
         print(f"Reviews Error: {e}")
-        return {"ok": True, "reviews": []}
+        return {"ok": True, "reviews": [], "business_id": shop_id, "offering_id": product_id}
 
+@app.post("/public/track-view/{business_id}/{offering_id}")
 @app.post("/public/track-view/{shop_id}/{product_id}")
-def track_product_view(shop_id: str, product_id: str):
+def track_product_view(shop_id: str = "", product_id: str = "", business_id: str = "", offering_id: str = ""):
+    shop_id = business_id or shop_id
+    product_id = offering_id or product_id
     track(shop_id, "view", product_id)
-    return {"ok": True}
+    return {"ok": True, "business_id": shop_id, "offering_id": product_id}
 
+@app.post("/customer/review/{business_id}/{offering_id}")
 @app.post("/customer/review/{shop_id}/{product_id}")
-def post_review(shop_id: str, product_id: str, body: ReviewReq, authorization: Optional[str] = Header(None)):
+def post_review(shop_id: str = "", product_id: str = "", business_id: str = "", offering_id: str = "", body: ReviewReq = ..., authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     require_verified(user)
+    shop_id = business_id or shop_id
+    product_id = offering_id or product_id
     if not body.body.strip(): raise HTTPException(400, "Review cannot be empty")
     
     prod_check = supabase.table("products").select("product_id").eq("shop_id", shop_id).eq("product_id", product_id).execute().data
-    if not prod_check: raise HTTPException(404, "Product not found")
+    if not prod_check: raise HTTPException(404, "Offering not found")
     
     existing = supabase.table("reviews").select("id").eq("shop_id", shop_id).eq("product_id", product_id).eq("user_id", user.id).execute().data
     if existing:
         supabase.table("reviews").update({"rating": body.rating, "body": body.body.strip(), "created_at": "now()"}).eq("id", existing[0]["id"]).execute()
     else:
         supabase.table("reviews").insert({"shop_id": shop_id, "product_id": product_id, "user_id": user.id, "rating": body.rating, "body": body.body.strip()}).execute()
-    return {"ok": True, "message": "Review saved"}
+    return {"ok": True, "message": "Review saved", "business_id": shop_id, "offering_id": product_id}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Public Browsing
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@app.get("/public/businesses")
 @app.get("/public/shops")
 def public_shops(
     category: Optional[str] = None,
@@ -2937,7 +3485,7 @@ def public_shops(
             r["stats"] = {"product_count": 0, "image_count": 0, "products_with_images": 0, "chat_hits_30d": 0, "shop_views_30d": 0, "product_views_30d": 0, "avg_rating": 0}
         r["is_open_now"] = shop_is_open_now(r)
         filtered.append(public_shop_payload(r))
-    return {"ok": True, "shops": filtered}
+    return alias_catalog_response({"ok": True, "shops": filtered})
 
 @app.get("/public/location-support")
 def public_location_support():
@@ -3042,6 +3590,7 @@ def public_address_search(request: Request, q: str = Query(..., min_length=3), c
         print(f"[Address Search Warning] {e}")
         return {"ok": True, "suggestions": [], "provider": "error"}
 
+@app.get("/public/business/{shop_ref}")
 @app.get("/public/shop/{shop_ref}")
 def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), stock: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
     shop_row = ensure_shop_coordinates(resolve_shop_by_ref(shop_ref))
@@ -3056,7 +3605,7 @@ def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), s
     if stock in ("in", "low", "out"): q = q.eq("stock", stock)
     all_prods = q.execute().data
     if attr_key or attr_value:
-        all_prods = [row for row in all_prods if matches_attribute_filter(row, shop_row.get("category", ""), attr_key, attr_value)]
+        all_prods = [row for row in all_prods if matches_attribute_filter(row, shop_row.get("category", ""), attr_key, attr_value, shop_row.get("business_type", ""))]
     
     if sort == "price-asc": all_prods.sort(key=lambda x: get_row_price_amount(x) or 0)
     elif sort == "price-desc": all_prods.sort(key=lambda x: get_row_price_amount(x) or 0, reverse=True)
@@ -3067,37 +3616,41 @@ def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), s
     paged = paginate_list(all_prods, page, limit)
     ser_prods = serialize_products_bulk(paged["items"], user_id, {shop_id: shop_row}, currency)
     
-    return {
+    return alias_catalog_response({
         "ok": True, "shop_id": shop_id, "shop_slug": shop_row.get("shop_slug", ""), "shop": public_shop_payload(shop_row),
         "products": ser_prods,
         "pagination": paged["pagination"],
         "stats": shop_stats(shop_id),
-        "suggested_questions": dedup(["What products do you have?", "Show all products", "What's in stock?", "Show me your best product", "Show all images", *category_prompt_suggestions(shop_row.get("category", ""))])[:6]
-    }
+        "suggested_questions": dedup([*default_catalog_prompts(shop_row, all_prods), "Show all images", *category_prompt_suggestions(shop_row.get("category", ""), shop_row.get("business_type", ""), all_prods)])[:6]
+    })
 
+@app.get("/public/business-search")
 @app.get("/public/search")
-def search_shop(request: Request, shop_id: str = Query(...), q: str = Query(...), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100)):
+def search_shop(request: Request, shop_id: str = Query(""), business_id: str = Query(""), q: str = Query(...), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100)):
     qn = (q or "").strip()
-    resolved_shop = resolve_shop_by_ref(shop_id)
+    resolved_shop = resolve_shop_by_ref(business_id or shop_id)
     real_shop_id = resolved_shop["shop_id"]
-    if not qn: return {"ok": True, "shop_id": real_shop_id, "shop_slug": resolved_shop.get("shop_slug", ""), "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
+    if not qn:
+        return alias_catalog_response({"ok": True, "shop_id": real_shop_id, "shop_slug": resolved_shop.get("shop_slug", ""), "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]})
     shop_map = {real_shop_id: resolved_shop}
     shop_row = shop_map.get(real_shop_id, {})
     rows = supabase.table("products").select("*").eq("shop_id", real_shop_id).order("updated_at", desc=True).execute().data
-    rows = [row for row in rows if product_matches_query(row, qn, shop_row.get("category", ""))]
+    rows = [row for row in rows if product_matches_query(row, qn, shop_row.get("category", ""), shop_row.get("business_type", ""))]
     if attr_key or attr_value:
-        rows = [row for row in rows if matches_attribute_filter(row, shop_row.get("category", ""), attr_key, attr_value)]
+        rows = [row for row in rows if matches_attribute_filter(row, shop_row.get("category", ""), attr_key, attr_value, shop_row.get("business_type", ""))]
     paged = paginate_list(rows, page, limit)
-    return {"ok": True, "shop_id": real_shop_id, "shop_slug": resolved_shop.get("shop_slug", ""), "q": q, "results": serialize_products_bulk(paged["items"], None, shop_map, currency), "total": len(rows), "pagination": paged["pagination"]}
+    return alias_catalog_response({"ok": True, "shop_id": real_shop_id, "shop_slug": resolved_shop.get("shop_slug", ""), "q": q, "results": serialize_products_bulk(paged["items"], None, shop_map, currency), "total": len(rows), "pagination": paged["pagination"]})
 
+@app.get("/public/offering-search")
 @app.get("/public/search/global")
 def search_global(request: Request, q: str = Query(...), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60)):
     qn = (q or "").strip()
-    if not qn: return {"ok": True, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]}
-    rows = supabase.table("products").select("*, shops(name, shop_slug, category, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").order("updated_at", desc=True).execute().data
-    rows = [row for row in rows if product_matches_query(row, qn, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""))]
+    if not qn:
+        return alias_catalog_response({"ok": True, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]})
+    rows = supabase.table("products").select("*, shops(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").order("updated_at", desc=True).execute().data
+    rows = [row for row in rows if product_matches_query(row, qn, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
     if attr_key or attr_value:
-        rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value)]
+        rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value, normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
     
     paged = paginate_list(rows, page, limit)
     shop_map = {}
@@ -3109,15 +3662,19 @@ def search_global(request: Request, q: str = Query(...), attr_key: str = Query("
         prod["shop_name"] = r.get("shops", {}).get("name", "")
         prod["shop_address"] = normalize_shop_record(r.get("shops", {}) or {}).get("address", "")
         prod["shop_category"] = normalize_shop_record(r.get("shops", {}) or {}).get("category", "")
-    return {"ok": True, "q": q, "results": results, "total": len(rows), "pagination": paged["pagination"]}
+        prod["business_name"] = prod.get("shop_name", "")
+        prod["business_address"] = prod.get("shop_address", "")
+        prod["business_category"] = prod.get("shop_category", "")
+    return alias_catalog_response({"ok": True, "q": q, "results": results, "total": len(rows), "pagination": paged["pagination"]})
 
+@app.get("/public/top-offerings")
 @app.get("/public/top-products")
 def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60), category: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query("")):
-    q = supabase.table("products").select("*, shops!inner(name, shop_slug, category, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").neq("stock", "out")
+    q = supabase.table("products").select("*, shops!inner(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").neq("stock", "out")
     if category: q = q.ilike("shops.category", f"%{category}%")
     rows = q.execute().data
     if attr_key or attr_value:
-        rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value)]
+        rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value, normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
     
     paged = paginate_list(rows, page, limit)
     shop_map = {}
@@ -3128,18 +3685,27 @@ def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Quer
     for r, prod in zip(paged["items"], results):
         prod["shop_name"] = r.get("shops", {}).get("name", "")
         prod["shop_category"] = normalize_shop_record(r.get("shops", {}) or {}).get("category", "")
-    return {"ok": True, "products": results, "pagination": paged["pagination"]}
+        prod["business_name"] = prod.get("shop_name", "")
+        prod["business_category"] = prod.get("shop_category", "")
+    return alias_catalog_response({"ok": True, "products": results, "pagination": paged["pagination"]})
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Chat 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 @app.get("/chat")
-def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(...), currency: str = Query("")):
-    enforce_rate_limit(request, "chat", limit=40, window_seconds=300, key_suffix=str(shop_id or "").strip().lower())
+def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str = Query(""), q: str = Query(...), currency: str = Query("")):
+    shop_ref = business_id or shop_id
+    enforce_rate_limit(request, "chat", limit=40, window_seconds=300, key_suffix=str(shop_ref or "").strip().lower())
     q = (q or "").strip()
     if not q: raise HTTPException(400, "Missing q")
-    shop = resolve_shop_by_ref(shop_id)
+    shop = resolve_shop_by_ref(shop_ref)
     shop_id = shop["shop_id"]
+    def respond(payload: Dict[str, Any]) -> Dict[str, Any]:
+        return alias_catalog_response({
+            **(payload or {}),
+            "business_id": shop_id,
+            "business_slug": shop.get("shop_slug", ""),
+        })
     track(shop_id, "chat")
     
     raw_prod_rows = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
@@ -3149,29 +3715,29 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
 
     info_answer = answer_shop_info_query(shop, q)
     if info_answer is not None:
-        return info_answer
+        return respond(info_answer)
 
     budget_answer = answer_budget_query(shop, prod_rows, q)
     if budget_answer is not None:
-        return budget_answer
+        return respond(budget_answer)
 
     stock_answer = answer_stock_query(shop, prod_rows, q)
     if stock_answer is not None:
-        return stock_answer
+        return respond(stock_answer)
 
     cheapest_answer = answer_cheapest_query(shop, prod_rows, q)
     if cheapest_answer is not None:
-        return cheapest_answer
+        return respond(cheapest_answer)
 
     product_image_answer = answer_product_image_query(shop, prod_rows, q)
     if product_image_answer is not None:
-        return product_image_answer
+        return respond(product_image_answer)
 
     attribute_answer = answer_attribute_query(shop, prod_rows, q)
     if attribute_answer is not None:
-        return attribute_answer
+        return respond(attribute_answer)
 
-    picked = rank_products(prod_rows, q, shop.get("category", ""))
+    picked = rank_products(prod_rows, q, shop.get("category", ""), shop.get("business_type", ""))
     abs_picked = serialize_products_bulk(picked[:4], None, {shop_id: shop}, currency)
     rag = {"chunks": [], "matches": []}
     if HAS_RAG and not is_greeting(q):
@@ -3189,22 +3755,23 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
         if gallery:
             ans = f"Here are all photos from **{shop['name']}**:\n" + "\n".join(f"![Image]({url})" for url in gallery[:40])
         else:
-            ans = "This shop hasn't uploaded any product photos yet."
-        return {"answer": ans, "products": abs_picked, "meta": {"llm_used": False, "suggestions": suggestions}}
+            ans = "This business hasn't uploaded any listing photos yet."
+        return respond({"answer": ans, "products": abs_picked, "meta": {"llm_used": False, "suggestions": suggestions}})
 
     # 2. Shortcut: Greeting
     if is_greeting(q):
-        return {"answer": f"Hi! Welcome to **{shop['name']}**! Ask me about products, prices, stock, opening hours, or say 'show all products'.", "products": abs_picked, "meta": {"llm_used": False, "suggestions": suggestions}}
+        nouns = offering_nouns(shop, prod_rows)
+        return respond({"answer": f"Hi! Welcome to **{shop['name']}**! Ask me about {nouns['plural']}, prices, availability, opening hours, or say '{default_catalog_question(shop, prod_rows).lower()}'.", "products": abs_picked, "meta": {"llm_used": False, "suggestions": suggestions}})
 
     # 3. Handle Full Catalog Requests safely
     if is_list_intent(q):
-        return answer_catalog_query(shop, prod_rows)
+        return respond(answer_catalog_query(shop, prod_rows))
 
     try:
         system_prompt = (
             SHOP_ASSISTANT_SYSTEM
             + "\n"
-            + f"Current live shop: {shop.get('name','Shop')} (shop_id: {shop.get('shop_id','')}, shop_slug: {shop.get('shop_slug','')})."
+            + f"Current live business: {shop.get('name','Business')} (business_id: {shop.get('shop_id','')}, business_slug: {shop.get('shop_slug','')})."
             + "\n"
             + shop_voice_instructions(shop)
             + "\n"
@@ -3216,7 +3783,7 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
         flagged_terms = find_out_of_scope_bold_terms(llm_res["content"], shop, prod_rows)
         if flagged_terms:
             print(f"[Chat Scope Guard] shop={shop_id} blocked out-of-scope terms: {flagged_terms}")
-            return {
+            return respond({
                 "answer": fallback_answer_v2(shop, picked, q),
                 "products": abs_picked,
                 "meta": {
@@ -3225,15 +3792,15 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
                     "suggestions": suggestions,
                     "rag_matches": len(rag.get('matches', [])),
                 }
-            }
-        attached = choose_chat_products(prod_rows, q, llm_res["content"], prefer_images=wants_product_image(q), limit=4, category=shop.get("category", ""))
+            })
+        attached = choose_chat_products(prod_rows, q, llm_res["content"], prefer_images=wants_product_image(q), limit=4, category=shop.get("category", ""), business_type=shop.get("business_type", ""))
         if attached:
             abs_picked = serialize_products_bulk(attached, None, {shop_id: shop}, currency)
         elif wants_product_image(q):
             with_images = [p for p in picked if p.get("images")]
             if with_images:
                 abs_picked = serialize_products_bulk(with_images[:4], None, {shop_id: shop}, currency)
-        return {"answer": llm_res["content"], "products": abs_picked, "meta": {"llm_used": True, "model": llm_res.get("model") or OPENROUTER_MODEL, "suggestions": suggestions, "rag_matches": len(rag.get('matches', []))}}
+        return respond({"answer": llm_res["content"], "products": abs_picked, "meta": {"llm_used": True, "model": llm_res.get("model") or OPENROUTER_MODEL, "suggestions": suggestions, "rag_matches": len(rag.get('matches', []))}})
     except Exception as e:
         err_msg = str(e)
         if hasattr(e, "response") and getattr(e, "response") is not None:
@@ -3243,11 +3810,11 @@ def chat_endpoint(request: Request, shop_id: str = Query(...), q: str = Query(..
         
         ans = fallback_answer_v2(shop, picked, q)
 
-        return {
+        return respond({
             "answer": ans,
             "products": abs_picked,
             "meta": {"llm_used": False, "reason": "fallback_after_llm_error", "suggestions": suggestions, "rag_matches": len(rag.get('matches', []))}
-        }
+        })
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Admin 
@@ -3256,11 +3823,15 @@ def check_shop_owner(user_id: str, shop_id: str):
     res = supabase.table("shops").select("shop_id").eq("shop_id", shop_id).eq("owner_user_id", user_id).execute()
     if not res.data: raise HTTPException(404, "Not found or not yours")
 
+@app.post("/admin/create-business")
 @app.post("/admin/create-shop")
 def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     require_verified(user)
-    shop = validate_shop_payload(body.shop)
+    raw_business = body.business or body.shop
+    if raw_business is None:
+        raise HTTPException(400, "Business payload is required")
+    shop = validate_shop_payload(raw_business)
     sid = gen_shop_id(shop["name"])
     shop_slug = unique_shop_slug(shop["name"])
     for _ in range(5):
@@ -3270,14 +3841,16 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         sid = gen_shop_id(shop["name"])
     else:
         raise HTTPException(500, "Could not generate a unique shop ID")
-    
-    supabase.table("shops").insert({
-        "shop_id": sid,
+
+    payload = {
         "shop_slug": shop_slug,
         "owner_user_id": user.id,
         "name": shop["name"].strip(),
         "address": shop["address"],
         "formatted_address": shop["formatted_address"],
+        "business_type": shop["business_type"],
+        "location_mode": shop["location_mode"],
+        "service_area": shop.get("service_area", ""),
         "country_code": shop["country_code"],
         "country_name": shop["country_name"],
         "timezone_name": shop["timezone_name"],
@@ -3301,12 +3874,23 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         "delivery_radius_km": shop.get("delivery_radius_km"),
         "delivery_fee": shop.get("delivery_fee"),
         "pickup_notes": shop.get("pickup_notes", ""),
-    }).execute()
+    }
+    strict_cols = []
+    if shop.get("business_type") != "retail":
+        strict_cols.append("business_type")
+    if shop.get("location_mode") != "storefront":
+        strict_cols.append("location_mode")
+    if shop.get("service_area"):
+        strict_cols.append("service_area")
+    payload, unsupported_cols = shop_write_payload_with_fallback(sid, payload, False, strict_cols)
+    if unsupported_cols:
+        print(f"[Shop Schema Warning] {sid}: saved without optional columns {unsupported_cols}")
     supabase.table("profiles").update({"role": "shopkeeper"}).eq("id", user.id).execute()
     
     rebuild_kb(sid)
-    return {"ok": True, "shop_id": sid}
+    return {"ok": True, "shop_id": sid, "business_id": sid, "shop_slug": shop_slug, "business_slug": shop_slug}
 
+@app.get("/admin/my-businesses")
 @app.get("/admin/my-shops")
 def my_shops(authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
@@ -3318,8 +3902,9 @@ def my_shops(authorization: Optional[str] = Header(None)):
         stats = shop_stats(r["shop_id"])
         r["stats"] = stats
         r["quality_flags"] = shop_completeness_flags(r, stats)
-    return {"ok": True, "shops": rows}
+    return alias_catalog_response({"ok": True, "shops": rows})
 
+@app.post("/admin/businesses/geocode-missing")
 @app.post("/admin/shops/geocode-missing")
 def admin_geocode_missing_shop_coords(authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
@@ -3349,6 +3934,7 @@ def admin_geocode_missing_shop_coords(authorization: Optional[str] = Header(None
             print(f"[Admin Geocode Warning] {current.get('shop_id')}: {e}")
     return {"ok": True, "checked": checked, "updated": updated}
 
+@app.get("/admin/export/businesses.csv")
 @app.get("/admin/export/shops.csv")
 def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
@@ -3357,13 +3943,13 @@ def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
     buffer = StringIO()
     writer = csv.writer(buffer)
     writer.writerow([
-        "shop_id", "name", "category", "country_code", "country_name", "region", "city", "postal_code",
+        "shop_id", "name", "business_type", "location_mode", "service_area", "category", "country_code", "country_name", "region", "city", "postal_code",
         "formatted_address", "timezone_name", "currency_code", "hours", "phone", "whatsapp",
         "supports_pickup", "supports_delivery", "supports_walk_in", "delivery_radius_km", "delivery_fee", "pickup_notes", "overview"
     ])
     for row in rows:
         writer.writerow([
-            row.get("shop_id", ""), row.get("name", ""), row.get("category", ""), row.get("country_code", ""),
+            row.get("shop_id", ""), row.get("name", ""), row.get("business_type", ""), row.get("location_mode", ""), row.get("service_area", ""), row.get("category", ""), row.get("country_code", ""),
             row.get("country_name", ""), row.get("region", ""), row.get("city", ""), row.get("postal_code", ""),
             row.get("formatted_address", "") or row.get("address", ""), row.get("timezone_name", ""),
             row.get("currency_code", ""), row.get("hours", ""), row.get("phone", ""), row.get("whatsapp", ""),
@@ -3373,9 +3959,10 @@ def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
     return PlainTextResponse(
         content=buffer.getvalue(),
         media_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="shops_export.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="businesses_export.csv"'},
     )
 
+@app.get("/admin/export/offerings.csv")
 @app.get("/admin/export/products.csv")
 def admin_export_products_csv(authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
@@ -3383,22 +3970,31 @@ def admin_export_products_csv(authorization: Optional[str] = Header(None)):
     rows = supabase.table("products").select("*").in_("shop_id", shop_ids).order("updated_at", desc=True).execute().data if shop_ids else []
     buffer = StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["shop_id", "product_id", "name", "price_amount", "currency_code", "price", "stock", "stock_quantity", "variants", "variant_data_json", "variant_matrix_json", "attribute_data_json", "overview"])
+    shop_meta = {
+        row.get("shop_id"): normalize_shop_record(row)
+        for row in (supabase.table("shops").select("*").in_("shop_id", shop_ids).execute().data or [])
+    } if shop_ids else {}
+    writer.writerow(["shop_id", "product_id", "offering_type", "price_mode", "availability_mode", "name", "price_amount", "currency_code", "price", "stock", "stock_quantity", "duration_minutes", "capacity", "variants", "variant_data_json", "variant_matrix_json", "attribute_data_json", "overview"])
     for row in rows or []:
+        shop_row = shop_meta.get(row.get("shop_id"), {})
+        business_type = shop_row.get("business_type", "")
+        category = shop_row.get("category", "")
+        offering_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
         writer.writerow([
-            row.get("shop_id", ""), row.get("product_id", ""), row.get("name", ""), row.get("price_amount", ""),
-            row.get("currency_code", ""), row.get("price", ""), row.get("stock", ""), row.get("stock_quantity", ""), row.get("variants", ""),
+            row.get("shop_id", ""), row.get("product_id", ""), offering_type, normalize_price_mode(row.get("price_mode", "")), normalize_availability_mode(row.get("availability_mode", ""), offering_type, business_type, category), row.get("name", ""), row.get("price_amount", ""),
+            row.get("currency_code", ""), row.get("price", ""), row.get("stock", ""), row.get("stock_quantity", ""), row.get("duration_minutes", ""), row.get("capacity", ""), row.get("variants", ""),
             json.dumps(normalize_variant_data(row.get("variant_data") or row.get("variants", ""), row.get("shop_id", "")), ensure_ascii=False),
             json.dumps(normalize_variant_matrix(row.get("variant_matrix", []), normalize_variant_data(row.get("variant_data") or row.get("variants", ""), row.get("shop_id", "")), row.get("shop_id", "")), ensure_ascii=False),
-            json.dumps(normalize_attribute_data(row.get("attribute_data"), ""), ensure_ascii=False),
+            json.dumps(normalize_attribute_data(row.get("attribute_data"), category, offering_type, business_type), ensure_ascii=False),
             row.get("overview", ""),
         ])
     return PlainTextResponse(
         content=buffer.getvalue(),
         media_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="products_export.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="offerings_export.csv"'},
     )
 
+@app.get("/admin/business/{shop_id}")
 @app.get("/admin/shop/{shop_id}")
 def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
@@ -3409,8 +4005,20 @@ def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     stats = shop_stats(shop_id)
     
     ser_prods = serialize_products_bulk(prods, None, {shop_id: shop})
-    return {"ok": True, "shop_id": shop_id, "data": {"shop": shop, "products": ser_prods, "stats": stats}}
+    return {
+        "ok": True,
+        "shop_id": shop_id,
+        "business_id": shop_id,
+        "data": {
+            "shop": shop,
+            "business": shop,
+            "products": ser_prods,
+            "offerings": ser_prods,
+            "stats": stats,
+        },
+    }
 
+@app.get("/admin/business/{shop_id}/requests")
 @app.get("/admin/shop/{shop_id}/requests")
 def admin_shop_requests(shop_id: str, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
@@ -3419,8 +4027,9 @@ def admin_shop_requests(shop_id: str, authorization: Optional[str] = Header(None
         rows = supabase.table("order_requests").select("*").eq("shop_id", shop_id).order("created_at", desc=True).limit(100).execute().data or []
     except Exception:
         rows = []
-    return {"ok": True, "requests": rows}
+    return {"ok": True, "requests": rows, "business_id": shop_id}
 
+@app.put("/admin/business/{shop_id}/request/{request_id}/status")
 @app.put("/admin/shop/{shop_id}/request/{request_id}/status")
 def admin_update_request_status(shop_id: str, request_id: str, body: OrderStatusUpdateReq, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
@@ -3434,7 +4043,7 @@ def admin_update_request_status(shop_id: str, request_id: str, body: OrderStatus
         raise HTTPException(404, "Request not found")
     row = rows[0]
     shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).limit(1).execute().data or []
-    shop = normalize_shop_record(shop_rows[0]) if shop_rows else {"name": "the shop"}
+    shop = normalize_shop_record(shop_rows[0]) if shop_rows else {"name": "the business"}
     history = row.get("status_history") or []
     if isinstance(history, str):
         try:
@@ -3451,19 +4060,23 @@ def admin_update_request_status(shop_id: str, request_id: str, body: OrderStatus
     }).eq("shop_id", shop_id).eq("request_id", request_id).execute()
     updated_row = {**row, "status": status, "status_history": history}
     send_request_status_email(shop, updated_row, status)
-    return {"ok": True, "status": status}
+    return {"ok": True, "status": status, "business_id": shop_id}
 
+@app.put("/admin/business/{shop_id}")
 @app.put("/admin/shop/{shop_id}")
 def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
     shop = validate_shop_payload(body)
     shop_slug = unique_shop_slug(shop["name"], shop_id)
-    supabase.table("shops").update({
+    payload = {
         "name": shop["name"].strip(),
         "shop_slug": shop_slug,
         "address": shop["address"],
         "formatted_address": shop["formatted_address"],
+        "business_type": shop["business_type"],
+        "location_mode": shop["location_mode"],
+        "service_area": shop.get("service_area", ""),
         "country_code": shop["country_code"],
         "country_name": shop["country_name"],
         "timezone_name": shop["timezone_name"],
@@ -3487,29 +4100,40 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
         "delivery_radius_km": shop.get("delivery_radius_km"),
         "delivery_fee": shop.get("delivery_fee"),
         "pickup_notes": shop.get("pickup_notes", ""),
-    }).eq("shop_id", shop_id).execute()
+    }
+    strict_cols = []
+    if shop.get("business_type") != "retail":
+        strict_cols.append("business_type")
+    if shop.get("location_mode") != "storefront":
+        strict_cols.append("location_mode")
+    if shop.get("service_area"):
+        strict_cols.append("service_area")
+    payload, unsupported_cols = shop_write_payload_with_fallback(shop_id, payload, True, strict_cols)
+    if unsupported_cols:
+        print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
     rebuild_kb(shop_id)
-    return {"ok": True}
+    return {"ok": True, "business_id": shop_id}
 
+@app.post("/public/fulfillment-request")
 @app.post("/public/order-request")
 def public_order_request(body: OrderRequestReq, request: Request):
     enforce_rate_limit(request, "public_order_request", limit=12, window_seconds=600)
-    shop_id = slug(body.shop_id or "", 80)
+    shop_id = slug(body.business_id or body.shop_id or "", 80)
     if not shop_id:
-        raise HTTPException(400, "Shop is required")
+        raise HTTPException(400, "Business is required")
     shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
     if not shop_rows:
-        raise HTTPException(404, "Shop not found")
+        raise HTTPException(404, "Business not found")
     shop = normalize_shop_record(shop_rows[0])
     fulfillment_type = str(body.fulfillment_type or "").strip().lower()
     if fulfillment_type not in {"pickup", "delivery", "walk_in"}:
         raise HTTPException(400, "Select pickup, delivery, or walk_in")
     if fulfillment_type == "pickup" and not shop.get("supports_pickup"):
-        raise HTTPException(400, "This shop does not accept pickup requests")
+        raise HTTPException(400, "This business does not accept pickup requests")
     if fulfillment_type == "delivery" and not shop.get("supports_delivery"):
-        raise HTTPException(400, "This shop does not offer local delivery")
+        raise HTTPException(400, "This business does not offer local delivery")
     if fulfillment_type == "walk_in" and not shop.get("supports_walk_in"):
-        raise HTTPException(400, "This shop does not accept walk-in orders through the app")
+        raise HTTPException(400, "This business does not accept walk-in orders through the app")
     customer_name = re.sub(r"\s+", " ", str(body.customer_name or "")).strip()
     phone = re.sub(r"\s+", " ", str(body.phone or "")).strip()
     customer_email = clean_email(body.customer_email or "")
@@ -3524,9 +4148,9 @@ def public_order_request(body: OrderRequestReq, request: Request):
     items = body.items or []
     if not items:
         raise HTTPException(400, "Cart is empty")
-    if len({str(item.get("shop_id") or shop_id) for item in items}) > 1:
-        raise HTTPException(400, "Use one shop per request")
-    product_ids = list({str(item.get("product_id") or "").strip() for item in items if isinstance(item, dict) and str(item.get("product_id") or "").strip()})
+    if len({str(item.get("business_id") or item.get("shop_id") or shop_id) for item in items}) > 1:
+        raise HTTPException(400, "Use one business per request")
+    product_ids = list({str(item.get("offering_id") or item.get("product_id") or "").strip() for item in items if isinstance(item, dict) and str(item.get("offering_id") or item.get("product_id") or "").strip()})
     product_rows = supabase.table("products").select("*").eq("shop_id", shop_id).in_("product_id", product_ids).execute().data if product_ids else []
     product_map = {str(row.get("product_id")): row for row in (product_rows or [])}
     clean_items: List[Dict[str, Any]] = []
@@ -3536,7 +4160,7 @@ def public_order_request(body: OrderRequestReq, request: Request):
         qty = int(item.get("qty") or 1)
         if qty < 1:
             continue
-        product_id = str(item.get("product_id") or "").strip()
+        product_id = str(item.get("offering_id") or item.get("product_id") or "").strip()
         product_row = product_map.get(product_id)
         if not product_row:
             raise HTTPException(400, "One or more cart items are no longer available.")
@@ -3572,8 +4196,9 @@ def public_order_request(body: OrderRequestReq, request: Request):
     }
     supabase.table("order_requests").insert(payload).execute()
     send_request_confirmation_email(shop, payload)
-    return {"ok": True, "request_id": request_id, "track_token": issue_request_track_token(request_id, phone)}
+    return {"ok": True, "request_id": request_id, "track_token": issue_request_track_token(request_id, phone), "business_id": shop_id}
 
+@app.get("/public/fulfillment-request-status")
 @app.get("/public/order-request-status")
 def public_order_request_status(request: Request, request_id: str = Query(...), phone: str = Query(""), track_token: str = Query("")):
     enforce_rate_limit(request, "public_order_request_status", limit=20, window_seconds=300)
@@ -3597,31 +4222,38 @@ def public_order_request_status(request: Request, request_id: str = Query(...), 
         "request": {
             "request_id": row.get("request_id"),
             "shop_id": row.get("shop_id"),
+            "business_id": row.get("shop_id"),
             "fulfillment_type": row.get("fulfillment_type"),
             "status": row.get("status", "new"),
             "created_at": row.get("created_at"),
             "updated_at": row.get("updated_at"),
-            "items": row.get("items") or [],
+            "items": [
+                {**item, "business_id": item.get("business_id") or item.get("shop_id") or row.get("shop_id"), "offering_id": item.get("offering_id") or item.get("product_id", "")}
+                for item in (row.get("items") or [])
+                if isinstance(item, dict)
+            ],
             "status_history": row.get("status_history") or [],
         }
     }
 
+@app.delete("/admin/business/{shop_id}")
 @app.delete("/admin/shop/{shop_id}")
 def admin_delete_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
     supabase.table("shops").delete().eq("shop_id", shop_id).execute()
     shutil.rmtree(os.path.join(SHOPS_DIR, shop_id), ignore_errors=True)
-    return {"ok": True}
+    return {"ok": True, "business_id": shop_id}
 
+@app.post("/admin/business/{shop_id}/offering")
 @app.post("/admin/shop/{shop_id}/product")
 def admin_upsert_product(shop_id: str, product: Product, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
-    raw_pid = str(product.product_id or "").strip()
+    raw_pid = str(product.offering_id or product.product_id or "").strip()
     pid = slug(raw_pid, 60) if raw_pid else gen_product_id(product.name)
     shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
-    if not shop_rows: raise HTTPException(404, "Shop not found")
+    if not shop_rows: raise HTTPException(404, "Business not found")
     shop = normalize_shop_record(shop_rows[0])
     
     existing = supabase.table("products").select("images").eq("shop_id", shop_id).eq("product_id", pid).execute().data
@@ -3639,36 +4271,50 @@ def admin_upsert_product(shop_id: str, product: Product, authorization: Optional
     if existing and not imgs: imgs = existing[0].get("images", [])
     data["images"] = imgs
     strict_cols = ["variant_data", "variant_matrix"] if data.get("variant_data") or data.get("variant_matrix") else []
+    if data.get("offering_type") != "product":
+        strict_cols.append("offering_type")
+    if data.get("price_mode") != "fixed":
+        strict_cols.append("price_mode")
+    if data.get("availability_mode") not in {"", "in_stock"}:
+        strict_cols.append("availability_mode")
+    if data.get("duration_minutes") not in (None, ""):
+        strict_cols.append("duration_minutes")
+    if data.get("capacity") not in (None, ""):
+        strict_cols.append("capacity")
     data, unsupported_cols = product_write_payload_with_fallback(shop_id, pid, data, bool(existing), strict_cols)
     if unsupported_cols:
         print(f"[Product Schema Warning] {shop_id}/{pid}: saved without optional columns {unsupported_cols}")
     
     rebuild_kb(shop_id)
-    return {"ok": True, "product_id": pid}
+    return {"ok": True, "product_id": pid, "offering_id": pid, "business_id": shop_id}
 
+@app.delete("/admin/business/{shop_id}/offering/{product_id}")
 @app.delete("/admin/shop/{shop_id}/product/{product_id}")
 def admin_delete_product(shop_id: str, product_id: str, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
     supabase.table("products").delete().eq("shop_id", shop_id).eq("product_id", product_id).execute()
     rebuild_kb(shop_id)
-    return {"ok": True}
+    return {"ok": True, "business_id": shop_id, "offering_id": product_id}
 
+@app.post("/admin/business/{shop_id}/offering-with-images")
 @app.post("/admin/shop/{shop_id}/product-with-images")
 async def admin_product_with_images(
     request: Request,
     shop_id: str, authorization: Optional[str] = Header(None),
-    product_id: str = Form(""), name: str = Form(...), overview: str = Form(""), price: str = Form(""),
+    product_id: str = Form(""), offering_id: str = Form(""), name: str = Form(...), overview: str = Form(""), price: str = Form(""),
     price_amount: str = Form(""), currency_code: str = Form(""),
-    stock: str = Form("in"), stock_quantity: str = Form(""), variants: str = Form(""), variant_data_json: str = Form(""), variant_matrix_json: str = Form(""), attribute_data_json: str = Form(""), images: List[UploadFile] = File(default=[])
+    offering_type: str = Form(""), price_mode: str = Form("fixed"), availability_mode: str = Form(""),
+    stock: str = Form("in"), stock_quantity: str = Form(""), duration_minutes: str = Form(""), capacity: str = Form(""),
+    variants: str = Form(""), variant_data_json: str = Form(""), variant_matrix_json: str = Form(""), attribute_data_json: str = Form(""), images: List[UploadFile] = File(default=[])
 ):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
     if not name.strip(): raise HTTPException(400, "Name required")
     shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
-    if not shop_rows: raise HTTPException(404, "Shop not found")
+    if not shop_rows: raise HTTPException(404, "Business not found")
     shop = normalize_shop_record(shop_rows[0])
-    raw_pid = str(product_id or "").strip()
+    raw_pid = str(offering_id or product_id or "").strip()
     pid = slug(raw_pid, 60) if raw_pid else gen_product_id(name)
     
     existing = supabase.table("products").select("images").eq("shop_id", shop_id).eq("product_id", pid).execute().data
@@ -3710,7 +4356,15 @@ async def admin_product_with_images(
         parsed_stock_quantity = int(stock_quantity) if str(stock_quantity).strip() else None
     except Exception:
         raise HTTPException(400, "Stock quantity must be a whole number")
-    parsed_attribute_data = parse_attribute_data_strict(attribute_data_json, shop.get("category", ""))
+    try:
+        parsed_duration_minutes = int(duration_minutes) if str(duration_minutes).strip() else None
+    except Exception:
+        raise HTTPException(400, "Duration must be a whole number")
+    try:
+        parsed_capacity = int(capacity) if str(capacity).strip() else None
+    except Exception:
+        raise HTTPException(400, "Capacity must be a whole number")
+    parsed_attribute_data = parse_attribute_data_strict(attribute_data_json, shop.get("category", ""), offering_type, shop.get("business_type", ""))
     
     parsed_variant_data = normalize_variant_data(variant_data_json or variants, shop_id)
     for idx, files in variant_upload_map.items():
@@ -3732,8 +4386,13 @@ async def admin_product_with_images(
         price=price,
         price_amount=parsed_price_amount,
         currency_code=currency_code,
+        offering_type=offering_type,
+        price_mode=price_mode,
+        availability_mode=availability_mode,
         stock=stock,
         stock_quantity=parsed_stock_quantity,
+        duration_minutes=parsed_duration_minutes,
+        capacity=parsed_capacity,
         variants=variants,
         variant_data=parsed_variant_data,
         variant_matrix=parsed_variant_matrix,
@@ -3742,20 +4401,31 @@ async def admin_product_with_images(
     ), shop)
     data["product_slug"] = unique_product_slug(shop_id, name.strip(), pid if existing else "")
     strict_cols = ["variant_data", "variant_matrix"] if data.get("variant_data") or data.get("variant_matrix") else []
+    if data.get("offering_type") != "product":
+        strict_cols.append("offering_type")
+    if data.get("price_mode") != "fixed":
+        strict_cols.append("price_mode")
+    if data.get("availability_mode") not in {"", "in_stock"}:
+        strict_cols.append("availability_mode")
+    if data.get("duration_minutes") not in (None, ""):
+        strict_cols.append("duration_minutes")
+    if data.get("capacity") not in (None, ""):
+        strict_cols.append("capacity")
     data, unsupported_cols = product_write_payload_with_fallback(shop_id, pid, data, bool(existing), strict_cols)
     if unsupported_cols:
         print(f"[Product Schema Warning] {shop_id}/{pid}: saved without optional columns {unsupported_cols}")
     
     rebuild_kb(shop_id)
-    return {"ok": True, "product_id": pid, "images": merged}
+    return {"ok": True, "product_id": pid, "offering_id": pid, "business_id": shop_id, "images": merged}
 
+@app.delete("/admin/business/{shop_id}/offering/{product_id}/image")
 @app.delete("/admin/shop/{shop_id}/product/{product_id}/image")
 def admin_delete_image(shop_id: str, product_id: str, image_path: str = Query(...), authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
     
     row = supabase.table("products").select("images").eq("shop_id", shop_id).eq("product_id", product_id).execute().data
-    if not row: raise HTTPException(404, "Product not found")
+    if not row: raise HTTPException(404, "Offering not found")
     
     img_name = os.path.basename(image_path.rstrip("/"))
     try: supabase.storage.from_("product-images").remove([f"{shop_id}/{img_name}"])
@@ -3769,15 +4439,17 @@ def admin_delete_image(shop_id: str, product_id: str, image_path: str = Query(..
     new_imgs = [u for u in current_imgs if os.path.basename(u) != img_name]
     supabase.table("products").update({"images": new_imgs, "updated_at": "now()"}).eq("shop_id", shop_id).eq("product_id", product_id).execute()
     rebuild_kb(shop_id)
-    return {"ok": True, "remaining": len(new_imgs)}
+    return {"ok": True, "remaining": len(new_imgs), "business_id": shop_id, "offering_id": product_id}
 
+@app.post("/admin/business/{shop_id}/rebuild-kb")
 @app.post("/admin/shop/{shop_id}/rebuild-kb")
 def admin_rebuild_kb(shop_id: str, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
     rebuild_kb(shop_id)
-    return {"ok": True}
+    return {"ok": True, "business_id": shop_id}
 
+@app.get("/admin/business/{shop_id}/analytics")
 @app.get("/admin/shop/{shop_id}/analytics")
 def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
@@ -3835,7 +4507,7 @@ def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] =
         })
 
     shop_products = supabase.table("products").select("*").eq("shop_id", shop_id).execute().data or []
-    attribute_insights = attribute_analytics_for_products(shop_products, shop.get("category", ""))
+    attribute_insights = attribute_analytics_for_products(shop_products, shop.get("category", ""), shop.get("business_type", ""))
 
     all_shops = [normalize_shop_record(r) for r in (supabase.table("shops").select("*").execute().data or [])]
     country_counts: Dict[str, int] = {}
@@ -3873,9 +4545,12 @@ def admin_analytics(shop_id: str, days: int = 30, authorization: Optional[str] =
         "ok": True,
         "totals": totals,
         "top_products": top,
+        "top_offerings": [{**row, "offering_id": row.get("product_id", "")} for row in top],
         "daily_chats": daily,
         "recent_events": recent_events,
         "shop_profile": shop_profile,
+        "business_profile": shop_profile,
         "attribute_insights": attribute_insights,
         "marketplace_breakdown": marketplace_breakdown,
+        "business_id": shop_id,
     }
