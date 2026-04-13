@@ -337,6 +337,11 @@ a{color:inherit;text-decoration:none}
 .shop-header::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 100% at 90% 20%,rgba(255,255,255,.16),transparent 55%);pointer-events:none}
 .shop-header::after{content:'';position:absolute;left:-40px;bottom:-50px;width:240px;height:140px;border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none}
 .shop-hdr-inner{position:relative;z-index:1;max-width:1280px;margin:0 auto;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.shop-hdr-main{display:flex;align-items:flex-start;gap:18px;min-width:0;flex:1 1 560px}
+.shop-hdr-copy{min-width:0}
+.shop-hdr-avatar{width:96px;height:96px;border-radius:28px;overflow:hidden;flex:0 0 auto;display:grid;place-items:center;background:linear-gradient(135deg,rgba(255,250,242,.96),rgba(241,214,191,.82));border:1px solid rgba(255,247,239,.34);box-shadow:0 18px 32px rgba(48,33,15,.16)}
+.shop-hdr-avatar img{width:100%;height:100%;object-fit:cover}
+.shop-hdr-avatar-fallback{font-family:'Sora',sans-serif;font-size:34px;font-weight:800;letter-spacing:-.05em;color:#7e341d}
 .shop-hdr-name{font-family:'Sora',sans-serif;font-size:36px;font-weight:800;color:#fff;letter-spacing:-.05em}
 .shop-hdr-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
 .shop-hdr-chip{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:99px;background:rgba(255,247,239,.14);border:1px solid rgba(255,247,239,.18);color:#fff;font-size:12px;font-weight:700;letter-spacing:.01em;max-width:100%}
@@ -546,6 +551,9 @@ a{color:inherit;text-decoration:none}
   .shop-hdr-name{font-size:30px}
   .shop-hdr-desc{font-size:14px;line-height:1.7}
   .shop-hdr-inner{display:grid;gap:14px}
+  .shop-hdr-main{gap:14px}
+  .shop-hdr-avatar{width:74px;height:74px;border-radius:22px}
+  .shop-hdr-avatar-fallback{font-size:28px}
   .shop-hdr-chips,.shop-hdr-actions{display:none}
   .shop-hdr-desc{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
   .shop-mobile-hero{display:grid;gap:10px;position:relative;z-index:4;margin:-16px 12px 12px}
@@ -1153,6 +1161,15 @@ a{color:inherit;text-decoration:none}
 #productFormView .workspace-desc{max-width:58ch}
 .product-media-grid{align-items:start}
 .product-upload-card,.product-preview-card,.product-existing-card{padding:14px;border-radius:20px;background:rgba(255,255,255,.76);border:1px solid rgba(191,174,149,.28)}
+.shop-profile-media-grid{display:grid;grid-template-columns:minmax(220px,.86fr) minmax(0,1.14fr);gap:14px}
+.shop-profile-preview{display:flex;align-items:center;gap:14px;min-width:0}
+.shop-profile-preview-avatar{width:88px;height:88px;border-radius:26px;overflow:hidden;display:grid;place-items:center;background:linear-gradient(135deg,#fff8ef,#f0dcc1);border:1px solid rgba(191,174,149,.34);box-shadow:0 14px 28px rgba(48,33,15,.08);flex:0 0 auto}
+.shop-profile-preview-avatar img{width:100%;height:100%;object-fit:cover}
+.shop-profile-preview-fallback{font-family:'Sora',sans-serif;font-size:30px;font-weight:800;letter-spacing:-.05em;color:var(--A2)}
+.shop-profile-preview-copy{display:grid;gap:6px;min-width:0}
+.shop-profile-preview-title{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2)}
+.shop-profile-preview-meta{font-size:13px;color:var(--ink2);line-height:1.62}
+.shop-profile-actions{display:flex;gap:8px;flex-wrap:wrap}
 .product-media-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .product-media-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink4)}
 .product-media-meta{font-size:11px;color:var(--ink4)}
@@ -1228,6 +1245,8 @@ a{color:inherit;text-decoration:none}
   #productFormView .product-upload-card,
   #productFormView .product-preview-card,
   #productFormView .product-existing-card{padding:13px;border-radius:18px}
+  .shop-profile-media-grid{grid-template-columns:1fr}
+  .shop-profile-preview{align-items:flex-start}
   #productFormView .variant-stage-actions-quick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   #productFormView .variant-stage-actions-quick .btn:last-child{grid-column:1/-1}
   #productFormView .floating-form-actions{position:sticky;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:14;display:grid;grid-template-columns:1fr;gap:10px;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));margin-top:8px;background:linear-gradient(180deg,rgba(255,253,248,.92),rgba(246,239,227,.98));backdrop-filter:blur(12px);box-shadow:0 18px 34px rgba(48,33,15,.14)}
@@ -1542,10 +1561,16 @@ a{color:inherit;text-decoration:none}
   <div class="breadcrumb"><button onclick="goHome()">Home</button><span class="sep">/</span><span id="shopBreadName">Business</span></div>
   <div class="shop-header">
     <div class="shop-hdr-inner">
-      <div>
-        <div class="shop-hdr-name" id="shopHdrName">Loading business...</div>
-        <div class="shop-hdr-chips" id="shopHdrChips"></div>
-        <div class="shop-hdr-desc" id="shopHdrDesc"></div>
+      <div class="shop-hdr-main">
+        <div class="shop-hdr-avatar" aria-hidden="true">
+          <img id="shopHdrAvatarImg" alt=""/>
+          <span id="shopHdrAvatarFallback" class="shop-hdr-avatar-fallback">B</span>
+        </div>
+        <div class="shop-hdr-copy">
+          <div class="shop-hdr-name" id="shopHdrName">Loading business...</div>
+          <div class="shop-hdr-chips" id="shopHdrChips"></div>
+          <div class="shop-hdr-desc" id="shopHdrDesc"></div>
+        </div>
       </div>
       <div class="shop-hdr-actions" id="shopHdrActions"></div>
     </div>
@@ -1983,6 +2008,25 @@ a{color:inherit;text-decoration:none}
                     <div class="fld-hint">Category helps the public page and assistant tone stay relevant.</div>
                   </div>
                 </div>
+                <div class="fg2 shop-profile-media-grid" style="margin-top:14px">
+                  <div class="fld product-upload-card"><label>Business Profile Image</label><input id="shopProfileImageFile" type="file" accept=".png,.jpg,.jpeg,.webp,.jfif"/><div class="fld-hint">Shown at the top of the business page. Use a square logo, storefront mark, or another clean brand image.</div></div>
+                  <div class="product-preview-card">
+                    <div class="product-media-head"><div class="product-media-label">Business Page Preview</div><div id="shopProfileImageMeta" class="product-media-meta">No image selected</div></div>
+                    <div class="shop-profile-preview">
+                      <div class="shop-profile-preview-avatar">
+                        <img id="shopProfileImagePreviewImg" alt="Business profile preview"/>
+                        <span id="shopProfileImagePreviewFallback" class="shop-profile-preview-fallback">B</span>
+                      </div>
+                      <div class="shop-profile-preview-copy">
+                        <div class="shop-profile-preview-title">Header Avatar</div>
+                        <div id="shopProfileImageHint" class="shop-profile-preview-meta">Customers see this on the public business page, so it should help them recognize the business quickly.</div>
+                        <div class="shop-profile-actions">
+                          <button id="shopProfileImageRemoveBtn" class="btn btn-g btn-sm" type="button" style="display:none">Remove Current Image</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="setup-section">
                 <div class="setup-section-head">
@@ -2111,7 +2155,7 @@ a{color:inherit;text-decoration:none}
                   <input id="prodId" type="hidden"/>
                   <div class="fld"><label>Offering Reference</label><div id="prodIdRef" class="currency-pill" style="min-height:44px;display:flex;align-items:center">Generated when you save</div><div class="fld-hint">Wave creates the offering ID automatically and keeps it stable.</div></div>
                   <div class="fld"><label id="prodNameLabel">Offering Name</label><input id="prodName" placeholder="Mango Smoothie"/><div id="prodNameHint" class="fld-hint">Use the exact name customers will search for and see on the offering card.</div></div>
-                  <div class="fld"><label>Offering Type</label><select id="prodType"><option value="product">Product</option><option value="service">Service</option><option value="class">Class / Course</option><option value="event">Event</option><option value="portfolio">Portfolio / Custom</option></select><div class="fld-hint">Choose the format customers are actually booking, buying, or viewing.</div></div>
+                  <div class="fld"><label>Offering Type</label><select id="prodType"></select><div class="fld-hint">Choose the format customers are actually booking, buying, or viewing.</div></div>
                   <div class="fld"><label>Price Display</label><select id="prodPriceMode"><option value="fixed">Fixed price</option><option value="starting_at">Starting at</option><option value="inquiry">Price on request</option><option value="custom">Contact for pricing</option><option value="free">Free</option></select><div id="prodPriceModeHint" class="fld-hint">Choose how pricing should appear on the public page.</div></div>
                   <div id="prodPriceWrap" class="fld"><label id="prodPriceLabel">Base Price</label><div class="price-field"><div id="prodCurrencyBadge" class="currency-pill">USD</div><input id="prodPrice" type="number" min="0" step="0.01" inputmode="decimal" placeholder="10.00"/></div><div id="prodPriceNote" class="fld-hint">Enter only the numeric amount. USD is applied automatically from the business country.</div></div>
                 </div>
@@ -2614,6 +2658,8 @@ const App = {
   adminBulkMode: false,
   csvImportErrors: [],
   ownerFilters: {country:'',region:'',city:'',quality:''},
+  shopProfileImageUrl: '',
+  shopProfileImageRemoved: false,
   productVariantDraft: [],
   productVariantMatrixDraft: [],
   pdVariantSelection: {},
@@ -2748,12 +2794,36 @@ function slugify(v,max=60){
   const s=String(v||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').replace(/-{2,}/g,'-');
   return (s||`item-${Date.now()}`).slice(0,max);
 }
+function businessInitial(name=''){
+  const clean=String(name||'').trim();
+  return (clean.charAt(0)||'B').toUpperCase();
+}
 function absUrl(p){
   if(!p) return '';
-  if(/^https?:\/\//i.test(p)) return p;
+  if(/^(https?:\/\/|data:|blob:)/i.test(p)) return p;
   const m=String(p).match(/^\/shops\/([^/]+)\/images\/([^/?#]+)/i);
   if(m) return `${App.srv}/shops/${encodeURIComponent(m[1])}/images/${encodeURIComponent(m[2])}`;
   return `${App.srv}${p.startsWith('/')?'':'/'}${p}`;
+}
+function renderBusinessProfileVisual(imageId,fallbackId,imageUrl='',name=''){
+  const img=$(imageId),fallback=$(fallbackId);
+  if(!img||!fallback) return;
+  const fallbackText=businessInitial(name);
+  const showFallback=()=>{
+    img.hidden=true;
+    img.removeAttribute('src');
+    fallback.hidden=false;
+    fallback.textContent=fallbackText;
+  };
+  img.onerror=showFallback;
+  const url=absUrl(imageUrl||'');
+  if(url){
+    fallback.hidden=true;
+    img.hidden=false;
+    img.src=url;
+    return;
+  }
+  showFallback();
 }
 function hasShopCoords(shop={}){
   return Number.isFinite(Number(shop?.longitude)) && Number.isFinite(Number(shop?.latitude));
@@ -4115,6 +4185,17 @@ const OFFERING_TYPE_META={
   portfolio:{label:'Portfolio item',singular:'portfolio item',plural:'portfolio items'},
   offering:{label:'Offering',singular:'offering',plural:'offerings'}
 };
+const OFFERING_TYPE_OPTION_LIST=[
+  ['product','Product'],
+  ['service','Service'],
+  ['class','Class / Course'],
+  ['event','Event'],
+  ['portfolio','Portfolio / Custom']
+];
+const OFFERING_TYPE_HIDDEN_BY_BUSINESS={
+  service:['class','portfolio'],
+  professional:['class','portfolio']
+};
 const LEGACY_CATEGORY_BUSINESS_TYPE={Food:'retail',Clothing:'retail',Electronics:'retail',Beauty:'retail',Books:'retail',Home:'retail',Sports:'retail'};
 const CATEGORY_OPTIONS_BY_BUSINESS={
   retail:['Food','Electronics','Clothing','Home','Beauty','Sports','Books','Gifts','Pets','Other'],
@@ -4284,6 +4365,34 @@ function currentShopBusinessType(){return normalizeBusinessType($('shopBusinessT
 function currentShopLocationMode(){return normalizeLocationMode($('shopLocationMode')?.value || '', currentShopBusinessType(), activeShopCategory());}
 function currentOfferingType(){return normalizeOfferingType($('prodType')?.value || '', currentShopBusinessType(), activeShopCategory());}
 function currentOfferingMeta(){return offeringMeta(currentOfferingType(), currentShopBusinessType(), activeShopCategory());}
+function allowedOfferingTypeOptionsForBusiness(businessType='',category=''){
+  const normalized=normalizeBusinessType(businessType,category);
+  const hidden=new Set(OFFERING_TYPE_HIDDEN_BY_BUSINESS[normalized]||[]);
+  return OFFERING_TYPE_OPTION_LIST.filter(([value])=>!hidden.has(value));
+}
+function defaultVisibleOfferingTypeForBusiness(businessType='',category=''){
+  const preferred=defaultOfferingTypeForBusiness(businessType,category);
+  const options=allowedOfferingTypeOptionsForBusiness(businessType,category).map(([value])=>value);
+  if(options.includes(preferred)) return preferred;
+  return options[0] || preferred || 'product';
+}
+function renderOfferingTypeOptions(selected=''){
+  const sel=$('prodType');
+  if(!sel) return defaultVisibleOfferingTypeForBusiness(currentShopBusinessType(),activeShopCategory());
+  const businessType=currentShopBusinessType();
+  const category=activeShopCategory();
+  const normalizedSelected=normalizeOfferingType(selected||sel.value||'',businessType,category);
+  const options=[...allowedOfferingTypeOptionsForBusiness(businessType,category)];
+  if(normalizedSelected && !options.some(([value])=>value===normalizedSelected)){
+    options.push([normalizedSelected,`${offeringMeta(normalizedSelected,businessType,category).label} (Existing)`]);
+  }
+  sel.innerHTML=options.map(([value,label])=>`<option value="${esc(value)}">${esc(label)}</option>`).join('');
+  const nextValue=options.some(([value])=>value===normalizedSelected)
+    ? normalizedSelected
+    : defaultVisibleOfferingTypeForBusiness(businessType,category);
+  sel.value=nextValue;
+  return nextValue;
+}
 function availabilityOptionsForCurrentOffering(){
   return AVAILABILITY_OPTIONS_BY_TYPE[currentOfferingType()] || AVAILABILITY_OPTIONS_BY_TYPE.offering;
 }
@@ -4518,13 +4627,12 @@ function renderAvailabilityOptions(selected=''){
 function syncProductOfferingUi(){
   const businessType=currentShopBusinessType();
   const category=activeShopCategory();
-  const offeringType=currentOfferingType();
+  const offeringType=renderOfferingTypeOptions($('prodType')?.value||'');
   const meta=offeringMeta(offeringType,businessType,category);
   const inventory=tracksInventory(offeringType,businessType,category);
   const duration=supportsDuration(offeringType,businessType,category);
   const capacity=supportsCapacity(offeringType,businessType,category);
   const priceMode=normalizePriceMode($('prodPriceMode')?.value||'');
-  if($('prodType')) $('prodType').value=offeringType;
   if($('productFormTitle')) $('productFormTitle').textContent=$('prodId')?.value.trim()?`Edit ${meta.singular}`:`Add a ${meta.singular}`;
   if($('productFormTypeBadge')) $('productFormTypeBadge').textContent=meta.label;
   if($('prodNameLabel')) $('prodNameLabel').textContent=`${meta.label} Name`;
@@ -6784,6 +6892,7 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
   setShopSnapshotModal(false);
   $('shopBreadName').textContent=shopId;
   $('shopHdrName').textContent='Loading business...';$('shopHdrChips').innerHTML='';$('shopHdrDesc').textContent='';$('shopHdrActions').innerHTML='';
+  renderBusinessProfileVisual('shopHdrAvatarImg','shopHdrAvatarFallback','',shopId);
   if($('shopMobileHero')) $('shopMobileHero').hidden=true;
   if($('shopMobileSummary')) $('shopMobileSummary').innerHTML='';
   if($('shopMobileActions')) $('shopMobileActions').innerHTML='';
@@ -6813,6 +6922,7 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
     const visitMessage=encodeURIComponent(s.address||'Visit the business in person.');
     renderShopAttributeFilter(s.category||'');
     $('shopBreadName').textContent=s.name;$('shopHdrName').textContent=s.name;
+    renderBusinessProfileVisual('shopHdrAvatarImg','shopHdrAvatarFallback',s.profile_image_url||s.business_profile_image_url||'',s.name);
     $('shopHdrChips').innerHTML=[
       s.address?`<span class="shop-hdr-chip">${esc(s.address)}</span>`:'',
       s.hours?`<span class="shop-hdr-chip">${esc(s.hours)}</span>`:'',
@@ -7365,11 +7475,73 @@ function syncDeliverySettingsVisibility(){
   if($('deliverySettings')) $('deliverySettings').style.display=on?'grid':'none';
 }
 
+function currentShopProfileImageFile(){
+  return $('shopProfileImageFile')?.files?.[0] || null;
+}
+
+function refreshShopProfileImagePreview(){
+  const file=currentShopProfileImageFile();
+  const activeUrl=App.shopProfileImageRemoved ? '' : (App.shopProfileImageUrl || '');
+  const businessName=$('shopName')?.value.trim() || App.adminShopData?.shop?.name || 'Business';
+  if($('shopProfileImageMeta')){
+    $('shopProfileImageMeta').textContent=file
+      ? `${file.name} ready to upload`
+      : (App.shopProfileImageRemoved
+          ? 'Current image will be removed when you save'
+          : (activeUrl ? 'Current business image' : 'No image selected'));
+  }
+  if($('shopProfileImageHint')){
+    $('shopProfileImageHint').textContent=file
+      ? 'This new image will replace the current business avatar when you save.'
+      : (App.shopProfileImageRemoved
+          ? 'Save the business to remove the current avatar from the public page.'
+          : 'Customers see this on the public business page, so it should help them recognize the business quickly.');
+  }
+  if($('shopProfileImageRemoveBtn')){
+    const canAct=!!file || !!App.shopProfileImageUrl;
+    $('shopProfileImageRemoveBtn').style.display=canAct?'':'none';
+    $('shopProfileImageRemoveBtn').textContent=file
+      ? 'Clear Selection'
+      : (App.shopProfileImageRemoved ? 'Keep Current Image' : 'Remove Current Image');
+  }
+  if(file){
+    const reader=new FileReader();
+    reader.onload=()=>renderBusinessProfileVisual('shopProfileImagePreviewImg','shopProfileImagePreviewFallback',String(reader.result||''),businessName);
+    reader.readAsDataURL(file);
+    return;
+  }
+  renderBusinessProfileVisual('shopProfileImagePreviewImg','shopProfileImagePreviewFallback',activeUrl,businessName);
+}
+
+async function syncShopProfileImage(shopId){
+  const file=currentShopProfileImageFile();
+  if(file){
+    const form=new FormData();
+    form.append('profile_image', file);
+    const res=await api(`/admin/business/${encodeURIComponent(shopId)}/profile-image`,{method:'POST',auth:true,body:form});
+    App.shopProfileImageUrl=res.profile_image_url||'';
+    App.shopProfileImageRemoved=false;
+    if($('shopProfileImageFile')) $('shopProfileImageFile').value='';
+    refreshShopProfileImagePreview();
+    return {uploaded:true,removed:false};
+  }
+  if(App.shopProfileImageRemoved && App.shopProfileImageUrl){
+    await api(`/admin/business/${encodeURIComponent(shopId)}/profile-image`,{method:'DELETE',auth:true});
+    App.shopProfileImageUrl='';
+    App.shopProfileImageRemoved=false;
+    refreshShopProfileImagePreview();
+    return {uploaded:false,removed:true};
+  }
+  return {uploaded:false,removed:false};
+}
+
 function resetShopForm(){
   suspendFormDirty=true;
-  ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopLat','shopLng','shopDeliveryRadius','shopDeliveryFee','shopPickupNotes','shopServiceArea'].forEach(id=>$(id).value='');
+  ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopLat','shopLng','shopDeliveryRadius','shopDeliveryFee','shopPickupNotes','shopServiceArea','shopProfileImageFile'].forEach(id=>$(id).value='');
   if($('shopIdRef')) $('shopIdRef').textContent='Generated after creation';
   if($('shopBusinessType')) $('shopBusinessType').value='retail';
+  App.shopProfileImageUrl='';
+  App.shopProfileImageRemoved=false;
   renderCategoryOptionsForBusiness('retail','');
   if($('shopLocationMode')) $('shopLocationMode').value=normalizeLocationMode('', 'retail', '');
   $('shopCountry').value='CA';
@@ -7386,6 +7558,7 @@ function resetShopForm(){
   $('shopAddressSuggest').innerHTML='';
   $('shopAddressSuggest').style.display='none';
   $('shopStats').style.display='none';
+  refreshShopProfileImagePreview();
   setS('shopStatus','');
   suspendFormDirty=false;
   updateShopDraftState(false);
@@ -7423,11 +7596,14 @@ function populateShopForm(shop=null){
   $('shopDeliveryRadius').value=shop.delivery_radius_km ?? '';
   $('shopDeliveryFee').value=shop.delivery_fee ?? '';
   $('shopPickupNotes').value=shop.pickup_notes||'';
+  App.shopProfileImageUrl=shop.profile_image_url||shop.business_profile_image_url||'';
+  App.shopProfileImageRemoved=false;
   syncDeliverySettingsVisibility();
   updateShopCurrencyBadge();
   syncShopLocationModeUi();
   buildShopAddressPayload();
   populateHoursEditor(shop.hours_structured||[]);
+  refreshShopProfileImagePreview();
 }
 
 function openCreateShopView(){
@@ -7658,18 +7834,32 @@ async function createShop(){
   if(formErr){setS('shopStatus',formErr,'err');return toast('Business details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
   const hoursData=updateHoursSummary();
-  const payload={shop:{name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim()}};
+  const payload={shop:{name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim()}};
   try{
     setBtnBusy('createShopBtn',true,'Creating...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Creating...');
     setS('shopStatus','Creating your business...');
     const d=await api('/admin/create-business',{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,business:payload.shop})});
-    toast('Business created',d.shop_id);
-    setS('shopStatus',`Business created successfully.`,'ok');
+    let syncResult={uploaded:false,removed:false};
+    let syncError='';
+    try{
+      syncResult=await syncShopProfileImage(d.shop_id);
+    }catch(imageErr){
+      syncError=imageErr.message;
+      toast('Business image update failed',imageErr.message,'err');
+    }
     updateShopDraftState(false);
     await loadMyShops();
     await loadAdminShop(d.shop_id);
     await loadAllShops();
+    toast('Business created',d.shop_id);
+    setS('shopStatus',
+      syncError
+        ? `Business created, but the profile image could not be saved: ${syncError}`
+        : (syncResult.uploaded
+            ? 'Business created and profile image saved successfully.'
+            : 'Business created successfully.'),
+      syncError?'err':'ok');
   }catch(e){
     setS('shopStatus',e.message,'err');
     toast('Create failed',e.message,'err');
@@ -7685,18 +7875,34 @@ async function saveShop(){
   if(formErr){setS('shopStatus',formErr,'err');return toast('Business details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
   const hoursData=updateHoursSummary();
-  const payload={name:$('shopName').value.trim(),address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim()};
+  const payload={name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim()};
   try{
     setBtnBusy('saveShopBtn',true,'Saving...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Saving...');
     setS('shopStatus','Saving business changes...');
-    await api(`/admin/business/${encodeURIComponent(shopId)}`,{method:'PUT',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload.shop)});
-    toast('Saved');
-    setS('shopStatus','Business details saved successfully.','ok');
+    await api(`/admin/business/${encodeURIComponent(shopId)}`,{method:'PUT',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    let syncResult={uploaded:false,removed:false};
+    let syncError='';
+    try{
+      syncResult=await syncShopProfileImage(shopId);
+    }catch(imageErr){
+      syncError=imageErr.message;
+      toast('Business image update failed',imageErr.message,'err');
+    }
     updateShopDraftState(false);
     await loadMyShops();
     await loadAllShops();
     await loadAdminShop(shopId);
+    toast('Saved');
+    setS('shopStatus',
+      syncError
+        ? `Business details saved, but the profile image could not be updated: ${syncError}`
+        : (syncResult.uploaded
+            ? 'Business details and profile image saved successfully.'
+            : (syncResult.removed
+                ? 'Business details saved and profile image removed.'
+                : 'Business details saved successfully.')),
+      syncError?'err':'ok');
   }catch(e){
     setS('shopStatus',e.message,'err');
     toast('Save failed',e.message,'err');
@@ -7791,7 +7997,7 @@ function clearProdForm(){
   suspendFormDirty=true;
   ['prodId','prodName','prodPrice','prodQty','prodOverview','prodDuration','prodCapacity'].forEach(id=>$(id).value='');
   if($('prodIdRef')) $('prodIdRef').textContent='Generated when you save';
-  if($('prodType')) $('prodType').value=defaultOfferingTypeForBusiness(currentShopBusinessType(),activeShopCategory());
+  if($('prodType')) $('prodType').value=defaultVisibleOfferingTypeForBusiness(currentShopBusinessType(),activeShopCategory());
   if($('prodPriceMode')) $('prodPriceMode').value='fixed';
   if($('prodAvailability')) $('prodAvailability').value='available';
   $('prodStock').value='in';
@@ -7973,19 +8179,37 @@ if($('csvErrorsDownloadBtn')) $('csvErrorsDownloadBtn').addEventListener('click'
 ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2'].forEach(id=>{
   $(id)?.addEventListener('input',markShopFormDirty);
 });
+$('shopName')?.addEventListener('input',refreshShopProfileImagePreview);
 $('shopSupportsPickup')?.addEventListener('change',markShopFormDirty);
 $('shopSupportsDelivery')?.addEventListener('change',()=>{syncDeliverySettingsVisibility();markShopFormDirty();});
 $('shopSupportsWalkIn')?.addEventListener('change',markShopFormDirty);
 $('shopDeliveryRadius')?.addEventListener('input',markShopFormDirty);
 $('shopDeliveryFee')?.addEventListener('input',markShopFormDirty);
 $('shopPickupNotes')?.addEventListener('input',markShopFormDirty);
+$('shopProfileImageFile')?.addEventListener('change',()=>{
+  App.shopProfileImageRemoved=false;
+  refreshShopProfileImagePreview();
+  markShopFormDirty();
+});
+$('shopProfileImageRemoveBtn')?.addEventListener('click',()=>{
+  if(currentShopProfileImageFile()){
+    $('shopProfileImageFile').value='';
+    refreshShopProfileImagePreview();
+    markShopFormDirty();
+    return;
+  }
+  if(!App.shopProfileImageUrl) return;
+  App.shopProfileImageRemoved=!App.shopProfileImageRemoved;
+  refreshShopProfileImagePreview();
+  markShopFormDirty();
+});
 $('shopBusinessType')?.addEventListener('change',()=>{
   const nextType=normalizeBusinessType($('shopBusinessType')?.value||'',activeShopCategory());
   const selectedCategory=$('shopCat')?.value||'';
   renderCategoryOptionsForBusiness(nextType,selectedCategory);
   if($('shopLocationMode')) $('shopLocationMode').value=normalizeLocationMode($('shopLocationMode')?.value||'',nextType,$('shopCat')?.value||'');
   syncShopLocationModeUi();
-  if($('prodType') && !$('prodId')?.value.trim()) $('prodType').value=defaultOfferingTypeForBusiness(nextType,$('shopCat')?.value||'');
+  if($('prodType') && !$('prodId')?.value.trim()) $('prodType').value=defaultVisibleOfferingTypeForBusiness(nextType,$('shopCat')?.value||'');
   syncProductOfferingUi();
   buildShopAddressPayload();
   markShopFormDirty();

@@ -57,10 +57,13 @@ PAGE_SIZE         = 24
 ALLOWED_IMG_EXTS  = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".jif"}
 ALLOWED_IMG_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
 MAX_UPLOAD_BYTES  = int(os.environ.get("MAX_UPLOAD_BYTES", "8388608") or 8388608)
+IMAGE_BUCKET      = "product-images"
+BUSINESS_PROFILE_IMAGE_PREFIX = "business-profiles"
+AVATAR_IMAGE_PREFIX = "avatars"
 RATE_LIMIT_STATE: Dict[str, List[float]] = {}
 CURRENT_REQUEST: ContextVar[Optional[Request]] = ContextVar("current_request", default=None)
 PUBLIC_SHOP_FIELDS = (
-    "shop_id", "shop_slug", "name", "address", "formatted_address", "overview", "phone", "hours",
+    "shop_id", "shop_slug", "name", "profile_image_url", "address", "formatted_address", "overview", "phone", "hours",
     "hours_structured", "category", "business_type", "location_mode", "service_area", "whatsapp", "country_code", "country_name", "timezone_name",
     "region", "city", "postal_code", "street_line1", "street_line2", "currency_code", "latitude",
     "longitude", "supports_pickup", "supports_delivery", "supports_walk_in", "delivery_radius_km",
@@ -179,6 +182,33 @@ COUNTRY_META: Dict[str, Dict[str, Any]] = {
     "US": {"name": "United States", "currency": "USD", "postal_regex": r"^\d{5}(?:-\d{4})?$", "timezone": "America/New_York"},
     "AE": {"name": "United Arab Emirates", "currency": "AED", "postal_regex": r"^[A-Za-z0-9 -]{3,10}$", "timezone": "Asia/Dubai"},
 }
+SUPPORTED_TIMEZONE_NAMES = sorted({
+    "UTC",
+    "America/Halifax",
+    "America/St_Johns",
+    "America/Toronto",
+    "America/Vancouver",
+    "America/Edmonton",
+    "America/Winnipeg",
+    "America/New_York",
+    "America/Chicago",
+    "America/Denver",
+    "America/Los_Angeles",
+    "Europe/London",
+    "Europe/Dublin",
+    "Europe/Paris",
+    "Europe/Berlin",
+    "Asia/Dubai",
+    "Asia/Kolkata",
+    "Asia/Karachi",
+    "Asia/Dhaka",
+    "Asia/Riyadh",
+    "Asia/Qatar",
+    "Asia/Singapore",
+    "Australia/Sydney",
+    "Pacific/Auckland",
+    *[str(meta.get("timezone", "")).strip() for meta in COUNTRY_META.values() if str(meta.get("timezone", "")).strip()],
+})
 DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 DAY_LABELS = {"mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun"}
 BUSINESS_TYPE_META: Dict[str, Dict[str, str]] = {
@@ -524,6 +554,7 @@ class BrowserSessionReq(BaseModel):
 class ShopInfo(BaseModel):
     name: str
     address: str = ""
+    profile_image_url: str = ""
     overview: str = ""
     phone: str = ""
     hours: str = ""
@@ -996,7 +1027,7 @@ def unique_product_slug(shop_id: str, name: str, ignore_product_id: str = "") ->
         candidate = f"{base[:max(1, 50-len(suffix))]}{suffix}"
     return f"{base[:40]}-{uuid.uuid4().hex[:6]}"
 
-SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area"]
+SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area", "profile_image_url"]
 PRODUCT_OPTIONAL_WRITE_COLUMNS = [
     "price_amount", "stock_quantity", "product_slug", "variant_data", "variant_matrix",
     "attribute_data", "currency_code", "offering_type", "price_mode", "availability_mode",
@@ -1076,6 +1107,44 @@ def read_validated_image(upload: UploadFile, label: str = "image") -> Tuple[str,
         raise HTTPException(400, f"{label.capitalize()} exceeds the upload limit")
     return ext, data, content_type or image_content_type_for_ext(ext)
 
+def upload_public_image(bucket: str, path: str, data: bytes, content_type: str, error_detail: str) -> str:
+    sb = require_supabase()
+    try:
+        sb.storage.from_(bucket).upload(path, data, {"content-type": content_type})
+        return sb.storage.from_(bucket).get_public_url(path)
+    except Exception as e:
+        print(f"[Supabase Storage Error] {e}")
+        raise HTTPException(500, error_detail)
+
+def storage_public_path(bucket: str, value: str) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    marker = f"/object/public/{bucket}/"
+    if re.match(r"^https?://", raw, re.I):
+        idx = raw.lower().find(marker.lower())
+        if idx >= 0:
+            return raw[idx + len(marker):].split("?", 1)[0]
+        token = f"/{bucket}/"
+        idx = raw.lower().find(token.lower())
+        return raw[idx + len(token):].split("?", 1)[0] if idx >= 0 else ""
+    if raw.startswith("/"):
+        token = f"/{bucket}/"
+        idx = raw.lower().find(token.lower())
+        return raw[idx + len(token):].split("?", 1)[0] if idx >= 0 else raw.lstrip("/").split("?", 1)[0]
+    return raw.split("?", 1)[0].lstrip("/")
+
+def remove_public_image(bucket: str, value: str) -> bool:
+    path = storage_public_path(bucket, value)
+    if not path:
+        return False
+    try:
+        require_supabase().storage.from_(bucket).remove([path])
+        return True
+    except Exception as e:
+        print(f"[Supabase Storage Warning] Could not remove {path}: {e}")
+        return False
+
 def dedup(items: List[str]) -> List[str]:
     out, seen = [], set()
     for x in items or []:
@@ -1108,21 +1177,31 @@ def normalize_image_list(shop_id: str, images: Any) -> List[str]:
     return dedup([normalize_image_ref(shop_id, img) for img in images if str(img or "").strip()])
 
 def save_images(shop_id: str, files: List[UploadFile]) -> List[str]:
-    sb = require_supabase()
     out = []
     for f in files or []:
         if not f or not getattr(f, "filename", None): continue
         ext, data, content_type = read_validated_image(f, "image")
         name = f"{uuid.uuid4().hex}{norm_ext(ext)}"
         path = f"{shop_id}/{name}"
-        
-        try:
-            sb.storage.from_("product-images").upload(path, data, {"content-type": content_type})
-            out.append(sb.storage.from_("product-images").get_public_url(path))
-        except Exception as e:
-            print(f"[Supabase Storage Error] {e}")
-            raise HTTPException(500, "Failed to upload image. Ensure the 'product-images' bucket is created and public in Supabase.")
+        out.append(upload_public_image(
+            IMAGE_BUCKET,
+            path,
+            data,
+            content_type,
+            "Failed to upload image. Ensure the 'product-images' bucket is created and public in Supabase.",
+        ))
     return out
+
+def save_business_profile_image(shop_id: str, upload: UploadFile) -> str:
+    ext, data, content_type = read_validated_image(upload, "business profile image")
+    path = f"{BUSINESS_PROFILE_IMAGE_PREFIX}/{shop_id}/{uuid.uuid4().hex}{norm_ext(ext)}"
+    return upload_public_image(
+        IMAGE_BUCKET,
+        path,
+        data,
+        content_type,
+        "Failed to upload the business profile image. Ensure the 'product-images' bucket is created and public in Supabase.",
+    )
 
 def serialize_product(row: dict, user_id: str = None, shop: Optional[Dict[str, Any]] = None, viewer_currency: str = "") -> Dict[str, Any]:
     shop_id = row.get("shop_id", "")
@@ -1339,7 +1418,7 @@ def rebuild_kb(shop_id: str):
             "images": imgs
         })
     
-    obj = {"shop": {k: shop_row.get(k, "") for k in ("name","address","overview","phone","hours","hours_structured","category","business_type","location_mode","service_area","country_code","country_name","timezone_name","region","city","postal_code","street_line1","street_line2","currency_code")},
+    obj = {"shop": {k: shop_row.get(k, "") for k in ("name","profile_image_url","address","overview","phone","hours","hours_structured","category","business_type","location_mode","service_area","country_code","country_name","timezone_name","region","city","postal_code","street_line1","street_line2","currency_code")},
            "products": p_serialized}
            
     d = os.path.join(SHOPS_DIR, shop_id)
@@ -1430,6 +1509,14 @@ def timezone_for_country(country_code: str) -> str:
     meta = country_meta(country_code)
     return meta.get("timezone", "UTC")
 
+def is_supported_timezone_name(value: str) -> bool:
+    tz_name = str(value or "").strip() or "UTC"
+    try:
+        ZoneInfo(tz_name)
+        return True
+    except Exception:
+        return tz_name in SUPPORTED_TIMEZONE_NAMES
+
 def build_formatted_address(data: Dict[str, Any]) -> str:
     parts = [
         (data.get("street_line1") or "").strip(),
@@ -1499,6 +1586,8 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out["shop_slug"] = (out.get("shop_slug") or slug_base(out.get("name") or out.get("shop_id") or "shop", "shop", 50)).strip()
     out["business_id"] = out.get("business_id") or out.get("shop_id", "")
     out["business_slug"] = out.get("business_slug") or out.get("shop_slug", "")
+    out["profile_image_url"] = str(out.get("profile_image_url") or out.get("business_profile_image_url") or "").strip()
+    out["business_profile_image_url"] = out["profile_image_url"]
     out["business_type"] = normalize_business_type(out.get("business_type", ""), out.get("category", ""))
     out["location_mode"] = normalize_location_mode(out.get("location_mode", ""), out.get("business_type", ""), out.get("category", ""))
     out["service_area"] = re.sub(r"\s+", " ", str(out.get("service_area") or "")).strip()
@@ -2190,9 +2279,7 @@ def validate_shop_payload(shop: ShopInfo) -> Dict[str, Any]:
             raise HTTPException(400, "Describe the service area")
     if not data.get("hours_structured"):
         raise HTTPException(400, "Set the business working days and hours")
-    try:
-        ZoneInfo(data.get("timezone_name") or "UTC")
-    except Exception:
+    if not is_supported_timezone_name(data.get("timezone_name") or "UTC"):
         raise HTTPException(400, "Select a valid business timezone")
     data["currency_code"] = clean_currency(data.get("currency_code") or currency_for_country(data["country_code"]))
     if not any([data.get("supports_pickup"), data.get("supports_delivery"), data.get("supports_walk_in")]):
@@ -3357,9 +3444,14 @@ def upload_avatar(authorization: Optional[str] = Header(None), avatar: UploadFil
     try:
         ext, data, content_type = read_validated_image(avatar, "avatar")
         filename = f"user_{user.id}_{uuid.uuid4().hex[:8]}{ext}"
-        path = f"avatars/{filename}"
-        sb.storage.from_("product-images").upload(path, data, {"content-type": content_type})
-        url = sb.storage.from_("product-images").get_public_url(path)
+        path = f"{AVATAR_IMAGE_PREFIX}/{filename}"
+        url = upload_public_image(
+            IMAGE_BUCKET,
+            path,
+            data,
+            content_type,
+            "Failed to upload avatar. Ensure the 'product-images' bucket is created and public in Supabase.",
+        )
         sb.table("profiles").update({"avatar_url": url}).eq("id", user.id).execute()
         return {"ok": True, "avatar_url": url}
     except Exception as e:
@@ -3501,32 +3593,7 @@ def public_map_support():
 
 @app.get("/public/timezone-support")
 def public_timezone_support():
-    zones = sorted([
-        "America/Halifax",
-        "America/St_Johns",
-        "America/Toronto",
-        "America/Vancouver",
-        "America/Edmonton",
-        "America/Winnipeg",
-        "America/New_York",
-        "America/Chicago",
-        "America/Denver",
-        "America/Los_Angeles",
-        "Europe/London",
-        "Europe/Dublin",
-        "Europe/Paris",
-        "Europe/Berlin",
-        "Asia/Dubai",
-        "Asia/Kolkata",
-        "Asia/Karachi",
-        "Asia/Dhaka",
-        "Asia/Riyadh",
-        "Asia/Qatar",
-        "Asia/Singapore",
-        "Australia/Sydney",
-        "Pacific/Auckland",
-    ])
-    return {"ok": True, "timezones": zones}
+    return {"ok": True, "timezones": SUPPORTED_TIMEZONE_NAMES}
 
 @app.get("/public/address/search")
 def public_address_search(request: Request, q: str = Query(..., min_length=3), country: str = Query("")):
@@ -3846,6 +3913,7 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         "shop_slug": shop_slug,
         "owner_user_id": user.id,
         "name": shop["name"].strip(),
+        "profile_image_url": shop.get("profile_image_url", ""),
         "address": shop["address"],
         "formatted_address": shop["formatted_address"],
         "business_type": shop["business_type"],
@@ -3944,14 +4012,14 @@ def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
     writer = csv.writer(buffer)
     writer.writerow([
         "shop_id", "name", "business_type", "location_mode", "service_area", "category", "country_code", "country_name", "region", "city", "postal_code",
-        "formatted_address", "timezone_name", "currency_code", "hours", "phone", "whatsapp",
+        "formatted_address", "profile_image_url", "timezone_name", "currency_code", "hours", "phone", "whatsapp",
         "supports_pickup", "supports_delivery", "supports_walk_in", "delivery_radius_km", "delivery_fee", "pickup_notes", "overview"
     ])
     for row in rows:
         writer.writerow([
             row.get("shop_id", ""), row.get("name", ""), row.get("business_type", ""), row.get("location_mode", ""), row.get("service_area", ""), row.get("category", ""), row.get("country_code", ""),
             row.get("country_name", ""), row.get("region", ""), row.get("city", ""), row.get("postal_code", ""),
-            row.get("formatted_address", "") or row.get("address", ""), row.get("timezone_name", ""),
+            row.get("formatted_address", "") or row.get("address", ""), row.get("profile_image_url", ""), row.get("timezone_name", ""),
             row.get("currency_code", ""), row.get("hours", ""), row.get("phone", ""), row.get("whatsapp", ""),
             row.get("supports_pickup", True), row.get("supports_delivery", False), row.get("supports_walk_in", True),
             row.get("delivery_radius_km", ""), row.get("delivery_fee", ""), row.get("pickup_notes", ""), row.get("overview", ""),
@@ -4072,6 +4140,7 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
     payload = {
         "name": shop["name"].strip(),
         "shop_slug": shop_slug,
+        "profile_image_url": shop.get("profile_image_url", ""),
         "address": shop["address"],
         "formatted_address": shop["formatted_address"],
         "business_type": shop["business_type"],
@@ -4114,13 +4183,68 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
     rebuild_kb(shop_id)
     return {"ok": True, "business_id": shop_id}
 
+@app.post("/admin/business/{shop_id}/profile-image")
+@app.post("/admin/shop/{shop_id}/profile-image")
+def admin_upload_shop_profile_image(shop_id: str, authorization: Optional[str] = Header(None), profile_image: UploadFile = File(...)):
+    user, prof = get_user(authorization)
+    check_shop_owner(user.id, shop_id)
+    rows = supabase.table("shops").select("profile_image_url").eq("shop_id", shop_id).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Business not found")
+    current_url = normalize_shop_record(rows[0]).get("profile_image_url", "")
+    new_url = save_business_profile_image(shop_id, profile_image)
+    try:
+        payload, unsupported_cols = shop_write_payload_with_fallback(
+            shop_id,
+            {"profile_image_url": new_url},
+            True,
+            ["profile_image_url"],
+        )
+    except Exception:
+        remove_public_image(IMAGE_BUCKET, new_url)
+        raise
+    if unsupported_cols:
+        print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
+    if current_url and current_url != new_url:
+        remove_public_image(IMAGE_BUCKET, current_url)
+    rebuild_kb(shop_id)
+    return {
+        "ok": True,
+        "business_id": shop_id,
+        "profile_image_url": payload.get("profile_image_url", new_url),
+        "business_profile_image_url": payload.get("profile_image_url", new_url),
+    }
+
+@app.delete("/admin/business/{shop_id}/profile-image")
+@app.delete("/admin/shop/{shop_id}/profile-image")
+def admin_delete_shop_profile_image(shop_id: str, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    check_shop_owner(user.id, shop_id)
+    rows = supabase.table("shops").select("profile_image_url").eq("shop_id", shop_id).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Business not found")
+    current_url = normalize_shop_record(rows[0]).get("profile_image_url", "")
+    payload, unsupported_cols = shop_write_payload_with_fallback(
+        shop_id,
+        {"profile_image_url": ""},
+        True,
+        ["profile_image_url"],
+    )
+    if unsupported_cols:
+        print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
+    if current_url:
+        remove_public_image(IMAGE_BUCKET, current_url)
+    rebuild_kb(shop_id)
+    return {"ok": True, "business_id": shop_id, "profile_image_url": "", "business_profile_image_url": ""}
+
 @app.post("/public/fulfillment-request")
 @app.post("/public/order-request")
 def public_order_request(body: OrderRequestReq, request: Request):
     enforce_rate_limit(request, "public_order_request", limit=12, window_seconds=600)
-    shop_id = slug(body.business_id or body.shop_id or "", 80)
-    if not shop_id:
+    raw_shop_id = str(body.business_id or body.shop_id or "").strip()
+    if not raw_shop_id:
         raise HTTPException(400, "Business is required")
+    shop_id = slug(raw_shop_id, 80)
     shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
     if not shop_rows:
         raise HTTPException(404, "Business not found")
@@ -4241,6 +4365,34 @@ def public_order_request_status(request: Request, request_id: str = Query(...), 
 def admin_delete_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
+    image_names: List[str] = []
+    profile_image_url = ""
+    try:
+        shop_rows = supabase.table("shops").select("profile_image_url").eq("shop_id", shop_id).limit(1).execute().data or []
+        profile_image_url = normalize_shop_record(shop_rows[0]).get("profile_image_url", "") if shop_rows else ""
+    except Exception as e:
+        print(f"[Business Delete Warning] could not load business profile image for {shop_id}: {e}")
+    try:
+        product_rows = supabase.table("products").select("images").eq("shop_id", shop_id).execute().data or []
+        for row in product_rows:
+            for image_url in normalize_image_list(shop_id, row.get("images", [])):
+                img_name = os.path.basename(str(image_url or "").rstrip("/"))
+                if img_name and img_name not in image_names:
+                    image_names.append(img_name)
+    except Exception as e:
+        print(f"[Business Delete Warning] could not enumerate product images for {shop_id}: {e}")
+    for table_name in ("favourites", "reviews", "analytics", "order_requests", "products"):
+        try:
+            supabase.table(table_name).delete().eq("shop_id", shop_id).execute()
+        except Exception as e:
+            print(f"[Business Delete Warning] could not delete {table_name} rows for {shop_id}: {e}")
+    if image_names:
+        try:
+            supabase.storage.from_(IMAGE_BUCKET).remove([f"{shop_id}/{img_name}" for img_name in image_names])
+        except Exception as e:
+            print(f"[Business Delete Warning] could not remove storage images for {shop_id}: {e}")
+    if profile_image_url:
+        remove_public_image(IMAGE_BUCKET, profile_image_url)
     supabase.table("shops").delete().eq("shop_id", shop_id).execute()
     shutil.rmtree(os.path.join(SHOPS_DIR, shop_id), ignore_errors=True)
     return {"ok": True, "business_id": shop_id}
@@ -4428,7 +4580,7 @@ def admin_delete_image(shop_id: str, product_id: str, image_path: str = Query(..
     if not row: raise HTTPException(404, "Offering not found")
     
     img_name = os.path.basename(image_path.rstrip("/"))
-    try: supabase.storage.from_("product-images").remove([f"{shop_id}/{img_name}"])
+    try: supabase.storage.from_(IMAGE_BUCKET).remove([f"{shop_id}/{img_name}"])
     except Exception: pass
     
     current_imgs = row[0].get("images", [])
