@@ -74,7 +74,7 @@ OPENROUTER_KEY    = os.environ.get("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_MODEL  = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4.1-mini").strip()
 OPENROUTER_FALLBACK_MODELS = [m.strip() for m in os.environ.get("OPENROUTER_FALLBACK_MODELS", "").split(",") if m.strip()]
 OPENROUTER_TEMPERATURE = float(os.environ.get("OPENROUTER_TEMPERATURE", "0.2") or 0.2)
-OPENROUTER_MAX_TOKENS = int(os.environ.get("OPENROUTER_MAX_TOKENS", "400") or 400)
+OPENROUTER_MAX_TOKENS = int(os.environ.get("OPENROUTER_MAX_TOKENS", "700") or 700)
 OPENROUTER_URL    = "https://openrouter.ai/api/v1/chat/completions"
 MAPBOX_TOKEN      = os.environ.get("MAPBOX_TOKEN", "").strip()
 FX_API_BASE       = os.environ.get("FX_API_BASE", "https://api.frankfurter.dev/v2").strip().rstrip("/")
@@ -215,8 +215,8 @@ BUSINESS_TYPE_META: Dict[str, Dict[str, str]] = {
     "retail": {"label": "Retail business", "offering_type": "product", "singular": "product", "plural": "products", "business_label": "store"},
     "service": {"label": "Service business", "offering_type": "service", "singular": "service", "plural": "services", "business_label": "business"},
     "professional": {"label": "Professional practice", "offering_type": "service", "singular": "service", "plural": "services", "business_label": "business"},
-    "education": {"label": "Education business", "offering_type": "class", "singular": "class", "plural": "classes", "business_label": "business"},
-    "creator": {"label": "Creator portfolio", "offering_type": "portfolio", "singular": "offering", "plural": "offerings", "business_label": "studio"},
+    "education": {"label": "Education business", "offering_type": "service", "singular": "service", "plural": "services", "business_label": "business"},
+    "creator": {"label": "Creator studio", "offering_type": "offering", "singular": "offering", "plural": "offerings", "business_label": "studio"},
     "other": {"label": "Local business", "offering_type": "offering", "singular": "offering", "plural": "offerings", "business_label": "business"},
 }
 OFFERING_TYPE_META: Dict[str, Dict[str, str]] = {
@@ -970,9 +970,13 @@ def llm_chat(system: str, user: str, max_tokens: Optional[int] = None) -> Dict[s
     )
     r.raise_for_status()
     data = r.json()
+    choice = ((data.get("choices") or [{}])[0]) or {}
+    finish_reason = str(choice.get("finish_reason") or "").strip().lower()
     return {
-        "content": (data["choices"][0]["message"]["content"] or "").strip(),
+        "content": (choice.get("message", {}) or {}).get("content", "").strip(),
         "model": data.get("model") or OPENROUTER_MODEL,
+        "finish_reason": finish_reason,
+        "truncated": finish_reason == "length",
     }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1558,6 +1562,10 @@ def geocode_structured_address(data: Dict[str, Any]) -> Dict[str, Optional[float
 
 def ensure_shop_coordinates(row: Dict[str, Any]) -> Dict[str, Any]:
     out = normalize_shop_record(row or {})
+    if not shop_has_mappable_address(out):
+        out["latitude"] = None
+        out["longitude"] = None
+        return out
     try:
         lat = float(out.get("latitude"))
         lng = float(out.get("longitude"))
@@ -1620,9 +1628,44 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out["pickup_notes"] = (out.get("pickup_notes") or "").strip()
     return out
 
+NON_MAPPABLE_ADDRESS_VALUES = {
+    "online",
+    "online only",
+    "remote",
+    "virtual",
+    "service area",
+    "service-area",
+    "n/a",
+    "na",
+    "none",
+    "unknown",
+    "tbd",
+}
+
+def normalize_map_address_label(value: Any) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip().strip(",.-")
+    return text.lower()
+
+def shop_has_mappable_address(row: Dict[str, Any]) -> bool:
+    shop = normalize_shop_record(row or {})
+    if shop.get("location_mode") not in {"storefront", "hybrid"}:
+        return False
+    for candidate in (shop.get("street_line1"), shop.get("formatted_address"), shop.get("address")):
+        normalized = normalize_map_address_label(candidate)
+        if not normalized or normalized in NON_MAPPABLE_ADDRESS_VALUES:
+            continue
+        return True
+    return False
+
+def map_safe_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
+    shop = normalize_shop_record(row or {})
+    if not shop_has_mappable_address(shop):
+        shop["latitude"] = None
+        shop["longitude"] = None
+    return shop
+
 def public_shop_payload(row: Dict[str, Any]) -> Dict[str, Any]:
-    safe = {key: row.get(key) for key in PUBLIC_SHOP_FIELDS}
-    safe = normalize_shop_record(safe)
+    safe = map_safe_shop_record({key: row.get(key) for key in PUBLIC_SHOP_FIELDS})
     safe["is_open_now"] = bool(row.get("is_open_now", shop_is_open_now(safe)))
     if "stats" in row:
         safe["stats"] = row.get("stats") or {}
@@ -3063,6 +3106,20 @@ def response_style_instructions(q: str) -> str:
         return "Response format: answer directly and briefly in 1 to 3 lines."
     return "Response format: give a short direct answer first. Use bullets only if they clearly help."
 
+def chat_max_tokens_for_query(q: str, picked: Optional[List[Dict[str, Any]]] = None) -> int:
+    qn = norm_text(q)
+    picked_count = len(picked or [])
+    if is_list_intent(qn) or is_recommendation_query(qn):
+        return max(OPENROUTER_MAX_TOKENS, 950)
+    if any(token in qn for token in ["compare", "difference", "details", "options", "which one", "which is best", "help me choose"]):
+        return max(OPENROUTER_MAX_TOKENS, 850)
+    if picked_count >= 4:
+        return max(OPENROUTER_MAX_TOKENS, 800)
+    return OPENROUTER_MAX_TOKENS
+
+def should_retry_truncated_chat(llm_res: Dict[str, Any]) -> bool:
+    return bool((llm_res or {}).get("truncated")) and bool((llm_res or {}).get("content", "").strip())
+
 def build_chat_suggestions(q: str, shop: dict, picked: List[Dict]) -> List[str]:
     suggestions: List[str] = []
     qn = norm_text(q)
@@ -3071,14 +3128,6 @@ def build_chat_suggestions(q: str, shop: dict, picked: List[Dict]) -> List[str]:
     plural = nouns["plural"]
     if picked:
         top = picked[0]
-        return "\n".join(
-            [f"**{top['name']}** - {' | '.join(offering_summary_bits(top, shop)) or 'Details available on request'}"]
-            + ([f"![{top['name']}]({top['images'][0]})"] if top.get("images") else [])
-        )
-        return "\n".join(
-            [f"**{top['name']}** - {' | '.join(offering_summary_bits(top, shop)) or 'Details available on request'}"]
-            + ([f"![{top['name']}]({top['images'][0]})"] if top.get("images") else [])
-        )
         suggestions.extend([
             f"What is the price of {top['name']}?",
             f"Show me photos of {top['name']}",
@@ -3846,7 +3895,12 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
             + "\n"
             + response_style_instructions(q)
         )
-        llm_res = llm_chat(system_prompt, f"CONTEXT:\n{build_context(shop, picked, prod_rows, rag.get('chunks', []))}\n\nCUSTOMER: {q}")
+        context_blob = f"CONTEXT:\n{build_context(shop, picked, prod_rows, rag.get('chunks', []))}\n\nCUSTOMER: {q}"
+        llm_budget = chat_max_tokens_for_query(q, picked)
+        llm_res = llm_chat(system_prompt, context_blob, max_tokens=llm_budget)
+        if should_retry_truncated_chat(llm_res):
+            retry_prompt = system_prompt + "\nThe previous draft was cut off. Retry with a complete answer. Keep it concise, but finish every sentence and list cleanly."
+            llm_res = llm_chat(retry_prompt, context_blob, max_tokens=max(llm_budget + 300, 1100))
         flagged_terms = find_out_of_scope_bold_terms(llm_res["content"], shop, prod_rows)
         if flagged_terms:
             print(f"[Chat Scope Guard] shop={shop_id} blocked out-of-scope terms: {flagged_terms}")
@@ -3867,7 +3921,7 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
             with_images = [p for p in picked if p.get("images")]
             if with_images:
                 abs_picked = serialize_products_bulk(with_images[:4], None, {shop_id: shop}, currency)
-        return respond({"answer": llm_res["content"], "products": abs_picked, "meta": {"llm_used": True, "model": llm_res.get("model") or OPENROUTER_MODEL, "suggestions": suggestions, "rag_matches": len(rag.get('matches', []))}})
+        return respond({"answer": llm_res["content"], "products": abs_picked, "meta": {"llm_used": True, "model": llm_res.get("model") or OPENROUTER_MODEL, "suggestions": suggestions, "rag_matches": len(rag.get('matches', [])), "finish_reason": llm_res.get("finish_reason") or "stop"}})
     except Exception as e:
         err_msg = str(e)
         if hasattr(e, "response") and getattr(e, "response") is not None:
@@ -3982,6 +4036,8 @@ def admin_geocode_missing_shop_coords(authorization: Optional[str] = Header(None
     for row in shops_res.data or []:
         checked += 1
         current = normalize_shop_record(row)
+        if not shop_has_mappable_address(current):
+            continue
         try:
             lat = float(current.get("latitude"))
             lng = float(current.get("longitude"))

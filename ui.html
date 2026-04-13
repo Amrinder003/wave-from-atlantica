@@ -240,7 +240,11 @@ a{color:inherit;text-decoration:none}
 .shop-card:active{transform:scale(.988);box-shadow:0 14px 28px rgba(58,38,22,.12);border-color:rgba(162,76,46,.42)}
 .shop-card-banner{height:124px;background:linear-gradient(135deg,#f7ead6,#e8c9a4 60%,#d18d60);display:flex;align-items:flex-start;justify-content:space-between;font-size:36px;position:relative;padding:18px 18px 0}
 .shop-card-banner::after{content:'';position:absolute;inset:auto -24px -42px auto;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.16);filter:blur(2px)}
-.shop-card-mark{position:relative;z-index:1;width:54px;height:54px;border-radius:18px;background:rgba(255,250,242,.82);display:grid;place-items:center;box-shadow:0 10px 24px rgba(89,52,28,.12)}
+.biz-avatar-wrap{width:100%;height:100%;display:block}
+.biz-avatar-img{width:100%;height:100%;object-fit:cover;display:block}
+.biz-avatar-fallback{width:100%;height:100%;display:grid;place-items:center;font-family:'Sora',sans-serif;font-weight:800;letter-spacing:-.05em;line-height:1}
+.shop-card-mark{position:relative;z-index:1;width:54px;height:54px;border-radius:18px;background:rgba(255,250,242,.82);display:grid;place-items:center;box-shadow:0 10px 24px rgba(89,52,28,.12);overflow:hidden}
+.shop-card-mark .biz-avatar-fallback{font-size:24px;color:#7e341d}
 .shop-card-category{position:relative;z-index:1;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6d3b24;background:rgba(255,250,242,.74);border:1px solid rgba(109,59,36,.08);padding:6px 10px;border-radius:999px;backdrop-filter:blur(4px)}
 .shop-card-body{padding:18px}
 .shop-card-name{font-family:'Sora',sans-serif;font-weight:800;font-size:19px;line-height:1.2}
@@ -412,7 +416,8 @@ a{color:inherit;text-decoration:none}
 .map-sheet-list-handle-icon svg,.map-sheet-mini-arrow svg{width:16px;height:16px;display:block;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;fill:none}
 .map-sheet-mini-rail{position:absolute;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);z-index:6;align-items:center;gap:8px;padding:6px 8px;border-radius:999px;background:rgba(255,253,248,.98);border:1px solid rgba(191,174,149,.38);box-shadow:0 10px 22px rgba(48,33,15,.12);backdrop-filter:blur(12px)}
 .map-sheet-mini-icons{flex:1;min-width:0;display:flex;align-items:center;gap:8px;overflow:hidden}
-.map-sheet-mini-chip{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.2);box-shadow:0 8px 18px rgba(92,47,24,.08);font-size:16px;line-height:1;color:var(--A2);flex:0 0 auto;cursor:pointer}
+.map-sheet-mini-chip{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.2);box-shadow:0 8px 18px rgba(92,47,24,.08);font-size:16px;line-height:1;color:var(--A2);flex:0 0 auto;cursor:pointer;overflow:hidden}
+.map-sheet-mini-chip .biz-avatar-fallback{font-size:13px;color:var(--A2)}
 .map-sheet-mini-chip.active{background:linear-gradient(180deg,#fff1e2,#f3d1a8);border-color:rgba(162,76,46,.45);box-shadow:0 10px 22px rgba(126,52,29,.16)}
 .map-sheet-mini-more{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 10px;border-radius:999px;background:rgba(255,250,242,.92);border:1px solid rgba(191,174,149,.28);font-size:11px;font-weight:800;color:var(--ink2);flex:0 0 auto}
 .map-sheet-mini-expand{width:42px;height:40px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(245,237,226,.94));border:1px solid rgba(191,174,149,.42);box-shadow:0 10px 22px rgba(48,33,15,.12);color:var(--A2);flex:0 0 auto;cursor:pointer;backdrop-filter:blur(10px);transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}
@@ -421,7 +426,8 @@ a{color:inherit;text-decoration:none}
 .map-spot-card:active{transform:scale(.988)}
 .map-spot-card.active{border-color:rgba(162,76,46,.52);box-shadow:0 18px 34px rgba(120,58,29,.16);background:linear-gradient(180deg,rgba(255,250,244,.98),rgba(246,234,220,.94))}
 .map-spot-card-top{display:flex;align-items:flex-start;gap:10px;min-width:0}
-.map-spot-card-mark{width:42px;height:42px;border-radius:16px;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.2);display:grid;place-items:center;font-size:19px;box-shadow:0 10px 20px rgba(92,47,24,.1);flex:0 0 auto}
+.map-spot-card-mark{width:42px;height:42px;border-radius:16px;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.2);display:grid;place-items:center;font-size:19px;box-shadow:0 10px 20px rgba(92,47,24,.1);flex:0 0 auto;overflow:hidden}
+.map-spot-card-mark .biz-avatar-fallback{font-size:17px;color:var(--A2)}
 .map-spot-card-main{min-width:0;display:grid;gap:4px}
 .map-spot-card-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.15;letter-spacing:-.03em}
 .map-spot-card-meta{font-size:11px;font-weight:700;color:var(--A2);line-height:1.45}
@@ -850,7 +856,8 @@ a{color:inherit;text-decoration:none}
 .msg.user .msg-col{align-items:flex-end}
 .msg-meta{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4);padding:0 2px}
 .msg.user .msg-meta{color:rgba(126,52,29,.78)}
-.msg-av{width:30px;height:30px;border-radius:99px;background:linear-gradient(180deg,#f4e5d6,#ead3bb);display:grid;place-items:center;font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--ink2);flex-shrink:0;margin-top:2px;border:1px solid rgba(191,174,149,.42);box-shadow:0 10px 18px rgba(48,33,15,.08)}
+.msg-av{width:30px;height:30px;border-radius:99px;background:linear-gradient(180deg,#f4e5d6,#ead3bb);display:grid;place-items:center;font-size:10px;font-weight:800;letter-spacing:.04em;color:var(--ink2);flex-shrink:0;margin-top:2px;border:1px solid rgba(191,174,149,.42);box-shadow:0 10px 18px rgba(48,33,15,.08);overflow:hidden}
+.msg-av .biz-avatar-fallback{font-size:11px;color:var(--ink2)}
 .msg.user .msg-av{background:linear-gradient(180deg,#a24c2e,#7e341d);color:#fff;border-color:rgba(126,52,29,.5);order:2}
 .bubble{padding:11px 14px;border-radius:18px;font-size:14px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
 .msg.user .bubble{max-width:100%;background:var(--A);color:#fff;border-bottom-right-radius:3px;box-shadow:var(--s1)}
@@ -966,33 +973,63 @@ a{color:inherit;text-decoration:none}
 .hours-closed input{margin:0}
 .attr-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .attr-list{display:grid;gap:8px;margin-top:12px}
-.variant-stage{display:grid;gap:12px;padding:14px;border-radius:18px;background:linear-gradient(180deg,rgba(255,251,246,.95),rgba(245,237,226,.92));border:1px solid rgba(191,174,149,.3)}
-.variant-stage-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
-.variant-stage-copy{display:grid;gap:4px;max-width:720px}
+.variant-stage{display:grid;gap:14px;padding:18px;border-radius:22px;background:linear-gradient(180deg,rgba(255,252,247,.98),rgba(246,238,227,.93));border:1px solid rgba(191,174,149,.34);box-shadow:inset 0 1px 0 rgba(255,255,255,.72)}
+.variant-stage-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:start}
+.variant-stage-copy{display:grid;gap:6px;max-width:760px}
 .variant-stage-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2)}
 .variant-stage-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;line-height:1.15}
-.variant-stage-desc{font-size:12px;color:var(--ink3);line-height:1.65}
-.variant-stage-actions{display:flex;gap:8px;flex-wrap:wrap}
-.variant-builder{display:grid;gap:12px}
-.variant-row{display:grid;grid-template-columns:1fr;gap:12px;align-items:start;padding:14px;border-radius:18px;background:rgba(255,255,255,.84);border:1px solid rgba(191,174,149,.28)}
-.variant-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.variant-help{font-size:12px;color:var(--ink3);line-height:1.6}
-.variant-row-main{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;align-items:end}
-.variant-assets{display:grid;gap:10px;grid-column:1/-1}
-.variant-summary-card{padding:10px 12px;border-radius:14px;background:rgba(247,240,230,.92);border:1px solid rgba(191,174,149,.28);font-size:12px;font-weight:700;color:var(--ink2)}
-.variant-label-preview{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:12px;background:rgba(255,247,237,.88);border:1px solid rgba(191,174,149,.28);font-size:12px;font-weight:700;color:var(--ink2);min-height:38px}
-.variant-empty{padding:16px;border-radius:16px;background:rgba(255,255,255,.72);border:1px dashed rgba(191,174,149,.4);display:grid;gap:6px}
+.variant-stage-desc{font-size:12px;color:var(--ink3);line-height:1.7}
+.variant-stage-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.variant-stage-actions .btn{min-height:38px;padding:0 14px;border-radius:999px}
+.variant-builder{display:grid;gap:14px}
+.variant-guidance{padding:15px 16px;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(251,246,239,.84));border:1px solid rgba(191,174,149,.3);display:grid;gap:5px}
+.variant-guidance-title{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2)}
+.variant-guidance-copy{font-size:13px;color:var(--ink2);line-height:1.68}
+.variant-row{display:grid;grid-template-columns:1fr;gap:14px;align-items:start;padding:16px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(250,245,237,.9));border:1px solid rgba(191,174,149,.28);box-shadow:0 12px 24px rgba(48,33,15,.05)}
+.variant-row-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.variant-row-copy{display:grid;gap:8px;min-width:0;flex:1}
+.variant-row-eyebrow{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)}
+.variant-row-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:'Sora',sans-serif;font-size:17px;font-weight:800;line-height:1.2;color:var(--ink)}
+.variant-row-summary{font-size:12px;color:var(--ink3);line-height:1.65;max-width:72ch}
+.variant-row-chips{display:flex;gap:8px;flex-wrap:wrap}
+.variant-row-chip{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(255,248,240,.96);border:1px solid rgba(191,174,149,.32);font-size:11px;font-weight:700;color:var(--ink2)}
+.variant-row-main{display:grid;gap:12px;align-items:start}
+.variant-row-main.option{grid-template-columns:repeat(4,minmax(0,1fr))}
+.variant-row-main.combo{grid-template-columns:repeat(2,minmax(0,1fr))}
+.variant-assets{display:grid;grid-template-columns:minmax(220px,1.2fr) repeat(2,minmax(0,1fr));gap:12px;grid-column:1/-1}
+.variant-media-card{padding:13px 14px;border-radius:18px;background:rgba(255,255,255,.86);border:1px solid rgba(191,174,149,.28);display:grid;gap:9px;align-content:start}
+.variant-media-head{display:grid;gap:3px}
+.variant-media-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)}
+.variant-media-title{font-size:13px;font-weight:800;color:var(--ink2)}
+.variant-media-copy{font-size:11px;color:var(--ink4);line-height:1.55}
+.variant-empty{padding:16px;border-radius:18px;background:rgba(255,255,255,.78);border:1px dashed rgba(191,174,149,.4);display:grid;gap:6px}
 .variant-empty-title{font-size:13px;font-weight:800;color:var(--ink2)}
-.variant-empty-copy{font-size:12px;color:var(--ink3);line-height:1.6}
-.variant-img-grid{display:flex;flex-wrap:wrap;gap:8px}
+.variant-empty-copy{font-size:12px;color:var(--ink3);line-height:1.65}
+.variant-img-grid{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
 .variant-img-item{width:58px;height:58px;border-radius:12px;overflow:hidden;border:1px solid rgba(191,174,149,.34);position:relative;background:rgba(255,255,255,.82)}
 .variant-img-item img{width:100%;height:100%;object-fit:cover}
 .variant-img-del{position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:999px;border:none;background:rgba(31,27,22,.74);color:#fff;font-size:11px;cursor:pointer}
-.variant-img-empty{font-size:11px;color:var(--ink4)}
-@media(max-width:1100px){.variant-row-main{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:860px){.variant-stage-head{grid-template-columns:1fr}}
-@media(max-width:760px){.variant-row .btn{width:100%;justify-content:center}}
-@media(max-width:760px){.variant-row-main{grid-template-columns:1fr}}
+.variant-img-empty{font-size:11px;color:var(--ink4);line-height:1.55}
+.variant-combo-divider{font-size:13px;font-weight:700;color:var(--ink4)}
+@media(max-width:1180px){
+  .variant-assets{grid-template-columns:1fr 1fr}
+  .variant-assets .variant-media-card:first-child{grid-column:1/-1}
+}
+@media(max-width:1100px){.variant-row-main.option{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:900px){
+  .variant-stage-head{grid-template-columns:1fr}
+  .variant-row-main.combo{grid-template-columns:1fr}
+  .variant-assets{grid-template-columns:1fr}
+  .variant-assets .variant-media-card:first-child{grid-column:auto}
+}
+@media(max-width:760px){
+  .variant-stage-actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .variant-stage-actions .btn{width:100%;justify-content:center}
+  .variant-row{padding:14px}
+  .variant-row-top{display:grid}
+  .variant-row .btn{width:100%;justify-content:center}
+  .variant-row-main.option{grid-template-columns:1fr}
+}
 .suggest-list{display:grid;gap:8px;margin-top:10px}
 .suggest-item{border:1px solid rgba(191,174,149,.3);border-radius:16px;background:rgba(255,255,255,.84);padding:11px 13px;cursor:pointer;text-align:left;transition:border-color .16s ease,transform .16s ease,box-shadow .16s ease}
 .suggest-item:hover{border-color:rgba(185,97,40,.35);transform:translateY(-1px);box-shadow:0 10px 18px rgba(48,33,15,.08)}
@@ -1097,6 +1134,9 @@ a{color:inherit;text-decoration:none}
 .owner-shop-card:hover{transform:translateY(-3px);box-shadow:0 22px 44px rgba(48,33,15,.13);border-color:rgba(185,97,40,.32)}
 .owner-shop-card:active{transform:scale(.989);box-shadow:0 14px 28px rgba(48,33,15,.12)}
 .owner-shop-card-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.owner-shop-card-ident{display:flex;align-items:flex-start;gap:12px;min-width:0}
+.owner-shop-card-avatar{width:54px;height:54px;border-radius:18px;overflow:hidden;display:grid;place-items:center;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.18);box-shadow:0 10px 20px rgba(92,47,24,.08);flex:0 0 auto}
+.owner-shop-card-avatar .biz-avatar-fallback{font-size:22px;color:var(--A2)}
 .owner-shop-card-name{font-family:'Sora',sans-serif;font-size:24px;font-weight:800;letter-spacing:-.05em;line-height:1.02}
 .owner-shop-card-meta{font-size:12px;color:var(--ink4);margin-top:6px}
 .owner-shop-card-overview{font-size:13px;color:var(--ink3);line-height:1.72;min-height:64px}
@@ -1214,6 +1254,7 @@ a{color:inherit;text-decoration:none}
   .workspace-stat-value{font-size:18px}
   .owner-shop-grid{grid-template-columns:1fr}
   .owner-shop-card{padding:18px;border-radius:22px}
+  .owner-shop-card-avatar{width:48px;height:48px;border-radius:16px}
   .owner-shop-card-name{font-size:22px}
   .owner-shop-card-overview{min-height:0}
   .owner-detail-tags{padding:0 18px 14px}
@@ -2187,12 +2228,15 @@ a{color:inherit;text-decoration:none}
                           <div class="variant-stage-desc">Add customer-facing options such as size, color, flavor, or package. Each option can have its own price adjustment, stock quantity, and images.</div>
                         </div>
                         <div class="variant-stage-actions variant-stage-actions-quick">
-                          <button id="addVariantSizeBtn" class="btn btn-g btn-sm" type="button">+ Size</button>
-                          <button id="addVariantColorBtn" class="btn btn-g btn-sm" type="button">+ Color</button>
-                          <button id="addVariantBtn" class="btn btn-o btn-sm" type="button">+ Other</button>
+                          <button id="addVariantSizeBtn" class="btn btn-g btn-sm" type="button">Add Size</button>
+                          <button id="addVariantColorBtn" class="btn btn-g btn-sm" type="button">Add Color</button>
+                          <button id="addVariantBtn" class="btn btn-o btn-sm" type="button">Add Other</button>
                         </div>
                       </div>
-                      <div class="setup-callout">Set the standard amount in <strong>Base Price</strong>. Use <strong>Price Change</strong> only when a specific option should increase or reduce that amount.</div>
+                      <div class="variant-guidance">
+                        <div class="variant-guidance-title">Pricing rule</div>
+                        <div class="variant-guidance-copy">Set the standard amount in <strong>Base Price</strong>. Use <strong>Price Adjustment</strong> only when a specific option needs to change that amount.</div>
+                      </div>
                       <div id="variantBuilder" class="variant-builder"></div>
                     </div>
                     <div class="variant-stage">
@@ -2206,16 +2250,19 @@ a{color:inherit;text-decoration:none}
                           <button id="refreshVariantMatrixBtn" class="btn btn-g btn-sm" type="button">Refresh Combinations</button>
                         </div>
                       </div>
-                      <div class="setup-callout">Combination overrides are optional. Leave this section unchanged unless a specific combination needs separate pricing, stock, or images.</div>
+                      <div class="variant-guidance">
+                        <div class="variant-guidance-title">Override rule</div>
+                        <div class="variant-guidance-copy">Combination overrides are optional. Leave this section untouched unless one exact combination needs separate pricing, quantity, or imagery.</div>
+                      </div>
                       <div id="variantMatrixBuilder" class="variant-builder"></div>
                     </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div class="setup-section">
+              <div id="prodAttrSection" class="setup-section">
                 <div class="setup-section-head">
-                  <div class="setup-section-kicker">Step 3</div>
+                  <div id="prodAttrStepKicker" class="setup-section-kicker">Step 3</div>
                   <div id="prodAttrTitle" class="setup-section-title">Offering details</div>
                   <div id="prodAttrCopy" class="setup-section-copy">Add the extra details customers expect for this kind of offering. These also help search and chat answer more precisely.</div>
                 </div>
@@ -2226,7 +2273,7 @@ a{color:inherit;text-decoration:none}
               </div>
               <div class="setup-section">
                 <div class="setup-section-head">
-                  <div class="setup-section-kicker">Step 4</div>
+                  <div id="prodMediaStepKicker" class="setup-section-kicker">Step 4</div>
                   <div class="setup-section-title">Photos and presentation</div>
                   <div class="setup-section-copy">Images make the offering feel real and let chat show clickable cards with photos.</div>
                 </div>
@@ -2798,6 +2845,22 @@ function businessInitial(name=''){
   const clean=String(name||'').trim();
   return (clean.charAt(0)||'B').toUpperCase();
 }
+function businessProfileUrl(shop={}){
+  return absUrl(shop?.profile_image_url||shop?.business_profile_image_url||'');
+}
+function businessAvatarHtml(shop={},name=''){
+  const label=String(name||shop?.name||'Business').trim()||'Business';
+  const initial=esc(businessInitial(label));
+  const url=businessProfileUrl(shop);
+  if(url){
+    return `<span class="biz-avatar-wrap"><img class="biz-avatar-img" src="${esc(url)}" alt="${esc(label)}" onerror="this.hidden=true;if(this.nextElementSibling)this.nextElementSibling.hidden=false"/><span class="biz-avatar-fallback" hidden>${initial}</span></span>`;
+  }
+  return `<span class="biz-avatar-fallback">${initial}</span>`;
+}
+function populateBusinessAvatarNode(node,shop={},name=''){
+  if(!node) return;
+  node.innerHTML=businessAvatarHtml(shop,name);
+}
 function absUrl(p){
   if(!p) return '';
   if(/^(https?:\/\/|data:|blob:)/i.test(p)) return p;
@@ -2826,7 +2889,15 @@ function renderBusinessProfileVisual(imageId,fallbackId,imageUrl='',name=''){
   showFallback();
 }
 function hasShopCoords(shop={}){
-  return Number.isFinite(Number(shop?.longitude)) && Number.isFinite(Number(shop?.latitude));
+  const locationMode=normalizeLocationMode(shop?.location_mode||'',shop?.business_type||'',shop?.category||'');
+  if(!['storefront','hybrid'].includes(locationMode)) return false;
+  const blocked=new Set(['online','online only','remote','virtual','service area','service-area','n/a','na','none','unknown','tbd']);
+  const candidates=[shop?.street_line1,shop?.formatted_address,shop?.address];
+  const hasAddress=candidates.some(value=>{
+    const text=String(value||'').replace(/\s+/g,' ').trim().replace(/^[,.\-\s]+|[,.\-\s]+$/g,'').toLowerCase();
+    return !!text && !blocked.has(text);
+  });
+  return hasAddress && Number.isFinite(Number(shop?.longitude)) && Number.isFinite(Number(shop?.latitude));
 }
 function shopPublicRef(shop={}){
   return shop?.shop_slug || shop?.shop_id || '';
@@ -3724,7 +3795,7 @@ function renderMapMiniRail(shops=[],focusShopId=''){
     chip.className='map-sheet-mini-chip'+(active?' active':'');
     chip.setAttribute('aria-label',shop?.name||'Business');
     chip.setAttribute('title',shop?.name||'Business');
-    chip.innerHTML=`<span aria-hidden="true">${shopCategoryMapIcon(shop?.category)}</span>`;
+    chip.innerHTML=businessAvatarHtml(shop,shop?.name||'Business');
     chip.addEventListener('click',()=>{
       setMapSheetListHidden(false);
       focusMapShop(shop);
@@ -3771,7 +3842,7 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     card.setAttribute('aria-pressed',active?'true':'false');
     card.innerHTML=`
       <div class="map-spot-card-top">
-        <div class="map-spot-card-mark">${shopCategoryMapIcon(shop?.category)}</div>
+        <div class="map-spot-card-mark">${businessAvatarHtml(shop,shop?.name||'Business')}</div>
         <div class="map-spot-card-main">
           <div class="map-spot-card-name">${esc(shop?.name||'Business')}</div>
           <div class="map-spot-card-meta">${esc(metaText)}</div>
@@ -4173,8 +4244,8 @@ const BUSINESS_TYPE_META={
   retail:{label:'Retail business',defaultOfferingType:'product',singular:'product',plural:'products',businessLabel:'store',defaultLocationMode:'storefront'},
   service:{label:'Service business',defaultOfferingType:'service',singular:'service',plural:'services',businessLabel:'business',defaultLocationMode:'service_area'},
   professional:{label:'Professional practice',defaultOfferingType:'service',singular:'service',plural:'services',businessLabel:'business',defaultLocationMode:'service_area'},
-  education:{label:'Education business',defaultOfferingType:'class',singular:'class',plural:'classes',businessLabel:'business',defaultLocationMode:'hybrid'},
-  creator:{label:'Creator studio',defaultOfferingType:'portfolio',singular:'offering',plural:'offerings',businessLabel:'studio',defaultLocationMode:'online'},
+  education:{label:'Education business',defaultOfferingType:'service',singular:'service',plural:'services',businessLabel:'business',defaultLocationMode:'hybrid'},
+  creator:{label:'Creator studio',defaultOfferingType:'offering',singular:'offering',plural:'offerings',businessLabel:'studio',defaultLocationMode:'online'},
   other:{label:'Local business',defaultOfferingType:'offering',singular:'offering',plural:'offerings',businessLabel:'business',defaultLocationMode:'storefront'}
 };
 const OFFERING_TYPE_META={
@@ -4188,9 +4259,8 @@ const OFFERING_TYPE_META={
 const OFFERING_TYPE_OPTION_LIST=[
   ['product','Product'],
   ['service','Service'],
-  ['class','Class / Course'],
   ['event','Event'],
-  ['portfolio','Portfolio / Custom']
+  ['offering','General Offering']
 ];
 const OFFERING_TYPE_HIDDEN_BY_BUSINESS={
   service:['class','portfolio'],
@@ -4382,8 +4452,9 @@ function renderOfferingTypeOptions(selected=''){
   const businessType=currentShopBusinessType();
   const category=activeShopCategory();
   const normalizedSelected=normalizeOfferingType(selected||sel.value||'',businessType,category);
+  const supportedValues=new Set(OFFERING_TYPE_OPTION_LIST.map(([value])=>value));
   const options=[...allowedOfferingTypeOptionsForBusiness(businessType,category)];
-  if(normalizedSelected && !options.some(([value])=>value===normalizedSelected)){
+  if(normalizedSelected && supportedValues.has(normalizedSelected) && !options.some(([value])=>value===normalizedSelected)){
     options.push([normalizedSelected,`${offeringMeta(normalizedSelected,businessType,category).label} (Existing)`]);
   }
   sel.innerHTML=options.map(([value,label])=>`<option value="${esc(value)}">${esc(label)}</option>`).join('');
@@ -4624,6 +4695,9 @@ function renderAvailabilityOptions(selected=''){
   sel.innerHTML=options.map(([value,label])=>`<option value="${esc(value)}">${esc(label)}</option>`).join('');
   sel.value=options.some(([value])=>value===selected)?selected:(options[0]?.[0]||'available');
 }
+function showStructuredOfferingDetails(offeringType='',businessType='',category=''){
+  return normalizeOfferingType(offeringType,businessType,category)!=='service';
+}
 function syncProductOfferingUi(){
   const businessType=currentShopBusinessType();
   const category=activeShopCategory();
@@ -4632,6 +4706,7 @@ function syncProductOfferingUi(){
   const inventory=tracksInventory(offeringType,businessType,category);
   const duration=supportsDuration(offeringType,businessType,category);
   const capacity=supportsCapacity(offeringType,businessType,category);
+  const showAttrSection=showStructuredOfferingDetails(offeringType,businessType,category);
   const priceMode=normalizePriceMode($('prodPriceMode')?.value||'');
   if($('productFormTitle')) $('productFormTitle').textContent=$('prodId')?.value.trim()?`Edit ${meta.singular}`:`Add a ${meta.singular}`;
   if($('productFormTypeBadge')) $('productFormTypeBadge').textContent=meta.label;
@@ -4652,6 +4727,9 @@ function syncProductOfferingUi(){
   if($('prodDurationWrap')) $('prodDurationWrap').style.display=duration?'block':'none';
   if($('prodCapacityWrap')) $('prodCapacityWrap').style.display=capacity?'block':'none';
   if($('prodAvailabilityWrap')) $('prodAvailabilityWrap').style.display=inventory?'none':'block';
+  if($('prodAttrSection')) $('prodAttrSection').style.display=showAttrSection?'':'none';
+  if($('prodAttrStepKicker')) $('prodAttrStepKicker').textContent='Step 3';
+  if($('prodMediaStepKicker')) $('prodMediaStepKicker').textContent=showAttrSection?'Step 4':'Step 3';
   if($('bulkField')) renderBulkFieldOptions();
   if($('prodPriceWrap')) $('prodPriceWrap').style.display=priceMode==='custom'||priceMode==='inquiry'||priceMode==='free'?'none':'block';
   if($('prodPriceLabel')) $('prodPriceLabel').textContent=priceMode==='starting_at'?'Starting Price':'Base Price';
@@ -5036,6 +5114,184 @@ function collectVariantMatrixData(){
   });
   App.productVariantMatrixDraft=normalizeVariantMatrixRows(out,collectVariantData());
   return out;
+}
+function renderVariantImageItems(images=[],idx=0){
+  if(!images.length) return `<div class="variant-img-empty">No saved images yet.</div>`;
+  return images.map((url,imageIdx)=>`<div class="variant-img-item"><img src="${esc(url)}" alt=""/><button class="variant-img-del" type="button" aria-label="Remove image" data-variant-img-del="${idx}" data-variant-img-idx="${imageIdx}">x</button></div>`).join('');
+}
+function renderVariantMetaChips(items=[]){
+  return (items||[]).filter(Boolean).map(item=>`<span class="variant-row-chip">${esc(item)}</span>`).join('');
+}
+function renderVariantMatrixBuilder(prefill=[],variantData=null){
+  const wrap=$('variantMatrixBuilder');
+  if(!wrap) return;
+  const rows=normalizeVariantMatrixRows(prefill,variantData||collectVariantData());
+  App.productVariantMatrixDraft=rows;
+  wrap.innerHTML='';
+  if(!rows.length){
+    wrap.innerHTML='<div class="variant-empty"><div class="variant-empty-title">No combinations yet</div><div class="variant-empty-copy">Add at least two option groups, such as <strong>Size</strong> and <strong>Color</strong>, then generate combinations to manage exact pricing, stock, and images.</div></div>';
+    return;
+  }
+  rows.forEach((item,idx)=>{
+    const comboChips=[
+      item.price_delta ? `Price ${item.price_delta>0?'+':''}${Number(item.price_delta).toFixed(2)}` : 'Default price',
+      item.stock_quantity!=null && item.stock_quantity!=='' ? `${Number(item.stock_quantity)} qty` : 'Default quantity'
+    ];
+    const comboParts=Object.entries(item.selections||{}).map(([group,label])=>renderOptionLabelContent(group,label)).join(' <span class="variant-combo-divider">/</span> ');
+    const row=document.createElement('div');
+    row.className='variant-row';
+    row.innerHTML=`
+      <div class="variant-row-top">
+        <div class="variant-row-copy">
+          <div class="variant-row-eyebrow">Combination ${idx+1}</div>
+          <div class="variant-row-title">${comboParts}</div>
+          <div class="variant-row-summary">Use a combination override only when this exact selection needs different pricing, quantity, or images from the default product setup.</div>
+          <div class="variant-row-chips">${renderVariantMetaChips(comboChips)}</div>
+        </div>
+      </div>
+      <div class="variant-row-main combo">
+        <div class="fld"><label>Combination Price Adjustment</label><input data-combo-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Optional. Use this only when the final price for this exact combination should change.</div></div>
+        <div class="fld"><label>Combination Quantity</label><input data-combo-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="8"/><div class="fld-hint">Optional. Leave blank to use the main or option-level quantity.</div></div>
+      </div>
+      <div class="variant-assets">
+        <div class="variant-media-card">
+          <div class="variant-media-head">
+            <div class="variant-media-kicker">Uploads</div>
+            <div class="variant-media-title">Combination images</div>
+            <div class="variant-media-copy">These images win when the customer selects this exact combination.</div>
+          </div>
+          <div class="fld">
+            <input data-combo-files="${idx}" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.jfif"/>
+            <div class="fld-hint">Use this only when the combined selection needs dedicated photos.</div>
+          </div>
+        </div>
+        <div class="variant-media-card">
+          <div class="variant-media-head">
+            <div class="variant-media-kicker">Library</div>
+            <div class="variant-media-title">Saved images</div>
+            <div class="variant-media-copy">Images already attached to this exact combination.</div>
+          </div>
+          <div class="variant-img-grid">${renderVariantImageItems(item.images||[],idx).replaceAll('data-variant-img-del','data-combo-img-del').replaceAll('data-variant-img-idx','data-combo-img-idx')}</div>
+        </div>
+        <div class="variant-media-card">
+          <div class="variant-media-head">
+            <div class="variant-media-kicker">Queue</div>
+            <div class="variant-media-title">New uploads</div>
+            <div class="variant-media-copy">Files waiting to be saved with the next product update.</div>
+          </div>
+          <div class="variant-img-grid">${(item._files||[]).length ? Array.from(item._files).map(file=>`<div class="variant-img-item"><img src="${esc(URL.createObjectURL(file))}" alt=""/></div>`).join('') : '<div class="variant-img-empty">No new files selected.</div>'}</div>
+        </div>
+      </div>`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('[data-combo-delta],[data-combo-stock]').forEach(el=>el.addEventListener('input',markProductFormDirty));
+  wrap.querySelectorAll('[data-combo-files]').forEach(input=>input.addEventListener('change',e=>{
+    const idx=Number(e.target.getAttribute('data-combo-files'));
+    if(!App.productVariantMatrixDraft[idx]) return;
+    App.productVariantMatrixDraft[idx]._files=Array.from(e.target.files||[]);
+    renderVariantMatrixBuilder(App.productVariantMatrixDraft,variantData||collectVariantData());
+    markProductFormDirty();
+  }));
+  wrap.querySelectorAll('[data-combo-img-del]').forEach(btn=>btn.addEventListener('click',()=>{
+    const idx=Number(btn.getAttribute('data-combo-img-del'));
+    const imageIdx=Number(btn.getAttribute('data-combo-img-idx'));
+    if(!App.productVariantMatrixDraft[idx]) return;
+    App.productVariantMatrixDraft[idx].images=(App.productVariantMatrixDraft[idx].images||[]).filter((_,i)=>i!==imageIdx);
+    renderVariantMatrixBuilder(App.productVariantMatrixDraft,variantData||collectVariantData());
+    markProductFormDirty();
+  }));
+}
+function renderVariantBuilder(prefill=[]){
+  const wrap=$('variantBuilder');
+  if(!wrap) return;
+  const rows=normalizeVariantDraftRows(prefill);
+  App.productVariantDraft=rows;
+  wrap.innerHTML='';
+  if(!rows.length){
+    wrap.innerHTML='<div class="variant-empty"><div class="variant-empty-title">No variant options yet</div><div class="variant-empty-copy">Start with a common option such as <strong>Size</strong> or <strong>Color</strong>. Each option can have its own price adjustment, stock, and images.</div></div>';
+    renderVariantMatrixBuilder(App.productVariantMatrixDraft,rows);
+    return;
+  }
+  rows.forEach((item,idx)=>{
+    const optionChips=[
+      `Group: ${item.group||'Option'}`,
+      item.price_delta ? `Price ${item.price_delta>0?'+':''}${Number(item.price_delta).toFixed(2)}` : 'Base price',
+      item.stock_quantity!=null && item.stock_quantity!=='' ? `${Number(item.stock_quantity)} qty` : 'Uses main quantity'
+    ];
+    const row=document.createElement('div');
+    row.className='variant-row';
+    row.innerHTML=`
+      <div class="variant-row-top">
+        <div class="variant-row-copy">
+          <div class="variant-row-eyebrow">Option ${idx+1}</div>
+          <div class="variant-row-title">${renderOptionLabelContent(item.group,item.label||'New option')}</div>
+          <div class="variant-row-summary">Name the option exactly as customers should see it. Add pricing, quantity, or images only when this option differs from the base product.</div>
+          <div class="variant-row-chips">${renderVariantMetaChips(optionChips)}</div>
+        </div>
+        <button class="btn btn-r btn-sm variant-row-remove" type="button" data-variant-remove="${idx}">Remove Option</button>
+      </div>
+      <div class="variant-row-main option">
+        <div class="fld"><label>Type</label><select data-variant-group>${VARIANT_GROUP_OPTIONS.map(opt=>`<option value="${esc(opt)}"${(item.group||'')===opt?' selected':''}>${esc(opt)}</option>`).join('')}</select></div>
+        <div class="fld"><label>Option</label><input data-variant-label value="${esc(item.label)}" placeholder="Large"/></div>
+        <div class="fld"><label>Price Adjustment</label><input data-variant-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Enter a positive value to add to the base price, or a negative value to reduce it.</div></div>
+        <div class="fld"><label>Option Quantity</label><input data-variant-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="12"/><div class="fld-hint">Leave blank to fall back to the main product quantity.</div></div>
+      </div>
+      <div class="variant-assets">
+        <div class="variant-media-card">
+          <div class="variant-media-head">
+            <div class="variant-media-kicker">Uploads</div>
+            <div class="variant-media-title">Option images</div>
+            <div class="variant-media-copy">Use these only when this specific option needs its own visual treatment.</div>
+          </div>
+          <div class="fld">
+            <input data-variant-files="${idx}" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.jfif"/>
+            <div class="fld-hint">Example: photos for <code>Color / Red</code> only.</div>
+          </div>
+        </div>
+        <div class="variant-media-card">
+          <div class="variant-media-head">
+            <div class="variant-media-kicker">Library</div>
+            <div class="variant-media-title">Saved images</div>
+            <div class="variant-media-copy">Images already assigned to this option.</div>
+          </div>
+          <div class="variant-img-grid">${renderVariantImageItems(item.images||[],idx)}</div>
+        </div>
+        <div class="variant-media-card">
+          <div class="variant-media-head">
+            <div class="variant-media-kicker">Queue</div>
+            <div class="variant-media-title">New uploads</div>
+            <div class="variant-media-copy">Files waiting to be saved with the next product update.</div>
+          </div>
+          <div class="variant-img-grid" data-variant-new-preview="${idx}">${(item._files||[]).length ? Array.from(item._files).map(file=>`<div class="variant-img-item"><img src="${esc(URL.createObjectURL(file))}" alt=""/></div>`).join('') : '<div class="variant-img-empty">No new files selected.</div>'}</div>
+        </div>
+      </div>`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('[data-variant-group],[data-variant-label],[data-variant-delta],[data-variant-stock]').forEach(el=>el.addEventListener('input',markProductFormDirty));
+  wrap.querySelectorAll('[data-variant-group],[data-variant-label]').forEach(el=>el.addEventListener('change',()=>{renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData());markProductFormDirty();}));
+  wrap.querySelectorAll('[data-variant-files]').forEach(input=>input.addEventListener('change',e=>{
+    const idx=Number(e.target.getAttribute('data-variant-files'));
+    if(!App.productVariantDraft[idx]) return;
+    App.productVariantDraft[idx]._files=Array.from(e.target.files||[]);
+    renderVariantBuilder(App.productVariantDraft);
+    markProductFormDirty();
+  }));
+  wrap.querySelectorAll('[data-variant-img-del]').forEach(btn=>btn.addEventListener('click',()=>{
+    const idx=Number(btn.getAttribute('data-variant-img-del'));
+    const imageIdx=Number(btn.getAttribute('data-variant-img-idx'));
+    if(!App.productVariantDraft[idx]) return;
+    App.productVariantDraft[idx].images=(App.productVariantDraft[idx].images||[]).filter((_,i)=>i!==imageIdx);
+    renderVariantBuilder(App.productVariantDraft);
+    markProductFormDirty();
+  }));
+  wrap.querySelectorAll('[data-variant-remove]').forEach(btn=>btn.addEventListener('click',()=>{
+    const current=collectVariantData();
+    current.splice(Number(btn.getAttribute('data-variant-remove')),1);
+    renderVariantBuilder(current);
+    renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData());
+    markProductFormDirty();
+  }));
+  renderVariantMatrixBuilder(App.productVariantMatrixDraft,rows);
 }
 function renderShopAttributeFilter(category=''){
   const sec=$('shopAttrFilterSec'), keySel=$('shopAttrKey'), valInp=$('shopAttrValue');
@@ -6828,10 +7084,9 @@ function renderHomeShops(){
   if(!shops.length){grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">🔍</div><div class="et">No businesses in this category yet.</div></div>`;return;}
   shops.forEach(s=>{
     const card=document.createElement('div');card.className='shop-card';
-    const ico={'Food':'🍜','Electronics':'📱','Clothing':'👗','Home':'🏠','Beauty':'💄','Sports':'⚽','Books':'📚'}[s.category||'']||'🏪';
     const distanceLabel=hasExactUserLocation(userLoc) ? formatDistanceKm(shopDistanceKm(s,userLoc)) : '';
     const nouns=offeringNouns(s);
-    card.innerHTML=`<div class="shop-card-banner"><div class="shop-card-mark">${ico}</div>${s.category?`<div class="shop-card-category">${esc(s.category)}</div>`:''}</div>
+    card.innerHTML=`<div class="shop-card-banner"><div class="shop-card-mark">${businessAvatarHtml(s,s.name||'Business')}</div>${s.category?`<div class="shop-card-category">${esc(s.category)}</div>`:''}</div>
     <div class="shop-card-body"><div class="shop-card-name">${esc(s.name)}</div><div class="shop-card-addr">📍 ${esc(s.address||'Address coming soon')}</div>
     <div class="shop-card-overview">${esc((s.overview||'Local offerings, direct business chat, and quick browsing in one place.').slice(0,120))}</div>
     <div class="shop-card-foot"><span class="sc-chip a">${s.stats?.product_count??0} ${esc(nouns.plural)}</span>${distanceLabel?`<span class="sc-chip d">📍 ${esc(distanceLabel)}</span>`:''}${(s.stats?.avg_rating>0)?`<span class="sc-chip g">★ ${s.stats.avg_rating}</span>`:''}<span class="sc-chip d">${s.stats?.chat_hits_30d??0} chats / 30d</span>${s.is_open_now?`<span class="sc-chip g">Open now</span>`:''}</div></div>`;
@@ -7185,7 +7440,9 @@ function addMsg(text,role='assistant',loading=false,products=[]){
   const msgs=$('chatMsgs');
   if(msgs.querySelector('.empty'))msgs.innerHTML='';
   const row=document.createElement('div');row.className=`msg ${role}`;
-  const av=document.createElement('div');av.className='msg-av';av.textContent=role==='user'?'You':'Biz';
+  const av=document.createElement('div');av.className='msg-av';
+  if(role==='user') av.textContent='You';
+  else populateBusinessAvatarNode(av,App.shopData?.shop||{},App.shopData?.shop?.name||App.shopId||'Business');
   row.appendChild(av);
   const col=document.createElement('div');col.className='msg-col';
   const meta=document.createElement('div');meta.className='msg-meta';meta.textContent=role==='user'?'You':'Business Assistant';
@@ -7678,7 +7935,7 @@ async function loadMyShops(){
       const offeringCount=stats.offering_count??stats.product_count??0;
       const card=document.createElement('button');
       card.className='owner-shop-card';
-      card.innerHTML=`<div class="owner-shop-card-top"><div><div class="owner-shop-card-name">${esc(s.name||'Untitled Business')}</div><div class="owner-shop-card-meta">${esc(s.address||s.service_area||'Profile in progress')}${s.category?` - ${esc(s.category)}`:''}</div></div><span class="badge">${offeringCount} ${esc(nouns.plural)}</span></div><div class="owner-shop-card-overview">${esc((s.overview||'Open this workspace to update your business page, manage offerings, and keep the customer chat accurate.').slice(0,150))}</div><div class="owner-flag-list">${flags.length?flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join(''):'<span class="owner-good">Ready to publish</span>'}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">${esc(nouns.plural.charAt(0).toUpperCase()+nouns.plural.slice(1))}</div><div class="owner-shop-card-stat-v">${offeringCount}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Chats / 30d</div><div class="owner-shop-card-stat-v">${stats.chat_hits_30d??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Rating</div><div class="owner-shop-card-stat-v">${Number(stats.avg_rating||0).toFixed(1)}</div></div></div><div class="owner-shop-card-go"><span>Open business workspace</span><span>&gt;</span></div>`;
+      card.innerHTML=`<div class="owner-shop-card-top"><div class="owner-shop-card-ident"><div class="owner-shop-card-avatar">${businessAvatarHtml(s,s.name||'Business')}</div><div><div class="owner-shop-card-name">${esc(s.name||'Untitled Business')}</div><div class="owner-shop-card-meta">${esc(s.address||s.service_area||'Profile in progress')}${s.category?` - ${esc(s.category)}`:''}</div></div></div><span class="badge">${offeringCount} ${esc(nouns.plural)}</span></div><div class="owner-shop-card-overview">${esc((s.overview||'Open this workspace to update your business page, manage offerings, and keep the customer chat accurate.').slice(0,150))}</div><div class="owner-flag-list">${flags.length?flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join(''):'<span class="owner-good">Ready to publish</span>'}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">${esc(nouns.plural.charAt(0).toUpperCase()+nouns.plural.slice(1))}</div><div class="owner-shop-card-stat-v">${offeringCount}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Chats / 30d</div><div class="owner-shop-card-stat-v">${stats.chat_hits_30d??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Rating</div><div class="owner-shop-card-stat-v">${Number(stats.avg_rating||0).toFixed(1)}</div></div></div><div class="owner-shop-card-go"><span>Open business workspace</span><span>&gt;</span></div>`;
       card.addEventListener('click',()=>loadAdminShop(s.shop_id));
       grid.appendChild(card);
     });

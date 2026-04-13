@@ -374,6 +374,19 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertEqual(data["offerings"][0]["offering_id"], "offer-1")
         self.assertEqual(data["products"][0]["product_id"], "offer-1")
         self.assertEqual(data["offerings"][0]["business_id"], "svc-1")
+        self.assertIsNone(data["business"]["latitude"])
+        self.assertIsNone(data["business"]["longitude"])
+
+    def test_public_business_list_hides_coordinates_for_non_mappable_locations(self):
+        response = self.client.get("/public/businesses")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        business = data["businesses"][0]
+        self.assertEqual(business["business_id"], "svc-1")
+        self.assertEqual(business["location_mode"], "service_area")
+        self.assertIsNone(business["latitude"])
+        self.assertIsNone(business["longitude"])
 
     def test_admin_profile_image_upload_updates_business_record(self):
         with self._patch_get_user(self.owner):
@@ -407,6 +420,49 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertEqual(data["business_slug"], "north-coast-travel")
         self.assertIn("North Coast Travel", data["answer"])
         self.assertTrue(isinstance(data.get("offerings"), list))
+
+    def test_build_chat_suggestions_returns_question_list_for_ranked_results(self):
+        shop = server.normalize_shop_record(self.fake_supabase.tables["shops"][0])
+        picked = [self.fake_supabase.tables["products"][0]]
+
+        suggestions = server.build_chat_suggestions("Tell me more about your services", shop, picked)
+
+        self.assertIsInstance(suggestions, list)
+        self.assertIn("What is the price of Trip Planning Session?", suggestions)
+        self.assertIn("Show me photos of Trip Planning Session", suggestions)
+
+    def test_chat_retries_truncated_llm_answer(self):
+        calls = []
+
+        def fake_llm(system, user, max_tokens=None):
+            calls.append(max_tokens)
+            if len(calls) == 1:
+                return {
+                    "content": "Trip Planning Session is a strong fit for family travel because it includes itinerary guidance, booking support, and practical planning for",
+                    "model": "test-model",
+                    "finish_reason": "length",
+                    "truncated": True,
+                }
+            return {
+                "content": "Trip Planning Session is a strong fit for family travel because it includes itinerary guidance, booking support, and practical planning for a group. It lasts 60 minutes and starts at 120 CAD.",
+                "model": "test-model",
+                "finish_reason": "stop",
+                "truncated": False,
+            }
+
+        with patch.object(server, "HAS_RAG", False), patch.object(server, "llm_chat", side_effect=fake_llm):
+            response = self.client.get(
+                "/chat",
+                params={"business_id": "svc-1", "q": "I need help choosing the right option for a family trip."},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(calls), 2)
+        self.assertGreater(calls[1], calls[0])
+        self.assertIn("family travel", data["answer"])
+        self.assertEqual(data["meta"]["finish_reason"], "stop")
+        self.assertIsInstance(data["meta"]["suggestions"], list)
 
     def test_customer_favourite_canonical_route_and_listing_work(self):
         with self._patch_get_user(self.user):
