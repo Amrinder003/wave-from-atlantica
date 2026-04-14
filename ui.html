@@ -80,10 +80,13 @@ a{color:inherit;text-decoration:none}
 .nav-search-btn{padding:0 16px;background:var(--A);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px;flex-shrink:0;transition:.13s}
 .nav-search-btn:hover{background:var(--A2)}
 .nav-right{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0}
-.nav-btn{display:flex;flex-direction:column;align-items:center;padding:5px 9px;border-radius:var(--r1);color:var(--navt);font-size:10px;font-weight:600;transition:.12s;cursor:pointer;gap:1px;min-width:48px;text-align:center}
+.nav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 9px;border-radius:var(--r1);color:var(--navt);font-size:10px;font-weight:600;transition:.12s;cursor:pointer;gap:4px;min-width:48px;text-align:center}
 .nav-btn:hover{background:var(--navs);color:var(--A)}
 .nav-btn:active{transform:scale(.97);background:var(--navs);color:var(--A)}
-.nav-btn .ni{font-size:18px;line-height:1}
+.nav-btn .ni{width:28px;height:28px;border-radius:999px;display:grid;place-items:center;background:rgba(255,250,242,.92);border:1px solid rgba(191,174,149,.32);box-shadow:0 8px 18px rgba(48,33,15,.06);line-height:1;color:currentColor;transition:background .12s ease,border-color .12s ease,box-shadow .12s ease}
+.nav-btn .ni svg{width:16px;height:16px;display:block;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.nav-btn .ni.nav-initial{font-family:'Sora',sans-serif;font-size:12px;font-weight:800;letter-spacing:-.04em}
+.nav-btn:hover .ni,.nav-btn:active .ni{background:rgba(255,247,239,.98);border-color:rgba(162,76,46,.26);box-shadow:0 10px 20px rgba(92,47,24,.1)}
 .nav-cart-wrap{position:relative}
 .nav-cart-n{position:absolute;top:-3px;right:2px;min-width:16px;height:16px;border-radius:99px;background:var(--Y);color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;padding:0 3px}
 .nav-cart-n.off{display:none}
@@ -105,7 +108,7 @@ a{color:inherit;text-decoration:none}
   .nav-logo-text em{font-size:9px;letter-spacing:.12em}
   .nav-right{gap:4px}
   .nav-btn{min-width:44px;min-height:44px;padding:4px 6px}
-  .nav-btn .ni{font-size:16px}
+  .nav-btn .ni{width:26px;height:26px}
   .nav-search input{padding:9px 10px;font-size:13px}
   .nav-search-btn{padding:0 12px;font-size:12px}
 }
@@ -159,7 +162,8 @@ a{color:inherit;text-decoration:none}
   .home-mobile-switch-btn{width:48px;height:48px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(180deg,#fff9f3,#f7eadc);border:1px solid rgba(191,174,149,.34);color:var(--ink2);transition:transform .16s ease,background .16s ease,border-color .16s ease,box-shadow .16s ease}
   .home-mobile-switch-btn.on{background:linear-gradient(180deg,#7e341d,#a24c2e);color:#fff;border-color:rgba(126,52,29,.82);box-shadow:0 12px 24px rgba(92,47,24,.18)}
   .home-mobile-switch-btn:active{transform:scale(.96)}
-  .home-mobile-switch-icon{font-size:20px;line-height:1}
+  .home-mobile-switch-icon{display:grid;place-items:center;width:20px;height:20px;line-height:1}
+  .home-mobile-switch-icon svg{width:20px;height:20px;display:block;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;fill:none}
   .section-shell{scroll-margin-top:calc(var(--nh) + var(--sh) + 20px)}
   .shop-filter-shell{position:fixed;left:0;right:0;bottom:0;top:auto;max-height:78dvh;overflow:auto;z-index:430;border-radius:26px 26px 0 0;padding:0 14px 16px;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));box-shadow:0 -24px 60px rgba(18,23,34,.2);border:1px solid rgba(191,174,149,.32);transform:translateY(108%);transition:transform .24s ease;display:block}
   .shop-filter-shell.on{transform:translateY(0)}
@@ -191,7 +195,8 @@ a{color:inherit;text-decoration:none}
   .home-mobile-switcher{right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px))}
   .home-mobile-switch-dock{padding:7px;gap:7px}
   .home-mobile-switch-btn{width:44px;height:44px}
-  .home-mobile-switch-icon{font-size:18px}
+  .home-mobile-switch-icon{width:18px;height:18px}
+  .home-mobile-switch-icon svg{width:18px;height:18px}
 }
 .hero-panel{background:linear-gradient(135deg,#2f221b,#7e341d 45%,#c0734a);border-radius:30px;padding:28px 28px 24px;color:#fff;position:relative;overflow:hidden;box-shadow:0 26px 60px rgba(73,40,19,.18)}
 .hero-panel::before{content:'';position:absolute;right:-40px;top:-24px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.09)}
@@ -376,20 +381,20 @@ a{color:inherit;text-decoration:none}
 .shop-snapshot-close{width:40px;height:40px;border-radius:999px;display:grid;place-items:center;background:rgba(255,250,242,.9);border:1px solid rgba(191,174,149,.34);color:var(--ink2);font-size:18px;line-height:1;cursor:pointer}
 .shop-snapshot-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .shop-mobile-tools,.shop-mobile-sheet-head{display:none}
-.shop-body{display:grid;grid-template-columns:224px 1fr;min-height:calc(100vh - var(--nh) - var(--sh) - 130px);min-height:calc(100dvh - var(--nh) - var(--sh) - 130px)}
+.shop-body{display:grid;grid-template-columns:248px 1fr;min-height:calc(100vh - var(--nh) - var(--sh) - 130px);min-height:calc(100dvh - var(--nh) - var(--sh) - 130px)}
 @media(max-width:860px){.shop-body{grid-template-columns:1fr}}
-.shop-sidebar{border-right:1px solid rgba(191,174,149,.38);background:linear-gradient(180deg,rgba(255,253,248,.96),rgba(246,239,227,.86));padding:16px 0;position:sticky;top:calc(var(--nh) + var(--sh));height:calc(100vh - var(--nh) - var(--sh));height:calc(100dvh - var(--nh) - var(--sh));overflow-y:auto;-webkit-overflow-scrolling:touch}
-.shop-sidebar-sec{padding:0 14px 14px;border-bottom:1px solid rgba(191,174,149,.32);margin-bottom:10px}
-.shop-sidebar-lbl{font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
-.filter-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r1);cursor:pointer;font-size:13px;transition:.11s}
+.shop-sidebar{border-right:1px solid rgba(191,174,149,.38);background:linear-gradient(180deg,rgba(255,253,248,.96),rgba(246,239,227,.86));padding:18px 0;position:sticky;top:calc(var(--nh) + var(--sh));height:calc(100vh - var(--nh) - var(--sh));height:calc(100dvh - var(--nh) - var(--sh));overflow-y:auto;-webkit-overflow-scrolling:touch}
+.shop-sidebar-sec{padding:0 16px 16px;border-bottom:1px solid rgba(191,174,149,.32);margin-bottom:12px}
+.shop-sidebar-lbl{font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px}
+.filter-row{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:var(--r1);cursor:pointer;font-size:13px;transition:.11s}
 .filter-row:hover{background:var(--sf2)}
 .filter-row input{accent-color:var(--A);width:14px;height:14px;flex-shrink:0}
-.shop-side-stats{display:grid;gap:8px}
-.shop-side-stat{padding:11px 12px;border-radius:16px;background:rgba(255,248,240,.8);border:1px solid rgba(191,174,149,.35)}
+.shop-side-stats{display:grid;gap:9px}
+.shop-side-stat{padding:12px 13px;border-radius:18px;background:rgba(255,248,240,.8);border:1px solid rgba(191,174,149,.35)}
 .shop-side-stat-k{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)}
 .shop-side-stat-v{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;margin-top:5px}
-.shop-side-prompts{display:grid;gap:8px}
-.shop-side-prompt{padding:9px 11px;border-radius:14px;background:var(--sf);border:1px solid rgba(191,174,149,.32);font-size:12px;color:var(--ink2);cursor:pointer;text-align:left;transition:.12s}
+.shop-side-prompts{display:grid;gap:9px}
+.shop-side-prompt{padding:10px 11px;border-radius:14px;background:var(--sf);border:1px solid rgba(191,174,149,.32);font-size:12px;color:var(--ink2);cursor:pointer;text-align:left;transition:.12s;line-height:1.45;display:grid;align-items:center;min-height:46px}
 .shop-side-prompt:hover{border-color:rgba(162,76,46,.32);transform:translateY(-1px)}
 .shop-side-prompt:active{transform:scale(.985);background:var(--sf2)}
 .map-sheet-bg{position:fixed;inset:0;background:rgba(15,23,42,.34);backdrop-filter:blur(6px);z-index:460;display:none;align-items:stretch;justify-content:stretch;padding:0}
@@ -431,11 +436,11 @@ a{color:inherit;text-decoration:none}
 .map-spot-card-main{min-width:0;display:grid;gap:4px}
 .map-spot-card-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.15;letter-spacing:-.03em}
 .map-spot-card-meta{font-size:11px;font-weight:700;color:var(--A2);line-height:1.45}
-.map-spot-card-copy{font-size:11px;color:var(--ink3);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.map-spot-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.map-spot-card-copy{font-size:11px;color:var(--ink3);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:33px}
+.map-spot-card-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .map-spot-card-chips{display:flex;flex-wrap:wrap;gap:6px}
 .map-spot-card-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:rgba(255,250,242,.9);border:1px solid rgba(191,174,149,.26);font-size:10px;font-weight:800;color:var(--ink2)}
-.map-spot-card-visit{padding-inline:10px}
+.map-spot-card-visit{padding-inline:10px;flex-shrink:0}
 .map-sheet-mapwrap{position:absolute;inset:0;min-width:0;min-height:0;height:100%;overflow:hidden;background:linear-gradient(180deg,#f6efe3,#eadbc6);isolation:isolate}
 .map-sheet-canvas{position:relative;width:100%;height:100%;min-height:100%;z-index:1}
 .map-sheet-floating{position:absolute;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 126px);display:grid;gap:8px;justify-items:start;align-content:end;pointer-events:none;max-width:min(420px,calc(100% - 32px));transition:opacity .2s ease,transform .2s ease;z-index:5}
@@ -530,6 +535,8 @@ a{color:inherit;text-decoration:none}
   .map-spot-card-mark{width:38px;height:38px;border-radius:14px;font-size:17px}
   .map-spot-card-name{font-size:14px}
   .map-spot-card-copy{font-size:10px}
+  .map-spot-card-foot{display:grid;grid-template-columns:1fr;align-items:stretch}
+  .map-spot-card-visit{width:100%;justify-content:center}
   .map-sheet-floating{display:none}
   .map-sheet-canvas .leaflet-top.leaflet-left{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 88px)}
   .map-sheet.list-hidden .map-sheet-locate-btn{bottom:calc(env(safe-area-inset-bottom,0px) + 68px)}
@@ -585,7 +592,9 @@ a{color:inherit;text-decoration:none}
 @media(max-width:560px){
   .shop-mobile-hero{margin:-14px 10px 10px}
   .shop-side-stats,.shop-side-prompts{grid-template-columns:1fr}
-  .shop-mobile-summary{grid-template-columns:1fr}
+  .shop-mobile-summary{grid-template-columns:1fr;gap:8px}
+  .shop-mobile-summary-card{padding:12px 13px;border-radius:20px}
+  .shop-mobile-summary-v{font-size:15px;line-height:1.26}
   .shop-mobile-actions{grid-template-columns:1fr}
   .shop-snapshot-modal{padding:14px}
   .shop-snapshot-box{padding:16px 14px 14px;border-radius:24px}
@@ -619,8 +628,14 @@ a{color:inherit;text-decoration:none}
   .shop-pgrid .pc-variants{margin-top:7px;gap:4px;max-height:30px;overflow:hidden}
   .shop-pgrid .pc-vchip{padding:4px 7px;font-size:9px;border-radius:11px}
 }
-@media(max-width:360px){
+@media(max-width:420px){
   .shop-pgrid{grid-template-columns:1fr}
+  .shop-pgrid .pc{display:grid;grid-template-columns:118px minmax(0,1fr);align-items:stretch;border-radius:20px}
+  .shop-pgrid .pc-photo-wrap{aspect-ratio:auto;min-height:100%;height:100%;border-right:1px solid rgba(191,174,149,.22)}
+  .shop-pgrid .pc-body{padding:12px}
+  .shop-pgrid .pc-name{font-size:14px;line-height:1.3}
+  .shop-pgrid .pc-price{font-size:16px;margin-top:5px}
+  .shop-pgrid .pc-variants{max-height:none}
 }
 .shop-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap;padding:12px 14px;border-radius:22px;background:rgba(255,253,248,.84);border:1px solid rgba(191,174,149,.32)}
 .shop-search-box{display:flex;align-items:center;border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden;background:var(--sf);flex:1;max-width:340px;transition:.13s;box-shadow:var(--s1)}
@@ -761,8 +776,8 @@ a{color:inherit;text-decoration:none}
 .auth-head{padding:22px 24px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .auth-title{font-family:'Sora',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.04em}
 .auth-sub{font-size:13px;line-height:1.65;color:var(--ink3);margin-top:4px}
-.auth-close{font-size:20px;cursor:pointer;color:var(--ink3);padding:4px 8px;border-radius:999px;transition:.12s}
-.auth-close:hover{background:rgba(255,255,255,.8);color:var(--ink)}
+.auth-close{width:40px;height:40px;display:grid;place-items:center;font-size:20px;cursor:pointer;color:var(--ink3);background:rgba(255,250,242,.9);border:1px solid rgba(191,174,149,.32);padding:0;border-radius:999px;transition:.12s}
+.auth-close:hover{background:rgba(255,255,255,.98);border-color:rgba(162,76,46,.24);color:var(--ink)}
 .auth-tabs{display:flex;border-bottom:1px solid var(--bd);margin:0 22px;gap:0}
 .auth-tab{padding:10px 16px;font-size:14px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;cursor:pointer;transition:.12s;margin-bottom:-1px}
 .auth-tab.on{color:var(--A);border-bottom-color:var(--A)}
@@ -849,7 +864,7 @@ a{color:inherit;text-decoration:none}
 .chat-sn{font-family:'Sora',sans-serif;font-weight:800;font-size:18px;cursor:pointer}
 .chat-sm{font-size:12px;color:var(--ink3)}
 .chat-msgs{flex:1;overflow-y:auto;padding:18px;background:linear-gradient(180deg,#fffaf3,#f7efe3);display:flex;flex-direction:column;gap:12px;min-height:0}
-.chat-msgs .empty{margin:auto 0;align-self:center;max-width:420px}
+.chat-msgs .empty{margin:14px auto 0;align-self:center;max-width:420px;width:min(420px,100%)}
 .msg{display:flex;gap:10px;align-items:flex-end}
 .msg.user{justify-content:flex-end}
 .msg-col{display:flex;flex-direction:column;gap:7px;min-width:0;max-width:min(78%,580px)}
@@ -900,7 +915,7 @@ a{color:inherit;text-decoration:none}
   .chat-topbar{position:sticky;top:0;z-index:5;padding:12px;background:rgba(255,253,248,.98);backdrop-filter:blur(10px);box-shadow:0 14px 26px rgba(48,33,15,.08)}
   .chat-status{padding:12px 12px 11px;border-radius:24px;background:linear-gradient(135deg,rgba(255,253,248,.98),rgba(247,239,228,.92));border:1px solid rgba(191,174,149,.32);box-shadow:0 14px 28px rgba(48,33,15,.06)}
   .chat-msgs{padding:14px 12px 18px;scroll-padding-bottom:154px;background:radial-gradient(circle at top left,rgba(255,255,255,.56),transparent 36%),linear-gradient(180deg,#fffaf3,#f5ebde)}
-  .chat-msgs .empty{padding:26px 16px}
+  .chat-msgs .empty{margin:10px auto 0;padding:22px 16px}
   .chat-composer{position:sticky;bottom:0;z-index:5;padding:10px 12px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,rgba(247,241,232,0),rgba(247,241,232,.82) 18%,rgba(247,241,232,.98));backdrop-filter:blur(12px)}
   .cqchips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin-bottom:10px}
   .cqchips::-webkit-scrollbar,.inline-pgrid::-webkit-scrollbar{display:none}
@@ -1117,7 +1132,7 @@ a{color:inherit;text-decoration:none}
 .workspace-kicker{font-size:10px;font-weight:800;color:var(--A2);text-transform:uppercase;letter-spacing:.08em}
 .workspace-title{font-family:'Sora',sans-serif;font-size:24px;font-weight:800;line-height:1.05;letter-spacing:-.05em;max-width:720px}
 .workspace-desc{font-size:13px;color:var(--ink3);max-width:620px;line-height:1.65}
-.workspace-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.workspace-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start}
 .workspace-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:12px;padding:16px 18px;background:linear-gradient(180deg,rgba(255,252,247,.96),rgba(250,245,236,.82))}
 .workspace-stat{padding:14px 14px;border-radius:18px;border:1px solid rgba(191,174,149,.34);background:rgba(255,250,242,.9);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
 .workspace-stat-label{font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.06em}
@@ -1146,10 +1161,17 @@ a{color:inherit;text-decoration:none}
 .owner-shop-card-stat-v{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;margin-top:4px}
 .owner-shop-card-go{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--A2);padding-top:4px}
 .owner-filter-bar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;margin:14px 0}
+.owner-filter-bar .btn-row{align-self:end;justify-content:flex-end}
 .owner-flag-list{display:flex;flex-wrap:wrap;gap:8px}
 .owner-flag{font-size:11px;font-weight:700;padding:6px 9px;border-radius:999px;background:#fff4ea;color:#a24b1d;border:1px solid rgba(185,97,40,.24)}
 .owner-good{font-size:11px;font-weight:700;padding:6px 9px;border-radius:999px;background:#ebfbf2;color:#1f7a4b;border:1px solid rgba(31,122,75,.18)}
-@media(max-width:900px){.owner-filter-bar{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){
+  .workspace-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .workspace-actions .btn{width:100%;justify-content:center}
+  .owner-filter-bar{grid-template-columns:1fr 1fr}
+  .owner-filter-bar .btn-row{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+  .owner-filter-bar .btn-row .btn{width:100%;justify-content:center}
+}
 @media(max-width:680px){.owner-filter-bar{grid-template-columns:1fr}}
 .owner-detail-card{overflow:hidden;background:linear-gradient(135deg,rgba(255,250,244,.98),rgba(250,242,232,.92));position:relative}
 .owner-detail-card::after{content:"";position:absolute;right:-40px;top:-26px;width:180px;height:180px;border-radius:999px;background:radial-gradient(circle,rgba(2,132,199,.1),rgba(2,132,199,0));pointer-events:none}
@@ -1364,6 +1386,7 @@ a{color:inherit;text-decoration:none}
 
   .workspace-actions,.product-manager-tools,.btn-row{display:grid;grid-template-columns:1fr}
   .workspace-actions .btn,.product-manager-tools .btn,.btn-row .btn{width:100%;justify-content:center}
+  .owner-filter-bar .btn-row{grid-template-columns:1fr}
   #productFormView .workspace-actions{grid-template-columns:1fr 1fr}
   #productFormView .workspace-actions #deleteProdBtn{grid-column:1/-1}
   #productFormView .price-field{grid-template-columns:88px minmax(0,1fr)}
@@ -1442,11 +1465,11 @@ a{color:inherit;text-decoration:none}
   </div>
   <div class="nav-right">
     <div class="nav-cart-wrap">
-      <button class="nav-btn" id="cartBtn"><span class="ni">Bag</span><span class="nb-lbl">Cart</span></button>
+      <button class="nav-btn" id="cartBtn"><span class="ni" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 8h10l1 10H6L7 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></span><span class="nb-lbl">Cart</span></button>
       <span id="cartBadge" class="nav-cart-n off">0</span>
     </div>
-    <button class="nav-btn" onclick="showPage('admin')"><span class="ni">HQ</span><span class="nb-lbl">Business</span></button>
-    <button class="nav-btn" id="profileBtn"><span class="ni" id="profileIcon">Me</span><span class="nb-lbl" id="profileLbl">Account</span></button>
+    <button class="nav-btn" onclick="showPage('admin')"><span class="ni" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 4l9 6.5"/><path d="M5 10v9h14v-9"/><path d="M9 19v-4h6v4"/></svg></span><span class="nb-lbl">Business</span></button>
+    <button class="nav-btn" id="profileBtn"><span class="ni nav-initial" id="profileIcon">U</span><span class="nb-lbl" id="profileLbl">Account</span></button>
   </div>
 </header>
 
@@ -1513,10 +1536,10 @@ a{color:inherit;text-decoration:none}
     <div id="homeMobileSwitcher" class="home-mobile-switcher">
       <div class="home-mobile-switch-dock" role="group" aria-label="Home mobile view switcher">
         <button id="homeMobileShopsBtn" class="home-mobile-switch-btn" type="button" aria-label="Show top businesses" title="Top Businesses">
-          <span class="home-mobile-switch-icon" aria-hidden="true">🏪</span>
+          <span class="home-mobile-switch-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 4l9 6.5"/><path d="M5 10v9h14v-9"/><path d="M9 19v-4h6v4"/></svg></span>
         </button>
         <button id="homeMobileProductsBtn" class="home-mobile-switch-btn" type="button" aria-label="Show offerings" title="Offerings">
-          <span class="home-mobile-switch-icon" aria-hidden="true">🛍</span>
+          <span class="home-mobile-switch-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5 12 4l8 3.5-8 3.5-8-3.5Z"/><path d="M4 7.5V16l8 4 8-4V7.5"/><path d="M12 11v9"/></svg></span>
         </button>
       </div>
     </div>
@@ -1632,7 +1655,7 @@ a{color:inherit;text-decoration:none}
           <div class="shop-snapshot-kicker">Business Snapshot</div>
           <div id="shopSnapshotTitle" class="shop-snapshot-title">At a glance</div>
         </div>
-        <button id="shopSnapshotClose" class="shop-snapshot-close" type="button" aria-label="Close snapshot">x</button>
+        <button id="shopSnapshotClose" class="shop-snapshot-close" type="button" aria-label="Close snapshot">&times;</button>
       </div>
       <div id="shopSnapshotGrid" class="shop-side-stats shop-snapshot-grid"></div>
     </div>
@@ -1830,7 +1853,7 @@ a{color:inherit;text-decoration:none}
               <div class="workspace-actions">
                 <button id="ownerCreateShopBtn" class="btn btn-A btn-sm">+ Create Business</button>
                 <button id="ownerGeocodeShopsBtn" class="btn btn-o btn-sm">Refresh Map Data</button>
-                <button id="refreshMyShops" class="btn btn-g btn-sm">Refresh</button>
+                <button id="refreshMyShops" class="btn btn-o btn-sm">Refresh</button>
               </div>
             </div>
           </div>
@@ -1856,8 +1879,8 @@ a{color:inherit;text-decoration:none}
                 <div class="fld"><label>City</label><input id="ownerFilterCity" placeholder="Halifax"/></div>
                 <div class="fld"><label>Quality</label><select id="ownerFilterQuality"><option value="">All businesses</option><option value="complete">Complete only</option><option value="incomplete">Needs attention</option></select></div>
                 <div class="btn-row">
-                  <button id="ownerExportShopsBtn" class="btn btn-g btn-sm">Export Businesses</button>
-                  <button id="ownerExportProductsBtn" class="btn btn-g btn-sm">Export Offerings</button>
+                  <button id="ownerExportShopsBtn" class="btn btn-o btn-sm">Export Businesses</button>
+                  <button id="ownerExportProductsBtn" class="btn btn-o btn-sm">Export Offerings</button>
                 </div>
               </div>
             </div>
@@ -2632,7 +2655,7 @@ a{color:inherit;text-decoration:none}
         <div class="auth-title">Place Order Request</div>
         <div class="auth-sub">Choose pickup or delivery when available, or use the business visit option for on-site buying.</div>
       </div>
-      <button id="orderClose" class="auth-close">Ã—</button>
+      <button id="orderClose" class="auth-close">&times;</button>
     </div>
     <div class="auth-body" style="display:grid;gap:12px">
       <div class="fld"><label>Fulfillment</label><select id="orderFulfillment"></select></div>
@@ -5117,7 +5140,7 @@ function collectVariantMatrixData(){
 }
 function renderVariantImageItems(images=[],idx=0){
   if(!images.length) return `<div class="variant-img-empty">No saved images yet.</div>`;
-  return images.map((url,imageIdx)=>`<div class="variant-img-item"><img src="${esc(url)}" alt=""/><button class="variant-img-del" type="button" aria-label="Remove image" data-variant-img-del="${idx}" data-variant-img-idx="${imageIdx}">x</button></div>`).join('');
+  return images.map((url,imageIdx)=>`<div class="variant-img-item"><img src="${esc(url)}" alt=""/><button class="variant-img-del" type="button" aria-label="Remove image" data-variant-img-del="${idx}" data-variant-img-idx="${imageIdx}">&times;</button></div>`).join('');
 }
 function renderVariantMetaChips(items=[]){
   return (items||[]).filter(Boolean).map(item=>`<span class="variant-row-chip">${esc(item)}</span>`).join('');
@@ -5704,6 +5727,28 @@ function toggleHomeMobileView(){
   target?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function syncHomeMobileLayout(){setHomeMobileView(App.homeMobileView||'products');}
+function applyPageQueryState(){
+  let url;
+  try{url=new URL(location.href);}catch{return;}
+  const page=(url.searchParams.get('page')||'').trim().toLowerCase();
+  const adminSub=(url.searchParams.get('admin_sub')||'').trim().toLowerCase();
+  const chatSide=url.searchParams.get('chat_side');
+  const shopSheet=(url.searchParams.get('shop_sheet')||'').trim().toLowerCase();
+  if(page==='chat'){
+    showPage('chat');
+    if(chatSide==='1' || chatSide==='true') setChatMobileSide(true);
+  }else if(page==='admin'){
+    showPage('admin');
+    if(adminSub==='shops' || adminSub==='analytics' || adminSub==='account') switchAdminSub(adminSub);
+  }else if(page==='shop'){
+    showPage('shop');
+    if((shopSheet==='info' || shopSheet==='filters') && isMobileShopLayout()) setShopMobileSheet(shopSheet,true);
+  }else if(page==='favs'){
+    showPage('favs');
+  }else if(page==='home'){
+    showPage('home');
+  }
+}
 function setShopMobileSheet(mode='info',open=true){
   const page=$('pg-shop');
   if(!page) return;
@@ -6487,6 +6532,10 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
           <div class="admin-pc-edit">Manage</div>
         </div>
       </div>`;
+    const noPhoto=art.querySelector('.pc-nophoto');
+    if(noPhoto) noPhoto.textContent='No photo';
+    const checkMark=art.querySelector('.admin-pc-check');
+    if(checkMark && isSelected) checkMark.textContent='✓';
     const checkBtn=art.querySelector('[data-admin-select]');
     if(checkBtn) checkBtn.addEventListener('click',e=>{e.stopPropagation();toggleAdminProductSelection(p.product_id);});
     art.addEventListener('click',()=>{ if(App.adminBulkMode){toggleAdminProductSelection(p.product_id); return;} openPD(p,mode,shopId,shopName); });
@@ -6518,6 +6567,12 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
       ${(p.avg_rating>0)?`<div class="pc-rating">${starsHtml(p.avg_rating,5,11)} <span>${p.avg_rating.toFixed(1)}</span>${p.review_count?` (${p.review_count})`:''}</div>`:''}
     </div>`;
 
+  const noPhoto=art.querySelector('.pc-nophoto');
+  if(noPhoto) noPhoto.textContent='No photo';
+  const photoCount=art.querySelector('.pc-n');
+  if(photoCount && n>1) photoCount.textContent=`${n} photos`;
+  const shopLine=art.querySelector('.pc-shop');
+  if(shopLine && showShop && shopName) shopLine.innerHTML=`<span class="pc-shop-link" data-sid="${esc(shopRef)}">${esc(shopName)}</span>`;
   const addBtn=art.querySelector('.pc-add');
   if(addBtn){
     addBtn.addEventListener('click',e=>{
@@ -6600,6 +6655,63 @@ function buildPagination(container,pagination,onPageClick){
 /* ═════════════════════════════════════════════
    PRODUCT DETAIL MODAL
 ═════════════════════════════════════════════ */
+// Override UI text that previously carried mojibake characters in some environments.
+function setCardFavouriteButtonState(btn,saved=false){
+  if(!btn) return;
+  const active=!!saved;
+  btn.classList.toggle('saved',active);
+  btn.textContent=active?'♥':'♡';
+  const label=active?'Remove from favourites':'Save to favourites';
+  btn.title=label;
+  btn.setAttribute('aria-label',label);
+  btn.setAttribute('aria-pressed',active?'true':'false');
+}
+function setDetailFavouriteButtonState(btn,saved=false){
+  if(!btn) return;
+  const active=!!saved;
+  btn.classList.toggle('saved',active);
+  btn.innerHTML=`<span class="pd-fav-icon" aria-hidden="true">${active?'♥':'♡'}</span><span class="pd-fav-label">${active?'Saved':'Save'}</span>`;
+  const label=active?'Remove from favourites':'Save to favourites';
+  btn.title=label;
+  btn.setAttribute('aria-label',label);
+  btn.setAttribute('aria-pressed',active?'true':'false');
+}
+function buildPagination(container,pagination,onPageClick){
+  container.innerHTML='';
+  if(!pagination||pagination.pages<=1)return;
+  const {page,pages}=pagination;
+  const btn=(label,p,active=false,disabled=false)=>{
+    const b=document.createElement('button');
+    b.className='pg-btn'+(active?' on':'');
+    b.textContent=label;
+    b.disabled=disabled;
+    if(!disabled&&!active)b.addEventListener('click',()=>onPageClick(p));
+    return b;
+  };
+  container.appendChild(btn('< Prev',page-1,false,page<=1));
+  const start=Math.max(1,page-2),end=Math.min(pages,page+2);
+  if(start>1){
+    container.appendChild(btn('1',1));
+    if(start>2){
+      const d=document.createElement('span');
+      d.textContent='...';
+      d.style.cssText='padding:7px 4px;font-size:13px;color:var(--ink4)';
+      container.appendChild(d);
+    }
+  }
+  for(let i=start;i<=end;i++) container.appendChild(btn(i,i,i===page));
+  if(end<pages){
+    if(end<pages-1){
+      const d=document.createElement('span');
+      d.textContent='...';
+      d.style.cssText='padding:7px 4px;font-size:13px;color:var(--ink4)';
+      container.appendChild(d);
+    }
+    container.appendChild(btn(pages,pages));
+  }
+  container.appendChild(btn('Next >',page+1,false,page>=pages));
+}
+
 async function openPD(p,mode,sid,sname){
   App.curProd=p;App.curSid=sid||p.shop_id||App.shopId;App.curSname=sname||p.shop_name||'';
   const shop=resolveProductShop(p,App.curSid);
@@ -8806,6 +8918,7 @@ async function init(){
     try{const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(App.shopId)}`)));App.shopData=d;App.chatShopId=d.shop?.shop_slug||d.shop?.shop_id||App.shopId;$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}catch{}
   }
   await handlePathDeepLink('init');
+  applyPageQueryState();
   await maybeOfferLocationOnLaunch();
 }
 $('shopFilterApply')?.addEventListener('click',()=>{loadAllShops();toggleShopFilters(false);});
