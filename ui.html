@@ -245,7 +245,7 @@ a{color:inherit;text-decoration:none}
 .shop-card:active{transform:scale(.988);box-shadow:0 14px 28px rgba(58,38,22,.12);border-color:rgba(162,76,46,.42)}
 .shop-card-banner{height:124px;background:linear-gradient(135deg,#f7ead6,#e8c9a4 60%,#d18d60);display:flex;align-items:flex-start;justify-content:space-between;font-size:36px;position:relative;padding:18px 18px 0}
 .shop-card-banner::after{content:'';position:absolute;inset:auto -24px -42px auto;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.16);filter:blur(2px)}
-.biz-avatar-wrap{width:100%;height:100%;display:block}
+.biz-avatar-wrap{width:100%;height:100%;display:block;border-radius:inherit;overflow:hidden}
 .biz-avatar-img{width:100%;height:100%;object-fit:cover;display:block}
 .biz-avatar-fallback{width:100%;height:100%;display:grid;place-items:center;font-family:'Sora',sans-serif;font-weight:800;letter-spacing:-.05em;line-height:1}
 .shop-card-mark{position:relative;z-index:1;width:54px;height:54px;border-radius:18px;background:rgba(255,250,242,.82);display:grid;place-items:center;box-shadow:0 10px 24px rgba(89,52,28,.12);overflow:hidden}
@@ -399,7 +399,7 @@ a{color:inherit;text-decoration:none}
 .shop-side-prompt:active{transform:scale(.985);background:var(--sf2)}
 .map-sheet-bg{position:fixed;inset:0;background:rgba(15,23,42,.34);backdrop-filter:blur(6px);z-index:460;display:none;align-items:stretch;justify-content:stretch;padding:0}
 .map-sheet-bg.on{display:flex}
-.map-sheet{position:relative;width:100vw;width:100dvw;height:100vh;height:100dvh;overflow:hidden;border-radius:0;border:none;background:linear-gradient(180deg,#f8f1e4,#eadbc6);box-shadow:none}
+.map-sheet{position:relative;width:100vw;width:100dvw;height:100vh;height:100dvh;overflow:hidden;border-radius:0;border:none;background:linear-gradient(180deg,#f8f1e4,#eadbc6);box-shadow:none;--map-sheet-list-height:86px;--map-sheet-mini-height:46px}
 .map-sheet-mobile-bar,.map-sheet-list-handle,.map-sheet-mini-rail{display:none}
 .map-sheet-side{position:absolute;left:0;right:0;top:0;z-index:6;display:grid;grid-template-columns:minmax(280px,440px) minmax(180px,250px);justify-content:space-between;align-items:start;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0;pointer-events:none}
 .map-sheet-head{display:grid;gap:8px;min-width:0;padding:14px 14px 12px;border-radius:24px;background:linear-gradient(180deg,rgba(255,253,248,.92),rgba(246,239,227,.84));border:1px solid rgba(191,174,149,.32);box-shadow:0 16px 36px rgba(18,23,34,.14);backdrop-filter:blur(12px);pointer-events:auto}
@@ -431,8 +431,9 @@ a{color:inherit;text-decoration:none}
 .map-spot-card:active{transform:scale(.988)}
 .map-spot-card.active{border-color:rgba(162,76,46,.52);box-shadow:0 18px 34px rgba(120,58,29,.16);background:linear-gradient(180deg,rgba(255,250,244,.98),rgba(246,234,220,.94))}
 .map-spot-card-top{display:flex;align-items:flex-start;gap:10px;min-width:0}
-.map-spot-card-mark{width:42px;height:42px;border-radius:16px;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.2);display:grid;place-items:center;font-size:19px;box-shadow:0 10px 20px rgba(92,47,24,.1);flex:0 0 auto;overflow:hidden}
+.map-spot-card-mark{width:42px;height:42px;border-radius:16px;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.2);display:grid;place-items:center;font-size:19px;box-shadow:0 10px 20px rgba(92,47,24,.1);flex:0 0 auto;overflow:visible;position:relative}
 .map-spot-card-mark .biz-avatar-fallback{font-size:17px;color:var(--A2)}
+.map-spot-card-mark-badge{position:absolute;right:-3px;bottom:-3px;width:20px;height:20px}
 .map-spot-card-main{min-width:0;display:grid;gap:4px}
 .map-spot-card-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.15;letter-spacing:-.03em}
 .map-spot-card-meta{font-size:11px;font-weight:700;color:var(--A2);line-height:1.45}
@@ -476,7 +477,12 @@ a{color:inherit;text-decoration:none}
 .wave-map-cluster:hover{transform:translateY(-1px);box-shadow:0 14px 26px rgba(92,47,24,.22)}
 .wave-map-cluster::after{content:'';position:absolute;inset:6px;border-radius:999px;border:1px solid rgba(255,244,232,.22)}
 .wave-map-cluster-count{position:relative;z-index:1;font-family:'Sora',sans-serif;font-size:17px;font-weight:800;color:#fff;letter-spacing:-.04em}
-.wave-map-popup{display:grid;gap:8px;min-width:220px}
+.wave-map-popup{display:grid;gap:10px;min-width:220px}
+.wave-map-popup-top{display:flex;align-items:center;gap:12px;min-width:0}
+.wave-map-popup-avatar{width:50px;height:50px;border-radius:16px;overflow:visible;position:relative;flex:0 0 auto;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.18);box-shadow:0 10px 22px rgba(92,47,24,.1)}
+.wave-map-popup-avatar .biz-avatar-fallback{font-size:20px;color:var(--A2)}
+.wave-map-popup-avatar-badge{position:absolute;right:-4px;bottom:-4px;width:22px;height:22px}
+.wave-map-popup-head{min-width:0;display:grid;gap:4px}
 .wave-map-popup-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.15}
 .wave-map-popup-distance{font-size:12px;font-weight:800;color:var(--A2);margin-top:-2px}
 .wave-map-popup-copy{font-size:12px;color:var(--ink3);line-height:1.6}
@@ -485,6 +491,27 @@ a{color:inherit;text-decoration:none}
 .wave-map-cluster-item{font-size:12px;color:var(--ink2);line-height:1.45}
 .wave-map-popup-meta{display:flex;flex-wrap:wrap;gap:6px}
 .wave-map-popup-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:rgba(255,250,242,.88);border:1px solid rgba(191,174,149,.28);font-size:10px;font-weight:800;color:var(--ink2)}
+.map-category-icon,.map-category-badge,.map-sheet-mini-icon{display:grid;place-items:center}
+.map-category-icon svg,.map-category-badge svg,.map-sheet-mini-icon svg,.wave-map-pin-badge svg{width:15px;height:15px;display:block;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.map-category-icon svg .fill,.map-category-badge svg .fill,.map-sheet-mini-icon svg .fill,.wave-map-pin-badge svg .fill{fill:currentColor;stroke:none}
+.map-category-badge{width:100%;height:100%;border-radius:999px;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.22);box-shadow:0 8px 16px rgba(92,47,24,.1);color:var(--A2)}
+.map-sheet-mini-icon{width:18px;height:18px}
+.map-category-badge[data-map-category="food"],.map-sheet-mini-chip[data-map-category="food"]{color:#b45309;background:linear-gradient(180deg,#fff7ed,#ffedd5);border-color:rgba(245,158,11,.24)}
+.map-category-badge[data-map-category="electronics"],.map-sheet-mini-chip[data-map-category="electronics"]{color:#2563eb;background:linear-gradient(180deg,#eff6ff,#dbeafe);border-color:rgba(59,130,246,.24)}
+.map-category-badge[data-map-category="clothing"],.map-sheet-mini-chip[data-map-category="clothing"]{color:#7c3aed;background:linear-gradient(180deg,#f5f3ff,#ede9fe);border-color:rgba(124,58,237,.2)}
+.map-category-badge[data-map-category="home"],.map-sheet-mini-chip[data-map-category="home"]{color:#92400e;background:linear-gradient(180deg,#fef3c7,#fde68a);border-color:rgba(217,119,6,.2)}
+.map-category-badge[data-map-category="beauty"],.map-sheet-mini-chip[data-map-category="beauty"]{color:#db2777;background:linear-gradient(180deg,#fdf2f8,#fce7f3);border-color:rgba(236,72,153,.22)}
+.map-category-badge[data-map-category="sports"],.map-sheet-mini-chip[data-map-category="sports"]{color:#15803d;background:linear-gradient(180deg,#f0fdf4,#dcfce7);border-color:rgba(34,197,94,.2)}
+.map-category-badge[data-map-category="books"],.map-sheet-mini-chip[data-map-category="books"]{color:#4338ca;background:linear-gradient(180deg,#eef2ff,#e0e7ff);border-color:rgba(99,102,241,.2)}
+.map-category-badge[data-map-category="healthcare"],.map-sheet-mini-chip[data-map-category="healthcare"]{color:#dc2626;background:linear-gradient(180deg,#fef2f2,#fee2e2);border-color:rgba(239,68,68,.22)}
+.map-category-badge[data-map-category="travel"],.map-sheet-mini-chip[data-map-category="travel"]{color:#0891b2;background:linear-gradient(180deg,#ecfeff,#cffafe);border-color:rgba(6,182,212,.2)}
+.map-category-badge[data-map-category="professional"],.map-sheet-mini-chip[data-map-category="professional"]{color:#475569;background:linear-gradient(180deg,#f8fafc,#e2e8f0);border-color:rgba(100,116,139,.18)}
+.map-category-badge[data-map-category="automotive"],.map-sheet-mini-chip[data-map-category="automotive"]{color:#4b5563;background:linear-gradient(180deg,#f9fafb,#e5e7eb);border-color:rgba(107,114,128,.18)}
+.map-category-badge[data-map-category="cleaning"],.map-sheet-mini-chip[data-map-category="cleaning"]{color:#0f766e;background:linear-gradient(180deg,#f0fdfa,#ccfbf1);border-color:rgba(20,184,166,.2)}
+.map-category-badge[data-map-category="arts"],.map-sheet-mini-chip[data-map-category="arts"]{color:#a21caf;background:linear-gradient(180deg,#faf5ff,#f3e8ff);border-color:rgba(168,85,247,.2)}
+.map-category-badge[data-map-category="pets"],.map-sheet-mini-chip[data-map-category="pets"]{color:#ea580c;background:linear-gradient(180deg,#fff7ed,#fed7aa);border-color:rgba(249,115,22,.2)}
+.map-category-badge[data-map-category="gifts"],.map-sheet-mini-chip[data-map-category="gifts"]{color:#be185d;background:linear-gradient(180deg,#fdf2f8,#fbcfe8);border-color:rgba(236,72,153,.2)}
+.map-category-badge[data-map-category="other"],.map-sheet-mini-chip[data-map-category="other"]{color:#7c2d12;background:linear-gradient(180deg,#fff7ed,#fed7aa);border-color:rgba(194,65,12,.18)}
 .map-sheet-canvas .leaflet-top.leaflet-left{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 126px);left:auto;right:16px}
 .leaflet-container{font-family:'Inter',sans-serif;background:linear-gradient(180deg,#f6efe3,#eadbc6)}
 .map-sheet-canvas .leaflet-map-pane,.map-sheet-canvas .leaflet-tile-pane{will-change:transform}
@@ -529,8 +556,8 @@ a{color:inherit;text-decoration:none}
   .map-sheet-actions .btn{width:100%;height:34px;min-height:34px;justify-content:center;padding-inline:9px;font-size:11px;border-radius:12px}
   .map-sheet-status{display:none}
   .map-sheet-list{width:calc(100% - 12px);left:6px;right:6px;transform:none;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);padding:6px;border-radius:20px;gap:6px}
-  .map-sheet-locate-btn{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 186px)}
-  .map-sheet-list-handle{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + 140px)}
+  .map-sheet-locate-btn{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 96px)}
+  .map-sheet-list-handle{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 12px)}
   .map-spot-card{min-width:min(78vw,214px);max-width:min(78vw,214px);padding:10px}
   .map-spot-card-mark{width:38px;height:38px;border-radius:14px;font-size:17px}
   .map-spot-card-name{font-size:14px}
@@ -538,15 +565,15 @@ a{color:inherit;text-decoration:none}
   .map-spot-card-foot{display:grid;grid-template-columns:1fr;align-items:stretch}
   .map-spot-card-visit{width:100%;justify-content:center}
   .map-sheet-floating{display:none}
-  .map-sheet-canvas .leaflet-top.leaflet-left{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 88px)}
-  .map-sheet.list-hidden .map-sheet-locate-btn{bottom:calc(env(safe-area-inset-bottom,0px) + 68px)}
+  .map-sheet-canvas .leaflet-top.leaflet-left{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 8px)}
+  .map-sheet.list-hidden .map-sheet-locate-btn{bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-mini-height,46px) + 14px)}
   .map-sheet.list-hidden .map-sheet-list-handle{display:none!important}
   .map-sheet.list-hidden .map-sheet-mini-rail{display:flex}
-  .map-sheet.list-hidden .map-sheet-canvas .leaflet-top.leaflet-left{bottom:calc(env(safe-area-inset-bottom,0px) + 60px)}
+  .map-sheet.list-hidden .map-sheet-canvas .leaflet-top.leaflet-left{bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-mini-height,46px) + 6px)}
   .map-sheet.compact .map-sheet-side{left:8px;right:auto;padding-top:calc(env(safe-area-inset-top,0px) + 8px);pointer-events:none}
   .map-sheet.compact .map-sheet-head,.map-sheet.compact .map-sheet-status{opacity:0;visibility:hidden;transform:translateY(-8px);max-height:0;overflow:hidden;padding:0;margin:0;border:none;box-shadow:none}
-  .map-sheet.compact .map-sheet-locate-btn{bottom:calc(env(safe-area-inset-bottom,0px) + 186px)}
-  .map-sheet.compact.list-hidden .map-sheet-locate-btn{bottom:calc(env(safe-area-inset-bottom,0px) + 68px)}
+  .map-sheet.compact .map-sheet-locate-btn{bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 96px)}
+  .map-sheet.compact.list-hidden .map-sheet-locate-btn{bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-mini-height,46px) + 14px)}
   .map-sheet.compact .map-sheet-canvas .leaflet-top.leaflet-left{bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}
 }
 @media(max-width:420px){
@@ -2154,8 +2181,8 @@ a{color:inherit;text-decoration:none}
                   <label class="owner-check"><input id="shopSupportsWalkIn" type="checkbox" checked style="margin-top:2px"/><span><strong>Buy on site</strong><br/><span class="fld-hint">Customers browse in Wave, then visit the business to complete the purchase.</span></span></label>
                 </div>
                 <div id="deliverySettings" class="fg2" style="margin-top:14px;display:none">
-                  <div class="fld"><label>Delivery Radius (km)</label><input id="shopDeliveryRadius" type="number" min="0" step="0.1" inputmode="decimal" placeholder="8"/><div class="fld-hint">How far the business is willing to deliver locally.</div></div>
-                  <div class="fld"><label>Delivery Fee</label><input id="shopDeliveryFee" type="number" min="0" step="0.01" inputmode="decimal" placeholder="4.99"/><div class="fld-hint">Optional. Leave blank for free delivery.</div></div>
+                  <div class="fld"><label>Delivery Radius (km)</label><input id="shopDeliveryRadius" type="text" inputmode="decimal" placeholder="8"/><div class="fld-hint">How far the business is willing to deliver locally.</div></div>
+                  <div class="fld"><label>Delivery Fee</label><input id="shopDeliveryFee" type="text" inputmode="decimal" placeholder="4.99"/><div class="fld-hint">Optional. Leave blank for free delivery.</div></div>
                 </div>
                 <div class="fld" style="margin-top:14px"><label>Pickup / buying notes</label><textarea id="shopPickupNotes" placeholder="Example: Pickup ready in 30 minutes. Bring your order request number when you arrive."></textarea><div class="fld-hint">Shown to customers when they place a pickup or delivery request.</div></div>
               </div>
@@ -2221,7 +2248,7 @@ a{color:inherit;text-decoration:none}
                   <div class="fld"><label id="prodNameLabel">Offering Name</label><input id="prodName" placeholder="Mango Smoothie"/><div id="prodNameHint" class="fld-hint">Use the exact name customers will search for and see on the offering card.</div></div>
                   <div class="fld"><label>Offering Type</label><select id="prodType"></select><div class="fld-hint">Choose the format customers are actually booking, buying, or viewing.</div></div>
                   <div class="fld"><label>Price Display</label><select id="prodPriceMode"><option value="fixed">Fixed price</option><option value="starting_at">Starting at</option><option value="inquiry">Price on request</option><option value="custom">Contact for pricing</option><option value="free">Free</option></select><div id="prodPriceModeHint" class="fld-hint">Choose how pricing should appear on the public page.</div></div>
-                  <div id="prodPriceWrap" class="fld"><label id="prodPriceLabel">Base Price</label><div class="price-field"><div id="prodCurrencyBadge" class="currency-pill">USD</div><input id="prodPrice" type="number" min="0" step="0.01" inputmode="decimal" placeholder="10.00"/></div><div id="prodPriceNote" class="fld-hint">Enter only the numeric amount. USD is applied automatically from the business country.</div></div>
+                  <div id="prodPriceWrap" class="fld"><label id="prodPriceLabel">Base Price</label><div class="price-field"><div id="prodCurrencyBadge" class="currency-pill">USD</div><input id="prodPrice" type="text" inputmode="decimal" placeholder="10.00"/></div><div id="prodPriceNote" class="fld-hint">Enter only the numeric amount. USD is applied automatically from the business country.</div></div>
                 </div>
               </div>
               <div class="setup-section">
@@ -2884,6 +2911,108 @@ function populateBusinessAvatarNode(node,shop={},name=''){
   if(!node) return;
   node.innerHTML=businessAvatarHtml(shop,name);
 }
+function shopCategoryIconKey(category=''){
+  const key=String(category||'').trim().toLowerCase();
+  if(!key) return 'other';
+  if(key.includes('food')) return 'food';
+  if(key.includes('electronic') || key.includes('tech')) return 'electronics';
+  if(key.includes('cloth') || key.includes('fashion')) return 'clothing';
+  if(key.includes('home') || key.includes('real estate')) return 'home';
+  if(key.includes('beauty') || key.includes('wellness')) return 'beauty';
+  if(key.includes('sport')) return 'sports';
+  if(key.includes('book') || key.includes('education')) return 'books';
+  if(key.includes('health')) return 'healthcare';
+  if(key.includes('travel')) return 'travel';
+  if(key.includes('professional') || key.includes('finance') || key.includes('legal') || key.includes('consult')) return 'professional';
+  if(key.includes('auto') || key.includes('car')) return 'automotive';
+  if(key.includes('repair')) return 'automotive';
+  if(key.includes('clean')) return 'cleaning';
+  if(key.includes('art') || key.includes('creator')) return 'arts';
+  if(key.includes('pet')) return 'pets';
+  if(key.includes('gift')) return 'gifts';
+  return 'other';
+}
+function shopCategoryIconSvg(category=''){
+  switch(shopCategoryIconKey(category)){
+    case 'food':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v5"></path><path d="M4 3v4"></path><path d="M8 3v4"></path><path d="M4 7h4"></path><path d="M6 8v13"></path><path d="M16 3c-1.7 0-3 1.8-3 4s1.3 4 3 4V21"></path></svg>';
+    case 'electronics':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M10 5.5h4"></path><path d="M11.5 18.5h1"></path></svg>';
+    case 'clothing':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5 10.5 3.5h3L16 5l3 2.5-2 3-2-1.5V21H9V9L7 10.5 5 7.5 8 5Z"></path></svg>';
+    case 'home':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"></path><path d="M6.5 10.5V20h11V10.5"></path><path d="M10 20v-5h4v5"></path></svg>';
+    case 'beauty':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 13.5 7.5 18 9 13.5 10.5 12 15 10.5 10.5 6 9 10.5 7.5 12 3Z"></path><path d="M18.5 3.5 19 5 20.5 5.5 19 6 18.5 7.5 18 6 16.5 5.5 18 5 18.5 3.5Z"></path><path d="M5.5 15.5 6 17 7.5 17.5 6 18 5.5 19.5 5 18 3.5 17.5 5 17 5.5 15.5Z"></path></svg>';
+    case 'sports':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5 9.5 9.3 10.4 12.2h3.2l.9-2.9L12 7.5Z"></path><path d="M9.5 9.3 7 9.2 5.8 12l1.7 2.7 2.9-.5"></path><path d="M14.5 9.3 17 9.2 18.2 12l-1.7 2.7-2.9-.5"></path><path d="M7.5 14.7 9.5 17h5l2-2.3"></path></svg>';
+    case 'books':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5.5A2.5 2.5 0 0 1 9 3h8.5v16H9a2.5 2.5 0 0 0-2.5 2.5V5.5Z"></path><path d="M6.5 5.5A2.5 2.5 0 0 0 9 8h8.5"></path></svg>';
+    case 'healthcare':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 8v8"></path><path d="M8 12h8"></path></svg>';
+    case 'travel':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12 21 8.5 16.5 12 21 15.5 2.5 12Z"></path><path d="M9 10 7 4.5"></path><path d="M9 14 7 19.5"></path></svg>';
+    case 'professional':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="2.5"></rect><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"></path><path d="M4 12h16"></path></svg>';
+    case 'automotive':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 15.5 7 10.5h10l1.5 5"></path><path d="M4 15.5h16"></path><circle cx="7.5" cy="16.5" r="1.5"></circle><circle cx="16.5" cy="16.5" r="1.5"></circle></svg>';
+    case 'cleaning':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 12.5 8.5 17 10 12.5 11.5 11 16 9.5 11.5 5 10 9.5 8.5 11 4Z"></path><circle cx="18.5" cy="5.5" r="1"></circle><circle cx="6" cy="18" r="1.2"></circle></svg>';
+    case 'arts':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4c4.5 0 8 3 8 7 0 3-2 5-4.5 5H14a2 2 0 0 0 0 4h-2c-4.5 0-8-3-8-7s3.5-9 8-9Z"></path><circle cx="8.5" cy="10" r="1"></circle><circle cx="12" cy="8.5" r="1"></circle><circle cx="15" cy="10.5" r="1"></circle></svg>';
+    case 'pets':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8.5" r="1.5"></circle><circle cx="12" cy="7" r="1.5"></circle><circle cx="16" cy="8.5" r="1.5"></circle><path d="M12 12c2.6 0 4.5 1.8 4.5 4 0 1.7-1.5 3-4.5 3s-4.5-1.3-4.5-3c0-2.2 1.9-4 4.5-4Z"></path></svg>';
+    case 'gifts':
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="9" width="14" height="10" rx="1.5"></rect><path d="M12 9v10"></path><path d="M5 13.5h14"></path><path d="M12 9H8.5a2 2 0 1 1 0-4c2.2 0 3.5 4 3.5 4Z"></path><path d="M12 9h3.5a2 2 0 1 0 0-4c-2.2 0-3.5 4-3.5 4Z"></path></svg>';
+    default:
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h16"></path><path d="M5 9.5 6.5 4h11L19 9.5"></path><path d="M6 9.5V20h12V9.5"></path><path d="M10 20v-5h4v5"></path></svg>';
+  }
+}
+function shopCategoryIconHtml(category='',className='map-category-icon'){
+  const key=shopCategoryIconKey(category);
+  const label=String(category||'Other').trim()||'Other';
+  return `<span class="${esc(className)}" data-map-category="${esc(key)}" aria-hidden="true" title="${esc(label)}">${shopCategoryIconSvg(category)}</span>`;
+}
+function shopCategoryBadgeHtml(category='',extraClass=''){
+  return shopCategoryIconHtml(category,['map-category-badge',extraClass].filter(Boolean).join(' '));
+}
+function sanitizeDecimalValue(value='',opts={}){
+  const allowNegative=!!opts.allowNegative;
+  const maxDecimals=Math.max(0,Number.isFinite(Number(opts.maxDecimals)) ? Number(opts.maxDecimals) : 2);
+  const raw=String(value??'').replace(/,/g,'.');
+  let out='';
+  let seenDot=false;
+  let decimals=0;
+  for(const ch of raw){
+    if(ch>='0' && ch<='9'){
+      if(seenDot && decimals>=maxDecimals) continue;
+      out+=ch;
+      if(seenDot) decimals+=1;
+      continue;
+    }
+    if(ch==='-' && allowNegative && !out){
+      out='-';
+      continue;
+    }
+    if(ch==='.' && !seenDot && maxDecimals>0){
+      seenDot=true;
+      out+=ch;
+    }
+  }
+  return out;
+}
+function parseDecimalValue(value='',opts={}){
+  const raw=sanitizeDecimalValue(value,opts);
+  if(raw==='' || raw==='-' || raw==='.' || raw==='-.') return {raw,number:null};
+  const number=Number(raw);
+  return {raw,number:Number.isFinite(number)?number:null};
+}
+function normalizeDecimalInputElement(el,opts={}){
+  if(!el) return {raw:'',number:null};
+  const parsed=parseDecimalValue(el.value||'',opts);
+  if(String(el.value||'')!==parsed.raw) el.value=parsed.raw;
+  return parsed;
+}
 function absUrl(p){
   if(!p) return '';
   if(/^(https?:\/\/|data:|blob:)/i.test(p)) return p;
@@ -3450,6 +3579,238 @@ function setMapSheetFloatingHidden(nextHidden=false,delay=0){
   }
   apply();
 }
+function syncMapSheetListMetrics(){
+  const sheet=$('mapSheetBg')?.querySelector('.map-sheet');
+  if(!sheet) return;
+  const compactViewport=shouldCompactMapSheet();
+  const list=$('mapSheetList');
+  const miniRail=$('mapSheetMiniRail');
+  const listHeight=compactViewport && list && list.classList.contains('on') && !App.mapSheet.listHidden
+    ? Math.ceil(list.getBoundingClientRect().height||0)
+    : 86;
+  const miniHeight=compactViewport && App.mapSheet.listHidden && miniRail
+    ? Math.ceil(miniRail.getBoundingClientRect().height||0) || 46
+    : 46;
+  sheet.style.setProperty('--map-sheet-list-height',`${Math.max(listHeight,86)}px`);
+  sheet.style.setProperty('--map-sheet-mini-height',`${Math.max(miniHeight,46)}px`);
+}
+function syncMapSheetChrome(){
+  const sheet=$('mapSheetBg')?.querySelector('.map-sheet');
+  const compact=!!App.mapSheet.compact;
+  const hasCards=!!(App.mapSheet.preparedShops||[]).length;
+  const compactViewport=shouldCompactMapSheet();
+  sheet?.classList.toggle('compact',compact);
+  sheet?.classList.toggle('list-hidden',!!App.mapSheet.listHidden);
+  const btn=$('mapSheetCompactBtn');
+  if(btn){
+    const compactLabel=compactViewport ? 'X' : (compact?'Show Info':'Hide Info');
+    btn.textContent=compactLabel;
+    btn.setAttribute('aria-expanded',compact?'false':'true');
+    btn.setAttribute('title',compactViewport ? 'Close map menu' : (compact?'Show map tools':'Hide map tools'));
+    btn.setAttribute('aria-label',compactViewport ? 'Close map menu' : (compact?'Show map tools':'Hide map tools'));
+  }
+  const toolsBtn=$('mapSheetToolsBtn');
+  if(toolsBtn){
+    toolsBtn.setAttribute('aria-expanded',compact?'false':'true');
+    toolsBtn.setAttribute('title',compact?'Open map menu':'Close map menu');
+    toolsBtn.setAttribute('aria-label',compact?'Open map menu':'Close map menu');
+    toolsBtn.classList.toggle('btn-A',!compact);
+    toolsBtn.classList.toggle('btn-g',compact);
+  }
+  const nearBtn=$('mapSheetNearBtn');
+  const hasLoc=hasExactUserLocation();
+  const nearOn=hasLoc && App.mapSheet.sort==='nearest';
+  if(nearBtn){
+    nearBtn.textContent=hasLoc ? (nearOn ? 'Nearest On' : 'Near Me') : 'Near Me';
+    nearBtn.classList.toggle('btn-A',nearOn);
+    nearBtn.classList.toggle('btn-o',!nearOn);
+    nearBtn.title=hasLoc ? 'Toggle nearest-business sorting' : 'Use your location and sort businesses by distance';
+  }
+  const radiusBtn=$('mapSheetRadiusBtn');
+  if(radiusBtn){
+    radiusBtn.textContent=`Radius: ${mapRadiusLabel(App.mapSheet.radiusKm)}`;
+    radiusBtn.disabled=false;
+    radiusBtn.title=hasLoc ? 'Cycle the distance filter' : 'Use location first, then cycle the distance filter';
+  }
+  const locateBtn=$('mapSheetLocateBtn');
+  if(locateBtn){
+    const exactLoc=hasExactUserLocation();
+    locateBtn.classList.toggle('is-active',exactLoc);
+    locateBtn.title=exactLoc ? 'Go to your current location' : 'Enable location and center the map on you';
+    locateBtn.setAttribute('aria-label',exactLoc ? 'Go to my current location' : 'Enable location');
+  }
+  const collapseBtn=$('mapSheetListCollapseBtn');
+  if(collapseBtn){
+    collapseBtn.style.display=hasCards && compactViewport && !App.mapSheet.listHidden ? 'inline-flex' : 'none';
+    collapseBtn.setAttribute('aria-expanded',App.mapSheet.listHidden?'false':'true');
+  }
+  const miniRail=$('mapSheetMiniRail');
+  if(miniRail){
+    miniRail.style.display=hasCards && compactViewport && App.mapSheet.listHidden ? 'flex' : 'none';
+    miniRail.setAttribute('aria-hidden',hasCards && compactViewport && App.mapSheet.listHidden ? 'false' : 'true');
+  }
+  requestAnimationFrame(syncMapSheetListMetrics);
+}
+function mapPopupHtml(shop={}){
+  const stats=shop.stats||{};
+  const nouns=offeringNouns(shop||{});
+  const distanceLabel=mapDistanceLabel(shop);
+  const directionsRef=shopPublicRef(shop) || shop.shop_id || '';
+  const chips=[
+    shop.category?`<span class="wave-map-popup-chip">${esc(shop.category)}</span>`:'',
+    stats.product_count!=null?`<span class="wave-map-popup-chip">${stats.product_count} ${esc(nouns.plural)}</span>`:'',
+    shop.is_open_now?`<span class="wave-map-popup-chip">Open now</span>`:'',
+    shop.city?`<span class="wave-map-popup-chip">${esc(shop.city)}</span>`:''
+  ].filter(Boolean).join('');
+  const ref=shopPublicRef(shop);
+  return `
+    <div class="wave-map-popup">
+      <div class="wave-map-popup-top">
+        <div class="wave-map-popup-avatar">
+          ${businessAvatarHtml(shop,shop?.name||'Business')}
+          ${shopCategoryBadgeHtml(shop.category,'wave-map-popup-avatar-badge')}
+        </div>
+        <div class="wave-map-popup-head">
+          <div class="wave-map-popup-name">${esc(shop.name||'Business')}</div>
+          ${distanceLabel?`<div class="wave-map-popup-distance">Distance: ${esc(distanceLabel)}</div>`:''}
+        </div>
+      </div>
+      <div class="wave-map-popup-copy">${esc((shop.overview||'Open the business page to browse offerings, ask questions, and see what this business offers.').slice(0,140))}</div>
+      <div class="wave-map-popup-meta">${chips}</div>
+      <div class="wave-map-popup-actions">
+        <button class="btn btn-A btn-sm" type="button" data-map-action="visit" data-shop-ref="${esc(ref)}">Visit Business</button>
+        ${directionsRef?`<button class="btn btn-o btn-sm" type="button" data-map-action="directions" data-shop-ref="${esc(directionsRef)}">Directions</button>`:''}
+      </div>
+    </div>`;
+}
+function clusterPopupHtml(shops=[]){
+  const count=shops.length;
+  const rows=(shops||[]).slice(0,4).map(shop=>{
+    const distanceLabel=mapDistanceLabel(shop);
+    return `<div class="wave-map-cluster-item">${esc(shop.name||'Business')}${distanceLabel?` | ${esc(distanceLabel)}`:''}</div>`;
+  }).join('');
+  return `
+    <div class="wave-map-popup">
+      <div class="wave-map-popup-name">${count} businesses in this area</div>
+      <div class="wave-map-popup-copy">Tap this cluster again or zoom in to spread nearby businesses apart.</div>
+      <div class="wave-map-cluster-list">${rows}</div>
+      ${count>4?`<div class="wave-map-popup-copy">+${count-4} more nearby businesses</div>`:''}
+    </div>`;
+}
+function shopCategoryMapIcon(category=''){
+  return shopCategoryIconHtml(category);
+}
+function renderMapMiniRail(shops=[],focusShopId=''){
+  const host=$('mapSheetMiniIcons');
+  if(!host) return;
+  const visible=(shops||[]).slice(0,4);
+  host.innerHTML='';
+  if(!visible.length){
+    syncMapSheetListMetrics();
+    return;
+  }
+  visible.forEach(shop=>{
+    const ref=shopPublicRef(shop) || shop?.shop_id || '';
+    const active=!!focusShopId && (focusShopId===ref || focusShopId===shop?.shop_id);
+    const chip=document.createElement('button');
+    chip.type='button';
+    chip.className='map-sheet-mini-chip'+(active?' active':'');
+    chip.dataset.mapCategory=shopCategoryIconKey(shop?.category||'');
+    chip.setAttribute('aria-label',shop?.name||'Business');
+    chip.setAttribute('title',shop?.name||'Business');
+    chip.innerHTML=shopCategoryIconHtml(shop?.category||'','map-sheet-mini-icon');
+    chip.addEventListener('click',()=>{
+      setMapSheetListHidden(false);
+      focusMapShop(shop);
+    });
+    host.appendChild(chip);
+  });
+  const extra=(shops||[]).length-visible.length;
+  if(extra>0){
+    const more=document.createElement('span');
+    more.className='map-sheet-mini-more';
+    more.textContent=`+${extra}`;
+    host.appendChild(more);
+  }
+  requestAnimationFrame(syncMapSheetListMetrics);
+}
+function buildMapSpotCards(shops=[],focusShopId=''){
+  const host=$('mapSheetList');
+  if(!host) return;
+  const cards=mapVisibleSpotShops(shops);
+  renderMapMiniRail(cards,focusShopId);
+  host.innerHTML='';
+  host.classList.toggle('on',!!cards.length);
+  if(!cards.length){
+    App.mapSheet.listFocusId='';
+    syncMapSheetListMetrics();
+    return;
+  }
+  let activeCard=null;
+  cards.forEach(shop=>{
+    const ref=shopPublicRef(shop) || shop?.shop_id || '';
+    const active=!!focusShopId && (focusShopId===ref || focusShopId===shop?.shop_id);
+    const stats=shop?.stats||{};
+    const nouns=offeringNouns(shop||{});
+    const distanceLabel=mapDistanceLabel(shop);
+    const metaText=[distanceLabel,shop?.category||'',shop?.city||''].filter(Boolean).slice(0,2).join(' | ') || 'Tap to preview this business on the map';
+    const copyText=(shop?.overview||shopDisplayAddress(shop)||'Open the business page to browse offerings and chat with the assistant.').slice(0,92);
+    const chipText=[
+      stats.product_count!=null ? `${stats.product_count} ${nouns.plural}` : '',
+      Number(stats.avg_rating||0)>0 ? `Rating ${Number(stats.avg_rating).toFixed(1)}` : '',
+      shop?.is_open_now ? 'Open now' : ''
+    ].filter(Boolean).slice(0,2);
+    const card=document.createElement('div');
+    card.className='map-spot-card'+(active?' active':'');
+    card.tabIndex=0;
+    card.setAttribute('role','button');
+    card.setAttribute('aria-pressed',active?'true':'false');
+    card.innerHTML=`
+      <div class="map-spot-card-top">
+        <div class="map-spot-card-mark">
+          ${businessAvatarHtml(shop,shop?.name||'Business')}
+          ${shopCategoryBadgeHtml(shop?.category||'','map-spot-card-mark-badge')}
+        </div>
+        <div class="map-spot-card-main">
+          <div class="map-spot-card-name">${esc(shop?.name||'Business')}</div>
+          <div class="map-spot-card-meta">${esc(metaText)}</div>
+          <div class="map-spot-card-copy">${esc(copyText)}</div>
+        </div>
+      </div>
+      <div class="map-spot-card-foot">
+        <div class="map-spot-card-chips">${chipText.map(text=>`<span class="map-spot-card-chip">${esc(text)}</span>`).join('')}</div>
+        <button class="btn btn-A btn-sm map-spot-card-visit" type="button">Visit</button>
+      </div>`;
+    card.addEventListener('click',e=>{
+      if(e.target.closest('button')) return;
+      focusMapShop(shop);
+    });
+    card.addEventListener('keydown',e=>{
+      if(e.key==='Enter' || e.key===' '){
+        e.preventDefault();
+        focusMapShop(shop);
+      }
+    });
+    const visitBtn=card.querySelector('.map-spot-card-visit');
+    visitBtn?.addEventListener('click',e=>{
+      e.stopPropagation();
+      if(ref) window.visitShopFromMap(ref);
+    });
+    host.appendChild(card);
+    if(active) activeCard=card;
+  });
+  if(activeCard && focusShopId && App.mapSheet.listFocusId!==focusShopId && App.mapSheet.focusScrollRequested){
+    App.mapSheet.listFocusId=focusShopId;
+    App.mapSheet.focusScrollRequested=false;
+    requestAnimationFrame(()=>activeCard.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}));
+  }else if(activeCard && focusShopId){
+    App.mapSheet.listFocusId=focusShopId;
+  }else if(!focusShopId){
+    App.mapSheet.listFocusId='';
+    App.mapSheet.focusScrollRequested=false;
+  }
+  requestAnimationFrame(syncMapSheetListMetrics);
+}
 function refreshMapMarkerDistances(userLoc=null){
   const loc=userLoc||App.mapSheet.userLocation||null;
   (App.mapSheet.markers||[]).forEach(entry=>{
@@ -3750,6 +4111,45 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
   }
   scheduleMapShopPreviewSync(focusShop ? 90 : 140);
 }
+function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
+  App.mapSheet.preparedShops=shops.slice();
+  syncMapSheetChrome();
+  if(!shops.length){
+    setMapSheetEmpty('No mapped businesses yet','Businesses need a verified address with coordinates before they can appear on the map.');
+    const radiusNote=userLoc && Number(App.mapSheet.radiusKm||0)>0 ? ` within ${mapRadiusLabel(App.mapSheet.radiusKm)}` : '';
+    refreshMapSheetSize(60);
+    renderMapMarkers([],focusShop?.shop_id||App.mapSheet.focusShopId||'');
+    if(hasExactUserLocation(userLoc)) addUserMapMarker(userLoc);
+    else if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
+    setMapSheetStatus(`No business locations are ready for the map${radiusNote}.`);
+    clearMapPreviewTimer();
+    App.mapSheet.previewMode='';
+    App.mapSheet.pinnedPopupKey='';
+    App.mapSheet.focusShopId='';
+    buildMapSpotCards([]);
+    return;
+  }
+  setMapSheetEmpty('','');
+  refreshMapSheetSize(60);
+  renderMapMarkers(shops,focusShop?.shop_id||App.mapSheet.focusShopId||'');
+  if(hasExactUserLocation(userLoc)) addUserMapMarker(userLoc);
+  else if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
+  fitMapToShops(shops,focusShop,userLoc);
+  buildMapSpotCards(shops,focusShop?.shop_id||App.mapSheet.focusShopId||'');
+  const mappedCount=shops.length;
+  if($('mapSheetFloatingMeta')) $('mapSheetFloatingMeta').textContent=App.mapSheet.mode==='shop'&&focusShop ? `${focusShop.name} + ${Math.max(mappedCount-1,0)} nearby businesses` : `${mappedCount} mapped business${mappedCount===1?'':'es'}`;
+  if($('mapSheetFloatingHint')) $('mapSheetFloatingHint').textContent=userLoc
+    ? `Sorted ${App.mapSheet.sort==='nearest'?'by distance':'by business'}${Number(App.mapSheet.radiusKm||0)>0?` | within ${mapRadiusLabel(App.mapSheet.radiusKm)}`:''}`
+    : 'Tap a pin or a business card to preview it';
+  if(userLoc){
+    setMapSheetStatus(`Showing businesses ${App.mapSheet.sort==='nearest'?'nearest to your location':'around your location'}${Number(App.mapSheet.radiusKm||0)>0?` within ${mapRadiusLabel(App.mapSheet.radiusKm)}`:''}.`);
+  }else if(focusShop){
+    setMapSheetStatus(`Focused on ${focusShop.name}. Zoom out to explore more businesses.`);
+  }else{
+    setMapSheetStatus('Showing mapped businesses available right now.');
+  }
+  scheduleMapShopPreviewSync(focusShop ? 90 : 140);
+}
 function rerenderCurrentMapSheet(){
   if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map) return;
   const base=(App.mapSheet.baseShops||[]).filter(hasShopCoords);
@@ -3814,11 +4214,13 @@ function renderMapMiniRail(shops=[],focusShopId=''){
     const ref=shopPublicRef(shop) || shop?.shop_id || '';
     const active=!!focusShopId && (focusShopId===ref || focusShopId===shop?.shop_id);
     const chip=document.createElement('button');
+    const categoryKey=shopCategoryIconKey(shop?.category||'');
     chip.type='button';
     chip.className='map-sheet-mini-chip'+(active?' active':'');
+    chip.dataset.mapCategory=categoryKey;
     chip.setAttribute('aria-label',shop?.name||'Business');
     chip.setAttribute('title',shop?.name||'Business');
-    chip.innerHTML=businessAvatarHtml(shop,shop?.name||'Business');
+    chip.innerHTML=shopCategoryIconHtml(shop?.category||'','map-sheet-mini-icon');
     chip.addEventListener('click',()=>{
       setMapSheetListHidden(false);
       focusMapShop(shop);
@@ -3904,6 +4306,117 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     App.mapSheet.listFocusId='';
     App.mapSheet.focusScrollRequested=false;
   }
+}
+function renderMapMiniRail(shops=[],focusShopId=''){
+  const host=$('mapSheetMiniIcons');
+  if(!host) return;
+  const visible=(shops||[]).slice(0,4);
+  host.innerHTML='';
+  if(!visible.length){
+    syncMapSheetListMetrics();
+    return;
+  }
+  visible.forEach(shop=>{
+    const ref=shopPublicRef(shop) || shop?.shop_id || '';
+    const active=!!focusShopId && (focusShopId===ref || focusShopId===shop?.shop_id);
+    const chip=document.createElement('button');
+    chip.type='button';
+    chip.className='map-sheet-mini-chip'+(active?' active':'');
+    chip.dataset.mapCategory=shopCategoryIconKey(shop?.category||'');
+    chip.setAttribute('aria-label',shop?.name||'Business');
+    chip.setAttribute('title',shop?.name||'Business');
+    chip.innerHTML=shopCategoryIconHtml(shop?.category||'','map-sheet-mini-icon');
+    chip.addEventListener('click',()=>{
+      setMapSheetListHidden(false);
+      focusMapShop(shop);
+    });
+    host.appendChild(chip);
+  });
+  const extra=(shops||[]).length-visible.length;
+  if(extra>0){
+    const more=document.createElement('span');
+    more.className='map-sheet-mini-more';
+    more.textContent=`+${extra}`;
+    host.appendChild(more);
+  }
+  requestAnimationFrame(syncMapSheetListMetrics);
+}
+function buildMapSpotCards(shops=[],focusShopId=''){
+  const host=$('mapSheetList');
+  if(!host) return;
+  const cards=mapVisibleSpotShops(shops);
+  renderMapMiniRail(cards,focusShopId);
+  host.innerHTML='';
+  host.classList.toggle('on',!!cards.length);
+  if(!cards.length){
+    App.mapSheet.listFocusId='';
+    syncMapSheetListMetrics();
+    return;
+  }
+  let activeCard=null;
+  cards.forEach(shop=>{
+    const ref=shopPublicRef(shop) || shop?.shop_id || '';
+    const active=!!focusShopId && (focusShopId===ref || focusShopId===shop?.shop_id);
+    const stats=shop?.stats||{};
+    const nouns=offeringNouns(shop||{});
+    const distanceLabel=mapDistanceLabel(shop);
+    const metaText=[distanceLabel,shop?.category||'',shop?.city||''].filter(Boolean).slice(0,2).join(' | ') || 'Tap to preview this business on the map';
+    const copyText=(shop?.overview||shopDisplayAddress(shop)||'Open the business page to browse offerings and chat with the assistant.').slice(0,92);
+    const chipText=[
+      stats.product_count!=null ? `${stats.product_count} ${nouns.plural}` : '',
+      Number(stats.avg_rating||0)>0 ? `Rating ${Number(stats.avg_rating).toFixed(1)}` : '',
+      shop?.is_open_now ? 'Open now' : ''
+    ].filter(Boolean).slice(0,2);
+    const card=document.createElement('div');
+    card.className='map-spot-card'+(active?' active':'');
+    card.tabIndex=0;
+    card.setAttribute('role','button');
+    card.setAttribute('aria-pressed',active?'true':'false');
+    card.innerHTML=`
+      <div class="map-spot-card-top">
+        <div class="map-spot-card-mark">
+          ${businessAvatarHtml(shop,shop?.name||'Business')}
+          ${shopCategoryBadgeHtml(shop?.category||'','map-spot-card-mark-badge')}
+        </div>
+        <div class="map-spot-card-main">
+          <div class="map-spot-card-name">${esc(shop?.name||'Business')}</div>
+          <div class="map-spot-card-meta">${esc(metaText)}</div>
+          <div class="map-spot-card-copy">${esc(copyText)}</div>
+        </div>
+      </div>
+      <div class="map-spot-card-foot">
+        <div class="map-spot-card-chips">${chipText.map(text=>`<span class="map-spot-card-chip">${esc(text)}</span>`).join('')}</div>
+        <button class="btn btn-A btn-sm map-spot-card-visit" type="button">Visit</button>
+      </div>`;
+    card.addEventListener('click',e=>{
+      if(e.target.closest('button')) return;
+      focusMapShop(shop);
+    });
+    card.addEventListener('keydown',e=>{
+      if(e.key==='Enter' || e.key===' '){
+        e.preventDefault();
+        focusMapShop(shop);
+      }
+    });
+    const visitBtn=card.querySelector('.map-spot-card-visit');
+    visitBtn?.addEventListener('click',e=>{
+      e.stopPropagation();
+      if(ref) window.visitShopFromMap(ref);
+    });
+    host.appendChild(card);
+    if(active) activeCard=card;
+  });
+  if(activeCard && focusShopId && App.mapSheet.listFocusId!==focusShopId && App.mapSheet.focusScrollRequested){
+    App.mapSheet.listFocusId=focusShopId;
+    App.mapSheet.focusScrollRequested=false;
+    requestAnimationFrame(()=>activeCard.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}));
+  }else if(activeCard && focusShopId){
+    App.mapSheet.listFocusId=focusShopId;
+  }else if(!focusShopId){
+    App.mapSheet.listFocusId='';
+    App.mapSheet.focusScrollRequested=false;
+  }
+  requestAnimationFrame(syncMapSheetListMetrics);
 }
 function focusMapShop(shop={}){
   openMapShopPreview(shop,{mode:'manual',recenter:true,zoom:15,scroll:true});
@@ -4984,7 +5497,7 @@ function renderVariantMatrixBuilder(prefill=[],variantData=null){
     row.innerHTML=`
       <div class="variant-summary-card">${comboParts}${comboMeta.length?` <span style="color:var(--ink4)">• ${esc(comboMeta.join(' • '))}</span>`:''}</div>
       <div class="variant-row-main">
-        <div class="fld"><label>Combination Price Adjustment</label><input data-combo-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Optional. Use this only when the final price for this exact combination should change.</div></div>
+        <div class="fld"><label>Combination Price Adjustment</label><input data-combo-delta type="text" inputmode="decimal" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Optional. Use this only when the final price for this exact combination should change.</div></div>
         <div class="fld"><label>Combination Quantity</label><input data-combo-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="8"/><div class="fld-hint">Optional. Leave blank to use the main or option-level quantity.</div></div>
       </div>
       <div class="variant-assets">
@@ -5005,6 +5518,7 @@ function renderVariantMatrixBuilder(prefill=[],variantData=null){
     wrap.appendChild(row);
   });
   wrap.querySelectorAll('[data-combo-delta],[data-combo-stock]').forEach(el=>el.addEventListener('input',markProductFormDirty));
+  wrap.querySelectorAll('[data-combo-delta]').forEach(el=>el.addEventListener('blur',()=>{normalizeDecimalInputElement(el,{allowNegative:true,maxDecimals:2});markProductFormDirty();}));
   wrap.querySelectorAll('[data-combo-files]').forEach(input=>input.addEventListener('change',e=>{
     const idx=Number(e.target.getAttribute('data-combo-files'));
     if(!App.productVariantMatrixDraft[idx]) return;
@@ -5042,7 +5556,7 @@ function renderVariantBuilder(prefill=[]){
       <div class="variant-row-main">
         <div class="fld"><label>Type</label><select data-variant-group>${VARIANT_GROUP_OPTIONS.map(opt=>`<option value="${esc(opt)}"${(item.group||'')===opt?' selected':''}>${esc(opt)}</option>`).join('')}</select></div>
         <div class="fld"><label>Option</label><input data-variant-label value="${esc(item.label)}" placeholder="Large"/></div>
-        <div class="fld"><label>Price Adjustment</label><input data-variant-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Enter a positive value to add to the base price, or a negative value to reduce it.</div></div>
+        <div class="fld"><label>Price Adjustment</label><input data-variant-delta type="text" inputmode="decimal" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Enter a positive value to add to the base price, or a negative value to reduce it.</div></div>
         <div class="fld"><label>This Option Quantity</label><input data-variant-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="12"/><div class="fld-hint">Leave blank to fall back to the main product quantity.</div></div>
         <button class="btn btn-r btn-sm" type="button" data-variant-remove="${idx}">Remove</button>
       </div>
@@ -5065,6 +5579,7 @@ function renderVariantBuilder(prefill=[]){
     wrap.appendChild(row);
   });
   wrap.querySelectorAll('[data-variant-group],[data-variant-label],[data-variant-delta],[data-variant-stock]').forEach(el=>el.addEventListener('input',markProductFormDirty));
+  wrap.querySelectorAll('[data-variant-delta]').forEach(el=>el.addEventListener('blur',()=>{normalizeDecimalInputElement(el,{allowNegative:true,maxDecimals:2});markProductFormDirty();}));
   wrap.querySelectorAll('[data-variant-group],[data-variant-label]').forEach(el=>el.addEventListener('change',()=>{renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData());markProductFormDirty();}));
   wrap.querySelectorAll('[data-variant-files]').forEach(input=>input.addEventListener('change',e=>{
     const idx=Number(e.target.getAttribute('data-variant-files'));
@@ -5095,16 +5610,18 @@ function collectVariantData(){
   document.querySelectorAll('#variantBuilder .variant-row').forEach((row,rowIdx)=>{
     const group=(row.querySelector('[data-variant-group]')?.value||'').trim();
     const label=(row.querySelector('[data-variant-label]')?.value||'').trim();
-    const deltaRaw=row.querySelector('[data-variant-delta]')?.value||'0';
+    const deltaField=row.querySelector('[data-variant-delta]');
+    const deltaRaw=deltaField?.value||'0';
     const stockRaw=row.querySelector('[data-variant-stock]')?.value||'';
-    const delta=Number(deltaRaw);
+    const deltaInfo=parseDecimalValue(deltaRaw,{allowNegative:true,maxDecimals:2});
+    if(deltaField && deltaField.value!==deltaInfo.raw) deltaField.value=deltaInfo.raw;
     const stockQuantity=stockRaw===''?null:Number(stockRaw);
     if(!label) return;
     const draft=App.productVariantDraft[rowIdx]||{};
     out.push({
       group:group||'Option',
       label,
-      price_delta:Number.isFinite(delta)?delta:0,
+      price_delta:deltaInfo.number ?? 0,
       stock_quantity:Number.isInteger(stockQuantity)&&stockQuantity>=0?stockQuantity:null,
       images:Array.isArray(draft.images)?draft.images.slice():[],
       _files:Array.isArray(draft._files)?draft._files.slice():[]
@@ -5123,13 +5640,15 @@ function collectVariantMatrixData(){
   const out=[];
   document.querySelectorAll('#variantMatrixBuilder .variant-row').forEach((row,rowIdx)=>{
     const draft=App.productVariantMatrixDraft[rowIdx]||{};
-    const delta=Number(row.querySelector('[data-combo-delta]')?.value||0);
+    const deltaField=row.querySelector('[data-combo-delta]');
+    const deltaInfo=parseDecimalValue(deltaField?.value||0,{allowNegative:true,maxDecimals:2});
+    if(deltaField && deltaField.value!==deltaInfo.raw) deltaField.value=deltaInfo.raw;
     const stockRaw=row.querySelector('[data-combo-stock]')?.value||'';
     const stockQuantity=stockRaw===''?null:Number(stockRaw);
     out.push({
       selections:{...(draft.selections||{})},
       selection_key:draft.selection_key||selectionKey(draft.selections||{}),
-      price_delta:Number.isFinite(delta)?delta:0,
+      price_delta:deltaInfo.number ?? 0,
       stock_quantity:Number.isInteger(stockQuantity)&&stockQuantity>=0?stockQuantity:null,
       images:Array.isArray(draft.images)?draft.images.slice():[],
       _files:Array.isArray(draft._files)?draft._files.slice():[]
@@ -5173,7 +5692,7 @@ function renderVariantMatrixBuilder(prefill=[],variantData=null){
         </div>
       </div>
       <div class="variant-row-main combo">
-        <div class="fld"><label>Combination Price Adjustment</label><input data-combo-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Optional. Use this only when the final price for this exact combination should change.</div></div>
+        <div class="fld"><label>Combination Price Adjustment</label><input data-combo-delta type="text" inputmode="decimal" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Optional. Use this only when the final price for this exact combination should change.</div></div>
         <div class="fld"><label>Combination Quantity</label><input data-combo-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="8"/><div class="fld-hint">Optional. Leave blank to use the main or option-level quantity.</div></div>
       </div>
       <div class="variant-assets">
@@ -5256,7 +5775,7 @@ function renderVariantBuilder(prefill=[]){
       <div class="variant-row-main option">
         <div class="fld"><label>Type</label><select data-variant-group>${VARIANT_GROUP_OPTIONS.map(opt=>`<option value="${esc(opt)}"${(item.group||'')===opt?' selected':''}>${esc(opt)}</option>`).join('')}</select></div>
         <div class="fld"><label>Option</label><input data-variant-label value="${esc(item.label)}" placeholder="Large"/></div>
-        <div class="fld"><label>Price Adjustment</label><input data-variant-delta type="number" step="0.01" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Enter a positive value to add to the base price, or a negative value to reduce it.</div></div>
+        <div class="fld"><label>Price Adjustment</label><input data-variant-delta type="text" inputmode="decimal" value="${Number(item.price_delta||0)}" placeholder="0.00"/><div class="fld-hint">Enter a positive value to add to the base price, or a negative value to reduce it.</div></div>
         <div class="fld"><label>Option Quantity</label><input data-variant-stock type="number" min="0" step="1" inputmode="numeric" value="${item.stock_quantity===''?'':Number(item.stock_quantity)}" placeholder="12"/><div class="fld-hint">Leave blank to fall back to the main product quantity.</div></div>
       </div>
       <div class="variant-assets">
@@ -5546,11 +6065,11 @@ function buildShopFilterQuery(){
   return q?`?${q}`:'';
 }
 function normalizePriceInput(){
-  const el=$('prodPrice');
-  if(!el) return;
-  const cleaned=String(el.value||'').replace(/[^0-9.]/g,'');
-  const parts=cleaned.split('.');
-  el.value=parts.length>1?`${parts[0]}.${parts.slice(1).join('').slice(0,2)}`:cleaned;
+  return normalizeDecimalInputElement($('prodPrice'),{maxDecimals:2});
+}
+function normalizeShopDeliveryInputs(){
+  normalizeDecimalInputElement($('shopDeliveryRadius'),{maxDecimals:1});
+  normalizeDecimalInputElement($('shopDeliveryFee'),{maxDecimals:2});
 }
 let addressSuggestTimer=null;
 async function loadAddressSuggestions(){
@@ -7768,6 +8287,7 @@ function syncShopFormActions(mode='create'){
 }
 
 function validateShopForm(){
+  normalizeShopDeliveryInputs();
   const name=$('shopName').value.trim();
   const addr=buildShopAddressPayload();
   const category=$('shopCat').value.trim();
@@ -8199,6 +8719,7 @@ function renderAdminProds(prods){
 }
 async function createShop(){
   if(!tok())return toast('Login required','','err');
+  normalizeShopDeliveryInputs();
   const formErr=validateShopForm();
   if(formErr){setS('shopStatus',formErr,'err');return toast('Business details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
@@ -8239,6 +8760,7 @@ async function createShop(){
 }
 async function saveShop(){
   if(!tok())return toast('Login required','','err');
+  normalizeShopDeliveryInputs();
   const shopId=$('shopId').value.trim();if(!shopId)return toast('No business loaded','','err');
   const formErr=validateShopForm();
   if(formErr){setS('shopStatus',formErr,'err');return toast('Business details missing',formErr,'err');}
@@ -8605,6 +9127,8 @@ $('shopStreet1')?.addEventListener('input',()=>{
   addressSuggestTimer=setTimeout(loadAddressSuggestions,260);
 });
 $('shopStreet1')?.addEventListener('blur',()=>setTimeout(()=>{if($('shopAddressSuggest')){$('shopAddressSuggest').style.display='none';}},180));
+$('shopDeliveryRadius')?.addEventListener('blur',()=>{normalizeDecimalInputElement($('shopDeliveryRadius'),{maxDecimals:1});markShopFormDirty();});
+$('shopDeliveryFee')?.addEventListener('blur',()=>{normalizeDecimalInputElement($('shopDeliveryFee'),{maxDecimals:2});markShopFormDirty();});
 ['prodId','prodName','prodPrice','prodQty','prodOverview','prodDuration','prodCapacity'].forEach(id=>{
   $(id)?.addEventListener('input',markProductFormDirty);
 });
@@ -8628,7 +9152,8 @@ $('prodQty')?.addEventListener('input',()=>{
   $('prodStock').value=qty<=0?'out':(qty<=5?'low':'in');
   markProductFormDirty();
 });
-$('prodPrice')?.addEventListener('input',()=>{normalizePriceInput();markProductFormDirty();});
+$('prodPrice')?.addEventListener('input',markProductFormDirty);
+$('prodPrice')?.addEventListener('blur',()=>{normalizePriceInput();markProductFormDirty();});
 $('prodDuration')?.addEventListener('input',()=>{$('prodDuration').value=String($('prodDuration').value||'').replace(/[^\d]/g,'');markProductFormDirty();});
 $('prodCapacity')?.addEventListener('input',()=>{$('prodCapacity').value=String($('prodCapacity').value||'').replace(/[^\d]/g,'');markProductFormDirty();});
 document.addEventListener('pointerdown',e=>{

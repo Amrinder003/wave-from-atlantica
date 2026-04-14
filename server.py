@@ -431,6 +431,8 @@ def normalize_availability_mode(value: str = "", offering_type: str = "", busine
         "available": "available",
         "scheduled": "scheduled",
         "limited": "limited",
+        "booked_out": "unavailable",
+        "bookedout": "unavailable",
         "on_request": "on_request",
         "onrequest": "on_request",
         "unavailable": "unavailable",

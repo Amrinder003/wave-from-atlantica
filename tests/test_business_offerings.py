@@ -431,6 +431,10 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertIn("What is the price of Trip Planning Session?", suggestions)
         self.assertIn("Show me photos of Trip Planning Session", suggestions)
 
+    def test_normalize_availability_mode_maps_legacy_booked_out_to_unavailable(self):
+        self.assertEqual(server.normalize_availability_mode("booked_out", "service"), "unavailable")
+        self.assertEqual(server.normalize_availability_mode("on_request", "service"), "on_request")
+
     def test_chat_retries_truncated_llm_answer(self):
         calls = []
 

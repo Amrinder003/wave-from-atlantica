@@ -67,4 +67,4 @@ alter table if exists public.products
 
 alter table if exists public.products
   add constraint products_availability_mode_check
-  check (availability_mode in ('in_stock', 'available', 'limited', 'booked_out', 'unavailable'));
+  check (availability_mode in ('in_stock', 'available', 'scheduled', 'limited', 'on_request', 'unavailable'));
