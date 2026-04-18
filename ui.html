@@ -430,10 +430,11 @@ a{color:inherit;text-decoration:none}
 .map-spot-card:hover{transform:translateY(-2px);box-shadow:0 18px 32px rgba(48,33,15,.12);border-color:rgba(162,76,46,.28)}
 .map-spot-card:active{transform:scale(.988)}
 .map-spot-card.active{border-color:rgba(162,76,46,.52);box-shadow:0 18px 34px rgba(120,58,29,.16);background:linear-gradient(180deg,rgba(255,250,244,.98),rgba(246,234,220,.94))}
-.map-spot-card-top{display:flex;align-items:flex-start;gap:10px;min-width:0}
-.map-spot-card-mark{width:42px;height:42px;border-radius:16px;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.2);display:grid;place-items:center;font-size:19px;box-shadow:0 10px 20px rgba(92,47,24,.1);flex:0 0 auto;overflow:visible;position:relative}
+.map-spot-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0}
+.map-spot-card-lead{display:flex;align-items:flex-start;gap:10px;min-width:0;flex:1}
+.map-spot-card-mark{width:42px;height:42px;border-radius:16px;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.2);display:grid;place-items:center;font-size:19px;box-shadow:0 10px 20px rgba(92,47,24,.1);flex:0 0 auto;overflow:hidden;position:relative}
 .map-spot-card-mark .biz-avatar-fallback{font-size:17px;color:var(--A2)}
-.map-spot-card-mark-badge{position:absolute;right:-3px;bottom:-3px;width:20px;height:20px}
+.map-spot-card-mark-badge,.map-spot-card-category{width:28px;height:28px;flex:0 0 auto;margin-top:1px}
 .map-spot-card-main{min-width:0;display:grid;gap:4px}
 .map-spot-card-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.15;letter-spacing:-.03em}
 .map-spot-card-meta{font-size:11px;font-weight:700;color:var(--A2);line-height:1.45}
@@ -478,10 +479,11 @@ a{color:inherit;text-decoration:none}
 .wave-map-cluster::after{content:'';position:absolute;inset:6px;border-radius:999px;border:1px solid rgba(255,244,232,.22)}
 .wave-map-cluster-count{position:relative;z-index:1;font-family:'Sora',sans-serif;font-size:17px;font-weight:800;color:#fff;letter-spacing:-.04em}
 .wave-map-popup{display:grid;gap:10px;min-width:220px}
-.wave-map-popup-top{display:flex;align-items:center;gap:12px;min-width:0}
-.wave-map-popup-avatar{width:50px;height:50px;border-radius:16px;overflow:visible;position:relative;flex:0 0 auto;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.18);box-shadow:0 10px 22px rgba(92,47,24,.1)}
+.wave-map-popup-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0}
+.wave-map-popup-lead{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.wave-map-popup-avatar{width:50px;height:50px;border-radius:16px;overflow:hidden;position:relative;flex:0 0 auto;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.18);box-shadow:0 10px 22px rgba(92,47,24,.1)}
 .wave-map-popup-avatar .biz-avatar-fallback{font-size:20px;color:var(--A2)}
-.wave-map-popup-avatar-badge{position:absolute;right:-4px;bottom:-4px;width:22px;height:22px}
+.wave-map-popup-avatar-badge,.wave-map-popup-category{width:28px;height:28px;flex:0 0 auto;margin-top:2px}
 .wave-map-popup-head{min-width:0;display:grid;gap:4px}
 .wave-map-popup-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.15}
 .wave-map-popup-distance{font-size:12px;font-weight:800;color:var(--A2);margin-top:-2px}
@@ -492,9 +494,9 @@ a{color:inherit;text-decoration:none}
 .wave-map-popup-meta{display:flex;flex-wrap:wrap;gap:6px}
 .wave-map-popup-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:rgba(255,250,242,.88);border:1px solid rgba(191,174,149,.28);font-size:10px;font-weight:800;color:var(--ink2)}
 .map-category-icon,.map-category-badge,.map-sheet-mini-icon{display:grid;place-items:center}
-.map-category-icon svg,.map-category-badge svg,.map-sheet-mini-icon svg,.wave-map-pin-badge svg{width:15px;height:15px;display:block;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.map-category-icon svg,.map-category-badge svg,.map-sheet-mini-icon svg,.wave-map-pin-badge svg{width:16px;height:16px;display:block;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;fill:none}
 .map-category-icon svg .fill,.map-category-badge svg .fill,.map-sheet-mini-icon svg .fill,.wave-map-pin-badge svg .fill{fill:currentColor;stroke:none}
-.map-category-badge{width:100%;height:100%;border-radius:999px;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.22);box-shadow:0 8px 16px rgba(92,47,24,.1);color:var(--A2)}
+.map-category-badge{width:100%;height:100%;border-radius:10px;background:linear-gradient(180deg,#fff8ef,#f0dcc1);border:1px solid rgba(162,76,46,.22);box-shadow:0 8px 16px rgba(92,47,24,.1);color:var(--A2)}
 .map-sheet-mini-icon{width:18px;height:18px}
 .map-category-badge[data-map-category="food"],.map-sheet-mini-chip[data-map-category="food"]{color:#b45309;background:linear-gradient(180deg,#fff7ed,#ffedd5);border-color:rgba(245,158,11,.24)}
 .map-category-badge[data-map-category="electronics"],.map-sheet-mini-chip[data-map-category="electronics"]{color:#2563eb;background:linear-gradient(180deg,#eff6ff,#dbeafe);border-color:rgba(59,130,246,.24)}
@@ -2935,31 +2937,31 @@ function shopCategoryIconKey(category=''){
 function shopCategoryIconSvg(category=''){
   switch(shopCategoryIconKey(category)){
     case 'food':
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v5"></path><path d="M4 3v4"></path><path d="M8 3v4"></path><path d="M4 7h4"></path><path d="M6 8v13"></path><path d="M16 3c-1.7 0-3 1.8-3 4s1.3 4 3 4V21"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v7"></path><path d="M4 3v4"></path><path d="M8 3v4"></path><path d="M4 7h4"></path><path d="M6 10v11"></path><path d="M15 3v18"></path><path d="M15 3c2.5 0 4 2.2 4 5s-1.5 5-4 5"></path></svg>';
     case 'electronics':
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M10 5.5h4"></path><path d="M11.5 18.5h1"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="13" height="9" rx="2"></rect><path d="M8 19h3"></path><path d="M9.5 14v5"></path><rect x="18" y="6.5" width="3" height="10" rx="1"></rect></svg>';
     case 'clothing':
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5 10.5 3.5h3L16 5l3 2.5-2 3-2-1.5V21H9V9L7 10.5 5 7.5 8 5Z"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6V5a2 2 0 1 1 4 0"></path><path d="M8 9.5 12 6l4 3.5"></path><path d="M5 9.5 3.5 13h17L19 9.5"></path></svg>';
     case 'home':
       return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"></path><path d="M6.5 10.5V20h11V10.5"></path><path d="M10 20v-5h4v5"></path></svg>';
     case 'beauty':
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 13.5 7.5 18 9 13.5 10.5 12 15 10.5 10.5 6 9 10.5 7.5 12 3Z"></path><path d="M18.5 3.5 19 5 20.5 5.5 19 6 18.5 7.5 18 6 16.5 5.5 18 5 18.5 3.5Z"></path><path d="M5.5 15.5 6 17 7.5 17.5 6 18 5.5 19.5 5 18 3.5 17.5 5 17 5.5 15.5Z"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3h4"></path><path d="M10 3v6l2-1 2 1V3"></path><rect x="9" y="9" width="6" height="4" rx="1"></rect><path d="M10 13v7"></path><path d="M14 13v7"></path><path d="M10 20h4"></path></svg>';
     case 'sports':
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5 9.5 9.3 10.4 12.2h3.2l.9-2.9L12 7.5Z"></path><path d="M9.5 9.3 7 9.2 5.8 12l1.7 2.7 2.9-.5"></path><path d="M14.5 9.3 17 9.2 18.2 12l-1.7 2.7-2.9-.5"></path><path d="M7.5 14.7 9.5 17h5l2-2.3"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6"></path><path d="M7.5 7v10"></path><path d="M10 10h4"></path><path d="M14 7v10"></path><path d="M16.5 9v6"></path><path d="M18.5 8v8"></path></svg>';
     case 'books':
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5.5A2.5 2.5 0 0 1 9 3h8.5v16H9a2.5 2.5 0 0 0-2.5 2.5V5.5Z"></path><path d="M6.5 5.5A2.5 2.5 0 0 0 9 8h8.5"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5A2.5 2.5 0 0 1 7 3h4.5v17H7a2.5 2.5 0 0 0-2.5 2.5V5.5Z"></path><path d="M19.5 5.5A2.5 2.5 0 0 0 17 3h-4.5v17H17a2.5 2.5 0 0 1 2.5 2.5V5.5Z"></path></svg>';
     case 'healthcare':
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 8v8"></path><path d="M8 12h8"></path></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"></rect><path d="M12 8v8"></path><path d="M8 12h8"></path></svg>';
     case 'travel':
       return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12 21 8.5 16.5 12 21 15.5 2.5 12Z"></path><path d="M9 10 7 4.5"></path><path d="M9 14 7 19.5"></path></svg>';
     case 'professional':
       return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="2.5"></rect><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"></path><path d="M4 12h16"></path></svg>';
     case 'automotive':
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 15.5 7 10.5h10l1.5 5"></path><path d="M4 15.5h16"></path><circle cx="7.5" cy="16.5" r="1.5"></circle><circle cx="16.5" cy="16.5" r="1.5"></circle></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15.5 7.5 10h9L18 15.5"></path><path d="M4.5 15.5h15"></path><path d="M8.5 10 10 7.5h4L15.5 10"></path><circle cx="7.5" cy="16.5" r="1.4"></circle><circle cx="16.5" cy="16.5" r="1.4"></circle></svg>';
     case 'cleaning':
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 12.5 8.5 17 10 12.5 11.5 11 16 9.5 11.5 5 10 9.5 8.5 11 4Z"></path><circle cx="18.5" cy="5.5" r="1"></circle><circle cx="6" cy="18" r="1.2"></circle></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4h4"></path><path d="M13 4v3l3 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9l3-2V4"></path><path d="M9 11h7"></path><circle cx="18.5" cy="8" r="1"></circle></svg>';
     case 'arts':
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4c4.5 0 8 3 8 7 0 3-2 5-4.5 5H14a2 2 0 0 0 0 4h-2c-4.5 0-8-3-8-7s3.5-9 8-9Z"></path><circle cx="8.5" cy="10" r="1"></circle><circle cx="12" cy="8.5" r="1"></circle><circle cx="15" cy="10.5" r="1"></circle></svg>';
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4c4.6 0 8 3 8 7 0 3-2 5-4.5 5H14a2 2 0 0 0 0 4h-2c-4.6 0-8-3-8-7s3.4-9 8-9Z"></path><circle cx="8.5" cy="10" r="1"></circle><circle cx="12" cy="8.5" r="1"></circle><circle cx="15" cy="10.5" r="1"></circle><path d="M17.5 16.5 20 19"></path></svg>';
     case 'pets':
       return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8.5" r="1.5"></circle><circle cx="12" cy="7" r="1.5"></circle><circle cx="16" cy="8.5" r="1.5"></circle><path d="M12 12c2.6 0 4.5 1.8 4.5 4 0 1.7-1.5 3-4.5 3s-4.5-1.3-4.5-3c0-2.2 1.9-4 4.5-4Z"></path></svg>';
     case 'gifts':
@@ -3666,13 +3668,17 @@ function mapPopupHtml(shop={}){
   return `
     <div class="wave-map-popup">
       <div class="wave-map-popup-top">
-        <div class="wave-map-popup-avatar">
-          ${businessAvatarHtml(shop,shop?.name||'Business')}
-          ${shopCategoryBadgeHtml(shop.category,'wave-map-popup-avatar-badge')}
+        <div class="wave-map-popup-lead">
+          <div class="wave-map-popup-avatar">
+            ${businessAvatarHtml(shop,shop?.name||'Business')}
+          </div>
+          <div class="wave-map-popup-head">
+            <div class="wave-map-popup-name">${esc(shop.name||'Business')}</div>
+            ${distanceLabel?`<div class="wave-map-popup-distance">Distance: ${esc(distanceLabel)}</div>`:''}
+          </div>
         </div>
-        <div class="wave-map-popup-head">
-          <div class="wave-map-popup-name">${esc(shop.name||'Business')}</div>
-          ${distanceLabel?`<div class="wave-map-popup-distance">Distance: ${esc(distanceLabel)}</div>`:''}
+        <div class="wave-map-popup-category">
+          ${shopCategoryBadgeHtml(shop.category,'wave-map-popup-avatar-badge')}
         </div>
       </div>
       <div class="wave-map-popup-copy">${esc((shop.overview||'Open the business page to browse offerings, ask questions, and see what this business offers.').slice(0,140))}</div>
@@ -3767,14 +3773,18 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     card.setAttribute('aria-pressed',active?'true':'false');
     card.innerHTML=`
       <div class="map-spot-card-top">
-        <div class="map-spot-card-mark">
-          ${businessAvatarHtml(shop,shop?.name||'Business')}
-          ${shopCategoryBadgeHtml(shop?.category||'','map-spot-card-mark-badge')}
+        <div class="map-spot-card-lead">
+          <div class="map-spot-card-mark">
+            ${businessAvatarHtml(shop,shop?.name||'Business')}
+          </div>
+          <div class="map-spot-card-main">
+            <div class="map-spot-card-name">${esc(shop?.name||'Business')}</div>
+            <div class="map-spot-card-meta">${esc(metaText)}</div>
+            <div class="map-spot-card-copy">${esc(copyText)}</div>
+          </div>
         </div>
-        <div class="map-spot-card-main">
-          <div class="map-spot-card-name">${esc(shop?.name||'Business')}</div>
-          <div class="map-spot-card-meta">${esc(metaText)}</div>
-          <div class="map-spot-card-copy">${esc(copyText)}</div>
+        <div class="map-spot-card-category">
+          ${shopCategoryBadgeHtml(shop?.category||'','map-spot-card-mark-badge')}
         </div>
       </div>
       <div class="map-spot-card-foot">
@@ -4374,14 +4384,18 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     card.setAttribute('aria-pressed',active?'true':'false');
     card.innerHTML=`
       <div class="map-spot-card-top">
-        <div class="map-spot-card-mark">
-          ${businessAvatarHtml(shop,shop?.name||'Business')}
-          ${shopCategoryBadgeHtml(shop?.category||'','map-spot-card-mark-badge')}
+        <div class="map-spot-card-lead">
+          <div class="map-spot-card-mark">
+            ${businessAvatarHtml(shop,shop?.name||'Business')}
+          </div>
+          <div class="map-spot-card-main">
+            <div class="map-spot-card-name">${esc(shop?.name||'Business')}</div>
+            <div class="map-spot-card-meta">${esc(metaText)}</div>
+            <div class="map-spot-card-copy">${esc(copyText)}</div>
+          </div>
         </div>
-        <div class="map-spot-card-main">
-          <div class="map-spot-card-name">${esc(shop?.name||'Business')}</div>
-          <div class="map-spot-card-meta">${esc(metaText)}</div>
-          <div class="map-spot-card-copy">${esc(copyText)}</div>
+        <div class="map-spot-card-category">
+          ${shopCategoryBadgeHtml(shop?.category||'','map-spot-card-mark-badge')}
         </div>
       </div>
       <div class="map-spot-card-foot">
