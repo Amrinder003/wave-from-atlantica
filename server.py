@@ -3,7 +3,7 @@ Wave API  v4.0 — Supabase Edition (Stable & Fixed Chat)
 """
 
 from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Response, Form
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from pydantic import BaseModel, Field
@@ -3335,7 +3335,8 @@ def serve_leaflet_vendor(asset_path: str):
     return FileResponse(target)
 
 @app.get("/")
-def root(): return {"status": "running", "version": "4.1 Supabase"}
+def root():
+    return RedirectResponse(url="/ui", status_code=307)
 
 @app.get("/health")
 def health():
