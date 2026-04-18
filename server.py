@@ -89,7 +89,7 @@ SMTP_PORT         = int(os.environ.get("SMTP_PORT", "587") or 587)
 SMTP_USERNAME     = os.environ.get("SMTP_USERNAME", "").strip()
 SMTP_PASSWORD     = os.environ.get("SMTP_PASSWORD", "").strip()
 SMTP_FROM_EMAIL   = os.environ.get("SMTP_FROM_EMAIL", "").strip()
-SMTP_FROM_NAME    = os.environ.get("SMTP_FROM_NAME", "Wave from Atlantica").strip()
+SMTP_FROM_NAME    = os.environ.get("SMTP_FROM_NAME", "Atlantic Ordinate").strip()
 SMTP_USE_TLS      = os.environ.get("SMTP_USE_TLS", "true").strip().lower() not in {"0", "false", "no"}
 AUTH_ACCESS_COOKIE = os.environ.get("AUTH_ACCESS_COOKIE", "wave_at").strip() or "wave_at"
 AUTH_REFRESH_COOKIE = os.environ.get("AUTH_REFRESH_COOKIE", "wave_rt").strip() or "wave_rt"
@@ -299,7 +299,7 @@ ATTRIBUTE_QUERY_SYNONYMS: Dict[str, List[str]] = {
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # APP
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-app = FastAPI(title="Wave API", version="4.0")
+app = FastAPI(title="Atlantic Ordinate API", version="4.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -908,10 +908,10 @@ def send_request_confirmation_email(shop: Dict[str, Any], payload: Dict[str, Any
         "Items:",
         format_request_items_text(payload.get("items") or []),
         "",
-        f"Track in Wave: {tracker_url}",
+        f"Track in Atlantic Ordinate: {tracker_url}",
         "",
         "Thank you for shopping local.",
-        "Wave from Atlantica",
+        "Atlantic Ordinate",
     ])
     send_email_message(email, subject, body)
 
@@ -933,9 +933,9 @@ def send_request_status_email(shop: Dict[str, Any], row: Dict[str, Any], status:
         "Items:",
         format_request_items_text(row.get('items') or []),
         "",
-        f"Track in Wave: {tracker_url}",
+        f"Track in Atlantic Ordinate: {tracker_url}",
         "",
-        "Wave from Atlantica",
+        "Atlantic Ordinate",
     ])
     send_email_message(email, subject, body)
 
@@ -965,7 +965,7 @@ def llm_chat(system: str, user: str, max_tokens: Optional[int] = None) -> Dict[s
             "Authorization": f"Bearer {OPENROUTER_KEY}", 
             "Content-Type": "application/json",
             "HTTP-Referer": APP_BASE_URL,
-            "X-Title": "Wave from Atlantica"
+            "X-Title": "Atlantic Ordinate"
         },
         json=payload,
         timeout=60,

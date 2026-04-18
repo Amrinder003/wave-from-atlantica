@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Wave from Atlantica</title>
+<title>Atlantic Ordinate</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
 <style>
@@ -399,7 +399,7 @@ a{color:inherit;text-decoration:none}
 .shop-side-prompt:active{transform:scale(.985);background:var(--sf2)}
 .map-sheet-bg{position:fixed;inset:0;background:rgba(15,23,42,.34);backdrop-filter:blur(6px);z-index:460;display:none;align-items:stretch;justify-content:stretch;padding:0}
 .map-sheet-bg.on{display:flex}
-.map-sheet{position:relative;width:100vw;width:100dvw;height:100vh;height:100dvh;overflow:hidden;border-radius:0;border:none;background:linear-gradient(180deg,#f8f1e4,#eadbc6);box-shadow:none;--map-sheet-list-height:86px;--map-sheet-mini-height:46px}
+.map-sheet{position:relative;width:100vw;width:100dvw;height:100vh;height:100dvh;overflow:hidden;border-radius:0;border:none;background:linear-gradient(180deg,#f8f1e4,#eadbc6);box-shadow:none;--map-sheet-list-height:86px;--map-sheet-mini-height:46px;--map-sheet-floating-bottom:126px}
 .map-sheet-mobile-bar,.map-sheet-list-handle,.map-sheet-mini-rail{display:none}
 .map-sheet-side{position:absolute;left:0;right:0;top:0;z-index:6;display:grid;grid-template-columns:minmax(280px,440px) minmax(180px,250px);justify-content:space-between;align-items:start;gap:12px;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0;pointer-events:none}
 .map-sheet-head{display:grid;gap:8px;min-width:0;padding:14px 14px 12px;border-radius:24px;background:linear-gradient(180deg,rgba(255,253,248,.92),rgba(246,239,227,.84));border:1px solid rgba(191,174,149,.32);box-shadow:0 16px 36px rgba(18,23,34,.14);backdrop-filter:blur(12px);pointer-events:auto}
@@ -445,7 +445,7 @@ a{color:inherit;text-decoration:none}
 .map-spot-card-visit{padding-inline:10px;flex-shrink:0}
 .map-sheet-mapwrap{position:absolute;inset:0;min-width:0;min-height:0;height:100%;overflow:hidden;background:linear-gradient(180deg,#f6efe3,#eadbc6);isolation:isolate}
 .map-sheet-canvas{position:relative;width:100%;height:100%;min-height:100%;z-index:1}
-.map-sheet-floating{position:absolute;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 126px);display:grid;gap:8px;justify-items:start;align-content:end;pointer-events:none;max-width:min(420px,calc(100% - 32px));transition:opacity .2s ease,transform .2s ease;z-index:5}
+.map-sheet-floating{position:absolute;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-floating-bottom,126px));display:grid;gap:8px;justify-items:start;align-content:end;pointer-events:none;max-width:min(420px,calc(100% - 32px));transition:opacity .2s ease,transform .2s ease;z-index:5}
 .map-sheet-floating > *{pointer-events:auto}
 .map-sheet-floating.hidden{opacity:0;transform:translateY(10px)}
 .map-sheet-floating.hidden > *{pointer-events:none}
@@ -566,7 +566,9 @@ a{color:inherit;text-decoration:none}
   .map-spot-card-copy{font-size:10px}
   .map-spot-card-foot{display:grid;grid-template-columns:1fr;align-items:stretch}
   .map-spot-card-visit{width:100%;justify-content:center}
-  .map-sheet-floating{display:none}
+  .map-sheet-floating{left:10px;right:72px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-floating-bottom,126px));max-width:min(260px,calc(100% - 92px));gap:6px}
+  .map-floating-chip{padding:6px 9px;font-size:10px;line-height:1.35;box-shadow:0 8px 18px rgba(48,33,15,.1)}
+  .map-sheet.list-hidden .map-sheet-floating{bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-floating-bottom,72px))}
   .map-sheet-canvas .leaflet-top.leaflet-left{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 8px)}
   .map-sheet.list-hidden .map-sheet-locate-btn{bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-mini-height,46px) + 14px)}
   .map-sheet.list-hidden .map-sheet-list-handle{display:none!important}
@@ -1485,8 +1487,8 @@ a{color:inherit;text-decoration:none}
 
 <header class="nav">
   <div class="nav-logo" onclick="goHome()">
-    <div class="nav-logo-mark">W</div>
-    <div class="nav-logo-text">Wave <br><em style="font-size: 10px; color: #0284c7; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-top: -4px;">from Atlantica</em></div>
+    <div class="nav-logo-mark">AO</div>
+    <div class="nav-logo-text">Atlantic <br><em style="font-size: 10px; color: #0284c7; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-top: -4px;">Ordinate</em></div>
   </div>
   <div class="nav-search">
     <input id="navSrchIn" placeholder="Search offerings, businesses..."/>
@@ -1532,7 +1534,7 @@ a{color:inherit;text-decoration:none}
         <div class="hero-copy">
           <div class="hero-kicker">Local Business AI</div>
           <div class="hero-title">Browse neighborhood businesses and ask each one like you already know how they work.</div>
-          <div class="hero-text">Wave gives every local business a live assistant, structured offering page, and public presence. Search across Atlantica, open a business, and get direct answers about pricing, availability, photos, hours, and what fits your budget.</div>
+          <div class="hero-text">Atlantic Ordinate gives every local business a live assistant, structured offering page, and public presence. Search across your area, open a business, and get direct answers about pricing, availability, photos, hours, and what fits your budget.</div>
           <div class="hero-actions">
             <button class="btn btn-A" onclick="focusHomeSection('shops')">Explore Businesses</button>
             <button class="btn btn-o" onclick="showPage('chat')">Open Chat</button>
@@ -3595,6 +3597,10 @@ function syncMapSheetListMetrics(){
     : 46;
   sheet.style.setProperty('--map-sheet-list-height',`${Math.max(listHeight,86)}px`);
   sheet.style.setProperty('--map-sheet-mini-height',`${Math.max(miniHeight,46)}px`);
+  const floatingBottom=compactViewport
+    ? (App.mapSheet.listHidden ? Math.max(miniHeight + 18,64) : Math.max(listHeight + 18,104))
+    : 126;
+  sheet.style.setProperty('--map-sheet-floating-bottom',`${floatingBottom}px`);
 }
 function syncMapSheetChrome(){
   const sheet=$('mapSheetBg')?.querySelector('.map-sheet');
