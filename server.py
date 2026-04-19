@@ -3319,7 +3319,21 @@ def serve_product_ui(shop_ref: str, product_ref: str):
 
 @app.get("/favicon.ico")
 def favicon():
+    icon_path = os.path.join(SERVER_DIR, "AtlanticOrdinate-icon.png")
+    if os.path.isfile(icon_path):
+        return FileResponse(icon_path)
     raise HTTPException(204)
+
+@app.get("/brand/{filename}")
+def serve_brand_asset(filename: str):
+    allowed = {"AtlanticOrdinate-icon.png", "AtlanticOrdinate Logo.jpg"}
+    safe_name = os.path.basename(filename or "")
+    if safe_name not in allowed:
+        raise HTTPException(404, "Asset not found")
+    target = os.path.join(SERVER_DIR, safe_name)
+    if not os.path.isfile(target):
+        raise HTTPException(404, "Asset not found")
+    return FileResponse(target)
 
 @app.get("/vendor/leaflet/{asset_path:path}")
 def serve_leaflet_vendor(asset_path: str):

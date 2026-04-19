@@ -6,6 +6,7 @@
 <title>Atlantic Ordinate</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
+<link rel="icon" href="/brand/AtlanticOrdinate-icon.png"/>
 <style>
 :root{
   /* Soothing Ocean Backgrounds */
@@ -1481,14 +1482,441 @@ a{color:inherit;text-decoration:none}
   .req-banner-actions .btn{flex:1;justify-content:center}
 }
 @keyframes tin{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+
+/* 2026 public experience pass */
+:root{
+  --ocean:#12343b;
+  --ocean2:#0f6674;
+  --copper:#bd6338;
+  --copper2:#8d3d24;
+  --cream:#f8f3ea;
+  --paper:#fffaf2;
+  --mist:#e9f1ee;
+  --glow:0 30px 90px rgba(18,52,59,.14);
+  --nh:74px;
+}
+body{
+  background:
+    radial-gradient(circle at 8% 8%,rgba(189,99,56,.14),transparent 30%),
+    radial-gradient(circle at 92% 2%,rgba(15,102,116,.16),transparent 28%),
+    linear-gradient(180deg,#fbf7ef 0%,#f3ede2 46%,#eee8dd 100%);
+}
+.nav{
+  height:74px;
+  padding:0 24px;
+  gap:18px;
+  background:rgba(255,250,242,.82);
+  border-bottom:1px solid rgba(109,90,70,.16);
+  box-shadow:0 12px 34px rgba(18,52,59,.08);
+  backdrop-filter:blur(18px);
+}
+.nav-logo{gap:12px}
+.nav-logo-mark{
+  width:48px;
+  height:48px;
+  border-radius:18px;
+  overflow:hidden;
+  background:#f8f3ea;
+  border:1px solid rgba(189,99,56,.22);
+  box-shadow:0 14px 30px rgba(141,61,36,.16);
+}
+.nav-logo-img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.55)}
+.nav-logo-text{
+  font-size:19px;
+  letter-spacing:-.06em;
+  line-height:.95;
+  color:var(--ocean);
+}
+.nav-logo-text span{display:block;color:var(--ink);letter-spacing:-.045em}
+.nav-logo-text em{
+  color:var(--ocean2);
+  font-size:9px;
+  letter-spacing:.14em;
+  margin-top:6px;
+}
+.nav-search{
+  max-width:760px;
+  height:44px;
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(104,86,66,.2);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 10px 24px rgba(18,52,59,.05);
+}
+.nav-search:focus-within{border-color:rgba(15,102,116,.42);box-shadow:0 0 0 4px rgba(15,102,116,.1)}
+.nav-search-btn{
+  min-width:96px;
+  justify-content:center;
+  background:linear-gradient(135deg,var(--ocean),var(--ocean2));
+}
+.nav-search-btn:hover{background:linear-gradient(135deg,#0b252b,#0f6674)}
+.nav-btn{border-radius:16px;color:var(--ink2)}
+.nav-btn:hover{background:rgba(233,241,238,.8);color:var(--ocean2)}
+.nav-btn .ni{background:rgba(255,255,255,.78)}
+.subnav{
+  height:50px;
+  padding:0 24px;
+  gap:8px;
+  background:rgba(248,243,234,.78);
+}
+.snav{
+  padding:8px 15px;
+  border-radius:999px;
+  font-weight:700;
+}
+.snav.on{background:var(--ocean);box-shadow:0 10px 24px rgba(18,52,59,.16)}
+.home-wrap{max-width:1400px;padding:34px 24px 88px;gap:28px}
+.home-hero{grid-template-columns:minmax(0,1fr) minmax(340px,430px);gap:18px}
+@media(max-width:900px){.home-hero{grid-template-columns:1fr}}
+.hero-panel{
+  min-height:420px;
+  display:flex;
+  align-items:flex-end;
+  border-radius:42px;
+  padding:46px;
+  background:
+    radial-gradient(circle at 82% 18%,rgba(255,255,255,.2),transparent 18%),
+    radial-gradient(circle at 12% 82%,rgba(15,102,116,.34),transparent 28%),
+    linear-gradient(135deg,#10282e 0%,#174653 46%,#c76a3c 118%);
+  box-shadow:var(--glow);
+}
+.hero-panel::before{
+  right:-84px;
+  top:-58px;
+  width:300px;
+  height:300px;
+  background:rgba(255,255,255,.08);
+}
+.hero-panel::after{
+  left:auto;
+  right:8%;
+  bottom:34px;
+  width:230px;
+  height:70px;
+  background:rgba(255,255,255,.1);
+  transform:rotate(-12deg);
+}
+.hero-copy{gap:18px;max-width:760px}
+.hero-kicker,.section-kicker{
+  letter-spacing:.16em;
+  font-size:10px;
+}
+.hero-title{
+  font-size:clamp(48px,5.6vw,82px);
+  line-height:.92;
+  max-width:760px;
+  letter-spacing:-.085em;
+}
+.hero-text{
+  max-width:48ch;
+  font-size:16px;
+  line-height:1.62;
+  color:rgba(255,247,238,.82);
+}
+.hero-actions{gap:10px}
+.hero-actions .btn{min-height:48px;border-radius:999px;padding-inline:20px}
+.hero-note{gap:10px}
+.hero-note span{
+  padding:7px 11px;
+  border-radius:999px;
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.12);
+}
+.hero-stat-card{
+  min-height:420px;
+  border-radius:42px;
+  padding:30px;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,250,242,.66)),
+    radial-gradient(circle at 90% 0%,rgba(15,102,116,.16),transparent 34%);
+  box-shadow:var(--glow);
+  backdrop-filter:blur(12px);
+}
+.hero-stat-grid{gap:12px}
+.hero-stat{
+  min-height:108px;
+  padding:17px;
+  border-radius:24px;
+  background:rgba(255,255,255,.72);
+  border-color:rgba(109,90,70,.14);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.75);
+}
+.hero-stat-value{font-size:30px;color:var(--ocean)}
+.section-shell{
+  border-radius:34px;
+  padding:26px;
+  background:rgba(255,250,242,.74);
+  border:1px solid rgba(109,90,70,.16);
+  box-shadow:0 24px 70px rgba(18,52,59,.08);
+  backdrop-filter:blur(12px);
+}
+.sec-title{font-size:30px;color:var(--ink);letter-spacing:-.06em}
+.sec-sub{max-width:56ch;line-height:1.55}
+.sec-actions{align-items:center}
+.btn{border-radius:999px}
+.btn-A{
+  background:linear-gradient(135deg,var(--copper),var(--copper2));
+  box-shadow:0 14px 28px rgba(141,61,36,.2);
+}
+.btn-A:hover{background:linear-gradient(135deg,#a94f2d,#78301b)}
+.btn-map{
+  background:linear-gradient(135deg,var(--ocean),var(--ocean2));
+  color:#fff;
+  border-color:rgba(255,255,255,.08);
+  box-shadow:0 14px 28px rgba(18,52,59,.18);
+}
+.btn-map:hover{background:linear-gradient(135deg,#0b252b,#0f6674)}
+.btn-o{
+  background:rgba(255,255,255,.76);
+  border-color:rgba(109,90,70,.18);
+}
+.shop-filter-trigger{
+  min-height:40px;
+  border-radius:999px;
+  background:rgba(255,255,255,.74);
+  border-color:rgba(109,90,70,.18);
+}
+.shop-card{
+  border-radius:28px;
+  border-color:rgba(109,90,70,.15);
+  box-shadow:0 22px 50px rgba(18,52,59,.08);
+}
+.shop-card-banner{
+  height:96px;
+  background:
+    radial-gradient(circle at 86% 16%,rgba(255,255,255,.22),transparent 22%),
+    linear-gradient(135deg,#12343b,#1b5964 58%,#c76a3c);
+}
+.shop-card-mark{
+  background:rgba(255,250,242,.92);
+  border:1px solid rgba(255,255,255,.42);
+}
+.shop-card-category{color:var(--ocean);background:rgba(255,255,255,.78)}
+.shop-card-overview{
+  min-height:0;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.sc-chip{font-weight:800}
+.sc-chip.a{background:rgba(15,102,116,.1);color:var(--ocean2)}
+.pc{
+  border-radius:28px;
+  border-color:rgba(109,90,70,.15);
+  box-shadow:0 20px 46px rgba(18,52,59,.08);
+}
+.pc-photo-wrap{background:linear-gradient(135deg,#edf3f0,#f7eadc)}
+.pc-img{object-fit:contain;background:#fff;padding:8px}
+.pc-name{letter-spacing:-.02em}
+.pc-overview{-webkit-line-clamp:1}
+.shop-header{
+  border-radius:0 0 38px 38px;
+  padding:42px 34px 34px;
+  background:
+    radial-gradient(circle at 86% 18%,rgba(255,255,255,.16),transparent 24%),
+    linear-gradient(135deg,#132a2f 0%,#254f57 42%,#bd6338 116%);
+  box-shadow:0 26px 70px rgba(18,52,59,.16);
+}
+.shop-hdr-inner{
+  align-items:center;
+  gap:22px;
+}
+.shop-hdr-actions{
+  justify-content:flex-end;
+  max-width:620px;
+}
+.shop-hdr-actions .btn-o{
+  color:#fff;
+  background:rgba(255,255,255,.12);
+  border-color:rgba(255,255,255,.22);
+}
+.shop-hdr-actions .btn-o:hover{
+  background:rgba(255,255,255,.18);
+  border-color:rgba(255,255,255,.32);
+}
+.shop-hdr-actions .btn-map{
+  background:linear-gradient(135deg,#f8f3ea,#ffffff);
+  color:var(--ocean);
+  border-color:rgba(255,255,255,.52);
+}
+.shop-hdr-desc{
+  line-height:1.58;
+  max-width:58ch;
+}
+.shop-mobile-actions .btn-map{min-height:48px}
+.shop-toolbar{
+  border-radius:26px;
+  background:rgba(255,250,242,.8);
+  box-shadow:0 14px 34px rgba(18,52,59,.06);
+}
+.shop-search-box{border-radius:999px}
+.qchip{border-radius:999px;background:rgba(255,255,255,.8)}
+.map-sheet-head,.map-sheet-status,.map-sheet-list,.map-floating-chip{
+  background:rgba(255,250,242,.9);
+  border-color:rgba(109,90,70,.16);
+}
+.map-sheet-title{color:var(--ocean)}
+@media(max-width:860px){
+  .shop-header{padding:26px 18px 28px;border-radius:0 0 30px 30px}
+  .shop-hdr-inner{max-width:354px;margin-left:12px;margin-right:auto}
+  .shop-hdr-name{font-size:32px;line-height:.98}
+  .shop-hdr-desc{-webkit-line-clamp:2}
+  .shop-mobile-hero{width:354px;max-width:calc(100vw - 32px);margin:-18px auto 12px 12px}
+  .shop-mobile-hero-top{display:none!important}
+  .shop-mobile-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shop-mobile-summary-card{border-radius:22px;padding:12px 13px;box-shadow:0 12px 28px rgba(18,52,59,.07)}
+  .shop-mobile-actions{grid-template-columns:1fr}
+  .shop-mobile-actions .btn:first-child{grid-column:auto}
+  .shop-mobile-summary-v{overflow-wrap:anywhere;word-break:break-word}
+  .shop-mobile-tools{top:calc(var(--nh) + var(--sh));background:rgba(248,243,234,.92);backdrop-filter:blur(12px)}
+}
+@media(max-width:680px){
+  :root{--nh:116px}
+  .nav{
+    height:auto;
+    padding:9px 12px 10px;
+    gap:9px;
+    min-height:116px;
+    align-content:start;
+  }
+  .nav-logo-mark{width:38px;height:38px;border-radius:14px}
+  .nav-logo-text{font-size:15px}
+  .nav-logo-text em{display:none}
+  .nav-search{
+    order:3;
+    width:100%;
+    height:46px;
+    border-radius:18px;
+  }
+  .nav-search-btn{min-width:64px;font-size:0}
+  .nav-search-btn::before{content:'Go';font-size:12px}
+  .subnav{
+    height:48px;
+    padding:0 12px;
+  }
+  .home-wrap{padding:14px 12px 112px;gap:18px}
+  .home-hero{grid-template-columns:1fr;gap:12px}
+  .hero-panel{
+    width:100%;
+    min-height:0;
+    border-radius:30px;
+    padding:30px 24px 24px;
+  }
+  .hero-title{
+    font-size:34px;
+    line-height:1;
+    letter-spacing:-.055em;
+    overflow-wrap:break-word;
+  }
+  .hero-text{
+    font-size:14px;
+    line-height:1.55;
+    max-width:34ch;
+  }
+  .hero-actions{
+    display:grid;
+    grid-template-columns:1fr;
+  }
+  .hero-actions .btn{
+    min-height:46px;
+    width:100%;
+    justify-content:center;
+    padding-inline:12px;
+  }
+  .hero-actions .btn:first-child{grid-column:auto}
+  .hero-note{display:none}
+  .hero-mobile-stats{display:none!important}
+  .hero-stat-card{display:none!important}
+  .section-shell{border-radius:28px;padding:16px}
+  .hero-panel,.section-shell{
+    width:354px;
+    max-width:calc(100vw - 32px);
+    margin-left:12px;
+    margin-right:auto;
+  }
+  .sec-head{gap:10px;margin-bottom:14px}
+  .sec-title{font-size:25px}
+  .sec-actions{
+    width:100%;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .sec-actions .btn,.shop-filter-trigger{width:100%;justify-content:center;min-height:44px}
+  .home-mobile-switcher.on{
+    display:block;
+    left:18px;
+    right:auto;
+    transform:none;
+    width:354px;
+    max-width:calc(100vw - 36px);
+    bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  }
+  .home-mobile-switch-dock{
+    box-sizing:border-box;
+    width:100%;
+    max-width:100%;
+    overflow:hidden;
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:8px;
+    padding:8px;
+    border-radius:24px;
+    background:rgba(255,250,242,.92);
+    box-shadow:0 22px 54px rgba(18,52,59,.18);
+  }
+  .home-mobile-switch-btn{
+    min-width:0;
+    width:100%;
+    max-width:100%;
+    overflow:hidden;
+    height:54px;
+    border-radius:18px;
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.02em;
+  }
+  .home-mobile-switch-btn::after{content:attr(title);white-space:nowrap}
+  .home-mobile-map-btn{
+    background:linear-gradient(135deg,var(--ocean),var(--ocean2));
+    color:#fff;
+    border-color:transparent;
+  }
+  .hero-panel,.section-shell{overflow:hidden}
+  .home-wrap #featuredGrid.pgrid{grid-template-columns:1fr;gap:12px}
+  .home-wrap #featuredGrid .pc{border-radius:20px;min-width:0}
+  .home-wrap #featuredGrid .pc-photo-wrap{aspect-ratio:1/1}
+  .home-wrap #featuredGrid .pc-body{padding:11px}
+  .home-wrap #featuredGrid .pc-overview,.home-wrap #featuredGrid .pc-attr{display:none}
+  .home-wrap #featuredGrid .pc-name{font-size:13px}
+  .home-wrap #featuredGrid .pc-price{font-size:15px}
+  .shop-header,.shop-mobile-hero,.shop-main,.shop-toolbar{overflow:hidden}
+  .shop-main{width:354px;max-width:calc(100vw - 32px);margin-left:12px;margin-right:auto;padding-left:0;padding-right:0}
+  .shop-pgrid{grid-template-columns:1fr;gap:10px}
+  .shop-pgrid .pc{display:grid;grid-template-columns:118px minmax(0,1fr);align-items:stretch;border-radius:20px;min-width:0}
+  .shop-pgrid .pc-photo-wrap{aspect-ratio:auto;min-height:100%;height:100%;border-right:1px solid rgba(191,174,149,.22)}
+  .shop-pgrid .pc-body{padding:12px}
+  .shop-pgrid .pc-overview,.shop-pgrid .pc-attr{display:none}
+  .pc-fav,.pc-add{opacity:1}
+  .map-sheet-mobile-bar{top:calc(env(safe-area-inset-top,0px) + 10px)}
+  .map-sheet-head{margin-top:54px}
+}
+@media(max-width:420px){
+  .home-wrap #featuredGrid.pgrid{grid-template-columns:1fr}
+  .shop-mobile-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shop-mobile-summary-card.wide{grid-column:1/-1}
+  .shop-pgrid{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
 
 <header class="nav">
   <div class="nav-logo" onclick="goHome()">
-    <div class="nav-logo-mark">AO</div>
-    <div class="nav-logo-text">Atlantic <br><em style="font-size: 10px; color: #0284c7; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-top: -4px;">Ordinate</em></div>
+    <div class="nav-logo-mark"><img class="nav-logo-img" src="/brand/AtlanticOrdinate-icon.png" alt="" loading="eager"/></div>
+    <div class="nav-logo-text">Atlantic <span>Ordinate</span><em>Local intelligence</em></div>
   </div>
   <div class="nav-search">
     <input id="navSrchIn" placeholder="Search offerings, businesses..."/>
@@ -1532,17 +1960,18 @@ a{color:inherit;text-decoration:none}
     <section class="home-hero">
       <div class="hero-panel">
         <div class="hero-copy">
-          <div class="hero-kicker">Local Business AI</div>
-          <div class="hero-title">Browse neighborhood businesses and ask each one like you already know how they work.</div>
-          <div class="hero-text">Atlantic Ordinate gives every local business a live assistant, structured offering page, and public presence. Search across your area, open a business, and get direct answers about pricing, availability, photos, hours, and what fits your budget.</div>
+          <div class="hero-kicker">Atlantic Ordinate</div>
+          <div class="hero-title">Find local businesses. Ask instantly.</div>
+          <div class="hero-text">Browse clean business pages, compare offerings, open the map, and ask each business direct questions before you visit or order.</div>
           <div class="hero-actions">
             <button class="btn btn-A" onclick="focusHomeSection('shops')">Explore Businesses</button>
-            <button class="btn btn-o" onclick="showPage('chat')">Open Chat</button>
+            <button class="btn btn-map" onclick="openMapSheet('home')">Open Map</button>
+            <button class="btn btn-o" onclick="showPage('chat')">Ask AI</button>
           </div>
           <div class="hero-note">
-            <span>Real business-specific answers</span>
-            <span>Browse by category</span>
-            <span>Ask direct budget questions</span>
+            <span>Business-specific answers</span>
+            <span>Map discovery</span>
+            <span>Clean offering pages</span>
           </div>
           <div class="hero-mobile-stats">
             <div class="hero-mobile-stat"><div class="hero-mobile-stat-k">Businesses</div><div id="heroMobileShopCount" class="hero-mobile-stat-v">0</div></div>
@@ -1554,7 +1983,7 @@ a{color:inherit;text-decoration:none}
       <div class="hero-stat-card">
         <div>
           <div class="hero-kicker" style="color:var(--A2)">Marketplace Snapshot</div>
-          <div style="font-family:'Sora',sans-serif;font-size:26px;font-weight:800;color:var(--ink);margin-top:6px">Local businesses with direct answers.</div>
+          <div style="font-family:'Sora',sans-serif;font-size:26px;font-weight:800;color:var(--ink);margin-top:6px">Everything important. Nothing scattered.</div>
         </div>
         <div class="hero-stat-grid">
           <div class="hero-stat"><div class="hero-stat-label">Businesses</div><div class="hero-stat-value" id="heroShopCount">0</div></div>
@@ -1566,11 +1995,14 @@ a{color:inherit;text-decoration:none}
     </section>
     <div id="homeMobileSwitcher" class="home-mobile-switcher">
       <div class="home-mobile-switch-dock" role="group" aria-label="Home mobile view switcher">
-        <button id="homeMobileShopsBtn" class="home-mobile-switch-btn" type="button" aria-label="Show top businesses" title="Top Businesses">
+        <button id="homeMobileShopsBtn" class="home-mobile-switch-btn" type="button" aria-label="Show top businesses" title="Shops">
           <span class="home-mobile-switch-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 4l9 6.5"/><path d="M5 10v9h14v-9"/><path d="M9 19v-4h6v4"/></svg></span>
         </button>
-        <button id="homeMobileProductsBtn" class="home-mobile-switch-btn" type="button" aria-label="Show offerings" title="Offerings">
+        <button id="homeMobileProductsBtn" class="home-mobile-switch-btn" type="button" aria-label="Show offerings" title="Offers">
           <span class="home-mobile-switch-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5 12 4l8 3.5-8 3.5-8-3.5Z"/><path d="M4 7.5V16l8 4 8-4V7.5"/><path d="M12 11v9"/></svg></span>
+        </button>
+        <button id="homeMobileMapBtn" class="home-mobile-switch-btn home-mobile-map-btn" type="button" aria-label="Open map" title="Map">
+          <span class="home-mobile-switch-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18 3.5 20.5V6L9 3.5l6 2.5 5.5-2.5V18l-5.5 2.5L9 18Z"/><path d="M9 3.5V18"/><path d="M15 6v14.5"/></svg></span>
         </button>
       </div>
     </div>
@@ -1594,12 +2026,12 @@ a{color:inherit;text-decoration:none}
         <div>
           <div class="section-kicker">Local Businesses</div>
           <div class="sec-title" id="shopsSectionTitle">All Businesses</div>
-          <div class="sec-sub">Open a business to browse its offerings and talk to its assistant with live context.</div>
+          <div class="sec-sub">Open a business, view its map location, or ask its assistant.</div>
         </div>
         <div class="sec-actions">
-          <button id="homeMapToggleBtn" class="btn btn-o btn-sm" type="button">Show Map</button>
+          <button id="homeMapToggleBtn" class="btn btn-map btn-sm home-map-cta" type="button">Map</button>
           <button id="shopFilterToggleBtn" class="shop-filter-trigger" type="button">
-            <span>Filter Businesses</span>
+            <span>Filters</span>
             <span id="shopFilterCount" class="filter-count" style="display:none">0</span>
           </button>
         </div>
@@ -3075,6 +3507,28 @@ function formatDistanceKm(distanceKm=null){
   if(!Number.isFinite(value) || value<0) return '';
   if(value<10) return `${value.toFixed(1)} km away`;
   return `${Math.round(value)} km away`;
+}
+function compactText(value='',max=92){
+  const text=String(value||'').replace(/\s+/g,' ').trim();
+  if(!text) return '';
+  if(text.length<=max) return text;
+  const cut=text.slice(0,max).replace(/\s+\S*$/,'').trim();
+  return `${cut||text.slice(0,max).trim()}...`;
+}
+function isPhotoPrompt(value=''){
+  return /\b(photo|photos|image|images|picture|pictures|pic|pics)\b/i.test(String(value||''));
+}
+function customerPromptList(values=[],limit=4){
+  const seen=new Set();
+  const out=[];
+  (values||[]).forEach(value=>{
+    const text=String(value||'').trim();
+    const key=text.toLowerCase();
+    if(!text || seen.has(key) || isPhotoPrompt(text)) return;
+    seen.add(key);
+    out.push(text);
+  });
+  return out.slice(0,limit);
 }
 function hasExactUserLocation(loc=null){
   const source=loc || App.mapSheet?.userLocation || null;
@@ -7730,17 +8184,19 @@ function renderHomeShops(){
   if($('heroMobileProductCount')) $('heroMobileProductCount').textContent=totalProducts;
   if($('heroMobileCategoryCount')) $('heroMobileCategoryCount').textContent=totalCategories;
   if(App.activeCat)shops=shops.filter(s=>`${s.name} ${s.overview||''} ${s.category||''}`.toLowerCase().includes(App.activeCat.toLowerCase()));
-  $('shopsSectionTitle').textContent=`${App.activeCat||'All'} Businesses (${shops.length})`;
+  $('shopsSectionTitle').textContent=App.activeCat ? `${App.activeCat} Businesses` : 'Businesses';
   const grid=$('homeShopGrid');grid.innerHTML='';
-  if(!shops.length){grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">🔍</div><div class="et">No businesses in this category yet.</div></div>`;return;}
+  if(!shops.length){grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Search</div><div class="et">No businesses match this view yet.</div></div>`;return;}
   shops.forEach(s=>{
     const card=document.createElement('div');card.className='shop-card';
     const distanceLabel=hasExactUserLocation(userLoc) ? formatDistanceKm(shopDistanceKm(s,userLoc)) : '';
     const nouns=offeringNouns(s);
+    const locationText=shopDisplayAddress(s)||'Location coming soon';
+    const overview=compactText(s.overview||'Browse offerings and ask the business directly.',96);
     card.innerHTML=`<div class="shop-card-banner"><div class="shop-card-mark">${businessAvatarHtml(s,s.name||'Business')}</div>${s.category?`<div class="shop-card-category">${esc(s.category)}</div>`:''}</div>
-    <div class="shop-card-body"><div class="shop-card-name">${esc(s.name)}</div><div class="shop-card-addr">📍 ${esc(s.address||'Address coming soon')}</div>
-    <div class="shop-card-overview">${esc((s.overview||'Local offerings, direct business chat, and quick browsing in one place.').slice(0,120))}</div>
-    <div class="shop-card-foot"><span class="sc-chip a">${s.stats?.product_count??0} ${esc(nouns.plural)}</span>${distanceLabel?`<span class="sc-chip d">📍 ${esc(distanceLabel)}</span>`:''}${(s.stats?.avg_rating>0)?`<span class="sc-chip g">★ ${s.stats.avg_rating}</span>`:''}<span class="sc-chip d">${s.stats?.chat_hits_30d??0} chats / 30d</span>${s.is_open_now?`<span class="sc-chip g">Open now</span>`:''}</div></div>`;
+    <div class="shop-card-body"><div class="shop-card-name">${esc(s.name)}</div><div class="shop-card-addr">${esc(compactText(locationText,70))}</div>
+    <div class="shop-card-overview">${esc(overview)}</div>
+    <div class="shop-card-foot"><span class="sc-chip a">${s.stats?.product_count??0} ${esc(nouns.plural)}</span>${s.is_open_now?`<span class="sc-chip g">Open now</span>`:''}${distanceLabel?`<span class="sc-chip d">${esc(distanceLabel)}</span>`:''}${(s.stats?.avg_rating>0)?`<span class="sc-chip d">Rating ${s.stats.avg_rating}</span>`:''}</div></div>`;
     card.addEventListener('click',()=>openShopPage(s.shop_slug||s.shop_id));
     grid.appendChild(card);
   });
@@ -7748,8 +8204,8 @@ function renderHomeShops(){
 }
 async function loadFeatured(page=1){
   const cat=App.activeCat;
-  $('featuredTitle').textContent=cat?`Featured ${cat}`:'Featured Offerings';
-  $('featuredGrid').innerHTML=`<div class="empty"><div class="ei">⏳</div><div class="et">Loading…</div></div>`;
+  $('featuredTitle').textContent=cat?`${cat} Offerings`:'Offerings';
+  $('featuredGrid').innerHTML=`<div class="empty"><div class="ei">Loading</div><div class="et">Getting offerings...</div></div>`;
   try{
     renderMarketAttributeFilter(cat,'featured');
     const attrParams=[];
@@ -7757,7 +8213,7 @@ async function loadFeatured(page=1){
     if(App.marketAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.marketAttrFilter.value)}`);
     const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/top-offerings?limit=24${cat?`&category=${encodeURIComponent(cat)}`:''}${attrParams.length?`&${attrParams.join('&')}`:''}` ),{auth:!!tok()}));
     const prods=applyFavouriteStateToProducts(d.offerings||[]);
-    $('featuredSub').textContent=`${prods.length} offerings found${App.marketAttrFilter?.value?` matching ${App.marketAttrFilter.value}`:''}`;
+    $('featuredSub').textContent=`${prods.length} available${App.marketAttrFilter?.value?` matching ${App.marketAttrFilter.value}`:''}`;
     fillGrid($('featuredGrid'),prods,{mode:'browse',showShop:true});
     syncHomeMobileLayout();
   }catch(e){$('featuredGrid').innerHTML=`<div class="empty"><div class="ei">⚠️</div><div class="et">${esc(e.message)}</div></div>`;}
@@ -7825,25 +8281,25 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
     const totalProducts=d.pagination?.total ?? d.products?.length ?? 0;
     const safeShopId=esc(shopId);
     const safeShopName=esc(s.name||'Business');
-    const visitMessage=encodeURIComponent(s.address||'Visit the business in person.');
+    const locationLabel=shopDisplayAddress(s)||s.service_area||'Location details coming soon';
+    const visitMessage=encodeURIComponent(locationLabel||'Visit the business in person.');
     renderShopAttributeFilter(s.category||'');
     $('shopBreadName').textContent=s.name;$('shopHdrName').textContent=s.name;
     renderBusinessProfileVisual('shopHdrAvatarImg','shopHdrAvatarFallback',s.profile_image_url||s.business_profile_image_url||'',s.name);
     $('shopHdrChips').innerHTML=[
-      s.address?`<span class="shop-hdr-chip">${esc(s.address)}</span>`:'',
+      locationLabel?`<span class="shop-hdr-chip">${esc(compactText(locationLabel,86))}</span>`:'',
       s.hours?`<span class="shop-hdr-chip">${esc(s.hours)}</span>`:'',
       s.phone?`<span class="shop-hdr-chip">${esc(s.phone)}</span>`:'',
       `<span class="shop-hdr-chip">${totalProducts} ${esc(nouns.plural)}</span>`,
       s.category?`<span class="shop-hdr-chip">${esc(s.category)}</span>`:'',
       (st.avg_rating>0)?`<span class="shop-hdr-chip">Rating ${st.avg_rating}</span>`:''
     ].join('');
-    $('shopHdrDesc').textContent=s.overview||'';
+    $('shopHdrDesc').textContent=compactText(s.overview||'',190);
     const fulfillButtons=[
       `<button class="btn btn-A btn-sm" onclick="openChatFor('${safeShopId}','${safeShopName}','')">Chat with Business</button>`,
-      `<button class="btn btn-o btn-sm" style="border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.8)" onclick="openChatFor('${safeShopId}','${safeShopName}','Show all images')">View Photos</button>`,
-      hasShopCoords(s)?`<button class="btn btn-o btn-sm" style="border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.8)" onclick="openMapSheet('shop','${esc(s.shop_slug||s.shop_id||shopId)}')">View on Map</button>`:'',
-      inventoryMode && s.supports_pickup!==false?`<button class="btn btn-gr btn-sm" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${safeShopId}');saveCart();updateCartBadge();openCart();">Pickup Order</button>`:'',
-      inventoryMode && s.supports_delivery?`<button class="btn btn-gr btn-sm" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${safeShopId}');saveCart();updateCartBadge();openCart();">Request Delivery</button>`:'',
+      hasShopCoords(s)?`<button class="btn btn-map btn-sm" onclick="openMapSheet('shop','${esc(s.shop_slug||s.shop_id||shopId)}')">Map</button>`:'',
+      inventoryMode && s.supports_pickup!==false?`<button class="btn btn-gr btn-sm" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${safeShopId}');saveCart();updateCartBadge();openCart();">Pickup</button>`:'',
+      inventoryMode && s.supports_delivery?`<button class="btn btn-gr btn-sm" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${safeShopId}');saveCart();updateCartBadge();openCart();">Delivery</button>`:'',
       s.supports_walk_in!==false?`<button class="btn btn-o btn-sm" onclick="toast('Visit Business',decodeURIComponent('${visitMessage}'))">Visit in Person</button>`:'',
       s.whatsapp?`<a href="https://wa.me/${(s.whatsapp||'').replace(/[^0-9]/g,'')}" target="_blank" class="btn btn-gr btn-sm">WhatsApp</a>`:''
     ].filter(Boolean);
@@ -7854,22 +8310,23 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
       s.category?{label:'Category',value:s.category}:null,
       s.hours?{label:'Hours',value:s.hours}:null,
       (st.avg_rating>0)?{label:'Rating',value:st.avg_rating.toFixed(1)}:(s.phone?{label:'Phone',value:s.phone}:null),
-      s.address?{label:'Location',value:s.address,wide:true}:null
+      locationLabel?{label:'Location',value:compactText(locationLabel,96),wide:true}:null
     ].filter(Boolean);
     const mobileActions=[
       `<button class="btn btn-A" onclick="openChatFor('${safeShopId}','${safeShopName}','')">Chat with Business</button>`,
+      hasShopCoords(s)?`<button class="btn btn-map" onclick="openMapSheet('shop','${esc(s.shop_slug||s.shop_id||shopId)}')">Map</button>`:'',
       inventoryMode && s.supports_delivery?`<button class="btn btn-gr" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${safeShopId}');saveCart();updateCartBadge();openCart();">Delivery</button>`:'',
       inventoryMode && !s.supports_delivery && s.supports_pickup!==false?`<button class="btn btn-gr" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${safeShopId}');saveCart();updateCartBadge();openCart();">Pickup</button>`:'',
-      hasShopCoords(s)?`<button class="btn btn-o" onclick="openMapSheet('shop','${esc(s.shop_slug||s.shop_id||shopId)}')">View Map</button>`:'',
       !hasShopCoords(s) && s.whatsapp?`<a href="https://wa.me/${(s.whatsapp||'').replace(/[^0-9]/g,'')}" target="_blank" class="btn btn-gr">WhatsApp</a>`:'',
-      !hasShopCoords(s) && !s.whatsapp?`<button class="btn btn-o" onclick="openChatFor('${safeShopId}','${safeShopName}','Show all images')">View Photos</button>`:''
-    ].filter(Boolean).slice(0,3);
+      !hasShopCoords(s) && s.supports_walk_in!==false?`<button class="btn btn-o" onclick="toast('Visit Business',decodeURIComponent('${visitMessage}'))">Visit</button>`:''
+    ].filter(Boolean).slice(0,4);
     if($('shopMobileSummary')) $('shopMobileSummary').innerHTML=mobileSummaryCards.map(card=>`<div class="shop-mobile-summary-card${card.wide?' wide':''}"><div class="shop-mobile-summary-k">${esc(card.label)}</div><div class="shop-mobile-summary-v">${esc(card.value)}</div></div>`).join('');
     if($('shopMobileActions')) $('shopMobileActions').innerHTML=mobileActions.join('');
     if($('shopMobileHero')) $('shopMobileHero').hidden=false;
 
+    const visibleQuestions=customerPromptList(d.suggested_questions||[],4);
     const chips=$('shopQchips');chips.innerHTML='';
-    (d.suggested_questions||[]).forEach(q=>{const b=document.createElement('button');b.className='qchip';b.textContent=q;b.addEventListener('click',()=>openChatFor(shopId,s.name,q));chips.appendChild(b);});
+    visibleQuestions.forEach(q=>{const b=document.createElement('button');b.className='qchip';b.textContent=q;b.addEventListener('click',()=>openChatFor(shopId,s.name,q));chips.appendChild(b);});
     const statsMarkup=[
       [nouns.plural.charAt(0).toUpperCase()+nouns.plural.slice(1),d.pagination?.total ?? d.products?.length ?? 0],
       ['Page Views',st.shop_views_30d ?? 0],
@@ -7880,7 +8337,7 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
     if($('shopSnapshotGrid')) $('shopSnapshotGrid').innerHTML=statsMarkup;
     if($('shopSnapshotTitle')) $('shopSnapshotTitle').textContent=s.name||'Business Snapshot';
     $('shopSidePrompts').innerHTML='';
-    (d.suggested_questions||[]).slice(0,4).forEach(q=>{
+    visibleQuestions.forEach(q=>{
       const b=document.createElement('button');
       b.className='shop-side-prompt';
       b.textContent=q;
@@ -7894,9 +8351,9 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
     fillGrid($('shopProdGrid'),d.products||[],{mode:'browse',showShop:false});
     buildPagination($('shopPagination'),d.pagination,p=>openShopPage(shopId,p,$('shopSort').value,App.shopStock));
     $('chatSN').textContent=s.name;
-    $('chatSM').textContent=[s.address||s.service_area||'', `${d.pagination?.total ?? d.products?.length ?? 0} ${nouns.plural}`].filter(Boolean).join(' - ') || `Ask about ${nouns.plural}, pricing, hours, or availability`;
-    renderCQchips(d.suggested_questions);
-    renderChatPromptList(d.suggested_questions);
+    $('chatSM').textContent=[locationLabel||'', `${d.pagination?.total ?? d.products?.length ?? 0} ${nouns.plural}`].filter(Boolean).join(' - ') || `Ask about ${nouns.plural}, pricing, hours, or availability`;
+    renderCQchips(visibleQuestions);
+    renderChatPromptList(visibleQuestions);
     renderChatFacts(s,st,d.pagination?.total ?? d.products?.length ?? 0);
   }catch(e){toast('Failed to load business',e.message,'err');}
 }
@@ -9474,6 +9931,7 @@ $('shopFilterScrim')?.addEventListener('click',()=>toggleShopFilters(false));
 $('shopFilterOpenNow')?.addEventListener('change',()=>{if($('shopFilterOpenNow').checked){$('shopFilterDay').value='';$('shopFilterTime').value='';}});
 $('homeMobileShopsBtn')?.addEventListener('click',()=>setHomeMobileView('shops'));
 $('homeMobileProductsBtn')?.addEventListener('click',()=>setHomeMobileView('products'));
+$('homeMobileMapBtn')?.addEventListener('click',()=>openMapSheet('home'));
 $('shopSnapshotBtn')?.addEventListener('click',()=>setShopSnapshotModal(true));
 $('shopSnapshotClose')?.addEventListener('click',()=>setShopSnapshotModal(false));
 $('shopSnapshotModal')?.addEventListener('click',e=>{if(e.target===$('shopSnapshotModal')) setShopSnapshotModal(false);});
