@@ -216,8 +216,8 @@ BUSINESS_TYPE_META: Dict[str, Dict[str, str]] = {
     "service": {"label": "Service business", "offering_type": "service", "singular": "service", "plural": "services", "business_label": "business"},
     "professional": {"label": "Professional practice", "offering_type": "service", "singular": "service", "plural": "services", "business_label": "business"},
     "education": {"label": "Education business", "offering_type": "service", "singular": "service", "plural": "services", "business_label": "business"},
-    "creator": {"label": "Creator studio", "offering_type": "offering", "singular": "offering", "plural": "offerings", "business_label": "studio"},
-    "other": {"label": "Local business", "offering_type": "offering", "singular": "offering", "plural": "offerings", "business_label": "business"},
+    "creator": {"label": "Creator studio", "offering_type": "product", "singular": "product", "plural": "products", "business_label": "studio"},
+    "other": {"label": "Business", "offering_type": "product", "singular": "product", "plural": "products", "business_label": "business"},
 }
 OFFERING_TYPE_META: Dict[str, Dict[str, str]] = {
     "product": {"label": "Product", "singular": "product", "plural": "products"},
@@ -225,7 +225,7 @@ OFFERING_TYPE_META: Dict[str, Dict[str, str]] = {
     "class": {"label": "Class", "singular": "class", "plural": "classes"},
     "event": {"label": "Event", "singular": "event", "plural": "events"},
     "portfolio": {"label": "Portfolio item", "singular": "portfolio item", "plural": "portfolio items"},
-    "offering": {"label": "Offering", "singular": "offering", "plural": "offerings"},
+    "offering": {"label": "Product", "singular": "product", "plural": "products"},
 }
 LEGACY_CATEGORY_BUSINESS_TYPE: Dict[str, str] = {
     "Food": "retail",
@@ -910,7 +910,7 @@ def send_request_confirmation_email(shop: Dict[str, Any], payload: Dict[str, Any
         "",
         f"Track in Atlantic Ordinate: {tracker_url}",
         "",
-        "Thank you for shopping local.",
+        "Thank you for shopping with us.",
         "Atlantic Ordinate",
     ])
     send_email_message(email, subject, body)
@@ -1900,7 +1900,7 @@ def shop_completeness_flags(shop: Dict[str, Any], stats: Optional[Dict[str, Any]
         if not stats.get("offering_count", stats.get("product_count", 0)):
             flags.append("No offerings")
         elif (stats.get("offerings_with_images", stats.get("products_with_images", 0)) or 0) < (stats.get("offering_count", stats.get("product_count", 0)) or 0):
-            flags.append("Offerings missing images")
+            flags.append("Products missing images")
     return flags
 
 def parse_price_amount(value: Any) -> Optional[float]:
@@ -3028,7 +3028,7 @@ def find_out_of_scope_bold_terms(answer: str, shop: dict, prod_rows: List[Dict])
         flagged.append(term)
     return flagged[:4]
 
-SHOP_ASSISTANT_SYSTEM = """You are the live assistant for a local marketplace business.
+SHOP_ASSISTANT_SYSTEM = """You are the live assistant for a business on Atlantic Ordinate.
 Answer using ONLY the supplied business context.
 Never mention another business, owner workspace, or any product, service, class, event, or portfolio item that is not explicitly present in the supplied context.
 Never invent offerings, prices, availability, hours, or policies.
@@ -3042,7 +3042,7 @@ Prefer short sections or bullets over long paragraphs.
 If you mention offerings, format them as clean bullets with name, price, and availability when available.
 Sound natural and conversational, not robotic or overly salesy.
 Do not say things like "based on the provided context" or "I found a likely match" unless necessary.
-When answering simple customer questions, speak like a real local business assistant would.
+When answering simple customer questions, speak like a real business assistant would.
 Do not mention being an AI, model, chatbot, or system unless the user directly asks.
 Prefer clear direct answers over meta explanations.
 If the customer asks for a recommendation, suggest a few suitable offerings from the business and briefly say why.
@@ -3086,7 +3086,7 @@ def shop_persona_instructions(shop: dict) -> str:
     elif "sports" in category:
         lines.append("Voice style: upbeat, practical, and motivating.")
     else:
-        lines.append("Voice style: local, warm, and personable.")
+        lines.append("Voice style: warm and personable.")
     lines.append("Keep the personality subtle. Sound like a real shopkeeper, not a character.")
     return "\n".join(lines)
 
@@ -3319,14 +3319,14 @@ def serve_product_ui(shop_ref: str, product_ref: str):
 
 @app.get("/favicon.ico")
 def favicon():
-    icon_path = os.path.join(SERVER_DIR, "AtlanticOrdinate-icon.png")
+    icon_path = os.path.join(SERVER_DIR, "atlantic-ordinate-logo-mark.png")
     if os.path.isfile(icon_path):
         return FileResponse(icon_path)
     raise HTTPException(204)
 
 @app.get("/brand/{filename}")
 def serve_brand_asset(filename: str):
-    allowed = {"AtlanticOrdinate-icon.png", "AtlanticOrdinate Logo.jpg"}
+    allowed = {"atlantic-ordinate-logo-mark.png"}
     safe_name = os.path.basename(filename or "")
     if safe_name not in allowed:
         raise HTTPException(404, "Asset not found")
@@ -4328,7 +4328,7 @@ def public_order_request(body: OrderRequestReq, request: Request):
     if fulfillment_type == "pickup" and not shop.get("supports_pickup"):
         raise HTTPException(400, "This business does not accept pickup requests")
     if fulfillment_type == "delivery" and not shop.get("supports_delivery"):
-        raise HTTPException(400, "This business does not offer local delivery")
+        raise HTTPException(400, "This business does not offer delivery")
     if fulfillment_type == "walk_in" and not shop.get("supports_walk_in"):
         raise HTTPException(400, "This business does not accept walk-in orders through the app")
     customer_name = re.sub(r"\s+", " ", str(body.customer_name or "")).strip()

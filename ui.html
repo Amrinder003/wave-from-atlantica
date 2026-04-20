@@ -6,7 +6,7 @@
 <title>Atlantic Ordinate</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
-<link rel="icon" href="/brand/AtlanticOrdinate-icon.png"/>
+<link rel="icon" href="/brand/atlantic-ordinate-logo-mark.png"/>
 <style>
 :root{
   /* Soothing Ocean Backgrounds */
@@ -1485,21 +1485,22 @@ a{color:inherit;text-decoration:none}
 
 /* 2026 public experience pass */
 :root{
-  --ocean:#12343b;
-  --ocean2:#0f6674;
-  --copper:#bd6338;
-  --copper2:#8d3d24;
-  --cream:#f8f3ea;
-  --paper:#fffaf2;
-  --mist:#e9f1ee;
-  --glow:0 30px 90px rgba(18,52,59,.14);
+  --maroon:#8f0b0b;
+  --ocean:#5a3425;
+  --ocean2:#8f0b0b;
+  --copper:#a86a3e;
+  --copper2:#7b3f26;
+  --cream:#f8efe3;
+  --paper:#fff9f0;
+  --mist:#eadcc9;
+  --glow:0 30px 90px rgba(99,55,31,.14);
   --nh:74px;
 }
 body{
   background:
-    radial-gradient(circle at 8% 8%,rgba(189,99,56,.14),transparent 30%),
-    radial-gradient(circle at 92% 2%,rgba(15,102,116,.16),transparent 28%),
-    linear-gradient(180deg,#fbf7ef 0%,#f3ede2 46%,#eee8dd 100%);
+    radial-gradient(circle at 8% 8%,rgba(143,11,11,.08),transparent 30%),
+    radial-gradient(circle at 92% 2%,rgba(168,106,62,.16),transparent 28%),
+    linear-gradient(180deg,#fcf6ed 0%,#f4e7d7 46%,#ead8c5 100%);
 }
 .nav{
   height:74px;
@@ -1507,50 +1508,51 @@ body{
   gap:18px;
   background:rgba(255,250,242,.82);
   border-bottom:1px solid rgba(109,90,70,.16);
-  box-shadow:0 12px 34px rgba(18,52,59,.08);
+  box-shadow:0 12px 34px rgba(99,55,31,.08);
   backdrop-filter:blur(18px);
 }
 .nav-logo{gap:12px}
 .nav-logo-mark{
-  width:48px;
+  width:84px;
   height:48px;
-  border-radius:18px;
-  overflow:hidden;
-  background:#f8f3ea;
-  border:1px solid rgba(189,99,56,.22);
-  box-shadow:0 14px 30px rgba(141,61,36,.16);
+  border-radius:0;
+  overflow:visible;
+  background:transparent;
+  border:0;
+  box-shadow:none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
-.nav-logo-img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.55)}
+.nav-logo-img{width:84px;height:auto;object-fit:contain;display:block;transform:none}
 .nav-logo-text{
-  font-size:19px;
-  letter-spacing:-.06em;
-  line-height:.95;
+  font-family:Georgia,'Times New Roman',serif;
+  font-size:24px;
+  font-weight:700;
+  letter-spacing:.015em;
+  line-height:1;
+  white-space:nowrap;
   color:var(--ocean);
 }
-.nav-logo-text span{display:block;color:var(--ink);letter-spacing:-.045em}
-.nav-logo-text em{
-  color:var(--ocean2);
-  font-size:9px;
-  letter-spacing:.14em;
-  margin-top:6px;
-}
+.nav-logo-text span{display:inline;color:inherit;letter-spacing:inherit}
+.nav-logo-text em{display:none}
 .nav-search{
   max-width:760px;
   height:44px;
   border-radius:999px;
   background:rgba(255,255,255,.72);
   border:1px solid rgba(104,86,66,.2);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 10px 24px rgba(18,52,59,.05);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 10px 24px rgba(99,55,31,.05);
 }
-.nav-search:focus-within{border-color:rgba(15,102,116,.42);box-shadow:0 0 0 4px rgba(15,102,116,.1)}
+.nav-search:focus-within{border-color:rgba(143,11,11,.36);box-shadow:0 0 0 4px rgba(143,11,11,.1)}
 .nav-search-btn{
   min-width:96px;
   justify-content:center;
   background:linear-gradient(135deg,var(--ocean),var(--ocean2));
 }
-.nav-search-btn:hover{background:linear-gradient(135deg,#0b252b,#0f6674)}
+.nav-search-btn:hover{background:linear-gradient(135deg,#4c2618,#8f0b0b)}
 .nav-btn{border-radius:16px;color:var(--ink2)}
-.nav-btn:hover{background:rgba(233,241,238,.8);color:var(--ocean2)}
+.nav-btn:hover{background:rgba(234,220,201,.76);color:var(--ocean2)}
 .nav-btn .ni{background:rgba(255,255,255,.78)}
 .subnav{
   height:50px;
@@ -1563,7 +1565,7 @@ body{
   border-radius:999px;
   font-weight:700;
 }
-.snav.on{background:var(--ocean);box-shadow:0 10px 24px rgba(18,52,59,.16)}
+.snav.on{background:var(--ocean);box-shadow:0 10px 24px rgba(99,55,31,.16)}
 .home-wrap{max-width:1400px;padding:34px 24px 88px;gap:28px}
 .home-hero{grid-template-columns:minmax(0,1fr) minmax(340px,430px);gap:18px}
 @media(max-width:900px){.home-hero{grid-template-columns:1fr}}
@@ -1575,8 +1577,8 @@ body{
   padding:46px;
   background:
     radial-gradient(circle at 82% 18%,rgba(255,255,255,.2),transparent 18%),
-    radial-gradient(circle at 12% 82%,rgba(15,102,116,.34),transparent 28%),
-    linear-gradient(135deg,#10282e 0%,#174653 46%,#c76a3c 118%);
+    radial-gradient(circle at 12% 82%,rgba(143,11,11,.22),transparent 28%),
+    linear-gradient(135deg,#4c2a1d 0%,#7b3f26 46%,#b88455 118%);
   box-shadow:var(--glow);
 }
 .hero-panel::before{
@@ -1604,8 +1606,9 @@ body{
   font-size:clamp(48px,5.6vw,82px);
   line-height:.92;
   max-width:760px;
-  letter-spacing:-.085em;
+  letter-spacing:-.06em;
 }
+.hero-title span{display:block}
 .hero-text{
   max-width:48ch;
   font-size:16px;
@@ -1627,7 +1630,7 @@ body{
   padding:30px;
   background:
     linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,250,242,.66)),
-    radial-gradient(circle at 90% 0%,rgba(15,102,116,.16),transparent 34%);
+    radial-gradient(circle at 90% 0%,rgba(143,11,11,.12),transparent 34%);
   box-shadow:var(--glow);
   backdrop-filter:blur(12px);
 }
@@ -1646,7 +1649,7 @@ body{
   padding:26px;
   background:rgba(255,250,242,.74);
   border:1px solid rgba(109,90,70,.16);
-  box-shadow:0 24px 70px rgba(18,52,59,.08);
+  box-shadow:0 24px 70px rgba(99,55,31,.08);
   backdrop-filter:blur(12px);
 }
 .sec-title{font-size:30px;color:var(--ink);letter-spacing:-.06em}
@@ -1662,9 +1665,9 @@ body{
   background:linear-gradient(135deg,var(--ocean),var(--ocean2));
   color:#fff;
   border-color:rgba(255,255,255,.08);
-  box-shadow:0 14px 28px rgba(18,52,59,.18);
+  box-shadow:0 14px 28px rgba(99,55,31,.18);
 }
-.btn-map:hover{background:linear-gradient(135deg,#0b252b,#0f6674)}
+.btn-map:hover{background:linear-gradient(135deg,#4c2618,#8f0b0b)}
 .btn-o{
   background:rgba(255,255,255,.76);
   border-color:rgba(109,90,70,.18);
@@ -1678,13 +1681,13 @@ body{
 .shop-card{
   border-radius:28px;
   border-color:rgba(109,90,70,.15);
-  box-shadow:0 22px 50px rgba(18,52,59,.08);
+  box-shadow:0 22px 50px rgba(99,55,31,.08);
 }
 .shop-card-banner{
   height:96px;
   background:
     radial-gradient(circle at 86% 16%,rgba(255,255,255,.22),transparent 22%),
-    linear-gradient(135deg,#12343b,#1b5964 58%,#c76a3c);
+    linear-gradient(135deg,#5a3425,#8f0b0b 58%,#c99865);
 }
 .shop-card-mark{
   background:rgba(255,250,242,.92);
@@ -1699,13 +1702,13 @@ body{
   overflow:hidden;
 }
 .sc-chip{font-weight:800}
-.sc-chip.a{background:rgba(15,102,116,.1);color:var(--ocean2)}
+.sc-chip.a{background:rgba(143,11,11,.1);color:var(--ocean2)}
 .pc{
   border-radius:28px;
   border-color:rgba(109,90,70,.15);
-  box-shadow:0 20px 46px rgba(18,52,59,.08);
+  box-shadow:0 20px 46px rgba(99,55,31,.08);
 }
-.pc-photo-wrap{background:linear-gradient(135deg,#edf3f0,#f7eadc)}
+.pc-photo-wrap{background:linear-gradient(135deg,#f3eadc,#fff5e8)}
 .pc-img{object-fit:contain;background:#fff;padding:8px}
 .pc-name{letter-spacing:-.02em}
 .pc-overview{-webkit-line-clamp:1}
@@ -1714,8 +1717,8 @@ body{
   padding:42px 34px 34px;
   background:
     radial-gradient(circle at 86% 18%,rgba(255,255,255,.16),transparent 24%),
-    linear-gradient(135deg,#132a2f 0%,#254f57 42%,#bd6338 116%);
-  box-shadow:0 26px 70px rgba(18,52,59,.16);
+    linear-gradient(135deg,#4a281b 0%,#7b3f26 42%,#b88455 116%);
+  box-shadow:0 26px 70px rgba(99,55,31,.16);
 }
 .shop-hdr-inner{
   align-items:center;
@@ -1747,7 +1750,7 @@ body{
 .shop-toolbar{
   border-radius:26px;
   background:rgba(255,250,242,.8);
-  box-shadow:0 14px 34px rgba(18,52,59,.06);
+  box-shadow:0 14px 34px rgba(99,55,31,.06);
 }
 .shop-search-box{border-radius:999px}
 .qchip{border-radius:999px;background:rgba(255,255,255,.8)}
@@ -1764,7 +1767,7 @@ body{
   .shop-mobile-hero{width:354px;max-width:calc(100vw - 32px);margin:-18px auto 12px 12px}
   .shop-mobile-hero-top{display:none!important}
   .shop-mobile-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .shop-mobile-summary-card{border-radius:22px;padding:12px 13px;box-shadow:0 12px 28px rgba(18,52,59,.07)}
+  .shop-mobile-summary-card{border-radius:22px;padding:12px 13px;box-shadow:0 12px 28px rgba(99,55,31,.07)}
   .shop-mobile-actions{grid-template-columns:1fr}
   .shop-mobile-actions .btn:first-child{grid-column:auto}
   .shop-mobile-summary-v{overflow-wrap:anywhere;word-break:break-word}
@@ -1773,21 +1776,33 @@ body{
 @media(max-width:680px){
   :root{--nh:116px}
   .nav{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    width:100vw;
+    max-width:100vw;
+    overflow:hidden;
     height:auto;
     padding:9px 12px 10px;
     gap:9px;
     min-height:116px;
     align-content:start;
   }
-  .nav-logo-mark{width:38px;height:38px;border-radius:14px}
-  .nav-logo-text{font-size:15px}
+  .nav-logo{grid-column:1;gap:8px;min-width:0;max-width:232px;overflow:hidden;flex:0 1 auto}
+  .nav-logo-mark{width:62px;height:36px;border-radius:0;flex:0 0 auto}
+  .nav-logo-img{width:62px}
+  .nav-logo-text{font-size:16px;letter-spacing:.005em;flex:0 1 auto}
   .nav-logo-text em{display:none}
+  .nav-right{grid-column:1/-1;gap:2px;flex:0 0 auto;margin-left:0;justify-self:end;position:absolute;left:auto;right:10px;top:9px;width:116px;justify-content:flex-end}
+  .nav-btn{min-width:36px;padding:4px 3px}
   .nav-search{
+    grid-column:1/-1;
+    min-width:0;
     order:3;
     width:100%;
     height:46px;
     border-radius:18px;
   }
+  .nav-search input{min-width:0}
   .nav-search-btn{min-width:64px;font-size:0}
   .nav-search-btn::before{content:'Go';font-size:12px}
   .subnav{
@@ -1805,7 +1820,7 @@ body{
   .hero-title{
     font-size:34px;
     line-height:1;
-    letter-spacing:-.055em;
+    letter-spacing:-.035em;
     overflow-wrap:break-word;
   }
   .hero-text{
@@ -1862,7 +1877,7 @@ body{
     padding:8px;
     border-radius:24px;
     background:rgba(255,250,242,.92);
-    box-shadow:0 22px 54px rgba(18,52,59,.18);
+    box-shadow:0 22px 54px rgba(99,55,31,.18);
   }
   .home-mobile-switch-btn{
     min-width:0;
@@ -1915,11 +1930,11 @@ body{
 
 <header class="nav">
   <div class="nav-logo" onclick="goHome()">
-    <div class="nav-logo-mark"><img class="nav-logo-img" src="/brand/AtlanticOrdinate-icon.png" alt="" loading="eager"/></div>
-    <div class="nav-logo-text">Atlantic <span>Ordinate</span><em>Local intelligence</em></div>
+    <div class="nav-logo-mark"><img class="nav-logo-img" src="/brand/atlantic-ordinate-logo-mark.png" alt="" loading="eager"/></div>
+    <div class="nav-logo-text">Atlantic Ordinate</div>
   </div>
   <div class="nav-search">
-    <input id="navSrchIn" placeholder="Search offerings, businesses..."/>
+    <input id="navSrchIn" placeholder="Search products, businesses..."/>
     <button class="nav-search-btn" id="navSrchBtn">Search</button>
   </div>
   <div class="nav-right">
@@ -1961,8 +1976,8 @@ body{
       <div class="hero-panel">
         <div class="hero-copy">
           <div class="hero-kicker">Atlantic Ordinate</div>
-          <div class="hero-title">Find local businesses. Ask instantly.</div>
-          <div class="hero-text">Browse clean business pages, compare offerings, open the map, and ask each business direct questions before you visit or order.</div>
+          <div class="hero-title"><span>Find businesses.</span><span>Ask instantly.</span></div>
+          <div class="hero-text">Browse clean business pages, compare products, open the map, and ask each business direct questions before you visit or order.</div>
           <div class="hero-actions">
             <button class="btn btn-A" onclick="focusHomeSection('shops')">Explore Businesses</button>
             <button class="btn btn-map" onclick="openMapSheet('home')">Open Map</button>
@@ -1971,11 +1986,11 @@ body{
           <div class="hero-note">
             <span>Business-specific answers</span>
             <span>Map discovery</span>
-            <span>Clean offering pages</span>
+            <span>Clean product pages</span>
           </div>
           <div class="hero-mobile-stats">
             <div class="hero-mobile-stat"><div class="hero-mobile-stat-k">Businesses</div><div id="heroMobileShopCount" class="hero-mobile-stat-v">0</div></div>
-            <div class="hero-mobile-stat"><div class="hero-mobile-stat-k">Offerings</div><div id="heroMobileProductCount" class="hero-mobile-stat-v">0</div></div>
+            <div class="hero-mobile-stat"><div class="hero-mobile-stat-k">Products</div><div id="heroMobileProductCount" class="hero-mobile-stat-v">0</div></div>
             <div class="hero-mobile-stat"><div class="hero-mobile-stat-k">Categories</div><div id="heroMobileCategoryCount" class="hero-mobile-stat-v">0</div></div>
           </div>
         </div>
@@ -1987,7 +2002,7 @@ body{
         </div>
         <div class="hero-stat-grid">
           <div class="hero-stat"><div class="hero-stat-label">Businesses</div><div class="hero-stat-value" id="heroShopCount">0</div></div>
-          <div class="hero-stat"><div class="hero-stat-label">Offerings</div><div class="hero-stat-value" id="heroProductCount">0</div></div>
+          <div class="hero-stat"><div class="hero-stat-label">Products</div><div class="hero-stat-value" id="heroProductCount">0</div></div>
           <div class="hero-stat"><div class="hero-stat-label">Categories</div><div class="hero-stat-value" id="heroCategoryCount">0</div></div>
           <div class="hero-stat"><div class="hero-stat-label">Live Chat</div><div class="hero-stat-value">24/7</div></div>
         </div>
@@ -1998,7 +2013,7 @@ body{
         <button id="homeMobileShopsBtn" class="home-mobile-switch-btn" type="button" aria-label="Show top businesses" title="Shops">
           <span class="home-mobile-switch-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 4l9 6.5"/><path d="M5 10v9h14v-9"/><path d="M9 19v-4h6v4"/></svg></span>
         </button>
-        <button id="homeMobileProductsBtn" class="home-mobile-switch-btn" type="button" aria-label="Show offerings" title="Offers">
+        <button id="homeMobileProductsBtn" class="home-mobile-switch-btn" type="button" aria-label="Show products" title="Product">
           <span class="home-mobile-switch-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5 12 4l8 3.5-8 3.5-8-3.5Z"/><path d="M4 7.5V16l8 4 8-4V7.5"/><path d="M12 11v9"/></svg></span>
         </button>
         <button id="homeMobileMapBtn" class="home-mobile-switch-btn home-mobile-map-btn" type="button" aria-label="Open map" title="Map">
@@ -2011,7 +2026,7 @@ body{
       <span class="srch-clear" id="srchClear">Clear</span>
     </div>
     <div id="srchAttrFilterBar" class="shop-filter-bar" style="display:none;margin-top:12px">
-      <div class="fld"><label>Offering Detail</label><select id="srchAttrKey"></select></div>
+      <div class="fld"><label>Product Detail</label><select id="srchAttrKey"></select></div>
       <div class="fld"><label>Contains</label><input id="srchAttrValue" placeholder="Filter results by detail, material, provider, level, or style..."/></div>
       <div class="shop-filter-actions">
         <button id="srchAttrApply" class="btn btn-o btn-sm">Apply</button>
@@ -2024,7 +2039,7 @@ body{
     <section id="shopsSection" class="section-shell">
       <div class="sec-head">
         <div>
-          <div class="section-kicker">Local Businesses</div>
+          <div class="section-kicker">Businesses</div>
           <div class="sec-title" id="shopsSectionTitle">All Businesses</div>
           <div class="sec-sub">Open a business, view its map location, or ask its assistant.</div>
         </div>
@@ -2066,12 +2081,12 @@ body{
       <div class="sec-head">
         <div>
           <div class="section-kicker">Marketplace Picks</div>
-          <div class="sec-title" id="featuredTitle">All Offerings</div>
+          <div class="sec-title" id="featuredTitle">Products</div>
           <div class="sec-sub" id="featuredSub"></div>
         </div>
       </div>
       <div id="featuredAttrFilterBar" class="shop-filter-bar" style="display:none;margin-bottom:14px">
-        <div class="fld"><label>Offering Detail</label><select id="featuredAttrKey"></select></div>
+        <div class="fld"><label>Product Detail</label><select id="featuredAttrKey"></select></div>
         <div class="fld"><label>Contains</label><input id="featuredAttrValue" placeholder="Filter by detail, material, provider, level, or style..."/></div>
         <div class="shop-filter-actions">
           <button id="featuredAttrApply" class="btn btn-o btn-sm">Apply</button>
@@ -2169,7 +2184,7 @@ body{
     <div class="shop-main">
       <div class="shop-toolbar">
         <div class="shop-search-box">
-          <input id="shopSrchIn" placeholder="Search offerings in this business..."/>
+          <input id="shopSrchIn" placeholder="Search products in this business..."/>
           <button class="shop-search-btn" id="shopSrchBtn">Go</button>
         </div>
         <div class="shop-toolbar-meta">
@@ -2198,7 +2213,7 @@ body{
             <span id="chatMeta" class="badge chat-meta ready">Ready</span>
           </div>
           <div id="chatSN" class="chat-sn">No business selected</div>
-          <div id="chatSM" class="chat-sm">Open a business to view offerings and start a conversation</div>
+          <div id="chatSM" class="chat-sm">Open a business to view products and start a conversation</div>
         </div>
         <div class="btn-row chat-top-actions" style="margin-left:auto">
           <button id="chatInfoBtn" class="btn btn-o btn-sm chat-mobile-info-btn">Business Info</button>
@@ -2213,7 +2228,7 @@ body{
         <div class="chat-compose-shell">
           <div class="compose-row">
             <div class="chat-input-wrap">
-              <textarea id="chatIn" placeholder="Ask about offerings, availability, or prices... (Enter to send)" rows="1"></textarea>
+              <textarea id="chatIn" placeholder="Ask about products, availability, or prices... (Enter to send)" rows="1"></textarea>
             </div>
             <button id="sendChatBtn" class="btn btn-A">Send</button>
           </div>
@@ -2249,9 +2264,9 @@ body{
           </div>
         </div>
         <div>
-          <div class="chat-side-lbl">Suggested Offerings</div>
+          <div class="chat-side-lbl">Suggested Products</div>
           <div id="chatSideGrid" class="chat-side-grid">
-            <div class="empty" style="grid-column:1/-1"><div class="ei">Info</div><div class="et">Offerings appear after you ask.</div></div>
+            <div class="empty" style="grid-column:1/-1"><div class="ei">Info</div><div class="et">Products appear after you ask.</div></div>
           </div>
         </div>
       </div>
@@ -2263,7 +2278,7 @@ body{
   <div class="fav-page">
     <div class="sec-head"><div class="sec-title">My Favorites</div></div>
     <div id="favGrid" class="pgrid">
-      <div class="empty" style="grid-column:1/-1"><div class="ei">Save</div><div class="et">Login and save an offering to see it here.</div></div>
+      <div class="empty" style="grid-column:1/-1"><div class="ei">Save</div><div class="et">Login and save a product to see it here.</div></div>
     </div>
   </div>
 </div>
@@ -2343,7 +2358,7 @@ body{
                 <div class="fld"><label>Quality</label><select id="ownerFilterQuality"><option value="">All businesses</option><option value="complete">Complete only</option><option value="incomplete">Needs attention</option></select></div>
                 <div class="btn-row">
                   <button id="ownerExportShopsBtn" class="btn btn-o btn-sm">Export Businesses</button>
-                  <button id="ownerExportProductsBtn" class="btn btn-o btn-sm">Export Offerings</button>
+                  <button id="ownerExportProductsBtn" class="btn btn-o btn-sm">Export Products</button>
                 </div>
               </div>
             </div>
@@ -2371,7 +2386,7 @@ body{
             </div>
             <div id="workspaceStats" class="workspace-stats">
               <div class="workspace-stat"><div class="workspace-stat-label">Status</div><div id="wkStatus" class="workspace-stat-value">No business loaded</div></div>
-              <div class="workspace-stat"><div class="workspace-stat-label">Offerings</div><div id="wkProducts" class="workspace-stat-value">0</div></div>
+              <div class="workspace-stat"><div class="workspace-stat-label">Products</div><div id="wkProducts" class="workspace-stat-value">0</div></div>
               <div class="workspace-stat"><div class="workspace-stat-label">Chats / 30d</div><div id="wkChats" class="workspace-stat-value">0</div></div>
               <div class="workspace-stat"><div class="workspace-stat-label">Page Views / 30d</div><div id="wkShopViews" class="workspace-stat-value">0</div></div>
               <div class="workspace-stat"><div class="workspace-stat-label">Offering Views / 30d</div><div id="wkProductViews" class="workspace-stat-value">0</div></div>
@@ -2389,7 +2404,7 @@ body{
               </div>
               <div id="ownerDetailTags" class="owner-detail-tags">
                 <div class="owner-detail-tag">Business Page</div>
-                <div class="owner-detail-tag">Offerings</div>
+                <div class="owner-detail-tag">Products</div>
                 <div class="owner-detail-tag">Chat Ready</div>
               </div>
               <div id="ownerDetailOverview" class="owner-detail-overview">Business overview appears here.</div>
@@ -2435,7 +2450,7 @@ body{
               <div class="product-manager-head" style="width:100%">
                 <div>
                   <div class="owner-products-topline">Catalog</div>
-                  <div class="card-title">Offerings</div>
+                  <div class="card-title">Products</div>
                   <div class="owner-products-sub">Everything listed under this business appears here. Open an offering to edit it, or use the search to find something quickly.</div>
                 </div>
                 <div class="product-manager-tools">
@@ -2526,7 +2541,7 @@ body{
                       <option value="professional">Professional practice</option>
                       <option value="education">Education business</option>
                       <option value="creator">Artist / creator</option>
-                      <option value="other">Other local business</option>
+                      <option value="other">Other business</option>
                     </select>
                     <div class="fld-hint">This decides which offering template and location flow to show next.</div>
                   </div>
@@ -2609,11 +2624,11 @@ body{
                 <div class="setup-section-head">
                   <div class="setup-section-kicker">Step 3</div>
                   <div class="setup-section-title">Fulfillment options</div>
-                  <div class="setup-section-copy">Choose how customers can buy from this business. You can allow pickup, local delivery, on-site buying, or any mix that fits the business.</div>
+                  <div class="setup-section-copy">Choose how customers can buy from this business. You can allow pickup, delivery, on-site buying, or any mix that fits the business.</div>
                 </div>
                 <div class="fg3">
                   <label class="owner-check"><input id="shopSupportsPickup" type="checkbox" checked style="margin-top:2px"/><span><strong>Pickup</strong><br/><span class="fld-hint">Customers place a request and collect it from the business.</span></span></label>
-                  <label class="owner-check"><input id="shopSupportsDelivery" type="checkbox" style="margin-top:2px"/><span><strong>Local delivery</strong><br/><span class="fld-hint">Only show this if the business has its own delivery setup.</span></span></label>
+                  <label class="owner-check"><input id="shopSupportsDelivery" type="checkbox" style="margin-top:2px"/><span><strong>Delivery</strong><br/><span class="fld-hint">Only show this if the business has its own delivery setup.</span></span></label>
                   <label class="owner-check"><input id="shopSupportsWalkIn" type="checkbox" checked style="margin-top:2px"/><span><strong>Buy on site</strong><br/><span class="fld-hint">Customers browse in Wave, then visit the business to complete the purchase.</span></span></label>
                 </div>
                 <div id="deliverySettings" class="fg2" style="margin-top:14px;display:none">
@@ -2813,7 +2828,7 @@ body{
               <div class="an-panel">
                 <div class="an-panel-head">
                   <div>
-                    <div class="an-panel-kicker">Top Offerings</div>
+                    <div class="an-panel-kicker">Top Products</div>
                     <div class="an-panel-title">What customers open most</div>
                     <div class="an-panel-copy">Use this to spot which offerings are attracting the most attention.</div>
                   </div>
@@ -2962,7 +2977,7 @@ body{
       <div id="pdViews" class="pc-views" style="margin-top:0"></div>
       <div id="pdVarsWrap" style="display:none"><div class="pd-lbl">Options</div><div id="pdVarRow" class="var-row"></div></div>
       <hr class="pd-hr"/>
-      <div id="pdAboutLabel" class="pd-lbl">About this offering</div>
+      <div id="pdAboutLabel" class="pd-lbl">About this product</div>
       <div id="pdDesc" class="pd-desc"></div>
       <div id="pdAttrWrap" style="display:none"><div id="pdAttrTitle" class="pd-lbl">Details</div><div id="pdAttrList" class="attr-list"></div></div>
       <div><div class="pd-lbl" style="margin-bottom:4px">Share</div>
@@ -3021,7 +3036,7 @@ body{
     <div class="map-sheet-side">
       <div class="map-sheet-head">
         <div class="map-sheet-kicker" id="mapSheetKicker">Map View</div>
-        <div class="map-sheet-title" id="mapSheetTitle">Explore local businesses on the map.</div>
+        <div class="map-sheet-title" id="mapSheetTitle">Explore businesses on the map.</div>
         <div class="map-sheet-copy" id="mapSheetCopy">Open nearby businesses, tap a pin, and jump straight into the business page.</div>
         <div class="map-sheet-actions">
           <button id="mapSheetCompactBtn" class="btn btn-g btn-sm" type="button" aria-expanded="true">Hide Info</button>
@@ -3128,7 +3143,7 @@ body{
       </div>
       <div class="fld"><label>Email for updates (optional)</label><input id="orderEmail" type="email" placeholder="you@example.com"/></div>
       <div class="fld"><label>Preferred Time (optional)</label><input id="orderTime" placeholder="Today after 5 PM"/></div>
-      <div id="orderDeliveryWrap" class="fld" style="display:none"><label>Delivery Address</label><textarea id="orderDeliveryAddress" placeholder="Enter the address for local delivery"></textarea></div>
+      <div id="orderDeliveryWrap" class="fld" style="display:none"><label>Delivery Address</label><textarea id="orderDeliveryAddress" placeholder="Enter the delivery address"></textarea></div>
       <div class="fld"><label>Note (optional)</label><textarea id="orderNote" placeholder="Anything the business should know about this request"></textarea></div>
       <div id="orderShopNote" class="setup-callout" style="display:none"></div>
       <div id="orderStatus" class="stxt"></div>
@@ -3653,14 +3668,14 @@ async function ensureLeafletLoaded(){
       if(window.L){ resolve(); return; }
       if(existing.dataset.loaded==='1'){ resolve(); return; }
       existing.addEventListener('load',()=>resolve(),{once:true});
-      existing.addEventListener('error',()=>reject(new Error('Local map assets are not installed on this server.')),{once:true});
+      existing.addEventListener('error',()=>reject(new Error('Bundled map assets are not installed on this server.')),{once:true});
       return;
     }
     const script=document.createElement('script');
     script.id='leaflet-js';
     script.src=`${base}/vendor/leaflet/leaflet.js`;
     script.onload=()=>{ script.dataset.loaded='1'; resolve(); };
-    script.onerror=()=>reject(new Error('Local map assets are not installed on this server.'));
+    script.onerror=()=>reject(new Error('Bundled map assets are not installed on this server.'));
     document.head.appendChild(script);
   });
   return window.L;
@@ -3868,7 +3883,7 @@ function mapPopupHtml(shop={}){
     <div class="wave-map-popup">
       <div class="wave-map-popup-name">${esc(shop.name||'Business')}</div>
       ${distanceLabel?`<div class="wave-map-popup-distance">📍 ${esc(distanceLabel)}</div>`:''}
-      <div class="wave-map-popup-copy">${esc((shop.overview||'Open the business page to browse offerings, ask questions, and see what this business offers.').slice(0,140))}</div>
+      <div class="wave-map-popup-copy">${esc((shop.overview||'Open the business page to browse products, ask questions, and see what this business offers.').slice(0,140))}</div>
       <div class="wave-map-popup-meta">${chips}</div>
       <div class="wave-map-popup-actions">
         <button class="btn btn-A btn-sm" type="button" data-map-action="visit" data-shop-ref="${esc(ref)}">Visit Business</button>
@@ -4141,7 +4156,7 @@ function mapPopupHtml(shop={}){
           ${shopCategoryBadgeHtml(shop.category,'wave-map-popup-avatar-badge')}
         </div>
       </div>
-      <div class="wave-map-popup-copy">${esc((shop.overview||'Open the business page to browse offerings, ask questions, and see what this business offers.').slice(0,140))}</div>
+      <div class="wave-map-popup-copy">${esc((shop.overview||'Open the business page to browse products, ask questions, and see what this business offers.').slice(0,140))}</div>
       <div class="wave-map-popup-meta">${chips}</div>
       <div class="wave-map-popup-actions">
         <button class="btn btn-A btn-sm" type="button" data-map-action="visit" data-shop-ref="${esc(ref)}">Visit Business</button>
@@ -4220,7 +4235,7 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     const nouns=offeringNouns(shop||{});
     const distanceLabel=mapDistanceLabel(shop);
     const metaText=[distanceLabel,shop?.category||'',shop?.city||''].filter(Boolean).slice(0,2).join(' | ') || 'Tap to preview this business on the map';
-    const copyText=(shop?.overview||shopDisplayAddress(shop)||'Open the business page to browse offerings and chat with the assistant.').slice(0,92);
+    const copyText=(shop?.overview||shopDisplayAddress(shop)||'Open the business page to browse products and chat with the assistant.').slice(0,92);
     const chipText=[
       stats.product_count!=null ? `${stats.product_count} ${nouns.plural}` : '',
       Number(stats.avg_rating||0)>0 ? `Rating ${Number(stats.avg_rating).toFixed(1)}` : '',
@@ -4724,7 +4739,7 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     const nouns=offeringNouns(shop||{});
     const distanceLabel=mapDistanceLabel(shop);
     const metaText=[distanceLabel,shop?.category||'',shop?.city||''].filter(Boolean).slice(0,2).join(' · ') || 'Tap to preview this business on the map';
-    const copyText=(shop?.overview||shopDisplayAddress(shop)||'Open the business page to browse offerings and chat with the assistant.').slice(0,92);
+    const copyText=(shop?.overview||shopDisplayAddress(shop)||'Open the business page to browse products and chat with the assistant.').slice(0,92);
     const chipText=[
       stats.product_count!=null ? `${stats.product_count} ${nouns.plural}` : '',
       Number(stats.avg_rating||0)>0 ? `★ ${Number(stats.avg_rating).toFixed(1)}` : '',
@@ -4831,7 +4846,7 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     const nouns=offeringNouns(shop||{});
     const distanceLabel=mapDistanceLabel(shop);
     const metaText=[distanceLabel,shop?.category||'',shop?.city||''].filter(Boolean).slice(0,2).join(' | ') || 'Tap to preview this business on the map';
-    const copyText=(shop?.overview||shopDisplayAddress(shop)||'Open the business page to browse offerings and chat with the assistant.').slice(0,92);
+    const copyText=(shop?.overview||shopDisplayAddress(shop)||'Open the business page to browse products and chat with the assistant.').slice(0,92);
     const chipText=[
       stats.product_count!=null ? `${stats.product_count} ${nouns.plural}` : '',
       Number(stats.avg_rating||0)>0 ? `Rating ${Number(stats.avg_rating).toFixed(1)}` : '',
@@ -5095,7 +5110,7 @@ async function openMapSheet(mode='home',focusRef=''){
   try{
     support=await ensureMapSheetBase();
   }catch(e){
-    setMapSheetEmpty('Map could not load','This server does not have the local Leaflet files installed yet. Add vetted assets under vendor/leaflet to enable the map.');
+    setMapSheetEmpty('Map could not load','This server does not have the bundled Leaflet files installed yet. Add vetted assets under vendor/leaflet to enable the map.');
     setMapSheetStatus(e?.message || 'Map library failed to load.');
     return;
   }
@@ -5255,8 +5270,8 @@ const BUSINESS_TYPE_META={
   service:{label:'Service business',defaultOfferingType:'service',singular:'service',plural:'services',businessLabel:'business',defaultLocationMode:'service_area'},
   professional:{label:'Professional practice',defaultOfferingType:'service',singular:'service',plural:'services',businessLabel:'business',defaultLocationMode:'service_area'},
   education:{label:'Education business',defaultOfferingType:'service',singular:'service',plural:'services',businessLabel:'business',defaultLocationMode:'hybrid'},
-  creator:{label:'Creator studio',defaultOfferingType:'offering',singular:'offering',plural:'offerings',businessLabel:'studio',defaultLocationMode:'online'},
-  other:{label:'Local business',defaultOfferingType:'offering',singular:'offering',plural:'offerings',businessLabel:'business',defaultLocationMode:'storefront'}
+  creator:{label:'Creator studio',defaultOfferingType:'product',singular:'product',plural:'products',businessLabel:'studio',defaultLocationMode:'online'},
+  other:{label:'Business',defaultOfferingType:'product',singular:'product',plural:'products',businessLabel:'business',defaultLocationMode:'storefront'}
 };
 const OFFERING_TYPE_META={
   product:{label:'Product',singular:'product',plural:'products'},
@@ -5264,7 +5279,7 @@ const OFFERING_TYPE_META={
   class:{label:'Class',singular:'class',plural:'classes'},
   event:{label:'Event',singular:'event',plural:'events'},
   portfolio:{label:'Portfolio item',singular:'portfolio item',plural:'portfolio items'},
-  offering:{label:'Offering',singular:'offering',plural:'offerings'}
+  offering:{label:'Product',singular:'product',plural:'products'}
 };
 const OFFERING_TYPE_OPTION_LIST=[
   ['product','Product'],
@@ -6760,7 +6775,7 @@ function setShopMobileSheet(mode='info',open=true){
   App.shopMobileSheet=mode||'info';
   page.dataset.mobileSheet=App.shopMobileSheet;
   page.classList.add('mobile-sheet-on');
-  if($('shopMobileSheetTitle')) $('shopMobileSheetTitle').textContent=App.shopMobileSheet==='filters'?'Filter Offerings':'Business Info';
+  if($('shopMobileSheetTitle')) $('shopMobileSheetTitle').textContent=App.shopMobileSheet==='filters'?'Filter Products':'Business Info';
   $('shopMobileInfoBtn')?.classList.toggle('btn-A',App.shopMobileSheet==='info');
   $('shopMobileInfoBtn')?.classList.toggle('btn-o',App.shopMobileSheet!=='info');
   $('shopMobileFiltersBtn')?.classList.toggle('btn-A',App.shopMobileSheet==='filters');
@@ -7091,7 +7106,7 @@ function getCartShopContext(){
 function getShopFulfillmentOptions(shop){
   const options=[];
   if(shop?.supports_pickup!==false) options.push({value:'pickup',label:'Pickup'});
-  if(shop?.supports_delivery) options.push({value:'delivery',label:'Local Delivery'});
+  if(shop?.supports_delivery) options.push({value:'delivery',label:'Delivery'});
   if(shop?.supports_walk_in!==false) options.push({value:'walk_in',label:'Buy on Site'});
   return options;
 }
@@ -8204,7 +8219,7 @@ function renderHomeShops(){
 }
 async function loadFeatured(page=1){
   const cat=App.activeCat;
-  $('featuredTitle').textContent=cat?`${cat} Offerings`:'Offerings';
+  $('featuredTitle').textContent=cat?`${cat} Products`:'Products';
   $('featuredGrid').innerHTML=`<div class="empty"><div class="ei">Loading</div><div class="et">Getting offerings...</div></div>`;
   try{
     renderMarketAttributeFilter(cat,'featured');
@@ -8571,7 +8586,7 @@ function addMsg(text,role='assistant',loading=false,products=[]){
 }
 function renderChatSide(prods){
   const g=$('chatSideGrid');g.innerHTML='';
-  if(!prods||!prods.length){g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Info</div><div class="et">Offerings and photos appear here after you ask. Tap a card to open the offering.</div></div>`;return;}
+  if(!prods||!prods.length){g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Info</div><div class="et">Products and photos appear here after you ask. Tap a card to open the product.</div></div>`;return;}
   prods.forEach(p=>g.appendChild(makeCard(p,{mode:'chat',showShop:false})));
 }
 function isMobileChat(){return window.matchMedia('(max-width: 920px)').matches;}
@@ -9104,7 +9119,7 @@ function refreshWorkspaceHeader(shop=null,stats={}){
           `${offeringCount} ${nouns.plural}`,
           shop.whatsapp||shop.phone ? 'Contact Ready' : 'Add Contact Details'
         ]
-      : ['Business Page','Offerings','Chat Ready'];
+      : ['Business Page','Products','Chat Ready'];
     $('ownerDetailTags').innerHTML = tags.map(t=>`<div class="owner-detail-tag">${esc(t)}</div>`).join('');
   }
 }
@@ -9680,7 +9695,7 @@ async function loadAnalytics(){
     const attrFields=attr.fields||[];
     $('anAttr').innerHTML=!attr.category||!attrFields.length
       ? '<div style="font-size:13px;color:var(--ink3)">This business category does not use extra structured offering fields yet.</div>'
-      : `<div class="tp-row"><span class="tp-rank">${esc(attr.category)}</span><span class="tp-name">Offerings with category details</span><span class="tp-views">${attr.complete_products||0}/${attr.total_products||0}</span></div>` + attrFields.map(field=>{
+      : `<div class="tp-row"><span class="tp-rank">${esc(attr.category)}</span><span class="tp-name">Products with category details</span><span class="tp-views">${attr.complete_products||0}/${attr.total_products||0}</span></div>` + attrFields.map(field=>{
           const topValues=(field.top_values||[]).slice(0,3).map(item=>`${esc(item.label)} (${item.count})`).join(' • ');
           return `<div style="display:grid;gap:6px;padding:10px 0;border-top:1px solid rgba(191,174,149,.28)"><div class="tp-row" style="padding:0;border:0"><span class="tp-rank">${esc(field.label)}</span><span class="tp-name">${field.filled_count||0} filled</span><span class="tp-views">${field.missing_count||0} missing</span></div><div style="font-size:12px;color:var(--ink3)">${topValues||'No values saved yet.'}</div></div>`;
         }).join('');
