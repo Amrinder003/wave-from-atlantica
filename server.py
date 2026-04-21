@@ -182,6 +182,8 @@ COUNTRY_META: Dict[str, Dict[str, Any]] = {
     "US": {"name": "United States", "currency": "USD", "postal_regex": r"^\d{5}(?:-\d{4})?$", "timezone": "America/New_York"},
     "AE": {"name": "United Arab Emirates", "currency": "AED", "postal_regex": r"^[A-Za-z0-9 -]{3,10}$", "timezone": "Asia/Dubai"},
 }
+BUSINESS_COUNTRY_LOCK_ENABLED = os.environ.get("BUSINESS_COUNTRY_LOCK_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
+BUSINESS_COUNTRY_LOCK_CODE = re.sub(r"[^A-Za-z]", "", os.environ.get("BUSINESS_COUNTRY_LOCK_CODE", "CA").upper())[:2] or "CA"
 SUPPORTED_TIMEZONE_NAMES = sorted({
     "UTC",
     "America/Halifax",
@@ -2305,6 +2307,10 @@ def validate_shop_payload(shop: ShopInfo) -> Dict[str, Any]:
         raise HTTPException(400, "Business name is required")
     data["business_type"] = normalize_business_type(data.get("business_type", ""), data.get("category", ""))
     data["location_mode"] = normalize_location_mode(data.get("location_mode", ""), data.get("business_type", ""), data.get("category", ""))
+    if BUSINESS_COUNTRY_LOCK_ENABLED:
+        data["country_code"] = BUSINESS_COUNTRY_LOCK_CODE
+        data["country_name"] = country_meta(BUSINESS_COUNTRY_LOCK_CODE).get("name", "Canada")
+        data["currency_code"] = currency_for_country(BUSINESS_COUNTRY_LOCK_CODE)
     if not data.get("country_code"):
         raise HTTPException(400, "Select the business country")
     location_mode = data["location_mode"]
@@ -3319,14 +3325,14 @@ def serve_product_ui(shop_ref: str, product_ref: str):
 
 @app.get("/favicon.ico")
 def favicon():
-    icon_path = os.path.join(SERVER_DIR, "atlantic-ordinate-logo-mark.png")
+    icon_path = os.path.join(SERVER_DIR, "atlantic-ordinate-favicon.png")
     if os.path.isfile(icon_path):
         return FileResponse(icon_path)
     raise HTTPException(204)
 
 @app.get("/brand/{filename}")
 def serve_brand_asset(filename: str):
-    allowed = {"atlantic-ordinate-logo-mark.png"}
+    allowed = {"atlantic-ordinate-logo-mark.png", "atlantic-ordinate-favicon.png"}
     safe_name = os.path.basename(filename or "")
     if safe_name not in allowed:
         raise HTTPException(404, "Asset not found")
