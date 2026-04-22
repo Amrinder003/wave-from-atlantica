@@ -825,6 +825,7 @@ a{color:inherit;text-decoration:none}
 .verify-notice strong{display:block;font-weight:700;margin-bottom:3px}
 .auth-mini-link{font-size:12px;font-weight:700;color:var(--A2);text-align:center;cursor:pointer}
 .auth-mini-link:hover{text-decoration:underline}
+.auth-delivery-note{font-size:12px;line-height:1.55;color:var(--ink3);text-align:center}
 .location-prompt-bg{z-index:490}
 .location-prompt-box{width:min(420px,100%)}
 .location-prompt-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2);margin-bottom:6px}
@@ -2410,6 +2411,9 @@ input[type=checkbox]:focus-visible,input[type=radio]:focus-visible{
 .auth-mini-link{
   color:#ffd99b;
 }
+.auth-delivery-note{
+  color:rgba(255,236,204,.76);
+}
 .auth-tab{
   background:rgba(255,238,211,.08);
   border:1px solid rgba(255,224,174,.14);
@@ -3684,11 +3688,13 @@ input[type=checkbox]:focus-visible,input[type=radio]:focus-visible{
         <div class="fld"><label>Email</label><input id="regEmail" type="email" placeholder="you@example.com"/></div>
         <div class="fld"><label>Password</label><input id="regPass" type="password" placeholder="Min 8 characters"/></div>
         <button id="regSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Create Account</button>
+        <div class="auth-delivery-note">Verification links can take a minute. If it is not in your inbox, check Spam, Junk, or Promotions.</div>
         <div id="regStatus" class="stxt"></div>
       </div>
       <div id="atab-forgot" class="auth-panel">
         <div class="fld"><label>Email address</label><input id="forgotEmail" type="email" placeholder="you@example.com"/></div>
         <button id="forgotSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Send Reset Link</button>
+        <div class="auth-delivery-note">Reset links sometimes land in Spam, Junk, or Promotions. Open the newest email only.</div>
         <button id="backToLoginBtn" class="btn btn-g btn-sm" style="width:100%;justify-content:center">Back to Sign In</button>
         <div id="forgotStatus" class="stxt"></div>
       </div>
@@ -7721,7 +7727,7 @@ $('profileBg').addEventListener('click',e=>{if(e.target===$('profileBg'))closePr
 function closeProfile(){$('profileBg').classList.remove('on');}
 $('profileLogoutBtn').addEventListener('click',()=>doLogout());
 $('resendVerifyBtn').addEventListener('click',async()=>{
-  try{await api('/auth/resend-verification',{method:'POST',auth:true});toast('Verification email sent!','Check your inbox.');}
+  try{await api('/auth/resend-verification',{method:'POST',auth:true});toast('Verification email sent','Check your inbox, Spam, Junk, or Promotions.');}
   catch(e){toast('Failed',e.message,'err');}
 });
 
@@ -7744,13 +7750,13 @@ async function doRegister(){
   try{
     setS('regStatus','Creating account...');
     await api('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw,display_name:name})});
-    setS('regStatus','Account created. Check your email for the verification link.','ok');
-    toast('Account created','Check your email to verify your account.');
+    setS('regStatus','Account created. Check your inbox for the verification link. If it is missing, check Spam, Junk, or Promotions.','ok');
+    toast('Account created','Check your inbox, Spam, Junk, or Promotions.');
   }catch(e){setS('regStatus',e.message,'err');}
 }
 async function doForgot(){
   const email=$('forgotEmail').value.trim();
-  try{setS('forgotStatus','Sending...');await api('/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});setS('forgotStatus','Reset link sent. Check your email.','ok');}
+  try{setS('forgotStatus','Sending...');await api('/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});setS('forgotStatus','If that email exists, the reset link has been sent. Check your inbox, Spam, Junk, or Promotions.','ok');}
   catch(e){setS('forgotStatus',e.message,'err');}
 }
 async function doResetPassword(){
@@ -7800,8 +7806,8 @@ $('adminRegisterBtn').addEventListener('click',async()=>{
   try{
     setS('authStatus','Registering...');
     await api('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw,display_name:''})});
-    setS('authStatus','Registered. Check email to verify.','ok');
-    toast('Account created', 'Check your email to verify.');
+    setS('authStatus','Registered. Check your inbox for the verification link. If it is missing, check Spam, Junk, or Promotions.','ok');
+    toast('Account created', 'Check your inbox, Spam, Junk, or Promotions.');
   }catch(e){setS('authStatus',e.message,'err');}
 });
 $('adminForgotBtn').addEventListener('click',()=>{

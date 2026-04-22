@@ -3410,7 +3410,7 @@ def register(body: RegisterReq, request: Request):
                 "email_redirect_to": ui_redirect_url(),
             },
         })
-        return {"ok": True, "message": "Account created. Check your email to verify your address."}
+        return {"ok": True, "message": "Account created. Check your inbox for the verification link. If it is not there, check Spam, Junk, or Promotions."}
     except Exception as e:
         raise HTTPException(400, str(e))
 
@@ -3483,7 +3483,7 @@ def resend_verification(authorization: Optional[str] = Header(None)):
         raise
     except Exception:
         raise HTTPException(400, "Could not resend the verification email right now.")
-    return {"ok": True, "message": "Verification email sent"}
+    return {"ok": True, "message": "Verification email sent. Check your inbox, Spam, Junk, or Promotions."}
 
 @app.post("/auth/forgot-password")
 def forgot_password(body: ForgotPasswordReq, request: Request):
@@ -3497,7 +3497,7 @@ def forgot_password(body: ForgotPasswordReq, request: Request):
         raise
     except Exception:
         raise HTTPException(400, "Could not send the reset link right now.")
-    return {"ok": True, "message": "If that email exists, a reset link has been sent."}
+    return {"ok": True, "message": "If that email exists, a reset link has been sent. Check your inbox, Spam, Junk, or Promotions."}
 
 @app.post("/auth/update-password")
 def update_password(body: ResetPasswordReq, authorization: Optional[str] = Header(None)):
