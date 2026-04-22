@@ -1497,9 +1497,9 @@ a{color:inherit;text-decoration:none}
   --bd:rgba(222,166,94,.24);
   --bd2:rgba(238,187,117,.38);
   --ink:#fff3df;
-  --ink2:rgba(248,234,212,.82);
-  --ink3:rgba(248,234,212,.64);
-  --ink4:rgba(248,234,212,.46);
+  --ink2:rgba(255,243,223,.92);
+  --ink3:rgba(255,236,204,.78);
+  --ink4:rgba(255,224,174,.66);
   --A:#d49145;
   --A2:#f1ad5a;
   --Ap:rgba(212,145,69,.16);
@@ -1525,7 +1525,7 @@ a{color:inherit;text-decoration:none}
   --cardLine:rgba(238,187,117,.28);
   --softLine:rgba(255,238,211,.14);
   --creamText:#fff3df;
-  --mutedText:rgba(248,234,212,.68);
+  --mutedText:rgba(255,236,204,.78);
   --glow:0 30px 82px rgba(0,0,0,.34);
   --s1:0 2px 8px rgba(0,0,0,.16);
   --s2:0 10px 24px rgba(0,0,0,.2);
@@ -2194,6 +2194,354 @@ body{
 .btn:disabled,.nav-btn:disabled,.pg-btn:disabled{
   opacity:.68;
   filter:saturate(.78);
+}
+
+/* Full app visibility guard for auth, admin, setup, and form-heavy screens. */
+.nav-btn{
+  background:rgba(255,238,211,.085);
+  border:1px solid rgba(255,224,174,.16);
+  color:#ffe8bd;
+}
+.nav-btn:hover,.nav-btn:active{
+  background:rgba(255,238,211,.16);
+  border-color:rgba(255,224,174,.32);
+  color:#fff8e8;
+}
+.snav{
+  background:rgba(255,238,211,.085);
+  border:1px solid rgba(255,224,174,.15);
+  color:rgba(255,236,204,.88);
+}
+.snav:hover{
+  background:rgba(255,238,211,.15);
+  border-color:rgba(255,224,174,.3);
+  color:#fff8e8;
+}
+.admin-wrap,.admin-main,.asub,.shop-admin-view,.auth-box,.profile-panel,.pd-box,.cart-panel,#orderBg .auth-box,#trackReqBg .auth-box{
+  color:var(--creamText);
+}
+.admin-nav{
+  background:linear-gradient(180deg,#2f1b0f,#211209);
+  border-color:var(--cardLine);
+  box-shadow:12px 0 32px rgba(0,0,0,.18);
+}
+.anav-lbl,.shop-sidebar-lbl,.pd-lbl,.product-media-label,.setup-callout-title,.owner-side-label,.owner-products-topline,.workspace-kicker,.floating-form-kicker,.setup-section-kicker,.variant-stage-kicker,.variant-guidance-title,.variant-media-kicker{
+  color:#f3b869;
+}
+.anav-btn{
+  min-height:44px;
+  border:1px solid rgba(255,224,174,.2);
+  background:rgba(255,238,211,.1);
+  color:#ffe9c5;
+}
+.anav-btn:hover{
+  background:rgba(255,238,211,.13);
+  border-color:rgba(255,224,174,.3);
+  color:#fff8e8;
+}
+.anav-btn.on{
+  background:linear-gradient(180deg,#f5bd6c,#cf7f31 62%,#9b4d1c);
+  border-color:rgba(255,238,211,.56);
+  color:#241207;
+  box-shadow:0 14px 30px rgba(146,75,27,.3);
+}
+.anav-btn .ai{
+  background:rgba(255,238,211,.12);
+  color:#ffd99b;
+}
+.anav-btn.on .ai{
+  background:rgba(36,18,7,.16);
+  color:#241207;
+}
+.anav-btn.logout,.anav-btn.logout .ai,.pm-btn.danger{
+  color:#ffc0ca;
+}
+.account-note,.setup-section,.setup-callout,.floating-form-actions,.product-upload-card,.product-preview-card,.product-existing-card,.variant-stage,.variant-guidance,.variant-row,.variant-empty,.variant-media-card,.owner-detail-card,.owner-side-card,.owner-check,.workspace-stat,.sbox,.an-panel,.csv-box,.req-banner,.tp-row,.hours-row,.suggest-item,.shop-filter-toggle{
+  background:
+    linear-gradient(180deg,rgba(255,238,211,.07),rgba(255,238,211,.025)),
+    linear-gradient(180deg,#442918,#2a190e);
+  border-color:rgba(255,224,174,.24);
+  color:var(--creamText);
+  box-shadow:0 12px 28px rgba(0,0,0,.18);
+}
+.card-head,.workspace-hero,.workspace-stats{
+  background:
+    linear-gradient(180deg,rgba(255,238,211,.075),rgba(255,238,211,.03)),
+    linear-gradient(180deg,#4d2f1c,#2f1b0f);
+  border-color:var(--cardLine);
+  color:var(--creamText);
+}
+.card-title,.workspace-title,.setup-section-title,.account-note-title,.owner-detail-name,.owner-side-title,.variant-stage-title,.variant-row-title,.variant-empty-title,.variant-media-title,.an-panel-title,.csv-title,.tp-name,.sbox-v,.workspace-stat-value,.hours-day,.cart-title,.req-banner-title{
+  color:#fff3df;
+}
+.account-note-copy,.workspace-desc,.setup-section-copy,.setup-callout-copy,.floating-form-note,.owner-detail-meta,.owner-detail-overview,.owner-side-copy,.owner-check-copy,.owner-products-sub,.bulk-edit-note,.variant-stage-desc,.variant-guidance-copy,.variant-row-summary,.variant-empty-copy,.variant-media-copy,.variant-img-empty,.product-media-meta,.shop-profile-preview-meta,.price-note,.csv-hint,.csv-pt,.an-panel-copy,.tp-views,.req-banner-text,.cart-tot-lbl,.ci-meta,.pd-desc,.rev-body{
+  color:rgba(255,236,204,.8);
+}
+.fld label{
+  color:#f5bd6c;
+  font-weight:800;
+}
+.fld-hint,.product-media-meta,.prev-empty,.shop-profile-preview-meta,.variant-row-eyebrow,.variant-media-kicker,.admin-pc-edit,.admin-pc-noprice,.toast-txt{
+  color:rgba(255,224,174,.72);
+}
+.fld input:not([type=file]),.fld textarea,.fld select,.mini-search,.share-inp,.sort-sel,.shop-search-box input,.nav-search input,#csvFile,select.btn{
+  background:rgba(255,238,211,.105);
+  border-color:rgba(255,224,174,.28);
+  color:#fff5e3;
+  caret-color:#f5bd6c;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+}
+.fld input:not([type=file]):hover,.fld textarea:hover,.fld select:hover,.mini-search:hover,.share-inp:hover,.sort-sel:hover,#csvFile:hover,select.btn:hover{
+  border-color:rgba(255,224,174,.42);
+  background:rgba(255,238,211,.135);
+}
+.fld input:not([type=file]):focus,.fld textarea:focus,.fld select:focus,.mini-search:focus,.share-inp:focus,.sort-sel:focus,.shop-search-box:focus-within,select.btn:focus{
+  background:rgba(255,238,211,.16);
+  border-color:rgba(245,189,108,.72);
+  box-shadow:0 0 0 3px rgba(245,189,108,.18),inset 0 1px 0 rgba(255,255,255,.08);
+  color:#fffaf0;
+}
+.fld input::placeholder,.fld textarea::placeholder,.mini-search::placeholder,.share-inp::placeholder,.shop-search-box input::placeholder,.nav-search input::placeholder{
+  color:rgba(255,224,174,.56);
+  opacity:1;
+}
+.fld input:disabled,.fld textarea:disabled,.fld select:disabled,.mini-search:disabled,.sort-sel:disabled,select.btn:disabled{
+  opacity:1;
+  filter:none;
+  color:rgba(255,224,174,.78);
+  -webkit-text-fill-color:rgba(255,224,174,.78);
+  background:
+    repeating-linear-gradient(135deg,rgba(255,238,211,.06) 0 8px,rgba(255,238,211,.09) 8px 16px),
+    #2a190e;
+  border-color:rgba(255,224,174,.22);
+  cursor:not-allowed;
+}
+.fld input:read-only:not([type=file]),.share-inp[readonly]{
+  color:rgba(255,236,204,.86);
+  background:rgba(255,238,211,.08);
+}
+input:-webkit-autofill,input:-webkit-autofill:hover,input:-webkit-autofill:focus,textarea:-webkit-autofill,select:-webkit-autofill{
+  -webkit-text-fill-color:#fff5e3;
+  caret-color:#f5bd6c;
+  transition:background-color 9999s ease-out 0s;
+  box-shadow:0 0 0 1000px #3a2314 inset,0 0 0 3px rgba(245,189,108,.12);
+  border-color:rgba(245,189,108,.48);
+}
+option,optgroup{
+  background:#2d1a0f;
+  color:#fff5e3;
+}
+.fld input[type=file],#csvFile{
+  min-height:44px;
+  border-style:dashed;
+  color:#ffe8bd;
+}
+.fld input[type=file]::file-selector-button,#csvFile::file-selector-button{
+  margin-right:10px;
+  border:1px solid rgba(255,224,174,.34);
+  border-radius:999px;
+  background:linear-gradient(180deg,#f5bd6c,#cf7f31 62%,#9b4d1c);
+  color:#241207;
+  font-weight:800;
+  padding:7px 12px;
+  cursor:pointer;
+}
+input[type=checkbox],input[type=radio]{
+  appearance:none;
+  -webkit-appearance:none;
+  width:18px;
+  height:18px;
+  display:inline-grid;
+  place-items:center;
+  flex:0 0 auto;
+  margin:0;
+  background:rgba(255,238,211,.12);
+  border:1.5px solid rgba(255,224,174,.42);
+  accent-color:#f5bd6c;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+}
+input[type=checkbox]{
+  border-radius:5px;
+}
+input[type=radio]{
+  border-radius:999px;
+}
+input[type=checkbox]:checked{
+  background:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.3 8.1 6.6 11.4 12.8 4.8' fill='none' stroke='%23241207' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/13px 13px no-repeat,
+    linear-gradient(180deg,#f5bd6c,#cf7f31 62%,#9b4d1c);
+  border-color:rgba(255,238,211,.6);
+}
+input[type=radio]:checked{
+  background:linear-gradient(180deg,#f5bd6c,#cf7f31 62%,#9b4d1c);
+  border-color:rgba(255,238,211,.6);
+  box-shadow:inset 0 0 0 4px #2a190e,0 0 0 2px rgba(245,189,108,.16);
+}
+input[type=checkbox]:focus-visible,input[type=radio]:focus-visible{
+  outline:2px solid rgba(245,189,108,.48);
+  outline-offset:2px;
+}
+.owner-check strong,.hours-closed,.shop-filter-toggle,.filter-row span{
+  color:#fff1d4;
+}
+.currency-pill,.shop-profile-preview-avatar,.prev-item,.img-mg-item img,.variant-img-item,.admin-pc-chip,.variant-row-chip,.owner-detail-tag,.badge,.chip,.map-sheet-mini-more{
+  background:rgba(255,238,211,.11);
+  border-color:rgba(255,224,174,.24);
+  color:#fff0d2;
+}
+.badge.a,.chip.accepted,.chip.ready{
+  background:rgba(245,189,108,.16);
+  border-color:rgba(245,189,108,.32);
+  color:#ffd99b;
+}
+.chip.completed,.owner-good,.badge.g{
+  background:rgba(34,197,94,.16);
+  border-color:rgba(125,238,170,.3);
+  color:#bdf7d3;
+}
+.chip.cancelled,.owner-flag,.badge.y,.verify-notice,.profile-verify-warn{
+  background:rgba(217,119,6,.16);
+  border-color:rgba(251,191,36,.3);
+  color:#ffe0a3;
+}
+.verify-notice strong{
+  color:#fff3df;
+}
+.auth-mini-link{
+  color:#ffd99b;
+}
+.auth-tab{
+  background:rgba(255,238,211,.08);
+  border:1px solid rgba(255,224,174,.14);
+  border-bottom-color:transparent;
+  color:#ffe8bd;
+}
+.auth-tab:hover{
+  background:rgba(255,238,211,.14);
+  color:#fff8e8;
+}
+.auth-tab.on{
+  background:rgba(245,189,108,.14);
+  color:#ffd99b;
+  border-color:rgba(245,189,108,.26);
+  border-bottom-color:#f3b869;
+}
+.auth-mini-link:hover{
+  color:#fff3df;
+}
+.pm-btn{
+  color:#fff0d2;
+  min-height:44px;
+}
+.pm-btn:hover{
+  background:rgba(255,238,211,.12);
+  color:#fffaf0;
+}
+.pm-sep{
+  border-color:var(--cardLine);
+}
+.stxt:not(:empty){
+  display:block;
+  padding:10px 12px;
+  border-radius:16px;
+  background:rgba(255,238,211,.08);
+  border:1px dashed rgba(255,224,174,.24);
+  color:#ffe8bd;
+  line-height:1.5;
+}
+.stxt.ok:not(:empty){
+  background:rgba(34,197,94,.14);
+  border-style:solid;
+  border-color:rgba(125,238,170,.28);
+  color:#bdf7d3;
+}
+.stxt.err:not(:empty){
+  background:rgba(225,29,72,.16);
+  border-style:solid;
+  border-color:rgba(251,113,133,.32);
+  color:#ffc0ca;
+}
+#productFormView #productStatus:not(:empty),#shopFormView #shopStatus:not(:empty){
+  background:rgba(255,238,211,.08);
+  border-color:rgba(255,224,174,.24);
+  color:#ffe8bd;
+}
+#productFormView #productStatus.ok:not(:empty),#shopFormView #shopStatus.ok:not(:empty){
+  background:rgba(34,197,94,.14);
+  border-color:rgba(125,238,170,.28);
+  color:#bdf7d3;
+}
+#productFormView #productStatus.err:not(:empty),#shopFormView #shopStatus.err:not(:empty){
+  background:rgba(225,29,72,.16);
+  border-color:rgba(251,113,133,.32);
+  color:#ffc0ca;
+}
+#productFormView .floating-form-actions,#shopFormView .floating-form-actions{
+  background:
+    linear-gradient(180deg,rgba(255,238,211,.09),rgba(255,238,211,.035)),
+    linear-gradient(180deg,#4d2f1c,#25150c);
+  border-color:rgba(255,224,174,.28);
+  color:#fff3df;
+  box-shadow:0 18px 42px rgba(0,0,0,.34);
+}
+.csv-box code{
+  display:inline-block;
+  padding:1px 5px;
+  border-radius:7px;
+  background:rgba(255,238,211,.1);
+  color:#fff2d6;
+  border:1px solid rgba(255,224,174,.16);
+}
+.csv-errors{
+  background:rgba(225,29,72,.13);
+  border-color:rgba(251,113,133,.3);
+  color:#ffc0ca;
+}
+.csv-errors-title{
+  color:#ffe3e8;
+}
+.var-pill{
+  background:rgba(255,238,211,.09);
+  border-color:rgba(255,224,174,.22);
+  color:#fff0d2;
+}
+.var-pill:hover,.var-pill.on{
+  background:linear-gradient(180deg,#f5bd6c,#cf7f31 62%,#9b4d1c);
+  border-color:rgba(255,238,211,.56);
+  color:#241207;
+}
+.var-pill:hover .option-name,.var-pill.on .option-name,.var-pill:hover .option-meta,.var-pill.on .option-meta{
+  color:#241207;
+}
+.option-name{
+  color:#fff3df;
+}
+.option-meta{
+  color:#ffd99b;
+}
+.spicker span{
+  color:rgba(255,224,174,.42);
+}
+.spicker span.on,.star.on{
+  color:#f5bd6c;
+}
+.pd-fav-btn.saved{
+  background:rgba(225,29,72,.18);
+  border-color:rgba(251,113,133,.34);
+  color:#ffc0ca;
+}
+.admin-pc,.an-card{
+  background:
+    linear-gradient(180deg,rgba(255,238,211,.06),rgba(255,238,211,.025)),
+    linear-gradient(180deg,var(--card),var(--card2));
+  border-color:var(--cardLine);
+  color:var(--creamText);
+}
+.admin-pc-name,.admin-pc-price,.admin-pc-link,.an-val{
+  color:#fff3df;
+}
+.admin-pc-desc,.admin-pc-attr,.an-lbl{
+  color:rgba(255,236,204,.78);
 }
 </style>
 </head>
