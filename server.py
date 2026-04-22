@@ -3,7 +3,7 @@ Wave API  v4.0 — Supabase Edition (Stable & Fixed Chat)
 """
 
 from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Response, Form
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from pydantic import BaseModel, Field
@@ -673,8 +673,19 @@ def require_supabase_auth() -> Client:
     return auth_client
 
 def ui_redirect_url() -> str:
+    return app_route_url("/ui")
+
+def app_base_url() -> str:
     base = (APP_BASE_URL or "http://localhost:8001").strip().rstrip("/")
-    return base if base.endswith("/ui") else f"{base}/ui"
+    if base.endswith("/ui"):
+        base = base[:-3].rstrip("/")
+    return base or "http://localhost:8001"
+
+def app_route_url(path: str = "/ui") -> str:
+    return f"{app_base_url()}/{str(path or '/ui').lstrip('/')}"
+
+def password_reset_redirect_url() -> str:
+    return f"{app_route_url('/reset-password')}?auth=recovery"
 
 def active_request(request: Optional[Request] = None) -> Optional[Request]:
     return request or CURRENT_REQUEST.get()
@@ -3313,6 +3324,12 @@ def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
 def serve_ui():
     with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
 
+@app.get("/", response_class=HTMLResponse)
+@app.get("/reset-password", response_class=HTMLResponse)
+@app.get("/auth/callback", response_class=HTMLResponse)
+def serve_app_shell():
+    with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
+
 @app.get("/business/{shop_ref}", response_class=HTMLResponse)
 @app.get("/shop/{shop_ref}", response_class=HTMLResponse)
 def serve_shop_ui(shop_ref: str):
@@ -3353,10 +3370,6 @@ def serve_leaflet_vendor(asset_path: str):
     if not os.path.isfile(target):
         raise HTTPException(404, "Asset not found")
     return FileResponse(target)
-
-@app.get("/")
-def root():
-    return RedirectResponse(url="/ui", status_code=307)
 
 @app.get("/health")
 def health():
@@ -3478,7 +3491,7 @@ def forgot_password(body: ForgotPasswordReq, request: Request):
     try:
         supabase_auth_post("recover", {
             "email": body.email.strip(),
-            "redirect_to": ui_redirect_url(),
+            "redirect_to": password_reset_redirect_url(),
         })
     except HTTPException:
         raise

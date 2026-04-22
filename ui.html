@@ -10523,28 +10523,84 @@ function collectOwnerFilters(){
 /* ═════════════════════════════════════════════
    INIT
 ═════════════════════════════════════════════ */
+function authRedirectParamsFromLocation(){
+  const params=new URLSearchParams();
+  const merge=raw=>{
+    let text=String(raw||'').trim();
+    if(!text) return;
+    text=text.replace(/^[?#]/,'');
+    const qIndex=text.indexOf('?');
+    if(qIndex>=0) text=text.slice(qIndex+1);
+    if(!text || !text.includes('=')) return;
+    try{
+      const src=new URLSearchParams(text);
+      src.forEach((value,key)=>{ if(!params.has(key)) params.set(key,value); });
+    }catch{}
+  };
+  merge(location.search);
+  merge(location.hash);
+  return params;
+}
+function isRecoveryAuthRedirect(params){
+  const type=String(params.get('type')||params.get('auth')||params.get('flow')||'').trim().toLowerCase();
+  const path=String(location.pathname||'').toLowerCase();
+  return ['recovery','password_recovery','reset','reset_password'].includes(type) || path.includes('reset-password');
+}
+function hasAuthRedirectParams(params){
+  return ['access_token','refresh_token','type','auth','flow','code','error','error_code','error_description'].some(key=>params.has(key));
+}
+function clearAuthRedirectFromUrl(){
+  try{history.replaceState({},'',appUiRootPath());}
+  catch{try{window.location.hash='';}catch{}}
+}
 async function handleHashAuth() {
-  if (window.location.hash.includes("access_token=")) {
-    const params = new URLSearchParams(window.location.hash.substring(1));
-    const token = params.get("access_token");
-    const refreshToken = params.get("refresh_token") || "";
-    const type = params.get("type") || "";
-    if (token) {
-      window.location.hash = ""; // clear hash from URL
-      if(type === 'recovery'){
-        App.recoveryToken = token;
-        openAuthModal('reset');
-        setS('resetStatus','Choose a new password to finish resetting your account.','');
-        return;
-      }
-      try {
-        const d = await api('/auth/session', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,refresh_token:refreshToken})});
-        saveUser(d);
-        toast('Email verified','You are now signed in.','ok');
-      } catch(e) {
-        clearUser();
-      }
+  const params=authRedirectParamsFromLocation();
+  if(!hasAuthRedirectParams(params)) return false;
+  const token=String(params.get('access_token')||'').trim();
+  const refreshToken=String(params.get('refresh_token')||'').trim();
+  const recovery=isRecoveryAuthRedirect(params);
+  const error=params.get('error_description')||params.get('error')||params.get('error_code')||'';
+  clearAuthRedirectFromUrl();
+  if(error){
+    const errorMessage=String(error||'').replace(/\+/g,' ');
+    if(recovery){
+      openAuthModal('forgot');
+      setS('forgotStatus',errorMessage || 'That reset link could not be used. Request a new reset link.','err');
+    }else{
+      openAuthModal('login');
+      setS('loginStatus',errorMessage || 'That sign-in link could not be used.','err');
     }
+    return true;
+  }
+  if(!token){
+    if(recovery){
+      openAuthModal('forgot');
+      setS('forgotStatus','This reset link did not include a usable reset session. Request a new reset link and open the latest email.','err');
+      return true;
+    }
+    if(params.has('code')){
+      openAuthModal('login');
+      setS('loginStatus','This email link could not be completed in this browser. Please sign in, or request a new email link.','err');
+      return true;
+    }
+    return false;
+  }
+  if(recovery){
+    App.recoveryToken=token;
+    openAuthModal('reset');
+    setS('resetStatus','Choose a new password to finish resetting your account.','');
+    return true;
+  }
+  try {
+    const d = await api('/auth/session', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,refresh_token:refreshToken})});
+    saveUser(d);
+    toast('Email verified','You are now signed in.','ok');
+    return true;
+  } catch(e) {
+    clearUser();
+    openAuthModal('login');
+    setS('loginStatus','That sign-in link is no longer valid. Please sign in again.','err');
+    return true;
   }
 }
 
@@ -10567,7 +10623,7 @@ async function migrateLegacyUserSession(){
 }
 
 async function init(){
-  await handleHashAuth(); // <--- Catches Supabase Email Link
+  const handledAuthRedirect=await handleHashAuth(); // Catches Supabase email and reset links.
   hydrateRequestLookupFromUrl();
   
   if($('srvUrl')) $('srvUrl').value=App.srv;
@@ -10596,7 +10652,7 @@ async function init(){
   }
   await handlePathDeepLink('init');
   applyPageQueryState();
-  await maybeOfferLocationOnLaunch();
+  if(!handledAuthRedirect) await maybeOfferLocationOnLaunch();
 }
 $('shopFilterApply')?.addEventListener('click',()=>{loadAllShops();toggleShopFilters(false);});
 $('shopFilterClear')?.addEventListener('click',()=>{clearShopFilters();loadAllShops();toggleShopFilters(false);});
