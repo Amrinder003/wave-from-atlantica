@@ -2543,6 +2543,165 @@ input[type=checkbox]:focus-visible,input[type=radio]:focus-visible{
 .admin-pc-desc,.admin-pc-attr,.an-lbl{
   color:rgba(255,236,204,.78);
 }
+
+/* Map preview visibility guard: Leaflet popups sit outside normal app cards, so
+   they need explicit contrast instead of inheriting mixed light/dark styles. */
+.map-sheet,.map-sheet-mapwrap,.leaflet-container{
+  color:#fff3df;
+}
+.wave-map-popup-shell .leaflet-popup-content-wrapper{
+  background:
+    linear-gradient(180deg,rgba(255,238,211,.09),rgba(255,238,211,.035)),
+    linear-gradient(180deg,#4a2d1a,#27170d)!important;
+  border:1px solid rgba(255,224,174,.36)!important;
+  box-shadow:0 24px 58px rgba(0,0,0,.42)!important;
+  color:#fff3df!important;
+}
+.wave-map-popup-shell .leaflet-popup-content{
+  margin:14px!important;
+}
+.wave-map-popup-shell .leaflet-popup-tip{
+  background:#27170d!important;
+  border:1px solid rgba(255,224,174,.24)!important;
+}
+.wave-map-popup-shell .leaflet-popup-close-button{
+  position:absolute!important;
+  top:8px!important;
+  right:8px!important;
+  z-index:2!important;
+  width:30px!important;
+  height:30px!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  border-radius:999px!important;
+  background:rgba(255,238,211,.12)!important;
+  border:1px solid rgba(255,224,174,.26)!important;
+  color:#fff1d4!important;
+  line-height:1!important;
+}
+.wave-map-popup-shell .leaflet-popup-close-button:hover{
+  background:rgba(255,238,211,.2)!important;
+  border-color:rgba(255,224,174,.42)!important;
+  color:#fffaf0!important;
+}
+.wave-map-popup{
+  min-width:min(260px,calc(100vw - 76px));
+  color:#fff3df;
+}
+.wave-map-popup-name,.map-spot-card-name{
+  color:#fff3df!important;
+}
+.wave-map-popup-distance,.map-spot-card-meta{
+  color:#ffd99b!important;
+}
+.wave-map-popup-copy,.wave-map-cluster-item,.map-spot-card-copy{
+  color:rgba(255,236,204,.88)!important;
+}
+.wave-map-popup-chip,.map-spot-card-chip,.map-floating-chip,.map-sheet-mini-more{
+  background:rgba(255,238,211,.13)!important;
+  border-color:rgba(255,224,174,.32)!important;
+  color:#fff0d2!important;
+}
+.wave-map-popup-actions{
+  align-items:center;
+}
+.wave-map-popup-actions .btn,.map-spot-card-visit{
+  min-height:38px;
+  border-radius:999px;
+  box-shadow:0 12px 26px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.1);
+}
+.wave-map-popup-actions .btn-A,.map-spot-card-visit{
+  background:linear-gradient(180deg,#f7c87a 0%,#d88935 58%,#aa5a1f 100%)!important;
+  border-color:rgba(255,235,196,.62)!important;
+  color:#241207!important;
+}
+.wave-map-popup-actions .btn-o{
+  background:
+    linear-gradient(180deg,rgba(255,238,211,.2),rgba(255,238,211,.12)),
+    linear-gradient(180deg,#56341d,#382112)!important;
+  border-color:rgba(255,224,174,.38)!important;
+  color:#fff1d4!important;
+}
+.wave-map-popup-actions .btn-A:hover,.map-spot-card-visit:hover{
+  background:linear-gradient(180deg,#ffd892 0%,#e79a42 58%,#b76524 100%)!important;
+  color:#1d0f07!important;
+}
+.wave-map-popup-actions .btn-o:hover{
+  background:
+    linear-gradient(180deg,rgba(255,238,211,.28),rgba(255,238,211,.18)),
+    linear-gradient(180deg,#684124,#422716)!important;
+  border-color:rgba(255,224,174,.54)!important;
+  color:#fffaf0!important;
+}
+.map-spot-card{
+  background:
+    linear-gradient(180deg,rgba(255,238,211,.08),rgba(255,238,211,.025)),
+    linear-gradient(180deg,#4a2d1a,#2b1a0f)!important;
+  border-color:rgba(255,224,174,.34)!important;
+  color:#fff3df!important;
+  box-shadow:0 18px 40px rgba(0,0,0,.34)!important;
+}
+.map-spot-card:hover,.map-spot-card.active{
+  border-color:rgba(245,189,108,.62)!important;
+  box-shadow:0 22px 46px rgba(0,0,0,.42),0 0 0 1px rgba(245,189,108,.16)!important;
+}
+.map-spot-card-mark,.wave-map-popup-avatar{
+  background:linear-gradient(180deg,#fff4df,#e4c096)!important;
+  border-color:rgba(255,224,174,.42)!important;
+  box-shadow:0 12px 24px rgba(0,0,0,.22)!important;
+}
+.map-spot-card-mark .biz-avatar-fallback,.wave-map-popup-avatar .biz-avatar-fallback{
+  color:#5e2b14!important;
+}
+.map-category-badge{
+  box-shadow:0 8px 18px rgba(0,0,0,.18)!important;
+  filter:saturate(1.08) contrast(1.04);
+}
+.map-sheet-head,.map-sheet-status,.map-sheet-list,.map-sheet-mini-rail{
+  background:
+    linear-gradient(180deg,rgba(255,238,211,.08),rgba(255,238,211,.03)),
+    linear-gradient(180deg,#4a2d1a,#28180d)!important;
+  border-color:rgba(255,224,174,.34)!important;
+  color:#fff3df!important;
+}
+.map-sheet-copy,.map-sheet-status{
+  color:rgba(255,236,204,.84)!important;
+}
+.map-sheet-actions::before{
+  color:#ffd99b!important;
+}
+.map-sheet-list-handle-grip{
+  background:rgba(255,224,174,.76)!important;
+}
+.map-sheet-mini-chip{
+  box-shadow:0 10px 22px rgba(0,0,0,.22)!important;
+}
+.map-sheet-mini-chip.active{
+  background:linear-gradient(180deg,#f5bd6c,#cf7f31 62%,#9b4d1c)!important;
+  border-color:rgba(255,238,211,.58)!important;
+  color:#241207!important;
+}
+.map-empty-card{
+  background:
+    linear-gradient(180deg,rgba(255,238,211,.08),rgba(255,238,211,.035)),
+    linear-gradient(180deg,#4a2d1a,#2b1a0f)!important;
+  border-color:rgba(255,224,174,.34)!important;
+  color:#fff3df!important;
+}
+@media(max-width:560px), (max-width:920px) and (max-height:560px){
+  .wave-map-popup{
+    min-width:min(232px,calc(100vw - 68px));
+  }
+  .wave-map-popup-actions .btn{
+    width:100%;
+    justify-content:center;
+  }
+  .map-spot-card{
+    min-width:min(82vw,250px)!important;
+    max-width:min(82vw,250px)!important;
+  }
+}
 </style>
 </head>
 <body>
