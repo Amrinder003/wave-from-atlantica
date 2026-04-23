@@ -3919,13 +3919,17 @@ select.btn{
 }
 .wave-map-popup-shell .wave-map-popup-top{
   display:grid!important;
-  grid-template-columns:50px minmax(0,1fr) 28px!important;
-  align-items:center!important;
-  column-gap:10px!important;
+  grid-template-columns:minmax(0,1fr) 28px!important;
+  align-items:start!important;
+  gap:10px!important;
   padding-right:38px!important;
 }
 .wave-map-popup-shell .wave-map-popup-lead{
-  display:contents!important;
+  display:grid!important;
+  grid-template-columns:50px minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:12px!important;
+  min-width:0!important;
 }
 .wave-map-popup-shell .wave-map-popup-head{
   min-width:0!important;
@@ -3939,12 +3943,16 @@ select.btn{
 }
 .map-sheet .map-spot-card-top{
   display:grid!important;
-  grid-template-columns:auto minmax(0,1fr) 28px!important;
+  grid-template-columns:minmax(0,1fr) 28px!important;
   align-items:start!important;
-  column-gap:10px!important;
+  gap:10px!important;
 }
 .map-sheet .map-spot-card-lead{
-  display:contents!important;
+  display:grid!important;
+  grid-template-columns:42px minmax(0,1fr)!important;
+  align-items:start!important;
+  gap:10px!important;
+  min-width:0!important;
 }
 .map-sheet .map-spot-card-main{
   min-width:0!important;
@@ -3980,10 +3988,13 @@ select.btn{
 }
 @media(max-width:560px), (max-width:920px) and (max-height:560px){
   .wave-map-popup-shell .wave-map-popup{
-    padding-right:34px!important;
+    padding-right:0!important;
   }
   .wave-map-popup-shell .wave-map-popup-category{
-    margin-right:36px!important;
+    margin-right:0!important;
+  }
+  .wave-map-popup-shell .wave-map-popup-top{
+    padding-right:34px!important;
   }
 }
 </style>
