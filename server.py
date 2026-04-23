@@ -1553,6 +1553,33 @@ def timezone_for_country(country_code: str) -> str:
     meta = country_meta(country_code)
     return meta.get("timezone", "UTC")
 
+def active_market_country_code() -> str:
+    return BUSINESS_COUNTRY_LOCK_CODE if BUSINESS_COUNTRY_LOCK_ENABLED else ""
+
+def active_market_country_meta() -> Dict[str, Any]:
+    return country_meta(active_market_country_code())
+
+def active_market_country_name() -> str:
+    code = active_market_country_code()
+    meta = active_market_country_meta()
+    return meta.get("name", "Canada" if code == "CA" else code)
+
+def enforce_public_country_code(country_code: str) -> str:
+    return active_market_country_code() or clean_code(country_code)
+
+def shop_matches_market_country(row: Dict[str, Any]) -> bool:
+    locked_country = active_market_country_code()
+    if not locked_country:
+        return True
+    return normalize_shop_record(row or {}).get("country_code", "") == locked_country
+
+def ensure_market_shop_access(row: Dict[str, Any]) -> Dict[str, Any]:
+    shop = normalize_shop_record(row or {})
+    locked_country = active_market_country_code()
+    if locked_country and shop.get("country_code", "") != locked_country:
+        raise HTTPException(404, "Business not found")
+    return shop
+
 def is_supported_timezone_name(value: str) -> bool:
     tz_name = str(value or "").strip() or "UTC"
     try:
@@ -3693,6 +3720,7 @@ def public_shops(
     open_now: bool = Query(False),
 ):
     try:
+        target_country = enforce_public_country_code(country_code)
         q = supabase.table("shops").select("*").order("created_at", desc=True)
         if category: q = q.ilike("category", f"%{category}%")
         rows = q.execute().data
@@ -3700,7 +3728,7 @@ def public_shops(
         for r in rows:
             nr = ensure_shop_coordinates(r)
             r.update(nr)
-            if country_code and r.get("country_code", "") != clean_code(country_code):
+            if target_country and clean_code(r.get("country_code", "")) != target_country:
                 continue
             if region and region.lower() not in (r.get("region", "") or "").lower():
                 continue
@@ -3726,7 +3754,11 @@ def public_shops(
 @app.get("/public/location-support")
 def public_location_support():
     countries = []
-    for code, meta in sorted(COUNTRY_META.items(), key=lambda item: item[1]["name"]):
+    locked_country = active_market_country_code()
+    items = [(locked_country, active_market_country_meta())] if locked_country else sorted(COUNTRY_META.items(), key=lambda item: item[1]["name"])
+    for code, meta in items:
+        if not code or not meta:
+            continue
         countries.append({"code": code, "name": meta["name"], "currency_code": meta["currency"]})
     return {"ok": True, "countries": countries, "address_autocomplete": bool(MAPBOX_TOKEN)}
 
@@ -3750,7 +3782,7 @@ def public_address_search(request: Request, q: str = Query(..., min_length=3), c
     enforce_rate_limit(request, "public_address_search", limit=30, window_seconds=300)
     if not MAPBOX_TOKEN:
         return {"ok": True, "suggestions": [], "provider": "disabled"}
-    country_code = clean_code(country)
+    country_code = enforce_public_country_code(country)
     url, params = mapbox_geocoding_request(q, country_code=country_code, limit=5, autocomplete=True, types="address")
     try:
         res = requests.get(url, params=params, timeout=8)
@@ -3799,7 +3831,7 @@ def public_address_search(request: Request, q: str = Query(..., min_length=3), c
 @app.get("/public/business/{shop_ref}")
 @app.get("/public/shop/{shop_ref}")
 def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), stock: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
-    shop_row = ensure_shop_coordinates(resolve_shop_by_ref(shop_ref))
+    shop_row = ensure_shop_coordinates(ensure_market_shop_access(resolve_shop_by_ref(shop_ref)))
     shop_id = shop_row["shop_id"]
     
     user_id = None
@@ -3834,7 +3866,7 @@ def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), s
 @app.get("/public/search")
 def search_shop(request: Request, shop_id: str = Query(""), business_id: str = Query(""), q: str = Query(...), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100)):
     qn = (q or "").strip()
-    resolved_shop = resolve_shop_by_ref(business_id or shop_id)
+    resolved_shop = ensure_market_shop_access(resolve_shop_by_ref(business_id or shop_id))
     real_shop_id = resolved_shop["shop_id"]
     if not qn:
         return alias_catalog_response({"ok": True, "shop_id": real_shop_id, "shop_slug": resolved_shop.get("shop_slug", ""), "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]})
@@ -3855,20 +3887,26 @@ def search_global(request: Request, q: str = Query(...), attr_key: str = Query("
         return alias_catalog_response({"ok": True, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]})
     try:
         rows = supabase.table("products").select("*, shops(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").order("updated_at", desc=True).execute().data
-        rows = [row for row in rows if product_matches_query(row, qn, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
+        normalized_rows = []
+        for row in rows:
+            shop = normalize_shop_record(row.get("shops", {}) or {})
+            if not shop_matches_market_country(shop):
+                continue
+            normalized_rows.append({**row, "shops": shop})
+        rows = [row for row in normalized_rows if product_matches_query(row, qn, row.get("shops", {}).get("category", ""), row.get("shops", {}).get("business_type", ""))]
         if attr_key or attr_value:
-            rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value, normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
+            rows = [row for row in rows if matches_attribute_filter(row, row.get("shops", {}).get("category", ""), attr_key, attr_value, row.get("shops", {}).get("business_type", ""))]
         
         paged = paginate_list(rows, page, limit)
         shop_map = {}
         for row in paged["items"]:
             if row.get("shop_id"):
-                shop_map[str(row.get("shop_id"))] = normalize_shop_record(row.get("shops", {}) or {})
+                shop_map[str(row.get("shop_id"))] = row.get("shops", {}) or {}
         results = serialize_products_bulk(paged["items"], None, shop_map, currency)
         for r, prod in zip(paged["items"], results):
             prod["shop_name"] = r.get("shops", {}).get("name", "")
-            prod["shop_address"] = normalize_shop_record(r.get("shops", {}) or {}).get("address", "")
-            prod["shop_category"] = normalize_shop_record(r.get("shops", {}) or {}).get("category", "")
+            prod["shop_address"] = r.get("shops", {}).get("address", "")
+            prod["shop_category"] = r.get("shops", {}).get("category", "")
             prod["business_name"] = prod.get("shop_name", "")
             prod["business_address"] = prod.get("shop_address", "")
             prod["business_category"] = prod.get("shop_category", "")
@@ -3885,18 +3923,25 @@ def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Quer
         q = supabase.table("products").select("*, shops!inner(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").neq("stock", "out")
         if category: q = q.ilike("shops.category", f"%{category}%")
         rows = q.execute().data
+        normalized_rows = []
+        for row in rows:
+            shop = normalize_shop_record(row.get("shops", {}) or {})
+            if not shop_matches_market_country(shop):
+                continue
+            normalized_rows.append({**row, "shops": shop})
+        rows = normalized_rows
         if attr_key or attr_value:
-            rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value, normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
+            rows = [row for row in rows if matches_attribute_filter(row, row.get("shops", {}).get("category", ""), attr_key, attr_value, row.get("shops", {}).get("business_type", ""))]
         
         paged = paginate_list(rows, page, limit)
         shop_map = {}
         for row in paged["items"]:
             if row.get("shop_id"):
-                shop_map[str(row.get("shop_id"))] = normalize_shop_record(row.get("shops", {}) or {})
+                shop_map[str(row.get("shop_id"))] = row.get("shops", {}) or {}
         results = serialize_products_bulk(paged["items"], None, shop_map, currency)
         for r, prod in zip(paged["items"], results):
             prod["shop_name"] = r.get("shops", {}).get("name", "")
-            prod["shop_category"] = normalize_shop_record(r.get("shops", {}) or {}).get("category", "")
+            prod["shop_category"] = r.get("shops", {}).get("category", "")
             prod["business_name"] = prod.get("shop_name", "")
             prod["business_category"] = prod.get("shop_category", "")
         return alias_catalog_response({"ok": True, "products": results, "pagination": paged["pagination"]})
@@ -3912,7 +3957,7 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
     enforce_rate_limit(request, "chat", limit=40, window_seconds=300, key_suffix=str(shop_ref or "").strip().lower())
     q = (q or "").strip()
     if not q: raise HTTPException(400, "Missing q")
-    shop = resolve_shop_by_ref(shop_ref)
+    shop = ensure_market_shop_access(resolve_shop_by_ref(shop_ref))
     shop_id = shop["shop_id"]
     def respond(payload: Dict[str, Any]) -> Dict[str, Any]:
         return alias_catalog_response({

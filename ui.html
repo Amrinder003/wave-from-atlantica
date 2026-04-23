@@ -4231,7 +4231,7 @@ select.btn{
     <button id="shopFilterCloseBtn" class="btn btn-g btn-sm" type="button">Done</button>
   </div>
   <div class="shop-filter-bar" style="margin-top:0">
-    <div class="fld"><label>Country</label><select id="shopFilterCountry"><option value="">All countries</option></select></div>
+    <div class="fld"><label>Country</label><select id="shopFilterCountry" title="Canada only for launch"><option value="CA">Canada</option></select></div>
     <div class="fld"><label>Province / State</label><input id="shopFilterRegion" placeholder="Any region"/></div>
     <div class="fld"><label>City</label><input id="shopFilterCity" placeholder="Any city"/></div>
     <div class="fld"><label>Postal Code</label><input id="shopFilterPostal" placeholder="Any postal code"/></div>
@@ -4499,7 +4499,7 @@ select.btn{
                 </div>
               </div>
               <div class="owner-filter-bar">
-                <div class="fld"><label>Country</label><input id="ownerFilterCountry" placeholder="CA or Canada"/></div>
+                <div class="fld"><label>Country</label><input id="ownerFilterCountry" value="Canada" placeholder="Canada" readonly title="Canada only for launch"/></div>
                 <div class="fld"><label>Region</label><input id="ownerFilterRegion" placeholder="Nova Scotia"/></div>
                 <div class="fld"><label>City</label><input id="ownerFilterCity" placeholder="Halifax"/></div>
                 <div class="fld"><label>Quality</label><select id="ownerFilterQuality"><option value="">All businesses</option><option value="complete">Complete only</option><option value="incomplete">Needs attention</option></select></div>
@@ -5353,14 +5353,14 @@ const App = {
   locationSupport: null,
   timezoneSupport: [],
   viewerCurrency: '',
-  shopFilters: {country_code:'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false},
+  shopFilters: {country_code:BUSINESS_COUNTRY_LOCK_ENABLED ? BUSINESS_COUNTRY_LOCK_CODE : '',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false},
   shopAttrFilter: {key:'',value:''},
   marketAttrFilter: {key:'',value:'',category:''},
   adminProductFilters: {health:'',missingAttr:''},
   adminSelectedProducts: [],
   adminBulkMode: false,
   csvImportErrors: [],
-  ownerFilters: {country:'',region:'',city:'',quality:''},
+  ownerFilters: {country:BUSINESS_COUNTRY_LOCK_ENABLED ? ((COUNTRY_META[BUSINESS_COUNTRY_LOCK_CODE]?.name||BUSINESS_COUNTRY_LOCK_CODE).toLowerCase()) : '',region:'',city:'',quality:''},
   shopProfileImageUrl: '',
   shopProfileImageRemoved: false,
   productVariantDraft: [],
@@ -7811,6 +7811,55 @@ function withViewerCurrency(path){
 function enforcedBusinessCountryCode(code=''){
   return BUSINESS_COUNTRY_LOCK_ENABLED ? BUSINESS_COUNTRY_LOCK_CODE : String(code||'').trim().toUpperCase();
 }
+function marketCountryCode(){
+  return BUSINESS_COUNTRY_LOCK_ENABLED ? BUSINESS_COUNTRY_LOCK_CODE : '';
+}
+function marketCountryName(){
+  const locked=marketCountryCode();
+  return getCountryMeta(locked)?.name || (locked==='CA' ? 'Canada' : locked);
+}
+function defaultShopFilters(){
+  return {country_code:marketCountryCode()||'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false};
+}
+function defaultOwnerFilters(){
+  return {country:marketCountryCode()?marketCountryName().toLowerCase():'',region:'',city:'',quality:''};
+}
+function syncOverlayBodyLock(){
+  const homeFiltersOpen=isMobileHomeLayout() && !!$('shopFiltersPanel')?.classList.contains('on');
+  const shopSheetOpen=isMobileShopLayout() && !!$('pg-shop')?.classList.contains('mobile-sheet-on');
+  const snapshotOpen=!!$('shopSnapshotModal')?.classList.contains('on');
+  const modalOpen=['pdBg','cartBg','authBg','orderBg','trackReqBg','profileBg'].some(id=>$(id)?.classList.contains('on'));
+  document.body.style.overflow=(homeFiltersOpen || shopSheetOpen || snapshotOpen || modalOpen) ? 'hidden' : '';
+}
+function applyBrowseCountryLock(){
+  const select=$('shopFilterCountry');
+  if(!select) return;
+  const locked=marketCountryCode();
+  if(locked){
+    const meta=getCountryMeta(locked);
+    const label=meta?.name || marketCountryName() || locked;
+    select.innerHTML=`<option value="${locked}">${esc(label)}</option>`;
+    select.value=locked;
+    select.title=`${label} only for launch`;
+    return;
+  }
+  select.innerHTML='<option value="">All countries</option>'+Object.entries(COUNTRY_META).sort((a,b)=>a[1].name.localeCompare(b[1].name)).map(([code,meta])=>`<option value="${code}">${esc(meta.name)}</option>`).join('');
+}
+function applyOwnerCountryLock(){
+  const input=$('ownerFilterCountry');
+  if(!input) return;
+  const locked=marketCountryCode();
+  if(locked){
+    const label=marketCountryName() || locked;
+    input.value=label;
+    input.placeholder=label;
+    input.readOnly=true;
+    input.title=`${label} only for launch`;
+    return;
+  }
+  input.readOnly=false;
+  input.title='';
+}
 function selectedCountryCode(){return enforcedBusinessCountryCode($('shopCountry')?.value||'');}
 function applyBusinessCountryLock(){
   const select=$('shopCountry');
@@ -8801,7 +8850,7 @@ function toggleAdminProductSelection(productId){
 }
 function collectShopFilters(){
   App.shopFilters={
-    country_code:$('shopFilterCountry')?.value||'',
+    country_code:marketCountryCode()||($('shopFilterCountry')?.value||''),
     region:$('shopFilterRegion')?.value.trim()||'',
     city:$('shopFilterCity')?.value.trim()||'',
     postal_code:$('shopFilterPostal')?.value.trim()||'',
@@ -8810,7 +8859,7 @@ function collectShopFilters(){
     open_now:!!$('shopFilterOpenNow')?.checked,
   };
 }
-function updateShopFilterSummary(){
+function legacyUpdateShopFilterSummary(){
   const summary=$('shopFilterSummary'), countEl=$('shopFilterCount');
   if(!summary||!countEl) return;
   const parts=[];
@@ -8825,8 +8874,48 @@ function updateShopFilterSummary(){
   countEl.textContent=String(parts.length);
   countEl.style.display=parts.length?'inline-flex':'none';
 }
-function syncShopFilterControls(){
+function legacySyncShopFilterControls(){
   if($('shopFilterCountry')) $('shopFilterCountry').value=App.shopFilters.country_code||'';
+  if($('shopFilterRegion')) $('shopFilterRegion').value=App.shopFilters.region||'';
+  if($('shopFilterCity')) $('shopFilterCity').value=App.shopFilters.city||'';
+  if($('shopFilterPostal')) $('shopFilterPostal').value=App.shopFilters.postal_code||'';
+  if($('shopFilterDay')) $('shopFilterDay').value=App.shopFilters.open_day||'';
+  if($('shopFilterTime')) $('shopFilterTime').value=App.shopFilters.open_time||'';
+  if($('shopFilterOpenNow')) $('shopFilterOpenNow').checked=!!App.shopFilters.open_now;
+  updateShopFilterSummary();
+}
+function legacyBuildShopFilterQuery(){
+  const params=new URLSearchParams();
+  Object.entries(App.shopFilters||{}).forEach(([k,v])=>{
+    if(v===false||v===''||v==null) return;
+    params.set(k,String(v));
+  });
+  const q=params.toString();
+  return q?`?${q}`:'';
+}
+function updateShopFilterSummary(){
+  const summary=$('shopFilterSummary'), countEl=$('shopFilterCount');
+  if(!summary||!countEl) return;
+  const parts=[];
+  const lockedCountry=marketCountryCode();
+  const lockedCountryName=marketCountryName();
+  if(App.shopFilters.country_code && (!lockedCountry || App.shopFilters.country_code!==lockedCountry)) parts.push($('shopFilterCountry')?.selectedOptions?.[0]?.textContent||App.shopFilters.country_code);
+  if(App.shopFilters.region) parts.push(App.shopFilters.region);
+  if(App.shopFilters.city) parts.push(App.shopFilters.city);
+  if(App.shopFilters.postal_code) parts.push(App.shopFilters.postal_code);
+  if(App.shopFilters.open_day) parts.push(`Open ${$('shopFilterDay')?.selectedOptions?.[0]?.textContent||App.shopFilters.open_day}`);
+  if(App.shopFilters.open_time) parts.push(`At ${App.shopFilters.open_time}`);
+  if(App.shopFilters.open_now) parts.push('Open now');
+  if(parts.length){
+    summary.textContent=lockedCountry ? `${lockedCountryName} only - ${parts.join(' - ')}` : `Active filters: ${parts.join(' - ')}`;
+  }else{
+    summary.textContent=lockedCountry ? `${lockedCountryName} only for launch.` : 'No filters applied.';
+  }
+  countEl.textContent=String(parts.length);
+  countEl.style.display=parts.length?'inline-flex':'none';
+}
+function syncShopFilterControls(){
+  if($('shopFilterCountry')) $('shopFilterCountry').value=marketCountryCode()||App.shopFilters.country_code||'';
   if($('shopFilterRegion')) $('shopFilterRegion').value=App.shopFilters.region||'';
   if($('shopFilterCity')) $('shopFilterCity').value=App.shopFilters.city||'';
   if($('shopFilterPostal')) $('shopFilterPostal').value=App.shopFilters.postal_code||'';
@@ -8837,7 +8926,9 @@ function syncShopFilterControls(){
 }
 function buildShopFilterQuery(){
   const params=new URLSearchParams();
-  Object.entries(App.shopFilters||{}).forEach(([k,v])=>{
+  const filters={...(App.shopFilters||{})};
+  if(marketCountryCode()) filters.country_code=marketCountryCode();
+  Object.entries(filters).forEach(([k,v])=>{
     if(v===false||v===''||v==null) return;
     params.set(k,String(v));
   });
@@ -9051,6 +9142,7 @@ function applyPageQueryState(){
 function setShopMobileSheet(mode='info',open=true){
   const page=$('pg-shop');
   if(!page) return;
+  const sidebar=$('shopSidebar');
   const mobile=isMobileShopLayout();
   if(!open || !mobile){
     page.classList.remove('mobile-sheet-on');
@@ -9060,17 +9152,31 @@ function setShopMobileSheet(mode='info',open=true){
     $('shopMobileInfoBtn')?.classList.add('btn-o');
     $('shopMobileFiltersBtn')?.classList.remove('btn-A');
     $('shopMobileFiltersBtn')?.classList.add('btn-g');
+    syncOverlayBodyLock();
     return;
   }
   setShopSnapshotModal(false);
   App.shopMobileSheet=mode||'info';
   page.dataset.mobileSheet=App.shopMobileSheet;
   page.classList.add('mobile-sheet-on');
+  if(sidebar) sidebar.scrollTop=0;
   if($('shopMobileSheetTitle')) $('shopMobileSheetTitle').textContent=App.shopMobileSheet==='filters'?'Filter Products':'Business Info';
   $('shopMobileInfoBtn')?.classList.toggle('btn-A',App.shopMobileSheet==='info');
   $('shopMobileInfoBtn')?.classList.toggle('btn-o',App.shopMobileSheet!=='info');
   $('shopMobileFiltersBtn')?.classList.toggle('btn-A',App.shopMobileSheet==='filters');
   $('shopMobileFiltersBtn')?.classList.toggle('btn-g',App.shopMobileSheet!=='filters');
+  syncOverlayBodyLock();
+}
+function toggleShopMobileSheet(mode='info'){
+  const page=$('pg-shop');
+  if(!page) return;
+  const current=page.dataset.mobileSheet||App.shopMobileSheet||'';
+  const open=page.classList.contains('mobile-sheet-on');
+  if(open && current===mode){
+    setShopMobileSheet('',false);
+    return;
+  }
+  setShopMobileSheet(mode,true);
 }
 function setShopSnapshotModal(open=false){
   const modal=$('shopSnapshotModal');
@@ -9081,6 +9187,7 @@ function setShopSnapshotModal(open=false){
   modal.classList.toggle('on',nextOpen);
   modal.setAttribute('aria-hidden',nextOpen?'false':'true');
   $('shopSnapshotBtn')?.classList.toggle('on',nextOpen);
+  syncOverlayBodyLock();
 }
 
 /* ═════════════════════════════════════════════
@@ -11042,6 +11149,7 @@ window.addEventListener('resize',()=>{
   else if($('shopFiltersPanel')?.classList.contains('on')) $('shopFiltersPanel').scrollTop=0;
   syncHomeMobileLayout();
   if($('shopFiltersPanel')?.classList.contains('on')) positionShopFiltersPanel();
+  syncOverlayBodyLock();
   scheduleMapSheetViewportRefresh(100);
 });
 window.addEventListener('orientationchange',()=>scheduleMapSheetViewportRefresh(140));
@@ -12205,7 +12313,8 @@ function initLocationForm(){
   updateTimezoneOptions(select.value);
   updateShopCurrencyBadge();
   buildShopAddressPayload();
-  if($('shopFilterCountry')) $('shopFilterCountry').innerHTML='<option value="">All countries</option>'+Object.entries(COUNTRY_META).sort((a,b)=>a[1].name.localeCompare(b[1].name)).map(([code,meta])=>`<option value="${code}">${esc(meta.name)}</option>`).join('');
+  applyBrowseCountryLock();
+  applyOwnerCountryLock();
 }
 
 async function loadLocationSupport(){
@@ -12224,7 +12333,7 @@ async function loadTimezoneSupport(){
   }
 }
 function clearShopFilters(){
-  App.shopFilters={country_code:'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false};
+  App.shopFilters=defaultShopFilters();
   syncShopFilterControls();
 }
 function positionShopFiltersPanel(){
@@ -12252,11 +12361,7 @@ function toggleShopFilters(force){
   if(open) panel.scrollTop=0;
   $('shopFilterScrim')?.classList.toggle('on',open && mobile);
   $('shopFilterToggleBtn')?.setAttribute('aria-expanded',open?'true':'false');
-  if(mobile){
-    document.body.style.overflow=open?'hidden':'';
-  }else{
-    document.body.style.overflow='';
-  }
+  syncOverlayBodyLock();
 }
 async function downloadAdminExport(path,filename){
   const base=resolveSrv(App.srv);
@@ -12277,7 +12382,7 @@ async function downloadAdminExport(path,filename){
 }
 function collectOwnerFilters(){
   App.ownerFilters={
-    country:$('ownerFilterCountry')?.value.trim().toLowerCase()||'',
+    country:marketCountryCode()?marketCountryName().toLowerCase():($('ownerFilterCountry')?.value.trim().toLowerCase()||''),
     region:$('ownerFilterRegion')?.value.trim().toLowerCase()||'',
     city:$('ownerFilterCity')?.value.trim().toLowerCase()||'',
     quality:$('ownerFilterQuality')?.value||'',
@@ -12432,7 +12537,10 @@ document.addEventListener('click',e=>{
   toggleShopFilters(false);
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape' && $('shopFiltersPanel')?.classList.contains('on')) toggleShopFilters(false);
+  if(e.key!=='Escape') return;
+  if($('shopFiltersPanel')?.classList.contains('on')) toggleShopFilters(false);
+  if($('pg-shop')?.classList.contains('mobile-sheet-on')) setShopMobileSheet('',false);
+  if($('shopSnapshotModal')?.classList.contains('on')) setShopSnapshotModal(false);
 });
 $('homeMobileShopsBtn')?.addEventListener('click',()=>setHomeMobileView('shops'));
 $('homeMobileProductsBtn')?.addEventListener('click',()=>setHomeMobileView('products'));
@@ -12440,8 +12548,8 @@ $('homeMobileMapBtn')?.addEventListener('click',()=>openMapSheet('home'));
 $('shopSnapshotBtn')?.addEventListener('click',()=>setShopSnapshotModal(true));
 $('shopSnapshotClose')?.addEventListener('click',()=>setShopSnapshotModal(false));
 $('shopSnapshotModal')?.addEventListener('click',e=>{if(e.target===$('shopSnapshotModal')) setShopSnapshotModal(false);});
-$('shopMobileInfoBtn')?.addEventListener('click',()=>setShopMobileSheet('info',true));
-$('shopMobileFiltersBtn')?.addEventListener('click',()=>setShopMobileSheet('filters',true));
+$('shopMobileInfoBtn')?.addEventListener('click',()=>toggleShopMobileSheet('info'));
+$('shopMobileFiltersBtn')?.addEventListener('click',()=>toggleShopMobileSheet('filters'));
 $('shopMobileSheetClose')?.addEventListener('click',()=>setShopMobileSheet('',false));
 $('shopMobileScrim')?.addEventListener('click',()=>setShopMobileSheet('',false));
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshRequestNotification(); });
