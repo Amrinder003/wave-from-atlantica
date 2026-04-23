@@ -5331,6 +5331,20 @@ const BUSINESS_COUNTRY_LOCK_ENABLED = true;
 const BUSINESS_COUNTRY_LOCK_CODE = 'CA';
 document.documentElement.classList.toggle('cart-ui-disabled', !CART_UI_ENABLED);
 document.documentElement.classList.toggle('country-ca-locked', BUSINESS_COUNTRY_LOCK_ENABLED && BUSINESS_COUNTRY_LOCK_CODE === 'CA');
+function surfaceBootstrapError(err){
+  const message=String(err?.message || err || 'Unexpected app error');
+  const businessGrid=document.getElementById('homeShopGrid');
+  const featuredGrid=document.getElementById('featuredGrid');
+  if(businessGrid && /Loading businesses/i.test(businessGrid.textContent||'')){
+    businessGrid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Warning</div><div class="et">${message}</div></div>`;
+  }
+  if(featuredGrid && !featuredGrid.children.length){
+    featuredGrid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Warning</div><div class="et">${message}</div></div>`;
+  }
+  try{ console.error(err); }catch{}
+}
+window.addEventListener('error',event=>surfaceBootstrapError(event?.error || event?.message || 'Unexpected app error'));
+window.addEventListener('unhandledrejection',event=>surfaceBootstrapError(event?.reason || 'Unexpected app error'));
 
 const App = {
   srv: localStorage.getItem('lm_srv') || window.location.origin,
@@ -5360,7 +5374,7 @@ const App = {
   adminSelectedProducts: [],
   adminBulkMode: false,
   csvImportErrors: [],
-  ownerFilters: {country:BUSINESS_COUNTRY_LOCK_ENABLED ? ((COUNTRY_META[BUSINESS_COUNTRY_LOCK_CODE]?.name||BUSINESS_COUNTRY_LOCK_CODE).toLowerCase()) : '',region:'',city:'',quality:''},
+  ownerFilters: {country:BUSINESS_COUNTRY_LOCK_ENABLED ? BUSINESS_COUNTRY_LOCK_CODE.toLowerCase() : '',region:'',city:'',quality:''},
   shopProfileImageUrl: '',
   shopProfileImageRemoved: false,
   productVariantDraft: [],
@@ -12554,7 +12568,7 @@ $('shopMobileSheetClose')?.addEventListener('click',()=>setShopMobileSheet('',fa
 $('shopMobileScrim')?.addEventListener('click',()=>setShopMobileSheet('',false));
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshRequestNotification(); });
 window.addEventListener('popstate',()=>{handlePathDeepLink('popstate').catch(()=>{});});
-init();
+init().catch(err=>surfaceBootstrapError(err));
 </script>
 </body>
 </html>
