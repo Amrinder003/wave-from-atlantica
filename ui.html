@@ -2764,21 +2764,25 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
 }
 .nav-logo{gap:10px!important;min-width:0}
 .nav-logo-mark{
-  width:38px!important;
+  width:52px!important;
   height:38px!important;
-  border-radius:8px!important;
-  background:#ffffff!important;
-  border:1px solid var(--bd)!important;
-  box-shadow:var(--s1)!important;
-  overflow:hidden!important;
+  border-radius:0!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
 }
-.nav-logo-img{width:100%!important;height:100%!important;object-fit:contain!important;padding:3px!important;transform:none!important}
+.nav-logo-img{width:52px!important;height:auto!important;max-height:38px!important;object-fit:contain!important;padding:0!important;transform:none!important;display:block!important}
 .nav-logo-text{
-  font-family:'Sora','Inter',sans-serif!important;
-  font-size:15px!important;
-  font-weight:800!important;
-  line-height:1.1!important;
-  color:var(--ink)!important;
+  font-family:'Inter','Sora',sans-serif!important;
+  font-size:16px!important;
+  font-weight:500!important;
+  line-height:1.05!important;
+  color:#8f0b0b!important;
+  letter-spacing:.02em!important;
   white-space:normal!important;
 }
 .nav-search{
@@ -3202,8 +3206,9 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
     align-items:center!important;
   }
   .nav-logo{grid-column:1!important;grid-row:1!important;max-width:calc(100vw - 154px)!important;overflow:hidden!important}
-  .nav-logo-mark{width:34px!important;height:34px!important;flex:0 0 auto!important}
-  .nav-logo-text{font-size:14px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  .nav-logo-mark{width:46px!important;height:34px!important;flex:0 0 auto!important;background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}
+  .nav-logo-img{width:46px!important;height:auto!important;max-height:34px!important;padding:0!important;object-fit:contain!important}
+  .nav-logo-text{font-size:15px!important;font-weight:500!important;color:#8f0b0b!important;letter-spacing:.015em!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
   .nav-right{
     position:static!important;
     grid-column:2!important;
