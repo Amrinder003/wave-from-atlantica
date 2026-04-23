@@ -6991,6 +6991,10 @@ function renderMapMarkers(shops=[],focusShopId=''){
       if(e?.originalEvent && window.L?.DomEvent) L.DomEvent.stopPropagation(e.originalEvent);
       const activeKey=String(App.mapSheet.focusShopId || '').trim();
       if(activeKey && (activeKey===markerKey || activeKey===shop.shop_id || activeKey===shopPublicRef(shop))){
+        if(App.mapSheet.previewMode==='manual'){
+          closeMapShopPreview({suppressAuto:true});
+          return;
+        }
         openMapShopPreview(shop,{mode:'manual',scroll:true});
         return;
       }
