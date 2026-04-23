@@ -3984,6 +3984,56 @@ select.btn{
   caret-color:var(--A)!important;
 }
 
+/* Shop sidebar filter controls need to stay on the current light UI even when
+   shared control overrides later in the sheet switch other surfaces to gold. */
+#pg-shop #stockFilterList{
+  display:grid;
+  gap:10px;
+}
+#pg-shop #stockFilterList .filter-row{
+  display:grid!important;
+  grid-template-columns:18px minmax(0,1fr);
+  align-items:center;
+  gap:11px;
+  min-height:48px;
+  padding:12px 13px;
+  border-radius:16px!important;
+  background:linear-gradient(180deg,#fff,#f6fbf9)!important;
+  border:1px solid rgba(185,214,205,.86)!important;
+  color:var(--ink2)!important;
+  box-shadow:0 8px 18px rgba(18,23,34,.04)!important;
+}
+#pg-shop #stockFilterList .filter-row:hover{
+  background:linear-gradient(180deg,#fff,#edf8f4)!important;
+  border-color:rgba(15,118,110,.28)!important;
+  color:var(--ink)!important;
+}
+#pg-shop #stockFilterList .filter-row span{
+  color:var(--ink2)!important;
+  font-weight:700;
+  letter-spacing:.01em;
+}
+#pg-shop #stockFilterList .filter-row input[type=radio]{
+  width:18px;
+  height:18px;
+  background:#fff!important;
+  border:1.5px solid rgba(15,118,110,.34)!important;
+  box-shadow:none!important;
+}
+#pg-shop #stockFilterList .filter-row input[type=radio]:checked{
+  background:var(--A)!important;
+  border-color:var(--A)!important;
+  box-shadow:inset 0 0 0 4px #fff,0 0 0 3px rgba(15,118,110,.14)!important;
+}
+#pg-shop #stockFilterList .filter-row input[type=radio]:checked + span{
+  color:var(--A2)!important;
+}
+#pg-shop #stockFilterList .filter-row:has(input:checked){
+  background:linear-gradient(180deg,#f5fbf8,#e6f5ee)!important;
+  border-color:rgba(15,118,110,.34)!important;
+  box-shadow:0 12px 24px rgba(15,118,110,.08)!important;
+}
+
 /* Map popup spacing: Leaflet's close control is positioned outside the popup
    content flow, so reserve a lane for it and keep the category badge clear. */
 .wave-map-popup-shell .wave-map-popup{
