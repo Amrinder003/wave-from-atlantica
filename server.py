@@ -1417,6 +1417,29 @@ def paginate_list(items: List[Any], page: int, page_size: int = PAGE_SIZE) -> Di
         },
     }
 
+def empty_public_page(page: int = 1, page_size: int = PAGE_SIZE) -> Dict[str, Any]:
+    return paginate_list([], page, page_size)["pagination"]
+
+def public_browse_error_payload(kind: str, exc: Exception, page: int = 1, page_size: int = PAGE_SIZE) -> Dict[str, Any]:
+    print(f"[Public Browse Warning] {kind}: {exc}")
+    message = "Public browsing data is temporarily unavailable. Please try again shortly."
+    payload = {
+        "ok": False,
+        "message": message,
+        "detail": message,
+        "pagination": empty_public_page(page, page_size),
+    }
+    if kind == "businesses":
+        payload["shops"] = []
+        payload["businesses"] = []
+    elif kind == "search":
+        payload["results"] = []
+        payload["total"] = 0
+    else:
+        payload["products"] = []
+        payload["offerings"] = []
+    return alias_catalog_response(payload)
+
 def rebuild_kb(shop_id: str):
     shop = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
     if not shop: return
@@ -3338,25 +3361,29 @@ def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — System
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+def read_ui_html() -> str:
+    with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f:
+        return f.read()
+
 @app.get("/ui", response_class=HTMLResponse)
 def serve_ui():
-    with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
+    return read_ui_html()
 
 @app.get("/", response_class=HTMLResponse)
 @app.get("/reset-password", response_class=HTMLResponse)
 @app.get("/auth/callback", response_class=HTMLResponse)
 def serve_app_shell():
-    with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
+    return read_ui_html()
 
 @app.get("/business/{shop_ref}", response_class=HTMLResponse)
 @app.get("/shop/{shop_ref}", response_class=HTMLResponse)
 def serve_shop_ui(shop_ref: str):
-    with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
+    return read_ui_html()
 
 @app.get("/offering/{shop_ref}/{product_ref}", response_class=HTMLResponse)
 @app.get("/product/{shop_ref}/{product_ref}", response_class=HTMLResponse)
 def serve_product_ui(shop_ref: str, product_ref: str):
-    with open(os.path.join(SERVER_DIR, "ui.html"), encoding="utf-8") as f: return f.read()
+    return read_ui_html()
 
 @app.get("/favicon.ico")
 def favicon():
@@ -3654,33 +3681,36 @@ def public_shops(
     open_time: str = Query(""),
     open_now: bool = Query(False),
 ):
-    q = supabase.table("shops").select("*").order("created_at", desc=True)
-    if category: q = q.ilike("category", f"%{category}%")
-    rows = q.execute().data
-    filtered = []
-    for r in rows:
-        nr = ensure_shop_coordinates(r)
-        r.update(nr)
-        if country_code and r.get("country_code", "") != clean_code(country_code):
-            continue
-        if region and region.lower() not in (r.get("region", "") or "").lower():
-            continue
-        if city and city.lower() not in (r.get("city", "") or "").lower():
-            continue
-        if postal_code and postal_code.lower() not in (r.get("postal_code", "") or "").lower():
-            continue
-        if (open_day or open_time) and not shop_matches_schedule(r, open_day, open_time):
-            continue
-        if open_now and not shop_is_open_now(r):
-            continue
-        try:
-            r["stats"] = shop_stats(r["shop_id"])
-        except Exception as e:
-            print(f"[Shop Stats Warning] {r.get('shop_id')}: {e}")
-            r["stats"] = {"product_count": 0, "image_count": 0, "products_with_images": 0, "chat_hits_30d": 0, "shop_views_30d": 0, "product_views_30d": 0, "avg_rating": 0}
-        r["is_open_now"] = shop_is_open_now(r)
-        filtered.append(public_shop_payload(r))
-    return alias_catalog_response({"ok": True, "shops": filtered})
+    try:
+        q = supabase.table("shops").select("*").order("created_at", desc=True)
+        if category: q = q.ilike("category", f"%{category}%")
+        rows = q.execute().data
+        filtered = []
+        for r in rows:
+            nr = ensure_shop_coordinates(r)
+            r.update(nr)
+            if country_code and r.get("country_code", "") != clean_code(country_code):
+                continue
+            if region and region.lower() not in (r.get("region", "") or "").lower():
+                continue
+            if city and city.lower() not in (r.get("city", "") or "").lower():
+                continue
+            if postal_code and postal_code.lower() not in (r.get("postal_code", "") or "").lower():
+                continue
+            if (open_day or open_time) and not shop_matches_schedule(r, open_day, open_time):
+                continue
+            if open_now and not shop_is_open_now(r):
+                continue
+            try:
+                r["stats"] = shop_stats(r["shop_id"])
+            except Exception as e:
+                print(f"[Shop Stats Warning] {r.get('shop_id')}: {e}")
+                r["stats"] = {"product_count": 0, "image_count": 0, "products_with_images": 0, "chat_hits_30d": 0, "shop_views_30d": 0, "product_views_30d": 0, "avg_rating": 0}
+            r["is_open_now"] = shop_is_open_now(r)
+            filtered.append(public_shop_payload(r))
+        return alias_catalog_response({"ok": True, "shops": filtered})
+    except Exception as e:
+        return public_browse_error_payload("businesses", e)
 
 @app.get("/public/location-support")
 def public_location_support():
@@ -3812,47 +3842,55 @@ def search_global(request: Request, q: str = Query(...), attr_key: str = Query("
     qn = (q or "").strip()
     if not qn:
         return alias_catalog_response({"ok": True, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]})
-    rows = supabase.table("products").select("*, shops(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").order("updated_at", desc=True).execute().data
-    rows = [row for row in rows if product_matches_query(row, qn, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
-    if attr_key or attr_value:
-        rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value, normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
-    
-    paged = paginate_list(rows, page, limit)
-    shop_map = {}
-    for row in paged["items"]:
-        if row.get("shop_id"):
-            shop_map[str(row.get("shop_id"))] = normalize_shop_record(row.get("shops", {}) or {})
-    results = serialize_products_bulk(paged["items"], None, shop_map, currency)
-    for r, prod in zip(paged["items"], results):
-        prod["shop_name"] = r.get("shops", {}).get("name", "")
-        prod["shop_address"] = normalize_shop_record(r.get("shops", {}) or {}).get("address", "")
-        prod["shop_category"] = normalize_shop_record(r.get("shops", {}) or {}).get("category", "")
-        prod["business_name"] = prod.get("shop_name", "")
-        prod["business_address"] = prod.get("shop_address", "")
-        prod["business_category"] = prod.get("shop_category", "")
-    return alias_catalog_response({"ok": True, "q": q, "results": results, "total": len(rows), "pagination": paged["pagination"]})
+    try:
+        rows = supabase.table("products").select("*, shops(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").order("updated_at", desc=True).execute().data
+        rows = [row for row in rows if product_matches_query(row, qn, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
+        if attr_key or attr_value:
+            rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value, normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
+        
+        paged = paginate_list(rows, page, limit)
+        shop_map = {}
+        for row in paged["items"]:
+            if row.get("shop_id"):
+                shop_map[str(row.get("shop_id"))] = normalize_shop_record(row.get("shops", {}) or {})
+        results = serialize_products_bulk(paged["items"], None, shop_map, currency)
+        for r, prod in zip(paged["items"], results):
+            prod["shop_name"] = r.get("shops", {}).get("name", "")
+            prod["shop_address"] = normalize_shop_record(r.get("shops", {}) or {}).get("address", "")
+            prod["shop_category"] = normalize_shop_record(r.get("shops", {}) or {}).get("category", "")
+            prod["business_name"] = prod.get("shop_name", "")
+            prod["business_address"] = prod.get("shop_address", "")
+            prod["business_category"] = prod.get("shop_category", "")
+        return alias_catalog_response({"ok": True, "q": q, "results": results, "total": len(rows), "pagination": paged["pagination"]})
+    except Exception as e:
+        payload = public_browse_error_payload("search", e, page, limit)
+        payload["q"] = q
+        return payload
 
 @app.get("/public/top-offerings")
 @app.get("/public/top-products")
 def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60), category: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query("")):
-    q = supabase.table("products").select("*, shops!inner(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").neq("stock", "out")
-    if category: q = q.ilike("shops.category", f"%{category}%")
-    rows = q.execute().data
-    if attr_key or attr_value:
-        rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value, normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
-    
-    paged = paginate_list(rows, page, limit)
-    shop_map = {}
-    for row in paged["items"]:
-        if row.get("shop_id"):
-            shop_map[str(row.get("shop_id"))] = normalize_shop_record(row.get("shops", {}) or {})
-    results = serialize_products_bulk(paged["items"], None, shop_map, currency)
-    for r, prod in zip(paged["items"], results):
-        prod["shop_name"] = r.get("shops", {}).get("name", "")
-        prod["shop_category"] = normalize_shop_record(r.get("shops", {}) or {}).get("category", "")
-        prod["business_name"] = prod.get("shop_name", "")
-        prod["business_category"] = prod.get("shop_category", "")
-    return alias_catalog_response({"ok": True, "products": results, "pagination": paged["pagination"]})
+    try:
+        q = supabase.table("products").select("*, shops!inner(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").neq("stock", "out")
+        if category: q = q.ilike("shops.category", f"%{category}%")
+        rows = q.execute().data
+        if attr_key or attr_value:
+            rows = [row for row in rows if matches_attribute_filter(row, normalize_shop_record(row.get("shops", {}) or {}).get("category", ""), attr_key, attr_value, normalize_shop_record(row.get("shops", {}) or {}).get("business_type", ""))]
+        
+        paged = paginate_list(rows, page, limit)
+        shop_map = {}
+        for row in paged["items"]:
+            if row.get("shop_id"):
+                shop_map[str(row.get("shop_id"))] = normalize_shop_record(row.get("shops", {}) or {})
+        results = serialize_products_bulk(paged["items"], None, shop_map, currency)
+        for r, prod in zip(paged["items"], results):
+            prod["shop_name"] = r.get("shops", {}).get("name", "")
+            prod["shop_category"] = normalize_shop_record(r.get("shops", {}) or {}).get("category", "")
+            prod["business_name"] = prod.get("shop_name", "")
+            prod["business_category"] = prod.get("shop_category", "")
+        return alias_catalog_response({"ok": True, "products": results, "pagination": paged["pagination"]})
+    except Exception as e:
+        return public_browse_error_payload("top_offerings", e, page, limit)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Chat 

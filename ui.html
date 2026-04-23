@@ -8559,12 +8559,17 @@ function renderShopAttributeFilter(category=''){
   keySel.value=App.shopAttrFilter.key||'';
   valInp.value=App.shopAttrFilter.value||'';
 }
-function renderMarketAttributeFilter(category='', target='featured'){
+function assertPublicBrowseOk(data={},fallback='Public browsing data is temporarily unavailable.'){
+  if(data?.ok===false) throw new Error(data.message||data.detail||fallback);
+}
+function renderMarketAttributeFilter(category='', target='featured', products=[]){
   const bar=$(target==='search'?'srchAttrFilterBar':'featuredAttrFilterBar');
   const keySel=$(target==='search'?'srchAttrKey':'featuredAttrKey');
   const valInp=$(target==='search'?'srchAttrValue':'featuredAttrValue');
   if(!bar||!keySel||!valInp) return;
-  const sample=(target==='search' ? $('srchResultGrid') : $('featuredGrid'))?.querySelector?.('.pc')?.__waveCardProduct || {};
+  const sample=(products||[]).find(p=>p?.shop_business_type||p?.offering_type)
+    || (target==='search' ? $('srchResultGrid') : $('featuredGrid'))?.querySelector?.('.pc')?.__waveCardProduct
+    || {};
   const schema=offeringSchema(category,sample.shop_business_type||'',sample.offering_type||'');
   if(!schema.length){
     bar.style.display='none';
@@ -9840,7 +9845,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
 function fillGrid(container,products,opts={}){
   container.innerHTML='';
   if(!products||!products.length){
-    container.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">📦</div><div class="et">No offerings found.</div></div>`;
+    container.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">No results</div><div class="et">No offerings found.</div></div>`;
     return;
   }
   products.forEach(p=>container.appendChild(makeCard(p,opts)));
@@ -10372,8 +10377,9 @@ async function doSearch(page=1){
   const q=$('navSrchIn').value.trim();if(!q)return;
   App.srchPage=page;
   showPage('home');
-  $('srchBar').style.display='flex';$('srchTitle').textContent=`Searching "${q}"…`;
+  $('srchBar').style.display='flex';
   $('srchResultGrid').style.display='grid';$('srchPagination').style.display='block';
+  $('srchTitle').textContent=`Searching "${q}"...`;
   $('shopsSection').style.display='none';$('featuredSection').style.display='none';
   syncHomeMobileLayout();
   $('srchResultGrid').innerHTML='';$('srchPagination').innerHTML='';
@@ -10382,13 +10388,18 @@ async function doSearch(page=1){
     if(App.marketAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.marketAttrFilter.key)}`);
     if(App.marketAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.marketAttrFilter.value)}`);
     const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/offering-search?q=${encodeURIComponent(q)}&page=${page}&limit=24${attrParams.length?`&${attrParams.join('&')}`:''}`),{auth:!!tok()}));
-    $('srchTitle').textContent=`"${q}" — ${d.total||0} results`;
+    assertPublicBrowseOk(d,'Search is temporarily unavailable.');
+    $('srchTitle').textContent=`"${q}" - ${d.total||0} results`;
     const prods=applyFavouriteStateToProducts((d.results||[]).map(p=>({...p,_shopId:p.shop_id,_shopName:p.shop_name||p.business_name||''})));
     const categories=[...new Set(prods.map(p=>p.shop_category||p.category||'').filter(Boolean))];
-    renderMarketAttributeFilter(categories.length===1?categories[0]:'','search');
+    renderMarketAttributeFilter(categories.length===1?categories[0]:'','search',prods);
     fillGrid($('srchResultGrid'),prods,{mode:'browse',showShop:true});
     buildPagination($('srchPagination'),d.pagination,p=>doSearch(p));
-  }catch(e){toast('Search failed',e.message,'err');}
+  }catch(e){
+    $('srchTitle').textContent='Search unavailable';
+    $('srchResultGrid').innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Warning</div><div class="et">${esc(e.message)}</div></div>`;
+    toast('Search failed',e.message,'err');
+  }
 }
 $('navSrchBtn').addEventListener('click',()=>doSearch(1));
 $('navSrchIn').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch(1);});
@@ -10417,8 +10428,14 @@ $('srchClear').addEventListener('click',()=>{
 ═════════════════════════════════════════════ */
 async function loadAllShops(){
   collectShopFilters();
-  try{const d=normalizeCatalogPayload(await api(`/public/businesses${buildShopFilterQuery()}`));App.allShops=d.businesses||[];renderHomeShops();loadFeatured();}
-  catch(e){$('homeShopGrid').innerHTML=`<div class="empty"><div class="ei">⚠️</div><div class="et">${esc(e.message)}</div></div>`;}
+  try{
+    const d=normalizeCatalogPayload(await api(`/public/businesses${buildShopFilterQuery()}`));
+    assertPublicBrowseOk(d,'Businesses are temporarily unavailable.');
+    App.allShops=d.businesses||[];
+    renderHomeShops();
+    loadFeatured();
+  }
+  catch(e){$('homeShopGrid').innerHTML=`<div class="empty"><div class="ei">Warning</div><div class="et">${esc(e.message)}</div></div>`;}
 }
 function renderHomeShops(){
   let shops=App.allShops;
@@ -10457,20 +10474,22 @@ async function loadFeatured(page=1){
   $('featuredTitle').textContent=cat?`${cat} Offerings`:'Available Offerings';
   $('featuredGrid').innerHTML=`<div class="empty"><div class="ei">Loading</div><div class="et">Getting offerings...</div></div>`;
   try{
-    renderMarketAttributeFilter(cat,'featured');
     const attrParams=[];
     if(App.marketAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.marketAttrFilter.key)}`);
     if(App.marketAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.marketAttrFilter.value)}`);
     const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/top-offerings?limit=24${cat?`&category=${encodeURIComponent(cat)}`:''}${attrParams.length?`&${attrParams.join('&')}`:''}` ),{auth:!!tok()}));
+    assertPublicBrowseOk(d,'Offerings are temporarily unavailable.');
     const prods=applyFavouriteStateToProducts(d.offerings||[]);
-    const currentHeroOfferings=Number($('heroProductCount')?.textContent||0)||0;
-    const visibleOfferings=String(Math.max(currentHeroOfferings,prods.length||0));
-    if($('heroProductCount')) $('heroProductCount').textContent=visibleOfferings;
-    if($('heroMobileProductCount')) $('heroMobileProductCount').textContent=visibleOfferings;
-    $('featuredSub').textContent=`${prods.length} available${App.marketAttrFilter?.value?` matching ${App.marketAttrFilter.value}`:''}`;
+    const total=Number(d.pagination?.total||0)||prods.length||0;
+    if(!(App.allShops||[]).length && total){
+      if($('heroProductCount')) $('heroProductCount').textContent=String(total);
+      if($('heroMobileProductCount')) $('heroMobileProductCount').textContent=String(total);
+    }
+    renderMarketAttributeFilter(cat,'featured',prods);
+    $('featuredSub').textContent=`${total} available${App.marketAttrFilter?.value?` matching ${App.marketAttrFilter.value}`:''}`;
     fillGrid($('featuredGrid'),prods,{mode:'browse',showShop:true});
     syncHomeMobileLayout();
-  }catch(e){$('featuredGrid').innerHTML=`<div class="empty"><div class="ei">⚠️</div><div class="et">${esc(e.message)}</div></div>`;}
+  }catch(e){$('featuredGrid').innerHTML=`<div class="empty"><div class="ei">Warning</div><div class="et">${esc(e.message)}</div></div>`;}
 }
 $('featuredAttrApply')?.addEventListener('click',()=>{
   App.marketAttrFilter={key:$('featuredAttrKey')?.value||'',value:$('featuredAttrValue')?.value.trim()||'',category:App.activeCat||''};
