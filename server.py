@@ -77,6 +77,8 @@ OPENROUTER_TEMPERATURE = float(os.environ.get("OPENROUTER_TEMPERATURE", "0.2") o
 OPENROUTER_MAX_TOKENS = int(os.environ.get("OPENROUTER_MAX_TOKENS", "700") or 700)
 OPENROUTER_URL    = "https://openrouter.ai/api/v1/chat/completions"
 MAPBOX_TOKEN      = os.environ.get("MAPBOX_TOKEN", "").strip()
+MAPBOX_GEOCODING_URL = "https://api.mapbox.com/geocoding/v5/mapbox.places/{query}.json"
+LEAFLET_REQUIRED_ASSETS = ("leaflet.js", "leaflet.css")
 FX_API_BASE       = os.environ.get("FX_API_BASE", "https://api.frankfurter.dev/v2").strip().rstrip("/")
 FX_CACHE_SECONDS  = int(os.environ.get("FX_CACHE_SECONDS", "21600") or 21600)
 
@@ -1546,27 +1548,52 @@ def build_formatted_address(data: Dict[str, Any]) -> str:
     ]
     return ", ".join([p for p in parts if p])
 
+def leaflet_vendor_available() -> bool:
+    base_dir = os.path.join(VENDOR_DIR, "leaflet")
+    return all(os.path.isfile(os.path.join(base_dir, asset)) for asset in LEAFLET_REQUIRED_ASSETS)
+
+def mapbox_geocoding_request(query: str, *, country_code: str = "", limit: int = 1, autocomplete: bool = False, types: str = "address,place,postcode") -> Tuple[str, Dict[str, Any]]:
+    params = {
+        "access_token": MAPBOX_TOKEN,
+        "limit": max(1, int(limit or 1)),
+        "autocomplete": "true" if autocomplete else "false",
+        "types": types,
+    }
+    cleaned_country = clean_code(country_code)
+    if cleaned_country:
+        params["country"] = cleaned_country.lower()
+    return MAPBOX_GEOCODING_URL.format(query=requests.utils.quote(str(query or "").strip())), params
+
+def has_valid_coordinates(row: Dict[str, Any]) -> bool:
+    try:
+        lat = float(row.get("latitude"))
+        lng = float(row.get("longitude"))
+        return math.isfinite(lat) and math.isfinite(lng)
+    except Exception:
+        return False
+
+def persist_shop_coordinates(shop_id: str, geo: Dict[str, Optional[float]], warning_label: str = "Map Backfill") -> bool:
+    if not shop_id or geo.get("latitude") is None or geo.get("longitude") is None:
+        return False
+    try:
+        supabase.table("shops").update({
+            "latitude": geo["latitude"],
+            "longitude": geo["longitude"],
+        }).eq("shop_id", shop_id).execute()
+        return True
+    except Exception as e:
+        print(f"[{warning_label} Warning] {shop_id}: {e}")
+        return False
+
 def geocode_structured_address(data: Dict[str, Any]) -> Dict[str, Optional[float]]:
     if not MAPBOX_TOKEN:
         return {"latitude": None, "longitude": None}
     query = (data.get("formatted_address") or build_formatted_address(data) or data.get("address") or "").strip()
     if not query:
         return {"latitude": None, "longitude": None}
-    params = {
-        "access_token": MAPBOX_TOKEN,
-        "limit": 1,
-        "autocomplete": "false",
-        "types": "address,place,postcode",
-    }
-    country_code = clean_code(data.get("country_code", ""))
-    if country_code:
-        params["country"] = country_code.lower()
+    url, params = mapbox_geocoding_request(query, country_code=data.get("country_code", ""))
     try:
-        res = requests.get(
-            f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(query)}.json",
-            params=params,
-            timeout=8,
-        )
+        res = requests.get(url, params=params, timeout=8)
         res.raise_for_status()
         feature = ((res.json() or {}).get("features") or [None])[0]
         center = (feature or {}).get("center") or [None, None]
@@ -1575,33 +1602,24 @@ def geocode_structured_address(data: Dict[str, Any]) -> Dict[str, Optional[float
         print(f"[Map Geocode Warning] {e}")
         return {"latitude": None, "longitude": None}
 
-def ensure_shop_coordinates(row: Dict[str, Any]) -> Dict[str, Any]:
+def fill_missing_shop_coordinates(row: Dict[str, Any], *, persist: bool = False, warning_label: str = "Map Backfill") -> Tuple[Dict[str, Any], bool]:
     out = normalize_shop_record(row or {})
     if not shop_has_mappable_address(out):
         out["latitude"] = None
         out["longitude"] = None
-        return out
-    try:
-        lat = float(out.get("latitude"))
-        lng = float(out.get("longitude"))
-        if math.isfinite(lat) and math.isfinite(lng):
-            return out
-    except Exception:
-        pass
+        return out, False
+    if has_valid_coordinates(out):
+        return out, False
     geo = geocode_structured_address(out)
     if geo.get("latitude") is None or geo.get("longitude") is None:
-        return out
+        return out, False
     out["latitude"] = geo["latitude"]
     out["longitude"] = geo["longitude"]
-    shop_id = out.get("shop_id")
-    if shop_id:
-        try:
-            supabase.table("shops").update({
-                "latitude": geo["latitude"],
-                "longitude": geo["longitude"],
-            }).eq("shop_id", shop_id).execute()
-        except Exception as e:
-            print(f"[Map Backfill Warning] {shop_id}: {e}")
+    persisted = persist_shop_coordinates(out.get("shop_id", ""), geo, warning_label) if persist else False
+    return out, persisted
+
+def ensure_shop_coordinates(row: Dict[str, Any]) -> Dict[str, Any]:
+    out, _ = fill_missing_shop_coordinates(row, persist=True, warning_label="Map Backfill")
     return out
 
 def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
@@ -3673,8 +3691,14 @@ def public_location_support():
 
 @app.get("/public/map-support")
 def public_map_support():
-    token = MAPBOX_TOKEN if MAPBOX_TOKEN.startswith("pk.") else ""
-    return {"ok": True, "enabled": bool(token), "provider": "mapbox", "public_token": token}
+    return {
+        "ok": True,
+        "enabled": leaflet_vendor_available(),
+        "provider": "leaflet",
+        "tile_provider": "openstreetmap",
+        "geocoding_enabled": bool(MAPBOX_TOKEN),
+        "public_token": "",
+    }
 
 @app.get("/public/timezone-support")
 def public_timezone_support():
@@ -3685,21 +3709,10 @@ def public_address_search(request: Request, q: str = Query(..., min_length=3), c
     enforce_rate_limit(request, "public_address_search", limit=30, window_seconds=300)
     if not MAPBOX_TOKEN:
         return {"ok": True, "suggestions": [], "provider": "disabled"}
-    params = {
-        "access_token": MAPBOX_TOKEN,
-        "autocomplete": "true",
-        "limit": 5,
-        "types": "address",
-    }
     country_code = clean_code(country)
-    if country_code:
-        params["country"] = country_code.lower()
+    url, params = mapbox_geocoding_request(q, country_code=country_code, limit=5, autocomplete=True, types="address")
     try:
-        res = requests.get(
-            f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(q)}.json",
-            params=params,
-            timeout=8,
-        )
+        res = requests.get(url, params=params, timeout=8)
         res.raise_for_status()
         data = res.json() or {}
         suggestions = []
@@ -4071,27 +4084,9 @@ def admin_geocode_missing_shop_coords(authorization: Optional[str] = Header(None
     checked = 0
     for row in shops_res.data or []:
         checked += 1
-        current = normalize_shop_record(row)
-        if not shop_has_mappable_address(current):
-            continue
-        try:
-            lat = float(current.get("latitude"))
-            lng = float(current.get("longitude"))
-            if math.isfinite(lat) and math.isfinite(lng):
-                continue
-        except Exception:
-            pass
-        geo = geocode_structured_address(current)
-        if geo.get("latitude") is None or geo.get("longitude") is None:
-            continue
-        try:
-            supabase.table("shops").update({
-                "latitude": geo["latitude"],
-                "longitude": geo["longitude"],
-            }).eq("shop_id", current["shop_id"]).execute()
+        _, persisted = fill_missing_shop_coordinates(row, persist=True, warning_label="Admin Geocode")
+        if persisted:
             updated += 1
-        except Exception as e:
-            print(f"[Admin Geocode Warning] {current.get('shop_id')}: {e}")
     return {"ok": True, "checked": checked, "updated": updated}
 
 @app.get("/admin/export/businesses.csv")
