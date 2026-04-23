@@ -3918,13 +3918,65 @@ select.btn{
   padding-right:38px!important;
 }
 .wave-map-popup-shell .wave-map-popup-top{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 28px!important;
+  align-items:start!important;
   gap:10px!important;
+}
+.wave-map-popup-shell .wave-map-popup-lead{
+  display:grid!important;
+  grid-template-columns:50px minmax(0,1fr)!important;
+  align-items:center!important;
+  min-width:0!important;
+}
+.wave-map-popup-shell .wave-map-popup-head{
+  min-width:0!important;
 }
 .wave-map-popup-shell .wave-map-popup-category{
   margin-right:40px!important;
+  justify-self:end!important;
 }
 .wave-map-popup-shell .wave-map-popup > .wave-map-popup-name{
   padding-right:38px!important;
+}
+.map-sheet .map-spot-card-top{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 28px!important;
+  align-items:start!important;
+}
+.map-sheet .map-spot-card-lead{
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr)!important;
+  align-items:start!important;
+  min-width:0!important;
+}
+.map-sheet .map-spot-card-main{
+  min-width:0!important;
+}
+.map-sheet .map-spot-card-category{
+  justify-self:end!important;
+}
+.map-spot-card-mark,
+.wave-map-popup-avatar{
+  display:grid!important;
+  place-items:center!important;
+  overflow:hidden!important;
+  flex:0 0 auto!important;
+  contain:paint!important;
+  transform:translateZ(0);
+}
+.map-spot-card-mark .biz-avatar-wrap,
+.wave-map-popup-avatar .biz-avatar-wrap,
+.map-spot-card-mark .biz-avatar-img,
+.wave-map-popup-avatar .biz-avatar-img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:cover!important;
+  transform:translateZ(0);
+  backface-visibility:hidden;
 }
 .wave-map-popup-shell .leaflet-popup-close-button{
   top:10px!important;
@@ -5376,7 +5428,7 @@ function businessAvatarHtml(shop={},name=''){
   const initial=esc(businessInitial(label));
   const url=businessProfileUrl(shop);
   if(url){
-    return `<span class="biz-avatar-wrap"><img class="biz-avatar-img" src="${esc(url)}" alt="${esc(label)}" onerror="this.hidden=true;if(this.nextElementSibling)this.nextElementSibling.hidden=false"/><span class="biz-avatar-fallback" hidden>${initial}</span></span>`;
+    return `<span class="biz-avatar-wrap"><img class="biz-avatar-img" src="${esc(url)}" alt="${esc(label)}" loading="eager" decoding="async" draggable="false" onerror="this.hidden=true;if(this.nextElementSibling)this.nextElementSibling.hidden=false"/><span class="biz-avatar-fallback" hidden>${initial}</span></span>`;
   }
   return `<span class="biz-avatar-fallback">${initial}</span>`;
 }
@@ -6252,8 +6304,34 @@ function buildMapSpotCards(shops=[],focusShopId=''){
   const host=$('mapSheetList');
   if(!host) return;
   const cards=mapVisibleSpotShops(shops);
+  const listKey=cards.map(shop=>mapShopKey(shop)).join('|');
+  const focusKey=String(focusShopId||'').trim();
+  if(host.dataset.mapSpotListKey===listKey && host.querySelectorAll('.map-spot-card').length===cards.length){
+    renderMapMiniRail(cards,focusShopId);
+    host.classList.toggle('on',!!cards.length);
+    let activeCard=null;
+    host.querySelectorAll('.map-spot-card').forEach(card=>{
+      const active=!!focusKey && [card.dataset.shopKey,card.dataset.shopId,card.dataset.shopRef].includes(focusKey);
+      card.classList.toggle('active',active);
+      card.setAttribute('aria-pressed',active?'true':'false');
+      if(active) activeCard=card;
+    });
+    if(activeCard && focusKey && App.mapSheet.listFocusId!==focusKey && App.mapSheet.focusScrollRequested){
+      App.mapSheet.listFocusId=focusKey;
+      App.mapSheet.focusScrollRequested=false;
+      requestAnimationFrame(()=>activeCard.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}));
+    }else if(activeCard && focusKey){
+      App.mapSheet.listFocusId=focusKey;
+    }else if(!focusKey){
+      App.mapSheet.listFocusId='';
+      App.mapSheet.focusScrollRequested=false;
+    }
+    requestAnimationFrame(syncMapSheetListMetrics);
+    return;
+  }
   renderMapMiniRail(cards,focusShopId);
   host.innerHTML='';
+  host.dataset.mapSpotListKey=listKey;
   host.classList.toggle('on',!!cards.length);
   if(!cards.length){
     App.mapSheet.listFocusId='';
@@ -6276,6 +6354,9 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     ].filter(Boolean).slice(0,2);
     const card=document.createElement('div');
     card.className='map-spot-card'+(active?' active':'');
+    card.dataset.shopKey=mapShopKey(shop);
+    card.dataset.shopId=shop?.shop_id||'';
+    card.dataset.shopRef=ref;
     card.tabIndex=0;
     card.setAttribute('role','button');
     card.setAttribute('aria-pressed',active?'true':'false');
@@ -6376,12 +6457,14 @@ function ensureMapShopPreviewOpen(key='',opts={}){
   closeOtherMapPopups(ref);
   try{
     const popup=entry.marker.getPopup?.();
+    const html=mapPopupHtml(entry.shop);
     if(popup){
-      popup.setContent(mapPopupHtml(entry.shop));
+      if(entry.marker._wavePopupShopKey!==ref) popup.setContent(html);
       popup.options.autoPan=autoPan;
     }else{
-      entry.marker.bindPopup(mapPopupHtml(entry.shop),mapPopupOptions(-22,{autoPan}));
+      entry.marker.bindPopup(html,mapPopupOptions(-22,{autoPan}));
     }
+    entry.marker._wavePopupShopKey=ref;
     if(typeof entry.marker._openPopup==='function') entry.marker.off('click',entry.marker._openPopup,entry.marker);
     entry.marker.openPopup();
     bindMapPopupActions(entry.marker);
@@ -6764,8 +6847,34 @@ function buildMapSpotCards(shops=[],focusShopId=''){
   const host=$('mapSheetList');
   if(!host) return;
   const cards=mapVisibleSpotShops(shops);
+  const listKey=cards.map(shop=>mapShopKey(shop)).join('|');
+  const focusKey=String(focusShopId||'').trim();
+  if(host.dataset.mapSpotListKey===listKey && host.querySelectorAll('.map-spot-card').length===cards.length){
+    renderMapMiniRail(cards,focusShopId);
+    host.classList.toggle('on',!!cards.length);
+    let activeCard=null;
+    host.querySelectorAll('.map-spot-card').forEach(card=>{
+      const active=!!focusKey && [card.dataset.shopKey,card.dataset.shopId,card.dataset.shopRef].includes(focusKey);
+      card.classList.toggle('active',active);
+      card.setAttribute('aria-pressed',active?'true':'false');
+      if(active) activeCard=card;
+    });
+    if(activeCard && focusKey && App.mapSheet.listFocusId!==focusKey && App.mapSheet.focusScrollRequested){
+      App.mapSheet.listFocusId=focusKey;
+      App.mapSheet.focusScrollRequested=false;
+      requestAnimationFrame(()=>activeCard.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}));
+    }else if(activeCard && focusKey){
+      App.mapSheet.listFocusId=focusKey;
+    }else if(!focusKey){
+      App.mapSheet.listFocusId='';
+      App.mapSheet.focusScrollRequested=false;
+    }
+    requestAnimationFrame(syncMapSheetListMetrics);
+    return;
+  }
   renderMapMiniRail(cards,focusShopId);
   host.innerHTML='';
+  host.dataset.mapSpotListKey=listKey;
   host.classList.toggle('on',!!cards.length);
   if(!cards.length){
     App.mapSheet.listFocusId='';
@@ -6787,6 +6896,9 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     ].filter(Boolean).slice(0,2);
     const card=document.createElement('div');
     card.className='map-spot-card'+(active?' active':'');
+    card.dataset.shopKey=mapShopKey(shop);
+    card.dataset.shopId=shop?.shop_id||'';
+    card.dataset.shopRef=ref;
     card.tabIndex=0;
     card.setAttribute('role','button');
     card.setAttribute('aria-pressed',active?'true':'false');
