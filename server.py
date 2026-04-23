@@ -3575,6 +3575,7 @@ def upload_avatar(authorization: Optional[str] = Header(None), avatar: UploadFil
         ext, data, content_type = read_validated_image(avatar, "avatar")
         filename = f"user_{user.id}_{uuid.uuid4().hex[:8]}{ext}"
         path = f"{AVATAR_IMAGE_PREFIX}/{filename}"
+        metadata = getattr(user, "user_metadata", {}) or {}
         url = upload_public_image(
             IMAGE_BUCKET,
             path,
@@ -3582,8 +3583,18 @@ def upload_avatar(authorization: Optional[str] = Header(None), avatar: UploadFil
             content_type,
             "Failed to upload avatar. Ensure the 'product-images' bucket is created and public in Supabase.",
         )
-        sb.table("profiles").update({"avatar_url": url}).eq("id", user.id).execute()
+        existing = sb.table("profiles").select("id").eq("id", user.id).limit(1).execute().data or []
+        if existing:
+            sb.table("profiles").update({"avatar_url": url}).eq("id", user.id).execute()
+        else:
+            sb.table("profiles").insert({
+                "id": user.id,
+                "display_name": str(metadata.get("display_name", "") or ""),
+                "avatar_url": url,
+            }).execute()
         return {"ok": True, "avatar_url": url}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"Avatar upload failed: {str(e)}")
 
