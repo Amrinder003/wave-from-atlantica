@@ -3697,6 +3697,117 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
     bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-mini-height,46px) + 6px)!important;
   }
 }
+
+/* Final map theme lock: prevent older gold/brown theme states from bleeding
+   into the current Leaflet map controls and shop preview actions. */
+.map-sheet .btn-A,
+.map-sheet .btn-A:hover,
+.map-sheet .btn-A:active,
+.map-sheet .btn-A:focus,
+.map-sheet .map-spot-card-visit,
+.map-sheet .map-spot-card-visit:hover,
+.map-sheet .map-spot-card-visit:active,
+.map-sheet .map-spot-card-visit:focus,
+.wave-map-popup-shell .btn-A,
+.wave-map-popup-shell .btn-A:hover,
+.wave-map-popup-shell .btn-A:active,
+.wave-map-popup-shell .btn-A:focus{
+  background:var(--A)!important;
+  background-image:none!important;
+  border-color:var(--A)!important;
+  color:#fff!important;
+  box-shadow:0 10px 22px rgba(15,118,110,.18)!important;
+}
+.map-sheet .btn-A:hover,
+.map-sheet .btn-A:active,
+.map-sheet .btn-A:focus,
+.map-sheet .map-spot-card-visit:hover,
+.map-sheet .map-spot-card-visit:active,
+.map-sheet .map-spot-card-visit:focus,
+.wave-map-popup-shell .btn-A:hover,
+.wave-map-popup-shell .btn-A:active,
+.wave-map-popup-shell .btn-A:focus{
+  background:var(--A2)!important;
+  background-image:none!important;
+  border-color:var(--A2)!important;
+}
+.map-sheet-locate-btn,
+.map-sheet-locate-btn:hover,
+.map-sheet-locate-btn:active,
+.map-sheet-locate-btn:focus,
+.map-sheet-locate-btn.is-active,
+.map-sheet-locate-btn.is-active:hover,
+.map-sheet-locate-btn.is-active:active,
+.map-sheet-locate-btn.is-active:focus{
+  background:#fff!important;
+  background-image:none!important;
+  border-color:#bfdbfe!important;
+  color:#2563eb!important;
+  box-shadow:0 12px 24px rgba(37,99,235,.16)!important;
+}
+.map-sheet-locate-btn:hover,
+.map-sheet-locate-btn:active,
+.map-sheet-locate-btn:focus,
+.map-sheet-locate-btn.is-active{
+  background:#eff6ff!important;
+  border-color:#93c5fd!important;
+  color:#1d4ed8!important;
+}
+.map-sheet-locate-btn svg{
+  stroke:currentColor!important;
+}
+.map-sheet-tools-btn,
+.map-sheet-tools-btn:hover,
+.map-sheet-tools-btn:active,
+.map-sheet-tools-btn:focus,
+.map-sheet-close-icon,
+.map-sheet-close-icon:hover,
+.map-sheet-close-icon:active,
+.map-sheet-close-icon:focus,
+.map-sheet-list-handle,
+.map-sheet-list-handle:hover,
+.map-sheet-list-handle:active,
+.map-sheet-list-handle:focus,
+.map-sheet-mini-expand,
+.map-sheet-mini-expand:hover,
+.map-sheet-mini-expand:active,
+.map-sheet-mini-expand:focus{
+  background:#fff!important;
+  background-image:none!important;
+  border-color:var(--bd)!important;
+  color:var(--A2)!important;
+  box-shadow:var(--s2)!important;
+}
+.map-sheet-tools-btn[aria-expanded="true"],
+.map-sheet-tools-btn[aria-expanded="true"]:hover,
+.map-sheet-tools-btn[aria-expanded="true"]:active,
+.map-sheet-tools-btn[aria-expanded="true"]:focus{
+  background:var(--A)!important;
+  background-image:none!important;
+  border-color:var(--A)!important;
+  color:#fff!important;
+  box-shadow:0 10px 22px rgba(15,118,110,.18)!important;
+}
+.map-sheet-mini-chip.active,
+.map-sheet-mini-chip.active:hover,
+.map-sheet-mini-chip.active:active,
+.map-sheet-mini-chip.active:focus{
+  background:var(--Ap)!important;
+  background-image:none!important;
+  border-color:#b9d6cd!important;
+  color:var(--A2)!important;
+  box-shadow:0 0 0 3px var(--Ag),var(--s2)!important;
+}
+.map-sheet-locate-btn.is-active,
+.map-sheet-locate-btn.is-active:hover,
+.map-sheet-locate-btn.is-active:active,
+.map-sheet-locate-btn.is-active:focus{
+  background:#eff6ff!important;
+  background-image:none!important;
+  border-color:#93c5fd!important;
+  color:#1d4ed8!important;
+  box-shadow:0 12px 24px rgba(37,99,235,.16)!important;
+}
 </style>
 </head>
 <body>
