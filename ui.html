@@ -3300,6 +3300,74 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   .map-spot-card{min-width:min(84vw,260px)!important;max-width:min(84vw,260px)!important}
   .map-sheet-side{width:min(270px,calc(100vw - 24px))!important}
 }
+#shopsSection{
+  position:relative;
+  overflow:visible!important;
+}
+#shopsSection .shop-filter-anchor{
+  position:relative;
+  overflow:visible;
+}
+#shopFiltersPanel{
+  position:absolute;
+  right:0;
+  top:calc(100% + 12px);
+  width:min(920px,calc(100vw - 32px));
+  max-width:calc(100vw - 32px);
+  margin:0;
+  padding:16px;
+  display:block;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateY(8px);
+  transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s;
+  z-index:160;
+}
+#shopFiltersPanel.on{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transform:translateY(0);
+  transition:opacity .18s ease,transform .18s ease;
+}
+@media(max-width:680px){
+  #shopsSection .shop-filter-anchor{position:relative!important;overflow:visible!important}
+  #shopFiltersPanel{
+    position:fixed!important;
+    left:10px!important;
+    right:10px!important;
+    bottom:calc(env(safe-area-inset-bottom,0px) + 10px)!important;
+    top:auto!important;
+    width:auto!important;
+    max-width:none!important;
+    max-height:min(76dvh,620px)!important;
+    margin:0!important;
+    padding:0 14px 16px!important;
+    border-radius:22px!important;
+    display:block!important;
+    overflow:auto!important;
+    opacity:0!important;
+    visibility:hidden!important;
+    pointer-events:none!important;
+    transform:translate3d(0,24px,0)!important;
+    transition:transform .2s ease,opacity .2s ease,visibility 0s linear .2s!important;
+    will-change:transform,opacity;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    z-index:430!important;
+  }
+  #shopFiltersPanel.on{
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+    transform:translate3d(0,0,0)!important;
+    transition:transform .2s ease,opacity .2s ease!important;
+  }
+  #shopFiltersPanel .shop-filter-bar{grid-template-columns:1fr!important;gap:10px!important;margin-top:0!important}
+  #shopFiltersPanel .shop-filter-actions{display:grid!important;grid-template-columns:1fr 1fr!important;align-items:stretch!important}
+  #shopFiltersPanel .shop-filter-toggle{grid-column:1/-1!important}
+}
 @media(max-width:420px){
   .hero-title{font-size:1.78rem!important}
   .hero-mobile-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important}
@@ -4126,33 +4194,33 @@ select.btn{
           <div class="sec-title" id="shopsSectionTitle">All Businesses</div>
           <div class="sec-sub">Open a business page, check its location, or start a focused chat.</div>
         </div>
-        <div class="sec-actions">
+        <div class="sec-actions shop-filter-anchor">
           <button id="homeMapToggleBtn" class="btn btn-map btn-sm home-map-cta" type="button">Open Map</button>
-          <button id="shopFilterToggleBtn" class="shop-filter-trigger" type="button" aria-controls="shopFiltersPanel" aria-expanded="false">
+          <button id="shopFilterToggleBtn" class="shop-filter-trigger" type="button" aria-controls="shopFiltersPanel" aria-expanded="false" aria-haspopup="dialog">
             <span>Filters</span>
             <span id="shopFilterCount" class="filter-count" style="display:none">0</span>
           </button>
-        </div>
-      </div>
-      <div id="shopFiltersPanel" class="shop-filter-shell">
-        <div class="shop-filter-panel-head">
-          <div class="shop-filter-panel-title">Filter Businesses</div>
-          <button id="shopFilterCloseBtn" class="btn btn-g btn-sm" type="button">Done</button>
-        </div>
-        <div class="shop-filter-bar" style="margin-top:0">
-          <div class="fld"><label>Country</label><select id="shopFilterCountry"><option value="">All countries</option></select></div>
-          <div class="fld"><label>Province / State</label><input id="shopFilterRegion" placeholder="Any region"/></div>
-          <div class="fld"><label>City</label><input id="shopFilterCity" placeholder="Any city"/></div>
-          <div class="fld"><label>Postal Code</label><input id="shopFilterPostal" placeholder="Any postal code"/></div>
-          <div class="fld"><label>Open Day</label><select id="shopFilterDay"><option value="">Any day</option><option value="mon">Monday</option><option value="tue">Tuesday</option><option value="wed">Wednesday</option><option value="thu">Thursday</option><option value="fri">Friday</option><option value="sat">Saturday</option><option value="sun">Sunday</option></select></div>
-          <div class="fld"><label>Open Time</label><input id="shopFilterTime" type="time"/></div>
-          <div class="shop-filter-actions">
-            <label class="shop-filter-toggle"><input id="shopFilterOpenNow" type="checkbox"/> Open now</label>
-            <button id="shopFilterApply" class="btn btn-o btn-sm">Apply</button>
-            <button id="shopFilterClear" class="btn btn-g btn-sm">Clear</button>
+          <div id="shopFiltersPanel" class="shop-filter-shell" role="dialog" aria-label="Filter businesses">
+            <div class="shop-filter-panel-head">
+              <div class="shop-filter-panel-title">Filter Businesses</div>
+              <button id="shopFilterCloseBtn" class="btn btn-g btn-sm" type="button">Done</button>
+            </div>
+            <div class="shop-filter-bar" style="margin-top:0">
+              <div class="fld"><label>Country</label><select id="shopFilterCountry"><option value="">All countries</option></select></div>
+              <div class="fld"><label>Province / State</label><input id="shopFilterRegion" placeholder="Any region"/></div>
+              <div class="fld"><label>City</label><input id="shopFilterCity" placeholder="Any city"/></div>
+              <div class="fld"><label>Postal Code</label><input id="shopFilterPostal" placeholder="Any postal code"/></div>
+              <div class="fld"><label>Open Day</label><select id="shopFilterDay"><option value="">Any day</option><option value="mon">Monday</option><option value="tue">Tuesday</option><option value="wed">Wednesday</option><option value="thu">Thursday</option><option value="fri">Friday</option><option value="sat">Saturday</option><option value="sun">Sunday</option></select></div>
+              <div class="fld"><label>Open Time</label><input id="shopFilterTime" type="time"/></div>
+              <div class="shop-filter-actions">
+                <label class="shop-filter-toggle"><input id="shopFilterOpenNow" type="checkbox"/> Open now</label>
+                <button id="shopFilterApply" class="btn btn-o btn-sm">Apply</button>
+                <button id="shopFilterClear" class="btn btn-g btn-sm">Clear</button>
+              </div>
+            </div>
+            <div id="shopFilterSummary" class="shop-filter-summary">No filters applied.</div>
           </div>
         </div>
-        <div id="shopFilterSummary" class="shop-filter-summary">No filters applied.</div>
       </div>
       <div id="shopFilterScrim" class="mobile-panel-scrim"></div>
       <div id="homeShopGrid" class="shop-grid">
@@ -12167,10 +12235,13 @@ function toggleShopFilters(force){
   const mobile=isMobileHomeLayout();
   const open=typeof force==='boolean' ? force : !panel.classList.contains('on');
   panel.classList.toggle('on',open);
+  if(open) panel.scrollTop=0;
   $('shopFilterScrim')?.classList.toggle('on',open && mobile);
   $('shopFilterToggleBtn')?.setAttribute('aria-expanded',open?'true':'false');
   if(mobile){
     document.body.style.overflow=open?'hidden':'';
+  }else{
+    document.body.style.overflow='';
   }
 }
 async function downloadAdminExport(path,filename){
@@ -12339,6 +12410,16 @@ $('shopFilterToggleBtn')?.addEventListener('click',()=>toggleShopFilters());
 $('shopFilterCloseBtn')?.addEventListener('click',()=>toggleShopFilters(false));
 $('shopFilterScrim')?.addEventListener('click',()=>toggleShopFilters(false));
 $('shopFilterOpenNow')?.addEventListener('change',()=>{if($('shopFilterOpenNow').checked){$('shopFilterDay').value='';$('shopFilterTime').value='';}});
+document.addEventListener('click',e=>{
+  const panel=$('shopFiltersPanel');
+  const btn=$('shopFilterToggleBtn');
+  if(!panel?.classList.contains('on') || isMobileHomeLayout()) return;
+  if(panel.contains(e.target) || btn?.contains(e.target)) return;
+  toggleShopFilters(false);
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && $('shopFiltersPanel')?.classList.contains('on')) toggleShopFilters(false);
+});
 $('homeMobileShopsBtn')?.addEventListener('click',()=>setHomeMobileView('shops'));
 $('homeMobileProductsBtn')?.addEventListener('click',()=>setHomeMobileView('products'));
 $('homeMobileMapBtn')?.addEventListener('click',()=>openMapSheet('home'));
