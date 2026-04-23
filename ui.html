@@ -9132,6 +9132,7 @@ async function refreshBrowserSession(base=resolveSrv(App.srv)){
    PAGE ROUTING
 ═════════════════════════════════════════════ */
 function showPage(pg){
+  if(pg==='shop') syncShopSidebarPlacement();
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('show',p.id===`pg-${pg}`));
   if(pg!=='chat') setChatMobileSide(false);
   if(pg!=='shop') setShopMobileSheet('',false);
@@ -9210,9 +9211,21 @@ function applyPageQueryState(){
     showPage('home');
   }
 }
+function syncShopSidebarPlacement(){
+  const page=$('pg-shop');
+  const sidebar=$('shopSidebar');
+  const body=page?.querySelector('.shop-body');
+  if(!page || !sidebar || !body) return;
+  if(isMobileShopLayout()){
+    if(sidebar.parentElement!==page) page.insertBefore(sidebar, body);
+    return;
+  }
+  if(sidebar.parentElement!==body) body.insertBefore(sidebar, body.firstElementChild||null);
+}
 function setShopMobileSheet(mode='info',open=true){
   const page=$('pg-shop');
   if(!page) return;
+  syncShopSidebarPlacement();
   const sidebar=$('shopSidebar');
   const mobile=isMobileShopLayout();
   if(!open || !mobile){
