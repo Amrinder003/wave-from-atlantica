@@ -3300,29 +3300,25 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   .map-spot-card{min-width:min(84vw,260px)!important;max-width:min(84vw,260px)!important}
   .map-sheet-side{width:min(270px,calc(100vw - 24px))!important}
 }
-#shopsSection{
-  position:relative;
-  overflow:visible!important;
-}
-#shopsSection .shop-filter-anchor{
-  position:relative;
-  overflow:visible;
-}
 #shopFiltersPanel{
-  position:absolute;
-  right:0;
-  top:calc(100% + 12px);
+  position:fixed;
+  left:var(--shop-filter-left,16px);
+  top:var(--shop-filter-top,calc(var(--nh) + var(--sh) + 16px));
   width:min(920px,calc(100vw - 32px));
   max-width:calc(100vw - 32px);
+  max-height:var(--shop-filter-max-height,min(calc(100dvh - var(--nh) - var(--sh) - 32px),560px));
   margin:0;
   padding:16px;
   display:block;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
   opacity:0;
   visibility:hidden;
   pointer-events:none;
   transform:translateY(8px);
   transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s;
-  z-index:160;
+  z-index:430;
 }
 #shopFiltersPanel.on{
   opacity:1;
@@ -3332,7 +3328,6 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   transition:opacity .18s ease,transform .18s ease;
 }
 @media(max-width:680px){
-  #shopsSection .shop-filter-anchor{position:relative!important;overflow:visible!important}
   #shopFiltersPanel{
     position:fixed!important;
     left:10px!important;
@@ -4200,29 +4195,8 @@ select.btn{
             <span>Filters</span>
             <span id="shopFilterCount" class="filter-count" style="display:none">0</span>
           </button>
-          <div id="shopFiltersPanel" class="shop-filter-shell" role="dialog" aria-label="Filter businesses">
-            <div class="shop-filter-panel-head">
-              <div class="shop-filter-panel-title">Filter Businesses</div>
-              <button id="shopFilterCloseBtn" class="btn btn-g btn-sm" type="button">Done</button>
-            </div>
-            <div class="shop-filter-bar" style="margin-top:0">
-              <div class="fld"><label>Country</label><select id="shopFilterCountry"><option value="">All countries</option></select></div>
-              <div class="fld"><label>Province / State</label><input id="shopFilterRegion" placeholder="Any region"/></div>
-              <div class="fld"><label>City</label><input id="shopFilterCity" placeholder="Any city"/></div>
-              <div class="fld"><label>Postal Code</label><input id="shopFilterPostal" placeholder="Any postal code"/></div>
-              <div class="fld"><label>Open Day</label><select id="shopFilterDay"><option value="">Any day</option><option value="mon">Monday</option><option value="tue">Tuesday</option><option value="wed">Wednesday</option><option value="thu">Thursday</option><option value="fri">Friday</option><option value="sat">Saturday</option><option value="sun">Sunday</option></select></div>
-              <div class="fld"><label>Open Time</label><input id="shopFilterTime" type="time"/></div>
-              <div class="shop-filter-actions">
-                <label class="shop-filter-toggle"><input id="shopFilterOpenNow" type="checkbox"/> Open now</label>
-                <button id="shopFilterApply" class="btn btn-o btn-sm">Apply</button>
-                <button id="shopFilterClear" class="btn btn-g btn-sm">Clear</button>
-              </div>
-            </div>
-            <div id="shopFilterSummary" class="shop-filter-summary">No filters applied.</div>
-          </div>
         </div>
       </div>
-      <div id="shopFilterScrim" class="mobile-panel-scrim"></div>
       <div id="homeShopGrid" class="shop-grid">
         <div class="empty"><div class="ei">...</div><div class="et">Loading businesses...</div></div>
       </div>
@@ -4248,6 +4222,28 @@ select.btn{
       <div id="featuredPagination"></div>
     </section>
   </div>
+</div>
+
+<div id="shopFilterScrim" class="mobile-panel-scrim"></div>
+<div id="shopFiltersPanel" class="shop-filter-shell" role="dialog" aria-label="Filter businesses">
+  <div class="shop-filter-panel-head">
+    <div class="shop-filter-panel-title">Filter Businesses</div>
+    <button id="shopFilterCloseBtn" class="btn btn-g btn-sm" type="button">Done</button>
+  </div>
+  <div class="shop-filter-bar" style="margin-top:0">
+    <div class="fld"><label>Country</label><select id="shopFilterCountry"><option value="">All countries</option></select></div>
+    <div class="fld"><label>Province / State</label><input id="shopFilterRegion" placeholder="Any region"/></div>
+    <div class="fld"><label>City</label><input id="shopFilterCity" placeholder="Any city"/></div>
+    <div class="fld"><label>Postal Code</label><input id="shopFilterPostal" placeholder="Any postal code"/></div>
+    <div class="fld"><label>Open Day</label><select id="shopFilterDay"><option value="">Any day</option><option value="mon">Monday</option><option value="tue">Tuesday</option><option value="wed">Wednesday</option><option value="thu">Thursday</option><option value="fri">Friday</option><option value="sat">Saturday</option><option value="sun">Sunday</option></select></div>
+    <div class="fld"><label>Open Time</label><input id="shopFilterTime" type="time"/></div>
+    <div class="shop-filter-actions">
+      <label class="shop-filter-toggle"><input id="shopFilterOpenNow" type="checkbox"/> Open now</label>
+      <button id="shopFilterApply" class="btn btn-o btn-sm">Apply</button>
+      <button id="shopFilterClear" class="btn btn-g btn-sm">Clear</button>
+    </div>
+  </div>
+  <div id="shopFilterSummary" class="shop-filter-summary">No filters applied.</div>
 </div>
 
 <div id="pg-shop" class="page">
@@ -11043,7 +11039,9 @@ window.addEventListener('resize',()=>{
   if(!isMobileShopLayout()) setShopMobileSheet('',false);
   if(!isMobileShopLayout()) setShopSnapshotModal(false);
   if(!isMobileHomeLayout()) toggleShopFilters(false);
+  else if($('shopFiltersPanel')?.classList.contains('on')) $('shopFiltersPanel').scrollTop=0;
   syncHomeMobileLayout();
+  if($('shopFiltersPanel')?.classList.contains('on')) positionShopFiltersPanel();
   scheduleMapSheetViewportRefresh(100);
 });
 window.addEventListener('orientationchange',()=>scheduleMapSheetViewportRefresh(140));
@@ -12229,11 +12227,27 @@ function clearShopFilters(){
   App.shopFilters={country_code:'',region:'',city:'',postal_code:'',open_day:'',open_time:'',open_now:false};
   syncShopFilterControls();
 }
+function positionShopFiltersPanel(){
+  const panel=$('shopFiltersPanel');
+  const btn=$('shopFilterToggleBtn');
+  if(!panel || !btn || isMobileHomeLayout()) return;
+  const rect=btn.getBoundingClientRect();
+  const viewportWidth=window.innerWidth||document.documentElement.clientWidth||0;
+  const viewportHeight=window.innerHeight||document.documentElement.clientHeight||0;
+  const panelWidth=Math.min(920,Math.max(320,viewportWidth-32));
+  const left=Math.max(16,Math.min(rect.right-panelWidth,viewportWidth-panelWidth-16));
+  const top=Math.max(16,rect.bottom+12);
+  const maxHeight=Math.max(240,viewportHeight-top-16);
+  panel.style.setProperty('--shop-filter-left',`${left}px`);
+  panel.style.setProperty('--shop-filter-top',`${top}px`);
+  panel.style.setProperty('--shop-filter-max-height',`${maxHeight}px`);
+ }
 function toggleShopFilters(force){
   const panel=$('shopFiltersPanel');
   if(!panel) return;
   const mobile=isMobileHomeLayout();
   const open=typeof force==='boolean' ? force : !panel.classList.contains('on');
+  if(open && !mobile) positionShopFiltersPanel();
   panel.classList.toggle('on',open);
   if(open) panel.scrollTop=0;
   $('shopFilterScrim')?.classList.toggle('on',open && mobile);
