@@ -3915,40 +3915,36 @@ select.btn{
    content flow, so reserve a lane for it and keep the category badge clear. */
 .wave-map-popup-shell .wave-map-popup{
   box-sizing:border-box!important;
-  padding-right:38px!important;
+  padding-right:0!important;
 }
 .wave-map-popup-shell .wave-map-popup-top{
   display:grid!important;
-  grid-template-columns:minmax(0,1fr) 28px!important;
-  align-items:start!important;
-  gap:10px!important;
+  grid-template-columns:50px minmax(0,1fr) 28px!important;
+  align-items:center!important;
+  column-gap:10px!important;
+  padding-right:38px!important;
 }
 .wave-map-popup-shell .wave-map-popup-lead{
-  display:grid!important;
-  grid-template-columns:50px minmax(0,1fr)!important;
-  align-items:center!important;
-  min-width:0!important;
+  display:contents!important;
 }
 .wave-map-popup-shell .wave-map-popup-head{
   min-width:0!important;
 }
 .wave-map-popup-shell .wave-map-popup-category{
-  margin-right:40px!important;
+  margin-right:0!important;
   justify-self:end!important;
 }
 .wave-map-popup-shell .wave-map-popup > .wave-map-popup-name{
-  padding-right:38px!important;
+  padding-right:0!important;
 }
 .map-sheet .map-spot-card-top{
   display:grid!important;
-  grid-template-columns:minmax(0,1fr) 28px!important;
+  grid-template-columns:auto minmax(0,1fr) 28px!important;
   align-items:start!important;
+  column-gap:10px!important;
 }
 .map-sheet .map-spot-card-lead{
-  display:grid!important;
-  grid-template-columns:auto minmax(0,1fr)!important;
-  align-items:start!important;
-  min-width:0!important;
+  display:contents!important;
 }
 .map-sheet .map-spot-card-main{
   min-width:0!important;
@@ -6982,8 +6978,34 @@ function buildMapSpotCards(shops=[],focusShopId=''){
   const host=$('mapSheetList');
   if(!host) return;
   const cards=mapVisibleSpotShops(shops);
+  const listKey=cards.map(shop=>mapShopKey(shop)).join('|');
+  const focusKey=String(focusShopId||'').trim();
+  if(host.dataset.mapSpotListKey===listKey && host.querySelectorAll('.map-spot-card').length===cards.length){
+    renderMapMiniRail(cards,focusShopId);
+    host.classList.toggle('on',!!cards.length);
+    let activeCard=null;
+    host.querySelectorAll('.map-spot-card').forEach(card=>{
+      const active=!!focusKey && [card.dataset.shopKey,card.dataset.shopId,card.dataset.shopRef].includes(focusKey);
+      card.classList.toggle('active',active);
+      card.setAttribute('aria-pressed',active?'true':'false');
+      if(active) activeCard=card;
+    });
+    if(activeCard && focusKey && App.mapSheet.listFocusId!==focusKey && App.mapSheet.focusScrollRequested){
+      App.mapSheet.listFocusId=focusKey;
+      App.mapSheet.focusScrollRequested=false;
+      requestAnimationFrame(()=>activeCard.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}));
+    }else if(activeCard && focusKey){
+      App.mapSheet.listFocusId=focusKey;
+    }else if(!focusKey){
+      App.mapSheet.listFocusId='';
+      App.mapSheet.focusScrollRequested=false;
+    }
+    requestAnimationFrame(syncMapSheetListMetrics);
+    return;
+  }
   renderMapMiniRail(cards,focusShopId);
   host.innerHTML='';
+  host.dataset.mapSpotListKey=listKey;
   host.classList.toggle('on',!!cards.length);
   if(!cards.length){
     App.mapSheet.listFocusId='';
@@ -7006,6 +7028,9 @@ function buildMapSpotCards(shops=[],focusShopId=''){
     ].filter(Boolean).slice(0,2);
     const card=document.createElement('div');
     card.className='map-spot-card'+(active?' active':'');
+    card.dataset.shopKey=mapShopKey(shop);
+    card.dataset.shopId=shop?.shop_id||'';
+    card.dataset.shopRef=ref;
     card.tabIndex=0;
     card.setAttribute('role','button');
     card.setAttribute('aria-pressed',active?'true':'false');
