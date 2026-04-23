@@ -5957,11 +5957,16 @@ function scheduleMapSheetViewportRefresh(delay=90){
   }
   App.mapSheet.viewportTimer=setTimeout(()=>{
     App.mapSheet.viewportTimer=null;
-    syncMapSheetViewportState();
+    const layoutChanged=syncMapSheetViewportState();
     syncMapSheetChrome();
     if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map) return;
     refreshMapSheetSize(0);
-    rerenderCurrentMapSheet();
+    if(App.mapSheet.moving) return;
+    if(layoutChanged) rerenderCurrentMapSheet({fit:false});
+    else{
+      refreshMapSpotCards();
+      scheduleMapShopPreviewSync(160);
+    }
   },Math.max(0,Number(delay)||0));
 }
 function syncMapSheetChrome(){
@@ -6567,7 +6572,8 @@ function prepareMapShops(shops=[],focusShop=null,userLoc=null){
   }
   return next;
 }
-function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
+function renderMapSheetView(shops=[],focusShop=null,userLoc=null,opts={}){
+  const shouldFit=opts.fit!==false;
   App.mapSheet.preparedShops=shops.slice();
   syncMapSheetChrome();
   if(!shops.length){
@@ -6590,7 +6596,7 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
   renderMapMarkers(shops,focusShop?.shop_id||App.mapSheet.focusShopId||'');
   if(hasExactUserLocation(userLoc)) addUserMapMarker(userLoc);
   else if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
-  fitMapToShops(shops,focusShop,userLoc);
+  if(shouldFit) fitMapToShops(shops,focusShop,userLoc);
   buildMapSpotCards(shops,focusShop?.shop_id||App.mapSheet.focusShopId||'');
   const mappedCount=shops.length;
   if($('mapSheetFloatingMeta')) $('mapSheetFloatingMeta').textContent=App.mapSheet.mode==='shop'&&focusShop ? `${focusShop.name} + ${Math.max(mappedCount-1,0)} nearby businesses` : `${mappedCount} mapped business${mappedCount===1?'':'es'}`;
@@ -6606,7 +6612,8 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
   }
   scheduleMapShopPreviewSync(focusShop ? 90 : 140);
 }
-function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
+function renderMapSheetView(shops=[],focusShop=null,userLoc=null,opts={}){
+  const shouldFit=opts.fit!==false;
   App.mapSheet.preparedShops=shops.slice();
   syncMapSheetChrome();
   if(!shops.length){
@@ -6629,7 +6636,7 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
   renderMapMarkers(shops,focusShop?.shop_id||App.mapSheet.focusShopId||'');
   if(hasExactUserLocation(userLoc)) addUserMapMarker(userLoc);
   else if(App.mapSheet.userMarker){ try{App.mapSheet.userMarker.remove();}catch{} App.mapSheet.userMarker=null; }
-  fitMapToShops(shops,focusShop,userLoc);
+  if(shouldFit) fitMapToShops(shops,focusShop,userLoc);
   buildMapSpotCards(shops,focusShop?.shop_id||App.mapSheet.focusShopId||'');
   const mappedCount=shops.length;
   if($('mapSheetFloatingMeta')) $('mapSheetFloatingMeta').textContent=App.mapSheet.mode==='shop'&&focusShop ? `${focusShop.name} + ${Math.max(mappedCount-1,0)} nearby businesses` : `${mappedCount} mapped business${mappedCount===1?'':'es'}`;
@@ -6645,13 +6652,13 @@ function renderMapSheetView(shops=[],focusShop=null,userLoc=null){
   }
   scheduleMapShopPreviewSync(focusShop ? 90 : 140);
 }
-function rerenderCurrentMapSheet(){
+function rerenderCurrentMapSheet(opts={}){
   if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map) return;
   const base=(App.mapSheet.baseShops||[]).filter(hasShopCoords);
   const focusShop=currentMapFocusShop(base);
   const prepared=prepareMapShops(base,focusShop,App.mapSheet.userLocation||null);
   syncMapSheetChrome();
-  renderMapSheetView(prepared,focusShop,App.mapSheet.userLocation||null);
+  renderMapSheetView(prepared,focusShop,App.mapSheet.userLocation||null,opts);
 }
 function refreshMapClustersOnly(){
   if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map) return;
