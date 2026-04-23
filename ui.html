@@ -4038,6 +4038,472 @@ select.btn{
   box-shadow:0 12px 24px rgba(15,118,110,.08)!important;
 }
 
+/* Final shop + product-detail alignment: force these two experiences onto the
+   current light app UI so older dark/gold theme selectors cannot leak through. */
+#shopSidebar,
+#shopSidebar .shop-mobile-sheet-head,
+#shopSidebar .shop-side-stat,
+#shopSidebar .shop-side-prompt,
+#shopSidebar .shop-mobile-summary-card,
+#pdBg .pd-box,
+#pdBg .pd-gallery,
+#pdBg .pd-thumbs,
+#pdBg .pd-thumb,
+#pdBg .pd-info,
+#pdBg .rev-card,
+#pdBg .rev-login-prompt{
+  background:#fff!important;
+  border-color:var(--bd)!important;
+  color:var(--ink)!important;
+  box-shadow:var(--s1)!important;
+}
+#shopSidebar{
+  color:var(--ink)!important;
+}
+#shopSidebar .shop-sidebar-sec,
+#shopSidebar .shop-mobile-sheet-head,
+#pdBg .pd-gallery,
+#pdBg .pd-thumbs,
+#pdBg .rev-card{
+  border-color:rgba(221,208,187,.72)!important;
+}
+#shopSidebar .shop-sidebar-lbl,
+#shopSidebar .shop-mobile-sheet-title,
+#shopSidebar .shop-side-stat-k,
+#shopSidebar .shop-mobile-summary-k,
+#shopSidebar .fld label,
+#pdBg .pd-pid,
+#pdBg .pd-lbl{
+  color:var(--A2)!important;
+}
+#shopSidebar .shop-side-stat-v,
+#shopSidebar .shop-mobile-summary-v,
+#pdBg .pd-name,
+#pdBg .option-name,
+#pdBg .rev-author{
+  color:var(--ink)!important;
+}
+#shopSidebar .shop-side-prompt,
+#shopSidebar .fld-hint,
+#shopSidebar .shop-side-stat,
+#pdBg .pd-desc,
+#pdBg .pd-noprice-t,
+#pdBg .rev-body,
+#pdBg .rev-date,
+#pdBg .rev-ct,
+#pdBg .rev-login-prompt{
+  color:var(--ink3)!important;
+}
+#shopSidebar .fld input:not([type=file]),
+#shopSidebar .fld textarea,
+#shopSidebar .fld select,
+#shopSidebar .shop-search-box input,
+#pdBg .share-inp{
+  background:#fff!important;
+  border-color:var(--bd)!important;
+  color:var(--ink)!important;
+  box-shadow:none!important;
+  caret-color:var(--A)!important;
+}
+#shopSidebar .fld input:not([type=file]):focus,
+#shopSidebar .fld textarea:focus,
+#shopSidebar .fld select:focus,
+#shopSidebar .shop-search-box:focus-within,
+#pdBg .share-inp:focus{
+  border-color:var(--A)!important;
+  box-shadow:0 0 0 3px rgba(15,118,110,.12)!important;
+  color:var(--ink)!important;
+}
+#shopSidebar .fld input::placeholder,
+#shopSidebar .fld textarea::placeholder,
+#shopSidebar .shop-search-box input::placeholder,
+#pg-shop .shop-search-box input::placeholder,
+#pdBg .share-inp::placeholder{
+  color:var(--ink4)!important;
+  opacity:1;
+}
+#pg-shop .sort-sel{
+  color:var(--ink)!important;
+}
+#shopSidebar select option,
+#shopSidebar select optgroup,
+#pg-shop .sort-sel option,
+#pg-shop .sort-sel optgroup{
+  background:#fff!important;
+  color:var(--ink)!important;
+}
+#pdBg .var-pill{
+  background:#fff!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink)!important;
+  box-shadow:none!important;
+}
+#pdBg .var-pill:hover,
+#pdBg .var-pill.on{
+  background:#f4f7f5!important;
+  border-color:#b9d6cd!important;
+  color:var(--A2)!important;
+  box-shadow:0 10px 22px rgba(15,118,110,.08)!important;
+}
+#pdBg .var-pill:hover .option-name,
+#pdBg .var-pill.on .option-name,
+#pdBg .var-pill:hover .option-meta,
+#pdBg .var-pill.on .option-meta{
+  color:var(--A2)!important;
+}
+#pdBg .option-meta,
+#pdBg .pd-shop-lnk,
+#pdBg .rev-login-prompt button{
+  color:var(--A2)!important;
+}
+#pdBg .spicker span,
+#pdBg .star{
+  color:var(--bd2)!important;
+}
+#pdBg .spicker span.on,
+#pdBg .star.on{
+  color:var(--A)!important;
+}
+#pdBg .pd-close{
+  background:#fff!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink2)!important;
+  box-shadow:var(--s1)!important;
+}
+#pdBg .pd-close:hover{
+  background:#f4f7f5!important;
+  border-color:#b9d6cd!important;
+  color:var(--A2)!important;
+}
+#pdBg .pd-fav-icon{
+  color:var(--ink4)!important;
+}
+#pdBg .pd-fav-btn.saved{
+  background:var(--Rp)!important;
+  border-color:#ffc5cc!important;
+  color:var(--R)!important;
+}
+#pdBg .pd-fav-btn.saved .pd-fav-icon{
+  color:var(--R)!important;
+}
+
+/* Location permission prompt should match the current light modal system, not
+   the older dark/gold auth treatment. */
+#locationPromptBg .location-prompt-box,
+#locationPromptBg .auth-head,
+#locationPromptBg .location-prompt-body{
+  background:#fff!important;
+  border-color:var(--bd)!important;
+  color:var(--ink)!important;
+  box-shadow:var(--s2)!important;
+}
+#locationPromptBg .location-prompt-box{
+  border:1px solid var(--bd)!important;
+  border-radius:24px!important;
+  overflow:hidden;
+}
+#locationPromptBg .auth-head{
+  border-bottom:1px solid rgba(221,208,187,.72)!important;
+}
+#locationPromptBg .location-prompt-kicker,
+#locationPromptBg .auth-title{
+  color:var(--A2)!important;
+}
+#locationPromptBg .auth-sub,
+#locationPromptBg .location-prompt-note,
+#locationPromptBg .location-prompt-steps,
+#locationPromptBg .location-prompt-meta{
+  color:var(--ink3)!important;
+}
+#locationPromptBg .location-prompt-steps{
+  background:#f8faf8;
+  border:1px solid rgba(221,208,187,.72);
+  border-radius:16px;
+  padding:12px 14px 12px 30px;
+}
+#locationPromptBg .location-prompt-steps li::marker{
+  color:var(--A)!important;
+}
+#locationPromptBg .location-prompt-icon{
+  background:linear-gradient(180deg,#eff6ff,#dbeafe)!important;
+  border:1px solid rgba(59,130,246,.18)!important;
+  box-shadow:0 12px 24px rgba(37,99,235,.12)!important;
+  color:#2563eb!important;
+}
+#locationPromptBg .auth-close{
+  background:#fff!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink2)!important;
+  box-shadow:var(--s1)!important;
+}
+#locationPromptBg .auth-close:hover{
+  background:#f4f7f5!important;
+  border-color:#b9d6cd!important;
+  color:var(--A2)!important;
+}
+
+/* Business creation page should stay on the current light admin system even
+   if older setup-form rules still exist elsewhere in the stylesheet. */
+#shopFormView .card,
+#shopFormView .card-body,
+#shopFormView .workspace-hero,
+#shopFormView .setup-section,
+#shopFormView .setup-callout,
+#shopFormView .product-upload-card,
+#shopFormView .product-preview-card,
+#shopFormView .owner-check,
+#shopFormView .hours-row,
+#shopFormView .floating-form-actions{
+  background:#fff!important;
+  border-color:var(--bd)!important;
+  color:var(--ink)!important;
+  box-shadow:var(--s1)!important;
+}
+#shopFormView .workspace-kicker,
+#shopFormView .setup-section-kicker,
+#shopFormView .setup-callout-title,
+#shopFormView .floating-form-kicker,
+#shopFormView .shop-profile-preview-title,
+#shopFormView .product-media-label,
+#shopFormView .fld label{
+  color:var(--A2)!important;
+}
+#shopFormView .workspace-title,
+#shopFormView .setup-section-title,
+#shopFormView .shop-profile-preview-fallback,
+#shopFormView .owner-check strong,
+#shopFormView .hours-day{
+  color:var(--ink)!important;
+}
+#shopFormView .workspace-desc,
+#shopFormView .setup-section-copy,
+#shopFormView .setup-callout-copy,
+#shopFormView .floating-form-note,
+#shopFormView .fld-hint,
+#shopFormView .shop-profile-preview-meta,
+#shopFormView .owner-check .fld-hint,
+#shopFormView .hours-closed{
+  color:var(--ink3)!important;
+}
+#shopFormView .fld input:not([type=file]),
+#shopFormView .fld textarea,
+#shopFormView .fld select{
+  background:#fff!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink)!important;
+  -webkit-text-fill-color:var(--ink)!important;
+  box-shadow:none!important;
+}
+#shopFormView .fld input:not([type=file]):focus,
+#shopFormView .fld textarea:focus,
+#shopFormView .fld select:focus{
+  border-color:var(--A)!important;
+  box-shadow:0 0 0 3px rgba(15,118,110,.12)!important;
+}
+#shopFormView .fld input::placeholder,
+#shopFormView .fld textarea::placeholder{
+  color:var(--ink4)!important;
+  opacity:1!important;
+}
+#shopFormView .fld input[type=file]{
+  background:#fff!important;
+  border:1px dashed #b8c8c0!important;
+  color:var(--ink2)!important;
+}
+#shopFormView .fld input[type=file]::file-selector-button{
+  background:var(--A)!important;
+  color:#fff!important;
+}
+#shopFormView .currency-pill,
+#shopFormView #shopIdRef,
+#shopFormView #shopCurrencyBadge{
+  background:#f2f7f4!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink)!important;
+  box-shadow:none!important;
+}
+#shopFormView .shop-profile-preview-avatar{
+  background:#f2f7f4!important;
+  border:1px solid var(--bd)!important;
+  box-shadow:none!important;
+}
+#shopFormView .owner-check:has(input:checked),
+#shopFormView .hours-row:has(.hours-closed input:checked){
+  background:#f7fbf9!important;
+  border-color:#b9d6cd!important;
+}
+#shopFormView select option,
+#shopFormView select optgroup{
+  background:#fff!important;
+  color:var(--ink)!important;
+}
+#shopFormView #shopAddressSuggest{
+  background:#fff!important;
+  border:1px solid var(--bd)!important;
+  box-shadow:var(--s2)!important;
+}
+#shopFormView #shopStatus:not(:empty){
+  background:#f8faf8!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink2)!important;
+  box-shadow:none!important;
+}
+#shopFormView #shopStatus.ok:not(:empty){
+  background:#ecfdf3!important;
+  border-color:#a7e8c3!important;
+  color:#15803d!important;
+}
+#shopFormView #shopStatus.err:not(:empty){
+  background:#fff1f2!important;
+  border-color:#fecdd3!important;
+  color:#be123c!important;
+}
+
+/* Product addition page should also stay on the current light admin system
+   instead of inheriting older setup/variant theme rules. */
+#productFormView .card,
+#productFormView .card-body,
+#productFormView .workspace-hero,
+#productFormView .setup-section,
+#productFormView .product-upload-card,
+#productFormView .product-preview-card,
+#productFormView .product-existing-card,
+#productFormView .variant-stage,
+#productFormView .variant-guidance,
+#productFormView .variant-row,
+#productFormView .variant-empty,
+#productFormView .variant-media-card,
+#productFormView .floating-form-actions{
+  background:#fff!important;
+  border-color:var(--bd)!important;
+  color:var(--ink)!important;
+  box-shadow:var(--s1)!important;
+}
+#productFormView .workspace-kicker,
+#productFormView .setup-section-kicker,
+#productFormView .floating-form-kicker,
+#productFormView .product-media-label,
+#productFormView .variant-stage-kicker,
+#productFormView .variant-guidance-title,
+#productFormView .variant-media-kicker,
+#productFormView .variant-row-eyebrow,
+#productFormView .fld label{
+  color:var(--A2)!important;
+}
+#productFormView .workspace-title,
+#productFormView .setup-section-title,
+#productFormView .variant-stage-title,
+#productFormView .variant-row-title,
+#productFormView .variant-empty-title,
+#productFormView .variant-media-title{
+  color:var(--ink)!important;
+}
+#productFormView .workspace-desc,
+#productFormView .setup-section-copy,
+#productFormView .floating-form-note,
+#productFormView .fld-hint,
+#productFormView .product-media-meta,
+#productFormView .price-note,
+#productFormView .variant-stage-desc,
+#productFormView .variant-guidance-copy,
+#productFormView .variant-row-summary,
+#productFormView .variant-empty-copy,
+#productFormView .variant-media-copy,
+#productFormView .variant-img-empty,
+#productFormView .prev-empty{
+  color:var(--ink3)!important;
+}
+#productFormView .fld input:not([type=file]),
+#productFormView .fld textarea,
+#productFormView .fld select{
+  background:#fff!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink)!important;
+  -webkit-text-fill-color:var(--ink)!important;
+  box-shadow:none!important;
+}
+#productFormView .fld input:not([type=file]):focus,
+#productFormView .fld textarea:focus,
+#productFormView .fld select:focus{
+  border-color:var(--A)!important;
+  box-shadow:0 0 0 3px rgba(15,118,110,.12)!important;
+}
+#productFormView .fld input::placeholder,
+#productFormView .fld textarea::placeholder{
+  color:var(--ink4)!important;
+  opacity:1!important;
+}
+#productFormView .fld input[type=file]{
+  background:#fff!important;
+  border:1px dashed #b8c8c0!important;
+  color:var(--ink2)!important;
+}
+#productFormView .fld input[type=file]::file-selector-button{
+  background:var(--A)!important;
+  color:#fff!important;
+}
+#productFormView .currency-pill,
+#productFormView #prodIdRef,
+#productFormView #prodCurrencyBadge{
+  background:#f2f7f4!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink)!important;
+  box-shadow:none!important;
+}
+#productFormView .badge,
+#productFormView .variant-row-chip{
+  background:#f4f7f5!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink2)!important;
+  box-shadow:none!important;
+}
+#productFormView .badge.a{
+  background:var(--Ap)!important;
+  border-color:#b9d6cd!important;
+  color:var(--A2)!important;
+}
+#productFormView .variant-row{
+  background:#fff!important;
+}
+#productFormView .variant-empty{
+  border-style:dashed!important;
+}
+#productFormView .variant-media-card,
+#productFormView .product-upload-card,
+#productFormView .product-preview-card,
+#productFormView .product-existing-card{
+  background:#fff!important;
+}
+#productFormView .variant-stage code,
+#productFormView .variant-row code{
+  background:#f4f7f5!important;
+  border:1px solid var(--bd)!important;
+  color:var(--A2)!important;
+  border-radius:8px!important;
+  padding:1px 6px!important;
+}
+#productFormView select option,
+#productFormView select optgroup{
+  background:#fff!important;
+  color:var(--ink)!important;
+}
+#productFormView #productStatus:not(:empty){
+  background:#f8faf8!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink2)!important;
+  box-shadow:none!important;
+}
+#productFormView #productStatus.ok:not(:empty){
+  background:#ecfdf3!important;
+  border-color:#a7e8c3!important;
+  color:#15803d!important;
+}
+#productFormView #productStatus.err:not(:empty){
+  background:#fff1f2!important;
+  border-color:#fecdd3!important;
+  color:#be123c!important;
+}
+
 /* Map popup spacing: Leaflet's close control is positioned outside the popup
    content flow, so reserve a lane for it and keep the category badge clear. */
 .wave-map-popup-shell .wave-map-popup{
