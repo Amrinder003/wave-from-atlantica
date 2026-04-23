@@ -5353,6 +5353,7 @@ const App = {
   shopPage: 1,
   shopSort: '',
   shopStock: '',
+  shopSearchQuery: '',
   allShops: [],
   cart: JSON.parse(localStorage.getItem('lm_cart') || '[]'),
   user: null,
@@ -10786,10 +10787,120 @@ async function loadFavourites(){
 /* ═════════════════════════════════════════════
    SHOP PAGE
 ═════════════════════════════════════════════ */
-async function openShopPage(shopId,page=1,sort='',stock=''){
+function currentShopSearchQuery(){
+  return String($('shopSrchIn')?.value || App.shopSearchQuery || '').trim();
+}
+function setShopStockControl(stock=''){
+  const next=String(stock||'');
+  const inputs=[...document.querySelectorAll('input[name="stk"]')];
+  const active=inputs.find(input=>(input.value||'')===next) || inputs.find(input=>(input.value||'')==='');
+  if(active) active.checked=true;
+}
+function resetShopCartForCheckout(shopId=''){
+  const target=String(shopId||'').trim();
+  App.cart=(App.cart||[]).filter(item=>!target || String(item?.shop_id||'').trim()===target);
+  saveCart();
+  updateCartBadge();
+  openCart();
+}
+function shopWhatsappHref(phone=''){
+  const digits=String(phone||'').replace(/[^0-9]/g,'');
+  return digits ? `https://wa.me/${digits}` : '';
+}
+function createShopActionControl(action={}){
+  const label=String(action.label||'').trim();
+  if(!label) return null;
+  const el=action.href ? document.createElement('a') : document.createElement('button');
+  el.className=action.className||'btn';
+  el.textContent=label;
+  if(action.href){
+    el.href=action.href;
+    el.target=action.target||'_blank';
+    el.rel='noopener noreferrer';
+  }else{
+    el.type='button';
+    if(typeof action.onClick==='function') el.addEventListener('click',action.onClick);
+  }
+  return el;
+}
+function renderShopActionControls(container,actions=[]){
+  if(!container) return;
+  const nodes=(actions||[]).map(createShopActionControl).filter(Boolean);
+  container.replaceChildren(...nodes);
+}
+function buildShopActionControls(shop={},inventoryMode='',options={}){
+  const mobile=!!options.mobile;
+  const shopId=String(shop?.shop_id||shop?.business_id||options.shopRef||'').trim();
+  const shopRef=String(shop?.shop_slug||shop?.shop_id||shop?.business_id||options.shopRef||'').trim();
+  const shopName=shop?.name||'Business';
+  const actions=[
+    {
+      label:'Chat with Business',
+      className:mobile?'btn btn-A':'btn btn-A btn-sm',
+      onClick:()=>openChatFor(shopRef||shopId,shopName,'')
+    }
+  ];
+  if(hasShopCoords(shop) && shopRef){
+    actions.push({
+      label:'Map',
+      className:mobile?'btn btn-map':'btn btn-map btn-sm',
+      onClick:()=>openMapSheet('shop',shopRef)
+    });
+  }
+  if(CART_UI_ENABLED && inventoryMode){
+    if(mobile){
+      if(shop?.supports_delivery){
+        actions.push({label:'Delivery',className:'btn btn-gr',onClick:()=>resetShopCartForCheckout(shopId)});
+      }else if(shop?.supports_pickup!==false){
+        actions.push({label:'Pickup',className:'btn btn-gr',onClick:()=>resetShopCartForCheckout(shopId)});
+      }
+    }else{
+      if(shop?.supports_pickup!==false) actions.push({label:'Pickup',className:'btn btn-gr btn-sm',onClick:()=>resetShopCartForCheckout(shopId)});
+      if(shop?.supports_delivery) actions.push({label:'Delivery',className:'btn btn-gr btn-sm',onClick:()=>resetShopCartForCheckout(shopId)});
+    }
+  }
+  const whatsapp=shopWhatsappHref(shop?.whatsapp||'');
+  if(whatsapp){
+    actions.push({
+      label:'WhatsApp',
+      className:mobile?'btn btn-gr':'btn btn-gr btn-sm',
+      href:whatsapp
+    });
+  }
+  return mobile ? actions.slice(0,4) : actions;
+}
+function renderShopLoadError(message='Business is temporarily unavailable.'){
+  const detail=compactText(message||'Business is temporarily unavailable.',180);
+  App.shopData=null;
+  $('shopBreadName').textContent='Business unavailable';
+  $('shopHdrName').textContent='Business unavailable';
+  $('shopHdrChips').innerHTML='';
+  $('shopHdrDesc').textContent=detail;
+  renderBusinessProfileVisual('shopHdrAvatarImg','shopHdrAvatarFallback','','Business unavailable');
+  renderShopActionControls($('shopHdrActions'),[]);
+  if($('shopMobileHero')) $('shopMobileHero').hidden=false;
+  if($('shopMobileSummary')) $('shopMobileSummary').innerHTML=`<div class="shop-mobile-summary-card wide"><div class="shop-mobile-summary-k">Status</div><div class="shop-mobile-summary-v">${esc(detail)}</div></div>`;
+  renderShopActionControls($('shopMobileActions'),[]);
+  if($('shopSnapshotTitle')) $('shopSnapshotTitle').textContent='Business Snapshot';
+  if($('shopSnapshotGrid')) $('shopSnapshotGrid').innerHTML='';
+  $('shopSideStats').innerHTML='';
+  $('shopSidePrompts').innerHTML='';
+  $('shopQchips').innerHTML='';
+  $('shopProdCount').textContent='Business unavailable';
+  $('shopProdGrid').innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Warning</div><div class="et">${esc(detail)}</div></div>`;
+  $('shopPagination').innerHTML='';
+  $('chatSN').textContent='Business unavailable';
+  $('chatSM').textContent=detail;
+  if($('cqChips')) $('cqChips').innerHTML='';
+  if($('chatPromptList')) $('chatPromptList').innerHTML='';
+  renderChatFacts({}, {}, 0);
+}
+async function openShopPage(shopId,page=1,sort='',stock='',opts={}){
+  const preserveSearch=!!opts?.preserveSearch;
   const changedShop=App.shopId!==shopId;
   if(changedShop) App.shopAttrFilter={key:'',value:''};
-  App.shopId=shopId;App.shopPage=page;App.shopSort=sort;App.shopStock=stock;save();
+  if(changedShop || !preserveSearch) App.shopSearchQuery='';
+  App.shopId=shopId;App.shopPage=page;App.shopSort=sort||'';App.shopStock=stock||'';App.shopData=null;save();
   showPage('shop');
   setShopMobileSheet('',false);
   setShopSnapshotModal(false);
@@ -10801,27 +10912,29 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
   if($('shopMobileActions')) $('shopMobileActions').innerHTML='';
   if($('shopSnapshotTitle')) $('shopSnapshotTitle').textContent='At a glance';
   if($('shopSnapshotGrid')) $('shopSnapshotGrid').innerHTML='';
+  $('shopSideStats').innerHTML='';$('shopSidePrompts').innerHTML='';
   $('shopProdGrid').innerHTML=`<div class="empty"><div class="ei">...</div><div class="et">Loading offerings...</div></div>`;
-  $('shopQchips').innerHTML='';$('shopSrchIn').value='';$('shopSort').value=sort||'';
-  const stockValue = stock || '';
-  const activeStockInput = document.querySelector(`input[name="stk"][value="${stockValue}"]`) || document.querySelector('input[name="stk"][value=""]');
-  if(activeStockInput) activeStockInput.checked = true;
+  $('shopQchips').innerHTML='';$('shopProdCount').textContent='Loading offerings...';$('shopSrchIn').value=App.shopSearchQuery||'';$('shopSort').value=App.shopSort||'';
+  setShopStockControl(App.shopStock);
+  if(changedShop) renderShopAttributeFilter('');
 
   try{
     const attrParams=[];
     if(App.shopAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.shopAttrFilter.key)}`);
     if(App.shopAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.shopAttrFilter.value)}`);
     const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(shopId)}?page=${page}&sort=${sort}&stock=${stock}${attrParams.length?`&${attrParams.join('&')}`:''}`),{auth:!!tok()}));
+    assertPublicBrowseOk(d,'Business is temporarily unavailable.');
     App.shopData=d;
-    App.shopId=d.shop_slug||d.shop_id||shopId;save();
-    setPublicPath(buildShopPublicPath(d.shop_slug||d.shop_id||shopId), location.pathname.startsWith('/offering/')||location.pathname.startsWith('/product/'));
+    const activeShopRef=d.shop_slug||d.shop_id||shopId;
     const s=d.shop,st=d.stats||{};
-    const nouns=offeringNouns(s,d.products||[]);
-    const inventoryMode=shopInventoryMode(s,d.products||[]);
-    syncAvailabilityFilterLabels(s,d.products||[]);
-    const totalProducts=d.pagination?.total ?? d.products?.length ?? 0;
-    const safeShopId=esc(shopId);
-    const safeShopName=esc(s.name||'Business');
+    const products=applyFavouriteStateToProducts(d.products||[]);
+    App.shopId=activeShopRef;save();
+    setPublicPath(buildShopPublicPath(activeShopRef), location.pathname.startsWith('/offering/')||location.pathname.startsWith('/product/'));
+    const nouns=offeringNouns(s,products);
+    const inventoryMode=shopInventoryMode(s,products);
+    syncAvailabilityFilterLabels(s,products);
+    const totalProducts=d.pagination?.total ?? products.length ?? 0;
+    const chatShopRef=s.shop_slug||s.shop_id||activeShopRef;
     const locationLabel=shopDisplayAddress(s)||s.service_area||'Location details coming soon';
     renderShopAttributeFilter(s.category||'');
     $('shopBreadName').textContent=s.name;$('shopHdrName').textContent=s.name;
@@ -10835,15 +10948,7 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
       (st.avg_rating>0)?`<span class="shop-hdr-chip">Rating ${st.avg_rating}</span>`:''
     ].join('');
     $('shopHdrDesc').textContent=compactText(s.overview||'',190);
-    const fulfillButtons=[
-      `<button class="btn btn-A btn-sm" onclick="openChatFor('${safeShopId}','${safeShopName}','')">Chat with Business</button>`,
-      hasShopCoords(s)?`<button class="btn btn-map btn-sm" onclick="openMapSheet('shop','${esc(s.shop_slug||s.shop_id||shopId)}')">Map</button>`:'',
-      CART_UI_ENABLED && inventoryMode && s.supports_pickup!==false?`<button class="btn btn-gr btn-sm" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${safeShopId}');saveCart();updateCartBadge();openCart();">Pickup</button>`:'',
-      CART_UI_ENABLED && inventoryMode && s.supports_delivery?`<button class="btn btn-gr btn-sm" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${safeShopId}');saveCart();updateCartBadge();openCart();">Delivery</button>`:'',
-      s.whatsapp?`<a href="https://wa.me/${(s.whatsapp||'').replace(/[^0-9]/g,'')}" target="_blank" class="btn btn-gr btn-sm">WhatsApp</a>`:''
-    ].filter(Boolean);
-    $('shopHdrActions').innerHTML=`
-      ${fulfillButtons.join('')}`;
+    renderShopActionControls($('shopHdrActions'),buildShopActionControls(s,inventoryMode,{shopRef:activeShopRef}));
     const mobileSummaryCards=[
       {label:nouns.plural.charAt(0).toUpperCase()+nouns.plural.slice(1),value:String(totalProducts)},
       s.category?{label:'Category',value:s.category}:null,
@@ -10851,22 +10956,15 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
       (st.avg_rating>0)?{label:'Rating',value:st.avg_rating.toFixed(1)}:(s.phone?{label:'Phone',value:s.phone}:null),
       locationLabel?{label:'Location',value:compactText(locationLabel,96),wide:true}:null
     ].filter(Boolean);
-    const mobileActions=[
-      `<button class="btn btn-A" onclick="openChatFor('${safeShopId}','${safeShopName}','')">Chat with Business</button>`,
-      hasShopCoords(s)?`<button class="btn btn-map" onclick="openMapSheet('shop','${esc(s.shop_slug||s.shop_id||shopId)}')">Map</button>`:'',
-      CART_UI_ENABLED && inventoryMode && s.supports_delivery?`<button class="btn btn-gr" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${safeShopId}');saveCart();updateCartBadge();openCart();">Delivery</button>`:'',
-      CART_UI_ENABLED && inventoryMode && !s.supports_delivery && s.supports_pickup!==false?`<button class="btn btn-gr" onclick="App.cart=App.cart.filter(item=>item.shop_id==='${safeShopId}');saveCart();updateCartBadge();openCart();">Pickup</button>`:'',
-      !hasShopCoords(s) && s.whatsapp?`<a href="https://wa.me/${(s.whatsapp||'').replace(/[^0-9]/g,'')}" target="_blank" class="btn btn-gr">WhatsApp</a>`:''
-    ].filter(Boolean).slice(0,4);
     if($('shopMobileSummary')) $('shopMobileSummary').innerHTML=mobileSummaryCards.map(card=>`<div class="shop-mobile-summary-card${card.wide?' wide':''}"><div class="shop-mobile-summary-k">${esc(card.label)}</div><div class="shop-mobile-summary-v">${esc(card.value)}</div></div>`).join('');
-    if($('shopMobileActions')) $('shopMobileActions').innerHTML=mobileActions.join('');
+    renderShopActionControls($('shopMobileActions'),buildShopActionControls(s,inventoryMode,{shopRef:activeShopRef,mobile:true}));
     if($('shopMobileHero')) $('shopMobileHero').hidden=false;
 
     const visibleQuestions=customerPromptList(d.suggested_questions||[],4);
     const chips=$('shopQchips');chips.innerHTML='';
-    visibleQuestions.forEach(q=>{const b=document.createElement('button');b.className='qchip';b.textContent=q;b.addEventListener('click',()=>openChatFor(shopId,s.name,q));chips.appendChild(b);});
+    visibleQuestions.forEach(q=>{const b=document.createElement('button');b.className='qchip';b.textContent=q;b.addEventListener('click',()=>openChatFor(chatShopRef,s.name,q));chips.appendChild(b);});
     const statsMarkup=[
-      [nouns.plural.charAt(0).toUpperCase()+nouns.plural.slice(1),d.pagination?.total ?? d.products?.length ?? 0],
+      [nouns.plural.charAt(0).toUpperCase()+nouns.plural.slice(1),d.pagination?.total ?? products.length ?? 0],
       ['Page Views',st.shop_views_30d ?? 0],
       [`${nouns.label.charAt(0).toUpperCase()+nouns.label.slice(1)} Views`,st.product_views_30d ?? 0],
       ['Rating',st.avg_rating ? st.avg_rating.toFixed(1) : '0.0']
@@ -10879,53 +10977,92 @@ async function openShopPage(shopId,page=1,sort='',stock=''){
       const b=document.createElement('button');
       b.className='shop-side-prompt';
       b.textContent=q;
-      b.addEventListener('click',()=>openChatFor(shopId,s.name,q));
+      b.addEventListener('click',()=>openChatFor(chatShopRef,s.name,q));
       $('shopSidePrompts').appendChild(b);
     });
 
     const total=totalProducts;
     const attrActive=App.shopAttrFilter?.value ? ` matching ${App.shopAttrFilter.value}` : '';
     $('shopProdCount').textContent=`${total} ${total===1?nouns.singular:nouns.plural}${attrActive}`;
-    fillGrid($('shopProdGrid'),d.products||[],{mode:'browse',showShop:false});
-    buildPagination($('shopPagination'),d.pagination,p=>openShopPage(shopId,p,$('shopSort').value,App.shopStock));
+    fillGrid($('shopProdGrid'),products,{mode:'browse',showShop:false});
+    buildPagination($('shopPagination'),d.pagination,p=>openShopPage(activeShopRef,p,$('shopSort').value,App.shopStock));
     $('chatSN').textContent=s.name;
-    $('chatSM').textContent=[locationLabel||'', `${d.pagination?.total ?? d.products?.length ?? 0} ${nouns.plural}`].filter(Boolean).join(' - ') || `Ask about ${nouns.plural}, pricing, hours, or availability`;
+    $('chatSM').textContent=[locationLabel||'', `${d.pagination?.total ?? products.length ?? 0} ${nouns.plural}`].filter(Boolean).join(' - ') || `Ask about ${nouns.plural}, pricing, hours, or availability`;
     renderCQchips(visibleQuestions);
     renderChatPromptList(visibleQuestions);
-    renderChatFacts(s,st,d.pagination?.total ?? d.products?.length ?? 0);
-  }catch(e){toast('Failed to load business',e.message,'err');}
+    renderChatFacts(s,st,d.pagination?.total ?? products.length ?? 0);
+  }catch(e){
+    renderShopLoadError(e.message);
+    toast('Failed to load business',e.message,'err');
+  }
 }
 $('shopSrchBtn').addEventListener('click',doShopSearch);
 $('shopSrchIn').addEventListener('keydown',e=>{if(e.key==='Enter')doShopSearch();});
-$('shopSort').addEventListener('change',()=>openShopPage(App.shopId,1,$('shopSort').value,App.shopStock));
-$('stockFilterList').addEventListener('change',e=>{App.shopStock=e.target.value||'';openShopPage(App.shopId,1,$('shopSort').value,App.shopStock);});
+$('shopSort').addEventListener('change',()=>{
+  const nextSort=$('shopSort').value||'';
+  const query=currentShopSearchQuery();
+  if(query) loadShopSearchPage(query,1,nextSort,App.shopStock);
+  else openShopPage(App.shopId,1,nextSort,App.shopStock);
+});
+$('stockFilterList').addEventListener('change',e=>{
+  App.shopStock=e.target?.value||'';
+  const query=currentShopSearchQuery();
+  if(query) loadShopSearchPage(query,1,$('shopSort').value,App.shopStock);
+  else openShopPage(App.shopId,1,$('shopSort').value,App.shopStock);
+});
 $('shopAttrApply')?.addEventListener('click',()=>{
   App.shopAttrFilter={key:$('shopAttrKey')?.value||'',value:$('shopAttrValue')?.value.trim()||''};
-  if($('shopSrchIn')?.value.trim()) loadShopSearchPage($('shopSrchIn').value.trim(),1);
+  const query=currentShopSearchQuery();
+  if(query) loadShopSearchPage(query,1,$('shopSort').value,App.shopStock);
   else openShopPage(App.shopId,1,$('shopSort').value,App.shopStock);
 });
 $('shopAttrClear')?.addEventListener('click',()=>{
   App.shopAttrFilter={key:'',value:''};
   if($('shopAttrKey')) $('shopAttrKey').value='';
   if($('shopAttrValue')) $('shopAttrValue').value='';
-  if($('shopSrchIn')?.value.trim()) loadShopSearchPage($('shopSrchIn').value.trim(),1);
+  const query=currentShopSearchQuery();
+  if(query) loadShopSearchPage(query,1,$('shopSort').value,App.shopStock);
   else openShopPage(App.shopId,1,$('shopSort').value,App.shopStock);
 });
 $('shopAttrValue')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('shopAttrApply')?.click();}});
-async function loadShopSearchPage(q,page=1){
+async function loadShopSearchPage(q,page=1,sort=App.shopSort||'',stock=App.shopStock||''){
+  const query=String(q||'').trim();
+  if(!query){
+    App.shopSearchQuery='';
+    await openShopPage(App.shopId,1,sort,stock);
+    return;
+  }
+  App.shopSearchQuery=query;
+  App.shopPage=page;
+  App.shopSort=sort||'';
+  App.shopStock=stock||'';
+  save();
+  $('shopSrchIn').value=query;
+  $('shopSort').value=App.shopSort;
+  setShopStockControl(App.shopStock);
+  $('shopProdCount').textContent=`Searching "${query}"...`;
+  $('shopProdGrid').innerHTML=`<div class="empty"><div class="ei">...</div><div class="et">Searching offerings...</div></div>`;
+  $('shopPagination').innerHTML='';
   const attrParams=[];
   if(App.shopAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.shopAttrFilter.key)}`);
   if(App.shopAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.shopAttrFilter.value)}`);
-  const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business-search?business_id=${encodeURIComponent(App.shopId)}&q=${encodeURIComponent(q)}&page=${page}&limit=40${attrParams.length?`&${attrParams.join('&')}`:''}`)));
-  $('shopProdCount').textContent=`${d.total||0} results for "${q}"`;
-  fillGrid($('shopProdGrid'),d.results||[],{mode:'browse',showShop:false});
-  buildPagination($('shopPagination'),d.pagination,p=>loadShopSearchPage(q,p));
+  const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business-search?business_id=${encodeURIComponent(App.shopId)}&q=${encodeURIComponent(query)}&page=${page}&limit=40&sort=${encodeURIComponent(App.shopSort)}&stock=${encodeURIComponent(App.shopStock)}${attrParams.length?`&${attrParams.join('&')}`:''}`),{auth:!!tok()}));
+  assertPublicBrowseOk(d,'Business search is temporarily unavailable.');
+  const results=applyFavouriteStateToProducts(d.results||[]);
+  const attrActive=App.shopAttrFilter?.value ? ` matching ${App.shopAttrFilter.value}` : '';
+  $('shopProdCount').textContent=`${d.total||0} results for "${query}"${attrActive}`;
+  fillGrid($('shopProdGrid'),results,{mode:'browse',showShop:false});
+  buildPagination($('shopPagination'),d.pagination,p=>loadShopSearchPage(query,p,App.shopSort,App.shopStock));
 }
 async function doShopSearch(){
-  const q=$('shopSrchIn').value.trim();
-  if(!q){openShopPage(App.shopId,1,$('shopSort').value,App.shopStock);return;}
+  const q=currentShopSearchQuery();
+  if(!q){
+    App.shopSearchQuery='';
+    openShopPage(App.shopId,1,$('shopSort').value,App.shopStock);
+    return;
+  }
   try{
-    await loadShopSearchPage(q,1);
+    await loadShopSearchPage(q,1,$('shopSort').value,App.shopStock);
   }catch(e){toast('Search failed',e.message,'err');}
 }
 
@@ -10992,6 +11129,7 @@ async function syncChatShopContextLegacy(sid='',fallbackName=''){
   if(!data){
     try{
       data=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(sid)}`),{auth:!!tok()}));
+      assertPublicBrowseOk(data,'Business is temporarily unavailable.');
       App.shopData=data;
     }catch{
       data={shop:{shop_id:sid,shop_slug:'',name:fallbackName||sid,overview:'',address:'',hours:'',category:''},stats:{},suggested_questions:[],products:[],pagination:{total:0}};
@@ -11059,6 +11197,7 @@ async function syncChatShopContext(sid='',fallbackName=''){
   if(!data){
     try{
       data=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(sid)}`),{auth:!!tok()}));
+      assertPublicBrowseOk(data,'Business is temporarily unavailable.');
       App.shopData=data;
     }catch{
       data={shop:{shop_id:sid,shop_slug:'',name:fallbackName||sid,overview:'',address:'',hours:'',category:''},stats:{},suggested_questions:[],products:[],pagination:{total:0}};
@@ -12315,7 +12454,8 @@ async function handlePathDeepLink(source='init'){
     return;
   }
   try{
-    const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(shopRef)}`)));
+    const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(shopRef)}`),{auth:!!tok()}));
+    assertPublicBrowseOk(d,'Business is temporarily unavailable.');
     App.shopId=d.shop_slug||d.shop_id||shopRef;
     App.shopData=d;
     save();
@@ -12328,7 +12468,9 @@ async function handlePathDeepLink(source='init'){
       }
     }
     await openShopPage(d.shop_slug||d.shop_id||shopRef);
-  }catch{}
+  }catch{
+    if(shopRef) await openShopPage(shopRef);
+  }
 }
 
 function initLocationForm(){
@@ -12545,7 +12687,7 @@ async function init(){
   await refreshRequestNotification();
   startRequestWatcher();
   if(App.shopId){
-    try{const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(App.shopId)}`)));App.shopData=d;App.chatShopId=d.shop?.shop_slug||d.shop?.shop_id||App.shopId;$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}catch{}
+    try{const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(App.shopId)}`),{auth:!!tok()}));assertPublicBrowseOk(d,'Business is temporarily unavailable.');App.shopData=d;App.chatShopId=d.shop?.shop_slug||d.shop?.shop_id||App.shopId;$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}catch{}
   }
   await handlePathDeepLink('init');
   applyPageQueryState();

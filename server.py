@@ -659,6 +659,17 @@ def get_user(auth: Optional[str], request: Optional[Request] = None):
     except Exception:
         raise HTTPException(401, "Session expired or invalid")
 
+def optional_user_id(auth: Optional[str] = None, request: Optional[Request] = None) -> Optional[str]:
+    try:
+        if auth or session_cookie_present(request):
+            user, _ = get_user(auth, request)
+            return user.id
+    except HTTPException:
+        return None
+    except Exception:
+        return None
+    return None
+
 def require_verified(user):
     if not user.email_confirmed_at:
         raise HTTPException(403, "Email not verified. Check your inbox.")
@@ -1432,6 +1443,13 @@ def public_browse_error_payload(kind: str, exc: Exception, page: int = 1, page_s
     if kind == "businesses":
         payload["shops"] = []
         payload["businesses"] = []
+    elif kind == "shop":
+        payload["shop"] = {}
+        payload["business"] = {}
+        payload["products"] = []
+        payload["offerings"] = []
+        payload["stats"] = {}
+        payload["suggested_questions"] = []
     elif kind == "search":
         payload["results"] = []
         payload["total"] = 0
@@ -1439,6 +1457,23 @@ def public_browse_error_payload(kind: str, exc: Exception, page: int = 1, page_s
         payload["products"] = []
         payload["offerings"] = []
     return alias_catalog_response(payload)
+
+def sort_catalog_rows(rows: List[Dict[str, Any]], sort: str = "default") -> List[Dict[str, Any]]:
+    items = list(rows or [])
+    sort_key = str(sort or "default").strip().lower()
+    if sort_key == "price-asc":
+        items.sort(key=lambda row: get_row_price_amount(row) or 0)
+    elif sort_key == "price-desc":
+        items.sort(key=lambda row: get_row_price_amount(row) or 0, reverse=True)
+    else:
+        items.sort(key=lambda row: row.get("updated_at", ""), reverse=True)
+    return items
+
+def filter_catalog_rows_by_stock(rows: List[Dict[str, Any]], stock: str = "") -> List[Dict[str, Any]]:
+    stock_key = str(stock or "").strip().lower()
+    if stock_key not in {"in", "low", "out"}:
+        return list(rows or [])
+    return [row for row in (rows or []) if str(row.get("stock", "") or "").strip().lower() == stock_key]
 
 def rebuild_kb(shop_id: str):
     shop = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
@@ -3844,53 +3879,62 @@ def public_address_search(request: Request, q: str = Query(..., min_length=3), c
 @app.get("/public/business/{shop_ref}")
 @app.get("/public/shop/{shop_ref}")
 def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), stock: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
-    shop_row = ensure_shop_coordinates(ensure_market_shop_access(resolve_shop_by_ref(shop_ref)))
-    shop_id = shop_row["shop_id"]
-    
-    user_id = None
-    if authorization:
-        try: user_id = get_user(authorization)[0].id
-        except: pass
-        
-    q = supabase.table("products").select("*").eq("shop_id", shop_id)
-    if stock in ("in", "low", "out"): q = q.eq("stock", stock)
-    all_prods = q.execute().data
-    if attr_key or attr_value:
-        all_prods = [row for row in all_prods if matches_attribute_filter(row, shop_row.get("category", ""), attr_key, attr_value, shop_row.get("business_type", ""))]
-    
-    if sort == "price-asc": all_prods.sort(key=lambda x: get_row_price_amount(x) or 0)
-    elif sort == "price-desc": all_prods.sort(key=lambda x: get_row_price_amount(x) or 0, reverse=True)
-    else: all_prods.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
-    
-    track(shop_id, "shop_view")
-    
-    paged = paginate_list(all_prods, page, limit)
-    ser_prods = serialize_products_bulk(paged["items"], user_id, {shop_id: shop_row}, currency)
-    
-    return alias_catalog_response({
-        "ok": True, "shop_id": shop_id, "shop_slug": shop_row.get("shop_slug", ""), "shop": public_shop_payload(shop_row),
-        "products": ser_prods,
-        "pagination": paged["pagination"],
-        "stats": shop_stats(shop_id),
-        "suggested_questions": dedup([*default_catalog_prompts(shop_row, all_prods), "Show all images", *category_prompt_suggestions(shop_row.get("category", ""), shop_row.get("business_type", ""), all_prods)])[:6]
-    })
+    try:
+        shop_row = ensure_shop_coordinates(ensure_market_shop_access(resolve_shop_by_ref(shop_ref)))
+        shop_id = shop_row["shop_id"]
+        user_id = optional_user_id(authorization, request)
+
+        q = supabase.table("products").select("*").eq("shop_id", shop_id)
+        if stock in ("in", "low", "out"):
+            q = q.eq("stock", stock)
+        all_prods = q.execute().data
+        if attr_key or attr_value:
+            all_prods = [row for row in all_prods if matches_attribute_filter(row, shop_row.get("category", ""), attr_key, attr_value, shop_row.get("business_type", ""))]
+        all_prods = sort_catalog_rows(all_prods, sort)
+
+        sort_key = str(sort or "default").strip().lower()
+        if page == 1 and sort_key in {"", "default"} and not str(stock or "").strip() and not str(attr_key or "").strip() and not str(attr_value or "").strip():
+            track(shop_id, "shop_view")
+
+        paged = paginate_list(all_prods, page, limit)
+        ser_prods = serialize_products_bulk(paged["items"], user_id, {shop_id: shop_row}, currency)
+
+        return alias_catalog_response({
+            "ok": True, "shop_id": shop_id, "shop_slug": shop_row.get("shop_slug", ""), "shop": public_shop_payload(shop_row),
+            "products": ser_prods,
+            "pagination": paged["pagination"],
+            "stats": shop_stats(shop_id),
+            "suggested_questions": dedup([*default_catalog_prompts(shop_row, all_prods), "Show all images", *category_prompt_suggestions(shop_row.get("category", ""), shop_row.get("business_type", ""), all_prods)])[:6]
+        })
+    except HTTPException:
+        raise
+    except Exception as exc:
+        return public_browse_error_payload("shop", exc, page, limit)
 
 @app.get("/public/business-search")
 @app.get("/public/search")
-def search_shop(request: Request, shop_id: str = Query(""), business_id: str = Query(""), q: str = Query(...), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100)):
-    qn = (q or "").strip()
-    resolved_shop = ensure_market_shop_access(resolve_shop_by_ref(business_id or shop_id))
-    real_shop_id = resolved_shop["shop_id"]
-    if not qn:
-        return alias_catalog_response({"ok": True, "shop_id": real_shop_id, "shop_slug": resolved_shop.get("shop_slug", ""), "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]})
-    shop_map = {real_shop_id: resolved_shop}
-    shop_row = shop_map.get(real_shop_id, {})
-    rows = supabase.table("products").select("*").eq("shop_id", real_shop_id).order("updated_at", desc=True).execute().data
-    rows = [row for row in rows if product_matches_query(row, qn, shop_row.get("category", ""), shop_row.get("business_type", ""))]
-    if attr_key or attr_value:
-        rows = [row for row in rows if matches_attribute_filter(row, shop_row.get("category", ""), attr_key, attr_value, shop_row.get("business_type", ""))]
-    paged = paginate_list(rows, page, limit)
-    return alias_catalog_response({"ok": True, "shop_id": real_shop_id, "shop_slug": resolved_shop.get("shop_slug", ""), "q": q, "results": serialize_products_bulk(paged["items"], None, shop_map, currency), "total": len(rows), "pagination": paged["pagination"]})
+def search_shop(request: Request, shop_id: str = Query(""), business_id: str = Query(""), q: str = Query(...), sort: str = Query("default"), stock: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
+    try:
+        qn = (q or "").strip()
+        resolved_shop = ensure_market_shop_access(resolve_shop_by_ref(business_id or shop_id))
+        real_shop_id = resolved_shop["shop_id"]
+        if not qn:
+            return alias_catalog_response({"ok": True, "shop_id": real_shop_id, "shop_slug": resolved_shop.get("shop_slug", ""), "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]})
+        shop_map = {real_shop_id: resolved_shop}
+        shop_row = shop_map.get(real_shop_id, {})
+        rows = supabase.table("products").select("*").eq("shop_id", real_shop_id).order("updated_at", desc=True).execute().data
+        rows = filter_catalog_rows_by_stock(rows, stock)
+        rows = [row for row in rows if product_matches_query(row, qn, shop_row.get("category", ""), shop_row.get("business_type", ""))]
+        if attr_key or attr_value:
+            rows = [row for row in rows if matches_attribute_filter(row, shop_row.get("category", ""), attr_key, attr_value, shop_row.get("business_type", ""))]
+        rows = sort_catalog_rows(rows, sort)
+        paged = paginate_list(rows, page, limit)
+        user_id = optional_user_id(authorization, request)
+        return alias_catalog_response({"ok": True, "shop_id": real_shop_id, "shop_slug": resolved_shop.get("shop_slug", ""), "q": q, "results": serialize_products_bulk(paged["items"], user_id, shop_map, currency), "total": len(rows), "pagination": paged["pagination"]})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        return public_browse_error_payload("search", exc, page, limit)
 
 @app.get("/public/offering-search")
 @app.get("/public/search/global")
