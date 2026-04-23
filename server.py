@@ -1567,6 +1567,19 @@ def active_market_country_name() -> str:
 def enforce_public_country_code(country_code: str) -> str:
     return active_market_country_code() or clean_code(country_code)
 
+def infer_country_code(country_code: str = "", country_name: str = "") -> str:
+    code = clean_code(country_code)
+    if code:
+        return code
+    name = re.sub(r"\s+", " ", str(country_name or "")).strip().lower()
+    if name:
+        for meta_code, meta in COUNTRY_META.items():
+            if name == str(meta.get("name", "")).strip().lower():
+                return meta_code
+    if BUSINESS_COUNTRY_LOCK_ENABLED:
+        return BUSINESS_COUNTRY_LOCK_CODE
+    return ""
+
 def shop_matches_market_country(row: Dict[str, Any]) -> bool:
     locked_country = active_market_country_code()
     if not locked_country:
@@ -1682,7 +1695,7 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out["business_type"] = normalize_business_type(out.get("business_type", ""), out.get("category", ""))
     out["location_mode"] = normalize_location_mode(out.get("location_mode", ""), out.get("business_type", ""), out.get("category", ""))
     out["service_area"] = re.sub(r"\s+", " ", str(out.get("service_area") or "")).strip()
-    out["country_code"] = clean_code(out.get("country_code", ""))
+    out["country_code"] = infer_country_code(out.get("country_code", ""), out.get("country_name", ""))
     out["country_name"] = (out.get("country_name") or country_meta(out.get("country_code", "")).get("name", "")).strip()
     out["currency_code"] = clean_currency(out.get("currency_code") or currency_for_country(out.get("country_code", "")))
     out["timezone_name"] = (out.get("timezone_name") or timezone_for_country(out.get("country_code", ""))).strip()
