@@ -5674,8 +5674,14 @@ function hasShopCoords(shop={}){
 function shopPublicRef(shop={}){
   return shop?.shop_slug || shop?.shop_id || '';
 }
+function formatDisplayAddress(value=''){
+  return String(value||'')
+    .replace(/\s*,\s*/g,', ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 function shopDisplayAddress(shop={}){
-  return shop?.formatted_address || shop?.address || [shop?.city,shop?.region,shop?.country_name||shop?.country_code].filter(Boolean).join(', ');
+  return formatDisplayAddress(shop?.formatted_address || shop?.address || [shop?.city,shop?.region,shop?.country_name||shop?.country_code].filter(Boolean).join(', '));
 }
 function shopDistanceKm(shop={},userLoc=null){
   if(!userLoc || !hasShopCoords(shop)) return null;
@@ -10725,13 +10731,16 @@ function renderHomeShops(){
 }
 async function loadFeatured(page=1){
   const cat=App.activeCat;
+  const paginationEl=$('featuredPagination');
   $('featuredTitle').textContent=cat?`${cat} Offerings`:'Available Offerings';
+  if($('featuredSub')) $('featuredSub').textContent='Loading available offerings...';
   $('featuredGrid').innerHTML=`<div class="empty"><div class="ei">Loading</div><div class="et">Getting offerings...</div></div>`;
+  if(paginationEl) paginationEl.innerHTML='';
   try{
     const attrParams=[];
     if(App.marketAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.marketAttrFilter.key)}`);
     if(App.marketAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.marketAttrFilter.value)}`);
-    const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/top-offerings?limit=24${cat?`&category=${encodeURIComponent(cat)}`:''}${attrParams.length?`&${attrParams.join('&')}`:''}` ),{auth:!!tok()}));
+    const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/top-offerings?page=${page}&limit=24${cat?`&category=${encodeURIComponent(cat)}`:''}${attrParams.length?`&${attrParams.join('&')}`:''}` ),{auth:!!tok()}));
     assertPublicBrowseOk(d,'Offerings are temporarily unavailable.');
     const prods=applyFavouriteStateToProducts(d.offerings||[]);
     const total=Number(d.pagination?.total||0)||prods.length||0;
@@ -10742,8 +10751,13 @@ async function loadFeatured(page=1){
     renderMarketAttributeFilter(cat,'featured',prods);
     $('featuredSub').textContent=`${total} available${App.marketAttrFilter?.value?` matching ${App.marketAttrFilter.value}`:''}`;
     fillGrid($('featuredGrid'),prods,{mode:'browse',showShop:true});
+    if(paginationEl) buildPagination(paginationEl,d.pagination,p=>loadFeatured(p));
     syncHomeMobileLayout();
-  }catch(e){$('featuredGrid').innerHTML=`<div class="empty"><div class="ei">Warning</div><div class="et">${esc(e.message)}</div></div>`;}
+  }catch(e){
+    if($('featuredSub')) $('featuredSub').textContent='Offerings unavailable';
+    if(paginationEl) paginationEl.innerHTML='';
+    $('featuredGrid').innerHTML=`<div class="empty"><div class="ei">Warning</div><div class="et">${esc(e.message)}</div></div>`;
+  }
 }
 $('featuredAttrApply')?.addEventListener('click',()=>{
   App.marketAttrFilter={key:$('featuredAttrKey')?.value||'',value:$('featuredAttrValue')?.value.trim()||'',category:App.activeCat||''};
