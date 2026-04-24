@@ -710,8 +710,6 @@ a{color:inherit;text-decoration:none}
 .pd-carousel-slide{flex:0 0 100%;min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:18px;background:transparent;border:none;cursor:zoom-in;touch-action:pan-y pinch-zoom}
 .pd-carousel-slide img,.pd-img-area img{max-width:100%;max-height:340px;object-fit:contain;transition:transform .22s;border-radius:var(--r2);user-select:none;-webkit-user-drag:none}
 .pd-carousel-slide:hover img,.pd-img-area img:hover{transform:scale(1.03)}
-.pd-zoom-btn{position:absolute;top:12px;left:12px;z-index:2;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.42);background:rgba(15,23,42,.44);backdrop-filter:blur(10px);color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 10px 24px rgba(15,23,42,.16)}
-.pd-zoom-btn:hover{background:rgba(15,23,42,.6)}
 .pd-nophoto{flex:1;min-height:280px;display:flex;align-items:center;justify-content:center;font-size:64px;color:var(--bd2)}
 .pd-gallery-nav{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:999px;border:none;background:rgba(15,23,42,.46);backdrop-filter:blur(10px);color:#fff;font-size:20px;font-weight:800;display:grid;place-items:center;cursor:pointer;box-shadow:0 10px 24px rgba(15,23,42,.18);transition:transform .12s ease,background .12s ease,opacity .12s ease}
 .pd-gallery-nav.prev{left:10px}
@@ -761,18 +759,18 @@ a{color:inherit;text-decoration:none}
 .pd-fav-btn.saved:hover{background:rgba(255,232,237,.98);border-color:rgba(225,29,72,.3);color:var(--R)}
 .pd-fav-btn.saved .pd-fav-icon{color:var(--R)}
 @media(max-width:600px){
-  .pd-bg{padding:0;align-items:stretch;overflow:hidden}
-  .pd-box{display:grid;grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);height:100dvh;max-height:100dvh;overflow:hidden;-webkit-overflow-scrolling:touch;border-radius:0}
-  .pd-gallery{flex:none;border-right:none;border-bottom:1px solid var(--bd);max-height:none;overflow:hidden}
+  .pd-bg{padding:0;align-items:stretch;overflow-y:auto;overflow-x:hidden}
+  .pd-box{display:grid;grid-template-columns:1fr;grid-template-rows:auto auto;height:100dvh;max-height:100dvh;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;border-radius:0;scrollbar-width:none}
+  .pd-box::-webkit-scrollbar{display:none}
+  .pd-gallery{flex:none;border-right:none;border-bottom:1px solid var(--bd);max-height:none;overflow:visible}
   .pd-img-area{height:min(40dvh,320px);min-height:220px;padding:14px;flex:none}
   .pd-media-shell,.pd-carousel-viewport{min-height:100%}
   .pd-carousel-slide{padding:14px}
   .pd-carousel-slide img,.pd-img-area img{max-height:100%;width:auto}
   .pd-nophoto{min-height:220px;font-size:48px}
   .pd-gallery-nav{width:46px;height:46px;font-size:22px;z-index:1}
-  .pd-zoom-btn{top:10px;left:10px;min-height:38px;padding:0 13px}
   .pd-thumbs{padding:8px 10px;flex:0 0 auto}
-  .pd-info{padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));gap:10px;overflow-y:auto;overflow-x:hidden;min-height:0}
+  .pd-info{padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));gap:10px;overflow:visible;min-height:auto}
   .pd-name{font-size:19px}
   .pd-price{font-size:22px}
   .pd-close{top:calc(10px + env(safe-area-inset-top,0px));right:10px;width:44px;height:44px;background:rgba(15,23,42,.42);color:#fff}
@@ -11143,7 +11141,6 @@ async function openPD(p,mode,sid,sname){
           <div class="pd-carousel-track" data-gallery-track>
             ${imgs.map((url,i)=>`<button class="pd-carousel-slide" type="button" data-gallery-slide="${i}" aria-label="Open image ${i+1} of ${imgs.length}"><img src="${esc(url)}" alt="${esc(p.name)} image ${i+1}"/></button>`).join('')}
           </div>
-          <button class="pd-zoom-btn" type="button" data-gallery-zoom aria-label="Open zoom view">Zoom</button>
           ${imgs.length>1?`<button class="pd-gallery-nav prev" type="button" data-gallery-nav="prev" aria-label="Show previous image">&#8249;</button>`:''}
           ${imgs.length>1?`<button class="pd-gallery-nav next" type="button" data-gallery-nav="next" aria-label="Show next image">&#8250;</button>`:''}
           ${imgs.length>1?`<div class="pd-gallery-count">${galleryIndex+1} / ${imgs.length}</div><div class="pd-gallery-dots">${imgs.map((_,i)=>`<button class="pd-gallery-dot${i===galleryIndex?' on':''}" type="button" data-gallery-dot="${i}" aria-label="Go to image ${i+1}"></button>`).join('')}</div>`:''}
@@ -11164,10 +11161,6 @@ async function openPD(p,mode,sid,sname){
     viewport?.querySelector('[data-gallery-nav="next"]')?.addEventListener('click',evt=>{
       evt.stopPropagation();
       stepGallery(1);
-    });
-    viewport?.querySelector('[data-gallery-zoom]')?.addEventListener('click',evt=>{
-      evt.stopPropagation();
-      openLbox(activeImage,imgs,galleryIndex);
     });
     viewport?.querySelectorAll('[data-gallery-slide]')?.forEach((slide,i)=>{
       slide.addEventListener('click',()=>{
