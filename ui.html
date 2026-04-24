@@ -752,6 +752,31 @@ a{color:inherit;text-decoration:none}
 .color-swatch{width:12px;height:12px;border-radius:999px;border:1px solid rgba(31,27,22,.22);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4);flex-shrink:0}
 .share-row{display:flex;gap:6px}
 .share-inp{flex:1;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--r1);font-size:12px;color:var(--ink3);background:var(--sf2);outline:none}
+.pd-share-trigger{width:44px;min-width:44px;height:44px;min-height:44px;padding:0!important;display:grid!important;place-items:center}
+.pd-share-trigger svg{width:18px;height:18px;display:block;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.pd-share-trigger[aria-expanded="true"]{background:rgba(15,118,110,.08);border-color:rgba(15,118,110,.22);color:var(--A)}
+.pd-share-panel{display:none;gap:12px;margin:12px 0 2px;padding:14px;border:1px solid rgba(148,163,184,.22);border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(247,250,252,.96));box-shadow:0 18px 34px rgba(15,23,42,.08)}
+.pd-share-panel.on{display:grid}
+.pd-share-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.pd-share-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A)}
+.pd-share-title{font-size:15px;font-weight:700;color:var(--ink);line-height:1.3}
+.pd-share-close{width:34px;height:34px;border-radius:999px;border:1px solid rgba(148,163,184,.24);background:#fff;color:var(--ink2);display:grid;place-items:center;font-size:20px;line-height:1;cursor:pointer;transition:border-color .16s ease,background .16s ease,color .16s ease,transform .16s ease}
+.pd-share-close:hover{border-color:rgba(15,118,110,.22);background:rgba(240,253,250,.95);color:var(--A);transform:translateY(-1px)}
+.pd-share-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.pd-share-option{display:grid;justify-items:start;align-content:start;gap:8px;min-height:94px;padding:12px;border-radius:18px;border:1px solid rgba(148,163,184,.18);background:#fff;color:var(--ink);text-align:left;cursor:pointer;transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease,background .16s ease}
+.pd-share-option:hover{border-color:rgba(15,118,110,.24);background:linear-gradient(180deg,#ffffff,#f7fffd);box-shadow:0 12px 24px rgba(15,23,42,.07);transform:translateY(-1px)}
+.pd-share-option:active{transform:translateY(0)}
+.pd-share-badge{min-width:42px;height:30px;padding:0 10px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;letter-spacing:.02em}
+.pd-share-badge[data-share-brand="copy"]{background:#eff6ff;color:#1d4ed8}
+.pd-share-badge[data-share-brand="whatsapp"]{background:#ecfdf5;color:#15803d}
+.pd-share-badge[data-share-brand="instagram"]{background:#fdf2f8;color:#be185d}
+.pd-share-badge[data-share-brand="facebook"]{background:#eff6ff;color:#1d4ed8}
+.pd-share-badge[data-share-brand="x"]{background:#e2e8f0;color:#0f172a}
+.pd-share-badge[data-share-brand="snapchat"]{background:#fef9c3;color:#854d0e}
+.pd-share-badge[data-share-brand="more"]{background:#f0fdfa;color:#0f766e}
+.pd-share-option-label{font-size:13px;font-weight:700;color:var(--ink)}
+.pd-share-option-copy{font-size:11px;line-height:1.45;color:var(--ink3)}
+.pd-share-note{font-size:11px;line-height:1.5;color:var(--ink4)}
 .pd-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:8px}
 .pd-fav-btn{justify-content:center}
 .pd-fav-icon{font-size:16px;line-height:1;color:var(--ink4);transition:color .12s ease,transform .12s ease}
@@ -776,6 +801,8 @@ a{color:inherit;text-decoration:none}
   .pd-close{top:calc(10px + env(safe-area-inset-top,0px));right:10px;width:44px;height:44px;background:rgba(15,23,42,.42);color:#fff}
   .share-row{display:grid;grid-template-columns:1fr;gap:8px}
   .share-row .btn{width:100%;justify-content:center}
+  .pd-share-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pd-share-option{min-height:88px}
   .pd-actions{position:static;background:none;padding:4px 0 calc(6px + env(safe-area-inset-bottom,0px));margin-top:8px}
   .var-row{grid-template-columns:1fr}
 }
@@ -5839,14 +5866,67 @@ select.btn{
       <div id="pdAboutLabel" class="pd-lbl">About this product</div>
       <div id="pdDesc" class="pd-desc"></div>
       <div id="pdAttrWrap" style="display:none"><div id="pdAttrTitle" class="pd-lbl">Details</div><div id="pdAttrList" class="attr-list"></div></div>
-      <div><div class="pd-lbl" style="margin-bottom:4px">Share</div>
-        <div class="share-row"><input id="shareInp" class="share-inp" readonly/><button id="shareBtn" class="btn btn-o btn-sm">Copy</button></div>
-      </div>
       <div class="pd-actions">
         <button id="pdCartBtn" class="btn btn-A">Primary Action</button>
         <button id="pdFavBtn" class="btn btn-o pd-fav-btn"><span class="pd-fav-icon" aria-hidden="true">♡</span><span class="pd-fav-label">Save</span></button>
         <button id="pdChatBtn" class="btn btn-o">Ask Business</button>
+        <button id="pdShareTrigger" class="btn btn-o pd-share-trigger" type="button" aria-label="Share product" title="Share product" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="18" cy="5" r="2.5"></circle>
+            <circle cx="6" cy="12" r="2.5"></circle>
+            <circle cx="18" cy="19" r="2.5"></circle>
+            <path d="M8.3 11 15.7 6.1"></path>
+            <path d="M8.3 13 15.7 17.9"></path>
+          </svg>
+        </button>
         <button id="pdEditBtn" class="btn btn-g btn-sm" style="display:none">Edit</button>
+      </div>
+      <div id="pdSharePanel" class="pd-share-panel" hidden aria-hidden="true">
+        <div class="pd-share-head">
+          <div>
+            <div class="pd-share-kicker">Share</div>
+            <div class="pd-share-title">Send this product</div>
+          </div>
+          <button id="pdShareClose" class="pd-share-close" type="button" aria-label="Close share options">×</button>
+        </div>
+        <div class="pd-share-grid">
+          <button class="pd-share-option" type="button" data-share-action="copy">
+            <span class="pd-share-badge" data-share-brand="copy">Link</span>
+            <span class="pd-share-option-label">Copy link</span>
+            <span class="pd-share-option-copy">Save the product link to your clipboard.</span>
+          </button>
+          <button class="pd-share-option" type="button" data-share-action="whatsapp">
+            <span class="pd-share-badge" data-share-brand="whatsapp">WA</span>
+            <span class="pd-share-option-label">WhatsApp</span>
+            <span class="pd-share-option-copy">Send straight into a WhatsApp message.</span>
+          </button>
+          <button class="pd-share-option" type="button" data-share-action="instagram">
+            <span class="pd-share-badge" data-share-brand="instagram">IG</span>
+            <span class="pd-share-option-label">Instagram</span>
+            <span class="pd-share-option-copy">Use your device share menu when available.</span>
+          </button>
+          <button class="pd-share-option" type="button" data-share-action="facebook">
+            <span class="pd-share-badge" data-share-brand="facebook">FB</span>
+            <span class="pd-share-option-label">Facebook</span>
+            <span class="pd-share-option-copy">Open a Facebook share post with the link.</span>
+          </button>
+          <button class="pd-share-option" type="button" data-share-action="x">
+            <span class="pd-share-badge" data-share-brand="x">X</span>
+            <span class="pd-share-option-label">X</span>
+            <span class="pd-share-option-copy">Start a post with the product link.</span>
+          </button>
+          <button class="pd-share-option" type="button" data-share-action="snapchat">
+            <span class="pd-share-badge" data-share-brand="snapchat">SC</span>
+            <span class="pd-share-option-label">Snapchat</span>
+            <span class="pd-share-option-copy">Use your device share menu when available.</span>
+          </button>
+          <button class="pd-share-option" type="button" data-share-action="more">
+            <span class="pd-share-badge" data-share-brand="more">Apps</span>
+            <span class="pd-share-option-label">More apps</span>
+            <span class="pd-share-option-copy">Open the system share menu for other apps.</span>
+          </button>
+        </div>
+        <div class="pd-share-note">Instagram and Snapchat web sharing depends on your device share menu. When that is unavailable, the link is copied instead.</div>
       </div>
       <hr class="pd-hr"/>
       <div class="pd-lbl">Customer Reviews</div>
@@ -6111,6 +6191,10 @@ const App = {
   productVariantDraft: [],
   productVariantMatrixDraft: [],
   pdReviewRequestKey: '',
+  pdShareOpen: false,
+  pdShareUrl: '',
+  pdShareTitle: '',
+  pdShareText: '',
   pdVariantSelection: {},
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
   mapSupport: null,
@@ -11016,6 +11100,103 @@ function refreshVisibleProductCards(productId=''){
 /* ═════════════════════════════════════════════
    PAGINATION
 ═════════════════════════════════════════════ */
+function setProductSharePanel(open=false){
+  const active=!!open;
+  App.pdShareOpen=active;
+  const panel=$('pdSharePanel');
+  const trigger=$('pdShareTrigger');
+  if(panel){
+    panel.hidden=!active;
+    panel.classList.toggle('on',active);
+    panel.setAttribute('aria-hidden',active?'false':'true');
+  }
+  if(trigger) trigger.setAttribute('aria-expanded',active?'true':'false');
+}
+async function copyTextValue(text=''){
+  const value=String(text||'').trim();
+  if(!value) return false;
+  try{
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  }catch{}
+  const input=document.createElement('textarea');
+  input.value=value;
+  input.setAttribute('readonly','readonly');
+  input.style.position='fixed';
+  input.style.opacity='0';
+  input.style.pointerEvents='none';
+  document.body.appendChild(input);
+  input.focus();
+  input.select();
+  input.setSelectionRange(0,input.value.length);
+  let ok=false;
+  try{
+    ok=document.execCommand('copy');
+  }catch{}
+  input.remove();
+  return ok;
+}
+function currentProductSharePayload(){
+  const url=String(App.pdShareUrl||'').trim();
+  const title=String(App.pdShareTitle||App.curProd?.name||'').trim();
+  const text=String(App.pdShareText||title||url).trim();
+  return {url,title,text};
+}
+function canUseNativeShare(){
+  return typeof navigator!=='undefined' && typeof navigator.share==='function';
+}
+async function openNativeProductShare(){
+  const payload=currentProductSharePayload();
+  if(!payload.url || !canUseNativeShare()) return {ok:false,unsupported:true};
+  try{
+    await navigator.share({title:payload.title,text:payload.text,url:payload.url});
+    return {ok:true};
+  }catch(err){
+    if(err?.name==='AbortError') return {ok:true,aborted:true};
+    return {ok:false,error:err};
+  }
+}
+function productShareTargetUrl(action,payload){
+  const url=encodeURIComponent(payload.url||'');
+  const text=encodeURIComponent(payload.text||payload.title||payload.url||'');
+  if(!url) return '';
+  if(action==='whatsapp') return `https://wa.me/?text=${text}`;
+  if(action==='facebook') return `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+  if(action==='x') return `https://twitter.com/intent/tweet?url=${url}&text=${text}`;
+  return '';
+}
+async function handleProductShareAction(action='copy'){
+  const payload=currentProductSharePayload();
+  if(!payload.url) return;
+  if(action==='copy'){
+    const copied=await copyTextValue(payload.url);
+    toast(copied?'Link copied':'Unable to copy link',copied?'':'Copying is blocked in this browser.',copied?'':'err');
+    setProductSharePanel(false);
+    return;
+  }
+  if(action==='instagram' || action==='snapchat' || action==='more'){
+    const result=await openNativeProductShare();
+    if(result.ok){
+      if(!result.aborted) setProductSharePanel(false);
+      return;
+    }
+    const copied=await copyTextValue(payload.url);
+    const label=action==='more'?'Share menu':action==='instagram'?'Instagram':'Snapchat';
+    toast(
+      copied?`${label} is not available here. Link copied.`:`${label} is not available here.`,
+      copied?'Open the target app and paste the link.':'Use a supported mobile browser or copy the link manually.',
+      copied?'':'err'
+    );
+    setProductSharePanel(false);
+    return;
+  }
+  const href=productShareTargetUrl(action,payload);
+  if(!href) return;
+  window.open(href,'_blank','noopener,noreferrer');
+  setProductSharePanel(false);
+}
 function buildPagination(container,pagination,onPageClick){
   container.innerHTML='';
   if(!pagination||pagination.pages<=1)return;
@@ -11490,8 +11671,17 @@ async function openPD(p,mode,sid,sname){
   }
 
   const url=`${location.origin}${buildProductPublicPath(shopRef,productRef)}`;
-  $('shareInp').value=url;
-  $('shareBtn').onclick=()=>navigator.clipboard.writeText(url).then(()=>toast('Link copied!'));
+  const shareBusinessName=(App.curSname||shop?.name||'').trim();
+  const shareTitle=(p.name||ctx.meta.singular||'Product').trim();
+  const shareEntityLabel=(ctx.meta?.singular||'item').trim().toLowerCase();
+  App.pdShareUrl=url;
+  App.pdShareTitle=shareBusinessName ? `${shareTitle} from ${shareBusinessName}` : shareTitle;
+  App.pdShareText=shareBusinessName ? `Check out ${shareTitle} from ${shareBusinessName}` : `Check out ${shareTitle}`;
+  $('pdShareTrigger').setAttribute('aria-label',`Share this ${shareEntityLabel}`);
+  $('pdShareTrigger').title=`Share this ${shareEntityLabel}`;
+  const sharePanelTitle=$('pdSharePanel')?.querySelector('.pd-share-title');
+  if(sharePanelTitle) sharePanelTitle.textContent=`Share this ${shareEntityLabel}`;
+  setProductSharePanel(false);
   const primaryActionBtn=$('pdCartBtn');
   primaryActionBtn.hidden=false;
   primaryActionBtn.dataset.cartAction=ctx.inventory?'cart':'chat';
@@ -11599,13 +11789,42 @@ async function submitReview(){
     await loadPDReviews(App.pdReviewRequestKey);
   }catch(e){setS('revStatus',e.message,'err');}
 }
-function closePD(){pdGalleryRefresh=null;App.pdReviewRequestKey='';App.pdGalleryImages=[];App.pdGalleryIndex=0;$('pdBg').classList.remove('on');if(location.pathname.startsWith('/offering/')||location.pathname.startsWith('/product/')){const shopRef=App.shopData?.shop?.shop_slug||App.curSid||App.shopId;if(shopRef) setPublicPath(buildShopPublicPath(shopRef),true);}document.body.style.overflow='';}
+function closePD(){pdGalleryRefresh=null;App.pdReviewRequestKey='';App.pdGalleryImages=[];App.pdGalleryIndex=0;App.pdShareUrl='';App.pdShareTitle='';App.pdShareText='';setProductSharePanel(false);$('pdBg').classList.remove('on');if(location.pathname.startsWith('/offering/')||location.pathname.startsWith('/product/')){const shopRef=App.shopData?.shop?.shop_slug||App.curSid||App.shopId;if(shopRef) setPublicPath(buildShopPublicPath(shopRef),true);}document.body.style.overflow='';}
 $('pdClose').addEventListener('click',closePD);
 $('pdBg').addEventListener('click',e=>{if(e.target===$('pdBg'))closePD();});
+$('pdShareTrigger').addEventListener('click',e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  if(!App.pdShareUrl) return;
+  setProductSharePanel(!App.pdShareOpen);
+});
+$('pdShareClose').addEventListener('click',e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  setProductSharePanel(false);
+});
+$('pdSharePanel').querySelectorAll('[data-share-action]').forEach(btn=>{
+  btn.addEventListener('click',async e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    await handleProductShareAction(btn.dataset.shareAction||'copy');
+  });
+});
+document.addEventListener('click',e=>{
+  if(!App.pdShareOpen) return;
+  const panel=$('pdSharePanel');
+  const trigger=$('pdShareTrigger');
+  if(panel?.contains(e.target) || trigger?.contains(e.target)) return;
+  setProductSharePanel(false);
+});
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if($('lboxBg')?.classList.contains('on')){
       closeLbox();
+      return;
+    }
+    if(App.pdShareOpen){
+      setProductSharePanel(false);
       return;
     }
     closePD();
