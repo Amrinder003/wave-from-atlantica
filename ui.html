@@ -4253,6 +4253,10 @@ select.btn{
   border-color:#b9d6cd!important;
   color:var(--A2)!important;
 }
+#pdBg .pd-box{
+  overflow:auto!important;
+  overflow-x:hidden!important;
+}
 #pdBg .pd-hr{
   border-color:var(--bd)!important;
 }
@@ -4266,6 +4270,35 @@ select.btn{
 }
 #pdBg .pd-fav-btn.saved .pd-fav-icon{
   color:var(--R)!important;
+}
+@media(max-width:600px){
+  #pdBg{
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    align-items:stretch!important;
+  }
+  #pdBg .pd-box{
+    display:block!important;
+    width:100%!important;
+    min-height:100dvh!important;
+    height:auto!important;
+    max-height:none!important;
+    overflow:visible!important;
+    border-radius:0!important;
+  }
+  #pdBg .pd-gallery{
+    display:block!important;
+    overflow:visible!important;
+    position:relative!important;
+    z-index:0!important;
+  }
+  #pdBg .pd-info{
+    position:relative!important;
+    z-index:1!important;
+    overflow:visible!important;
+    min-height:auto!important;
+    padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px))!important;
+  }
 }
 
 /* Location permission prompt should match the current light modal system, not
