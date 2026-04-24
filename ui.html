@@ -4254,6 +4254,82 @@ select.btn{
   color:var(--A2)!important;
 }
 
+/* Final owner/admin/modal polish: a few late dark-theme selectors were still
+   winning for snapshot state, analytics cards, and some management labels. */
+#shopSnapshotBtn.on{
+  background:var(--A)!important;
+  border-color:var(--A)!important;
+  color:#fff!important;
+  box-shadow:0 10px 22px rgba(15,118,110,.18)!important;
+}
+#shopSnapshotModal .shop-snapshot-box,
+#shopSnapshotModal .shop-side-stat{
+  background:#fff!important;
+  border-color:var(--bd)!important;
+  color:var(--ink)!important;
+  box-shadow:var(--s1)!important;
+}
+#shopSnapshotModal .shop-snapshot-kicker,
+#shopSnapshotModal .shop-side-stat-k{
+  color:var(--A2)!important;
+}
+#shopSnapshotModal .shop-snapshot-title,
+#shopSnapshotModal .shop-side-stat-v{
+  color:var(--ink)!important;
+}
+#shopSnapshotModal .shop-snapshot-close{
+  background:#fff!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink2)!important;
+  box-shadow:var(--s1)!important;
+}
+#shopSnapshotModal .shop-snapshot-close:hover{
+  background:#f4f7f5!important;
+  border-color:#b9d6cd!important;
+  color:var(--A2)!important;
+}
+#pg-admin .an-card{
+  background:#fff!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink)!important;
+  box-shadow:var(--s1)!important;
+}
+#pg-admin .an-val,
+#pg-admin .admin-pc-link{
+  color:var(--A2)!important;
+}
+#pg-admin .an-lbl{
+  color:var(--ink3)!important;
+}
+#cartBg .cart-panel,
+#cartBg .cart-head,
+#cartBg .cart-foot,
+#cartBg .ci{
+  background:#fff!important;
+  border-color:var(--bd)!important;
+  color:var(--ink)!important;
+}
+#cartBg .ci-img,
+#cartBg .ci-ph,
+#cartBg .qbtn{
+  background:#f8faf8!important;
+  border-color:var(--bd)!important;
+  color:var(--ink2)!important;
+}
+#cartBg .qbtn:hover{
+  background:#eef7f4!important;
+  border-color:#b9d6cd!important;
+  color:var(--A2)!important;
+}
+#cartBg .cart-empty,
+#cartBg .ci-meta,
+#cartBg #cartFulfillmentNote{
+  color:var(--ink3)!important;
+}
+#pg-chat .chat-side-grab{
+  background:#d4e6de!important;
+}
+
 /* Business creation page should stay on the current light admin system even
    if older setup-form rules still exist elsewhere in the stylesheet. */
 #shopFormView .card,
@@ -5886,6 +5962,7 @@ const App = {
   shopSort: '',
   shopStock: '',
   shopSearchQuery: '',
+  shopCatalogRequestKey: '',
   allShops: [],
   cart: JSON.parse(localStorage.getItem('lm_cart') || '[]'),
   user: null,
@@ -5912,6 +5989,7 @@ const App = {
   shopProfileImageRemoved: false,
   productVariantDraft: [],
   productVariantMatrixDraft: [],
+  pdReviewRequestKey: '',
   pdVariantSelection: {},
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
   mapSupport: null,
@@ -11093,15 +11171,21 @@ async function openPD(p,mode,sid,sname){
   if(mode==='admin'){eb.style.display='';eb.onclick=()=>{closePD();loadProdIntoEditor(p);};}
   else{eb.style.display='none';}
 
-  await loadPDReviews();
   renderRevForm();
-
+  const reviewKey=`${App.curSid}:${App.curProd?.offering_id||App.curProd?.product_id||''}`;
+  App.pdReviewRequestKey=reviewKey;
+  $('pdStarsDisp').innerHTML=starsHtml(0);
+  $('pdRevCt').textContent='Loading reviews...';
+  $('pdRevList').innerHTML=`<div style="font-size:13px;color:var(--ink3)">Loading reviews...</div>`;
   $('pdBg').classList.add('on');document.body.style.overflow='hidden';
+  loadPDReviews(reviewKey).catch(()=>{});
 }
-async function loadPDReviews(){
+async function loadPDReviews(expectedKey=''){
   if(!App.curProd)return;
+  const requestKey=expectedKey || `${App.curSid}:${App.curProd.offering_id||App.curProd.product_id||''}`;
   try{
     const d=await api(`/public/reviews/${encodeURIComponent(App.curSid)}/${encodeURIComponent(App.curProd.offering_id||App.curProd.product_id)}`);
+    if(App.pdReviewRequestKey!==requestKey) return;
     const revs=d.reviews||[];
     const avg=revs.length?revs.reduce((s,r)=>s+r.rating,0)/revs.length:0;
     $('pdStarsDisp').innerHTML=starsHtml(avg);
@@ -11109,7 +11193,12 @@ async function loadPDReviews(){
     const list=$('pdRevList');list.innerHTML='';
     if(!revs.length){list.innerHTML=`<div style="font-size:13px;color:var(--ink3)">No reviews yet.</div>`;return;}
     revs.forEach(r=>{const el=document.createElement('div');el.className='rev-card';el.innerHTML=`<div class="rev-head"><span class="rev-author">${esc(r.author)}</span><span class="rev-date">${formatDate(r.created_at)}</span></div><div class="stars-row" style="margin-bottom:3px">${starsHtml(r.rating)}</div><div class="rev-body">${esc(r.body)}</div>`;list.appendChild(el);});
-  }catch{}
+  }catch{
+    if(App.pdReviewRequestKey!==requestKey) return;
+    $('pdStarsDisp').innerHTML=starsHtml(0);
+    $('pdRevCt').textContent='Reviews unavailable';
+    $('pdRevList').innerHTML=`<div style="font-size:13px;color:var(--ink3)">Reviews are temporarily unavailable.</div>`;
+  }
 }
 function renderRevForm(){
   const form=$('pdRevForm');
@@ -11150,10 +11239,10 @@ async function submitReview(){
     setS('revStatus','Review submitted ✓','ok');
     toast('Review submitted ✓');
     App.pdStar=0;
-    await loadPDReviews();
+    await loadPDReviews(App.pdReviewRequestKey);
   }catch(e){setS('revStatus',e.message,'err');}
 }
-function closePD(){$('pdBg').classList.remove('on');if(location.pathname.startsWith('/offering/')||location.pathname.startsWith('/product/')){const shopRef=App.shopData?.shop?.shop_slug||App.curSid||App.shopId;if(shopRef) setPublicPath(buildShopPublicPath(shopRef),true);}document.body.style.overflow='';}
+function closePD(){App.pdReviewRequestKey='';$('pdBg').classList.remove('on');if(location.pathname.startsWith('/offering/')||location.pathname.startsWith('/product/')){const shopRef=App.shopData?.shop?.shop_slug||App.curSid||App.shopId;if(shopRef) setPublicPath(buildShopPublicPath(shopRef),true);}document.body.style.overflow='';}
 $('pdClose').addEventListener('click',closePD);
 $('pdBg').addEventListener('click',e=>{if(e.target===$('pdBg'))closePD();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePD();closeCart();closeMapSheet();setShopSnapshotModal(false);}});
@@ -11458,6 +11547,8 @@ function renderShopLoadError(message='Business is temporarily unavailable.'){
 async function openShopPage(shopId,page=1,sort='',stock='',opts={}){
   const preserveSearch=!!opts?.preserveSearch;
   const changedShop=App.shopId!==shopId;
+  const requestKey=`shop:${shopId}:${page}:${sort||''}:${stock||''}:${Date.now()}`;
+  App.shopCatalogRequestKey=requestKey;
   if(changedShop) App.shopAttrFilter={key:'',value:''};
   if(changedShop || !preserveSearch) App.shopSearchQuery='';
   App.shopId=shopId;App.shopPage=page;App.shopSort=sort||'';App.shopStock=stock||'';App.shopData=null;save();
@@ -11483,6 +11574,7 @@ async function openShopPage(shopId,page=1,sort='',stock='',opts={}){
     if(App.shopAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.shopAttrFilter.key)}`);
     if(App.shopAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.shopAttrFilter.value)}`);
     const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(shopId)}?page=${page}&sort=${sort}&stock=${stock}${attrParams.length?`&${attrParams.join('&')}`:''}`),{auth:!!tok()}));
+    if(App.shopCatalogRequestKey!==requestKey) return;
     assertPublicBrowseOk(d,'Business is temporarily unavailable.');
     App.shopData=d;
     const activeShopRef=d.shop_slug||d.shop_id||shopId;
@@ -11552,6 +11644,7 @@ async function openShopPage(shopId,page=1,sort='',stock='',opts={}){
     renderChatPromptList(visibleQuestions);
     renderChatFacts(s,st,d.pagination?.total ?? products.length ?? 0);
   }catch(e){
+    if(App.shopCatalogRequestKey!==requestKey) return;
     renderShopLoadError(e.message);
     toast('Failed to load business',e.message,'err');
   }
@@ -11592,6 +11685,8 @@ async function loadShopSearchPage(q,page=1,sort=App.shopSort||'',stock=App.shopS
     await openShopPage(App.shopId,1,sort,stock);
     return;
   }
+  const requestKey=`shop-search:${App.shopId}:${query}:${page}:${sort||''}:${stock||''}:${Date.now()}`;
+  App.shopCatalogRequestKey=requestKey;
   App.shopSearchQuery=query;
   App.shopPage=page;
   App.shopSort=sort||'';
@@ -11606,13 +11701,22 @@ async function loadShopSearchPage(q,page=1,sort=App.shopSort||'',stock=App.shopS
   const attrParams=[];
   if(App.shopAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.shopAttrFilter.key)}`);
   if(App.shopAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.shopAttrFilter.value)}`);
-  const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business-search?business_id=${encodeURIComponent(App.shopId)}&q=${encodeURIComponent(query)}&page=${page}&limit=40&sort=${encodeURIComponent(App.shopSort)}&stock=${encodeURIComponent(App.shopStock)}${attrParams.length?`&${attrParams.join('&')}`:''}`),{auth:!!tok()}));
-  assertPublicBrowseOk(d,'Business search is temporarily unavailable.');
-  const results=applyFavouriteStateToProducts(d.results||[]);
-  const attrActive=App.shopAttrFilter?.value ? ` matching ${App.shopAttrFilter.value}` : '';
-  $('shopProdCount').textContent=`${d.total||0} results for "${query}"${attrActive}`;
-  fillGrid($('shopProdGrid'),results,{mode:'browse',showShop:false});
-  buildPagination($('shopPagination'),d.pagination,p=>loadShopSearchPage(query,p,App.shopSort,App.shopStock));
+  try{
+    const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business-search?business_id=${encodeURIComponent(App.shopId)}&q=${encodeURIComponent(query)}&page=${page}&limit=40&sort=${encodeURIComponent(App.shopSort)}&stock=${encodeURIComponent(App.shopStock)}${attrParams.length?`&${attrParams.join('&')}`:''}`),{auth:!!tok()}));
+    if(App.shopCatalogRequestKey!==requestKey) return;
+    assertPublicBrowseOk(d,'Business search is temporarily unavailable.');
+    const results=applyFavouriteStateToProducts(d.results||[]);
+    const attrActive=App.shopAttrFilter?.value ? ` matching ${App.shopAttrFilter.value}` : '';
+    $('shopProdCount').textContent=`${d.total||0} results for "${query}"${attrActive}`;
+    fillGrid($('shopProdGrid'),results,{mode:'browse',showShop:false});
+    buildPagination($('shopPagination'),d.pagination,p=>loadShopSearchPage(query,p,App.shopSort,App.shopStock));
+  }catch(e){
+    if(App.shopCatalogRequestKey!==requestKey) return;
+    $('shopProdCount').textContent='Search unavailable';
+    $('shopProdGrid').innerHTML=`<div class="empty"><div class="ei">Warning</div><div class="et">${esc(e.message||'Business search is temporarily unavailable.')}</div></div>`;
+    $('shopPagination').innerHTML='';
+    throw e;
+  }
 }
 async function doShopSearch(){
   const q=currentShopSearchQuery();
@@ -13014,19 +13118,31 @@ async function handlePathDeepLink(source='init'){
     return;
   }
   try{
+    if(productRef){
+      const pd=normalizeCatalogPayload(await api(withViewerCurrency(`/public/offering/${encodeURIComponent(shopRef)}/${encodeURIComponent(productRef)}`),{auth:!!tok()}));
+      assertPublicBrowseOk(pd,'Offering is temporarily unavailable.');
+      const p=(pd.products||[])[0];
+      if(p){
+        const effectiveShopRef=pd.shop_slug||pd.shop_id||shopRef;
+        App.shopId=effectiveShopRef;
+        App.shopData={
+          ...pd,
+          products:[p],
+          offerings:[p],
+          pagination:pd.pagination||{page:1,page_size:1,pages:1,total:1,has_prev:false,has_next:false},
+        };
+        save();
+        showPage('shop');
+        openPD(p,'browse',pd.shop_id||effectiveShopRef,pd.shop?.name);
+        openShopPage(effectiveShopRef).catch(()=>{});
+        return;
+      }
+    }
     const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(shopRef)}`),{auth:!!tok()}));
     assertPublicBrowseOk(d,'Business is temporarily unavailable.');
     App.shopId=d.shop_slug||d.shop_id||shopRef;
     App.shopData=d;
     save();
-    if(productRef){
-      const p=(d.products||[]).find(x=>x.product_id===productRef || x.product_slug===productRef);
-      if(p){
-        showPage('shop');
-        openPD(p,'browse',d.shop_id||shopRef,d.shop?.name);
-        return;
-      }
-    }
     await openShopPage(d.shop_slug||d.shop_id||shopRef);
   }catch{
     if(shopRef) await openShopPage(shopRef);
