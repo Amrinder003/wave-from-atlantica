@@ -4281,6 +4281,39 @@ select.btn{
 #pdBg .star.on{
   color:var(--A)!important;
 }
+#pdBg .rev-form{
+  gap:12px!important;
+}
+#pdBg .rev-form .stxt:not(:empty){
+  display:block!important;
+  padding:10px 12px!important;
+  border-radius:14px!important;
+  background:#f8fafc!important;
+  border:1px solid rgba(221,208,187,.72)!important;
+  color:var(--ink3)!important;
+  line-height:1.5!important;
+}
+#pdBg .rev-form .stxt.pending:not(:empty){
+  background:rgba(15,118,110,.08)!important;
+  border-color:rgba(15,118,110,.18)!important;
+  color:var(--A2)!important;
+}
+#pdBg .rev-form .stxt.ok:not(:empty){
+  background:rgba(16,185,129,.1)!important;
+  border-color:rgba(16,185,129,.2)!important;
+  color:var(--G)!important;
+}
+#pdBg .rev-form .stxt.err:not(:empty){
+  background:rgba(225,29,72,.08)!important;
+  border-color:rgba(225,29,72,.16)!important;
+  color:var(--R)!important;
+}
+#pdBg #submitRevBtn{
+  min-height:44px!important;
+}
+#pdBg #submitRevBtn:disabled{
+  opacity:.62!important;
+}
 #pdBg .pd-close{
   background:#fff!important;
   border:1px solid var(--bd)!important;
@@ -12051,17 +12084,40 @@ function setupSpicker(){
     s.addEventListener('click',()=>{App.pdStar=+s.dataset.v;sp.forEach(x=>x.classList.toggle('on',+x.dataset.v<=App.pdStar));});
   });
 }
+function syncReviewStarPicker(){
+  document.querySelectorAll('#spicker span').forEach(x=>x.classList.toggle('on',+x.dataset.v<=App.pdStar));
+}
+function resetReviewComposer(){
+  App.pdStar=0;
+  if($('revText')) $('revText').value='';
+  syncReviewStarPicker();
+}
+function setReviewSubmitState(submitting=false){
+  const btn=$('submitRevBtn');
+  const text=$('revText');
+  if(btn){
+    btn.disabled=!!submitting;
+    btn.textContent=submitting?'Submitting...':'Submit Review';
+  }
+  if(text) text.disabled=!!submitting;
+  document.querySelectorAll('#spicker span').forEach(star=>{
+    star.style.pointerEvents=submitting?'none':'';
+    star.style.opacity=submitting?'.7':'';
+  });
+}
 async function submitReview(){
   if(!App.pdStar)return toast('Pick a rating','','err');
   const text=$('revText')?.value.trim();if(!text)return toast('Write a comment','','err');
   try{
-    setS('revStatus','Submitting…');
+    setReviewSubmitState(true);
+    setS('revStatus','Submitting...','pending');
     await api(`/customer/review/${encodeURIComponent(App.curSid)}/${encodeURIComponent(App.curProd.offering_id||App.curProd.product_id)}`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({rating:App.pdStar,body:text})});
-    setS('revStatus','Review submitted ✓','ok');
-    toast('Review submitted ✓');
-    App.pdStar=0;
+    resetReviewComposer();
+    setS('revStatus','Review submitted.','ok');
+    toast('Review submitted');
     await loadPDReviews(App.pdReviewRequestKey);
   }catch(e){setS('revStatus',e.message,'err');}
+  finally{setReviewSubmitState(false);}
 }
 function closePD(){pdGalleryRefresh=null;App.pdReviewRequestKey='';App.pdGalleryImages=[];App.pdGalleryIndex=0;App.pdShareUrl='';App.pdShareTitle='';App.pdShareText='';setProductSharePanel(false);$('pdBg').classList.remove('on');if(location.pathname.startsWith('/offering/')||location.pathname.startsWith('/product/')){const shopRef=App.shopData?.shop?.shop_slug||App.curSid||App.shopId;if(shopRef) setPublicPath(buildShopPublicPath(shopRef),true);}document.body.style.overflow='';}
 $('pdClose').addEventListener('click',closePD);
