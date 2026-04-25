@@ -1031,8 +1031,10 @@ a{color:inherit;text-decoration:none}
   .chat-side-card{padding:15px;border-radius:22px}
   .chat-prompt{padding:12px 13px;font-size:13px}
   .chat-side-fact{padding:11px 12px}
-  #pg-chat.mobile-side-on .chat-side-scrim{opacity:1;pointer-events:auto}
-  #pg-chat.mobile-side-on .chat-side{transform:translateY(0)}
+  #pg-chat.mobile-side-on .chat-side-scrim,
+  .chat-side-scrim.on{opacity:1;pointer-events:auto}
+  #pg-chat.mobile-side-on .chat-side,
+  .chat-side.mobile-side-on{transform:translateY(0)}
 }
 
 /* ── ADMIN ── */
@@ -9080,9 +9082,10 @@ function defaultOwnerFilters(){
 function syncOverlayBodyLock(){
   const homeFiltersOpen=isMobileHomeLayout() && !!$('shopFiltersPanel')?.classList.contains('on');
   const shopSheetOpen=isMobileShopLayout() && !!$('pg-shop')?.classList.contains('mobile-sheet-on');
+  const chatSideOpen=isMobileChat() && !!$('chatSideScrim')?.classList.contains('on');
   const snapshotOpen=!!$('shopSnapshotModal')?.classList.contains('on');
   const modalOpen=['pdBg','cartBg','authBg','orderBg','trackReqBg','profileBg'].some(id=>$(id)?.classList.contains('on'));
-  document.body.style.overflow=(homeFiltersOpen || shopSheetOpen || snapshotOpen || modalOpen) ? 'hidden' : '';
+  document.body.style.overflow=(homeFiltersOpen || shopSheetOpen || chatSideOpen || snapshotOpen || modalOpen) ? 'hidden' : '';
 }
 function applyBrowseCountryLock(){
   const select=$('shopFilterCountry');
@@ -10315,6 +10318,7 @@ async function refreshBrowserSession(base=resolveSrv(App.srv)){
 ═════════════════════════════════════════════ */
 function showPage(pg){
   if(pg==='shop') syncShopSidebarPlacement();
+  if(pg==='chat') syncChatSidePlacement();
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('show',p.id===`pg-${pg}`));
   if(pg!=='chat') setChatMobileSide(false);
   if(pg!=='shop') setShopMobileSheet('',false);
@@ -10406,6 +10410,20 @@ function syncShopSidebarPlacement(){
   }
   if(scrim?.parentElement!==page) page.insertBefore(scrim, body);
   if(sidebar.parentElement!==body) body.insertBefore(sidebar, body.firstElementChild||null);
+}
+function syncChatSidePlacement(){
+  const page=$('pg-chat');
+  const layout=page?.querySelector('.chat-layout');
+  const side=layout?.querySelector('.chat-side') || document.body.querySelector('.chat-side');
+  const scrim=$('chatSideScrim');
+  if(!page || !layout || !side || !scrim) return;
+  if(isMobileChat()){
+    if(scrim.parentElement!==document.body) document.body.appendChild(scrim);
+    if(side.parentElement!==document.body) document.body.appendChild(side);
+    return;
+  }
+  if(scrim.parentElement!==layout) layout.appendChild(scrim);
+  if(side.parentElement!==layout) layout.appendChild(side);
 }
 function setShopMobileSheet(mode='info',open=true){
   const page=$('pg-shop');
@@ -12930,10 +12948,17 @@ function isMobileChat(){return window.matchMedia('(max-width: 920px)').matches;}
 function setChatMobileSide(open){
   const page=$('pg-chat');
   if(!page) return;
+  syncChatSidePlacement();
+  const side=document.body.querySelector('.chat-side') || page.querySelector('.chat-side');
+  const scrim=$('chatSideScrim');
   const active=!!open && isMobileChat();
   page.classList.toggle('mobile-side-on',active);
+  side?.classList.toggle('mobile-side-on',active);
+  scrim?.classList.toggle('on',active);
   if($('chatInfoBtn')) $('chatInfoBtn').textContent=active?'Back to Chat':'Business Info';
-  if(active) document.querySelector('.chat-side')?.scrollTo?.({top:0,behavior:'smooth'});
+  if(active) side?.scrollTo?.({top:0,behavior:'smooth'});
+  if(!active) syncChatSidePlacement();
+  syncOverlayBodyLock();
 }
 function autoSizeChatInput(){
   const el=$('chatIn');
@@ -12984,6 +13009,7 @@ $('clearChatBtn').addEventListener('click',()=>{
    ADMIN
 ═════════════════════════════════════════════ */
 window.addEventListener('resize',()=>{
+  syncChatSidePlacement();
   if(!isMobileChat()) setChatMobileSide(false);
   if(!isMobileShopLayout()) setShopMobileSheet('',false);
   if(!isMobileShopLayout()) setShopSnapshotModal(false);
