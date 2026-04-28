@@ -172,6 +172,11 @@ SMTP_PASSWORD     = os.environ.get("SMTP_PASSWORD", "").strip()
 SMTP_FROM_EMAIL   = os.environ.get("SMTP_FROM_EMAIL", "").strip()
 SMTP_FROM_NAME    = os.environ.get("SMTP_FROM_NAME", "Atlantic Ordinate").strip()
 SMTP_USE_TLS      = os.environ.get("SMTP_USE_TLS", "true").strip().lower() not in {"0", "false", "no"}
+REVIEW_NOTIFICATION_EMAILS = [
+    re.sub(r"\s+", "", item).strip().lower()
+    for item in os.environ.get("REVIEW_NOTIFICATION_EMAILS", "").split(",")
+    if re.sub(r"\s+", "", item).strip()
+]
 AUTH_ACCESS_COOKIE = os.environ.get("AUTH_ACCESS_COOKIE", "wave_at").strip() or "wave_at"
 AUTH_REFRESH_COOKIE = os.environ.get("AUTH_REFRESH_COOKIE", "wave_rt").strip() or "wave_rt"
 AUTH_CSRF_COOKIE = os.environ.get("AUTH_CSRF_COOKIE", "wave_csrf").strip() or "wave_csrf"
@@ -1464,6 +1469,25 @@ def send_email_message(to_email: str, subject: str, text_body: str) -> bool:
     except Exception as e:
         print(f"[Notification Warning] Email send failed for {recipient}: {e}")
         return False
+
+def review_notification_recipients() -> List[str]:
+    seen: set = set()
+    recipients: List[str] = []
+    for email in REVIEW_NOTIFICATION_EMAILS:
+        cleaned = clean_email(email)
+        if not cleaned or cleaned in seen:
+            continue
+        seen.add(cleaned)
+        recipients.append(cleaned)
+    return recipients
+
+def send_review_notification(subject: str, lines: List[str]) -> int:
+    sent = 0
+    body = "\n".join([str(line or "") for line in lines if str(line or "").strip()])
+    for email in review_notification_recipients():
+        if send_email_message(email, subject, body):
+            sent += 1
+    return sent
 
 def request_track_payload(request_id: str, phone: str) -> str:
     rid = str(request_id or "").strip()
@@ -5383,6 +5407,25 @@ def admin_submit_shop_for_review(shop_id: str, authorization: Optional[str] = He
     payload, unsupported_cols = shop_write_payload_with_fallback(shop_id, payload, True, SHOP_REVIEW_WRITE_COLUMNS)
     if unsupported_cols:
         print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
+    try:
+        send_review_notification(
+            f"Business review needed: {shop.get('name', 'Business')}",
+            [
+                "A business was submitted for review in Atlantic Ordinate.",
+                "",
+                f"Business: {shop.get('name', 'Business')}",
+                f"Business ID: {shop_id}",
+                f"Owner contact: {shop.get('owner_contact_name', '') or 'Not provided'}",
+                f"Phone: {shop.get('phone', '') or shop.get('whatsapp', '') or 'Not provided'}",
+                f"Location: {shop.get('formatted_address', '') or shop.get('service_area', '') or shop.get('address', '') or 'Not provided'}",
+                f"Verification path: {shop.get('verification_method', '') or 'Not provided'}",
+                f"Verification note: {shop.get('verification_evidence', '') or 'Not provided'}",
+                "",
+                f"Review in app: {app_route_url('/ui')}",
+            ],
+        )
+    except Exception as notify_err:
+        print(f"[Review Notification Warning] Business review email failed for {shop_id}: {notify_err}")
     return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_PENDING_REVIEW, "verification_submitted_at": now_iso}
 
 @app.post("/admin/business/{shop_id}/move-to-draft")
@@ -5511,6 +5554,25 @@ def admin_create_business_claim(shop_id: str, body: BusinessClaimReq, authorizat
         "created_at": now_iso,
         "updated_at": now_iso,
     }).execute()
+    try:
+        send_review_notification(
+            f"Ownership claim review needed: {shop.get('name', 'Business')}",
+            [
+                "A business ownership claim was submitted in Atlantic Ordinate.",
+                "",
+                f"Business: {shop.get('name', 'Business')}",
+                f"Business ID: {shop_id}",
+                f"Claim ID: {claim_id}",
+                f"Claimant: {display_name or 'Unknown'}",
+                f"Claimant email: {str(getattr(user, 'email', '') or '').strip() or 'Not provided'}",
+                f"Location: {shop.get('formatted_address', '') or shop.get('service_area', '') or shop.get('address', '') or 'Not provided'}",
+                f"Claim note: {note}",
+                "",
+                f"Review in app: {app_route_url('/ui')}",
+            ],
+        )
+    except Exception as notify_err:
+        print(f"[Review Notification Warning] Claim review email failed for {claim_id}: {notify_err}")
     return {"ok": True, "claim_id": claim_id, "shop_id": shop_id, "business_id": shop_id, "status": CLAIM_STATUS_PENDING}
 
 @app.get("/admin/my-business-claims")

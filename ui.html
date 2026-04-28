@@ -1094,6 +1094,7 @@ a{color:inherit;text-decoration:none}
 .anav-btn.logout:hover{background:rgba(255,228,230,.94);border-color:rgba(225,29,72,.22)}
 .anav-btn.logout.on{box-shadow:none}
 .anav-btn .ai{font-size:11px;flex-shrink:0;min-width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:rgba(162,76,46,.1);color:var(--A2);font-weight:800;letter-spacing:.04em}
+.anav-count{margin-left:auto;min-width:22px;height:22px;padding:0 7px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--A);color:#fff;font-size:11px;font-weight:800;line-height:1;box-shadow:0 10px 18px rgba(15,118,110,.16)}
 .anav-btn.logout .ai{background:rgba(225,29,72,.12);color:var(--R)}
 .admin-main{padding:22px 26px;display:flex;flex-direction:column;gap:16px}
 @media(max-width:680px){.admin-main{padding:12px}}
@@ -5528,6 +5529,7 @@ select.btn{
       <button class="anav-btn on" id="adminAccountNavBtn" data-sub="account"><span class="ai" id="adminAccountNavIcon">ID</span><span id="adminAccountNavLabel">Login / Register</span></button>
       <div class="anav-lbl">Manage</div>
       <button class="anav-btn" data-sub="shops"><span class="ai">SH</span>Businesses</button>
+      <button class="anav-btn" id="adminReviewNavBtn" data-sub="review" style="display:none"><span class="ai">RV</span>Review Center<span id="adminReviewNavCount" class="anav-count" style="display:none">0</span></button>
       <div class="anav-lbl">Insights</div>
       <button class="anav-btn" data-sub="analytics"><span class="ai">AN</span>Analytics</button>
     </aside>
@@ -5557,6 +5559,7 @@ select.btn{
                   <div id="adminAccountName" class="account-summary-name">Guest</div>
                   <div id="adminAccountEmail" class="account-summary-email"></div>
                 </div>
+                <span id="adminAccountRoleBadge" class="badge">Customer</span>
                 <span id="adminAccountVerifyBadge" class="badge g">Verified</span>
               </div>
               <div id="adminAccountVerifyNote" class="account-inline-note" style="display:none">
@@ -5637,6 +5640,10 @@ select.btn{
                   <div class="sbox-v">Check the public page exactly as customers see it.</div>
                 </div>
               </div>
+              <div id="ownerReviewGuideCard" class="review-note" style="margin-top:14px;display:block">
+                <strong>How review works</strong>
+                Business verification requests and ownership claims are reviewed from <strong>Admin &gt; Review Center</strong>. Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can approve them.
+              </div>
               <div class="owner-filter-bar">
                 <div class="fld"><label>Country</label><input id="ownerFilterCountry" value="Canada" placeholder="Canada" readonly title="Canada only for launch"/></div>
                 <div class="fld"><label>Region</label><input id="ownerFilterRegion" placeholder="Nova Scotia"/></div>
@@ -5647,26 +5654,6 @@ select.btn{
                   <button id="ownerExportProductsBtn" class="btn btn-o btn-sm">Export Offerings</button>
                 </div>
               </div>
-            </div>
-          </div>
-          <div id="adminReviewQueueCard" class="card" style="display:none">
-            <div class="card-head">
-              <div class="card-title">Business Review Queue</div>
-            </div>
-            <div class="card-body">
-              <div class="fld-hint" style="margin-bottom:10px">Only pending businesses appear here. Approving one makes it visible on the public app.</div>
-              <div id="adminReviewQueueList" class="review-queue"><div class="review-queue-empty">No businesses waiting for review.</div></div>
-              <div id="adminReviewQueueStatus" class="stxt"></div>
-            </div>
-          </div>
-          <div id="adminClaimQueueCard" class="card" style="display:none">
-            <div class="card-head">
-              <div class="card-title">Ownership Claim Queue</div>
-            </div>
-            <div class="card-body">
-              <div class="fld-hint" style="margin-bottom:10px">Approve a claim only when the requester has shown they should take over the existing business page.</div>
-              <div id="adminClaimQueueList" class="review-queue"><div class="review-queue-empty">No ownership claims waiting for review.</div></div>
-              <div id="adminClaimQueueStatus" class="stxt"></div>
             </div>
           </div>
           <div id="businessClaimCard" class="card">
@@ -6233,6 +6220,49 @@ select.btn{
                 <div id="anAttr" class="tp-list"></div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="sub-review" class="asub">
+        <div class="card">
+          <div class="workspace-hero">
+            <div class="workspace-copy">
+              <div class="workspace-kicker">Review Center</div>
+              <div class="workspace-title">Review new business launches and ownership claims.</div>
+              <div class="workspace-desc">This is the staff queue. Business verification requests and claim requests are reviewed here, not inside customer pages.</div>
+            </div>
+            <div class="workspace-actions">
+              <button id="refreshReviewCenterBtn" class="btn btn-o btn-sm">Refresh Review Center</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <div id="reviewCenterGuide" class="review-note" style="display:block;margin:0">
+              <strong>Reviewer access</strong>
+              Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can see and act on these queues. If you submit a business and nobody can review it here, no reviewer account exists yet.
+            </div>
+          </div>
+        </div>
+        <div id="adminReviewQueueCard" class="card" style="display:none">
+          <div class="card-head">
+            <div class="card-title">Business Review Queue</div>
+          </div>
+          <div class="card-body">
+            <div class="fld-hint" style="margin-bottom:10px">Only pending businesses appear here. Approving one makes it visible on the public app.</div>
+            <div id="adminReviewQueueList" class="review-queue"><div class="review-queue-empty">No businesses waiting for review.</div></div>
+            <div id="adminReviewQueueStatus" class="stxt"></div>
+          </div>
+        </div>
+        <div id="adminClaimQueueCard" class="card" style="display:none">
+          <div class="card-head">
+            <div class="card-title">Ownership Claim Queue</div>
+          </div>
+          <div class="card-body">
+            <div class="fld-hint" style="margin-bottom:10px">Approve a claim only when the requester has shown they should take over the existing business page.</div>
+            <div id="adminClaimQueueList" class="review-queue"><div class="review-queue-empty">No ownership claims waiting for review.</div></div>
+            <div id="adminClaimQueueStatus" class="stxt"></div>
           </div>
         </div>
       </div>
@@ -6908,7 +6938,7 @@ function businessListingMeta(shop={}){
       label:'Pending Review',
       pillClass:'listing-pill pending',
       title:'Pending review',
-      copy:'This business is private right now. It will go live after staff review and approval.',
+      copy:'This business is private right now. A staff reviewer must approve it from Admin > Review Center before it goes live.',
       live:false,
       canSubmit:false,
       canMoveDraft:true,
@@ -10957,6 +10987,47 @@ function syncAdminAccountNav(){
     btn.title='Login or register';
   }
 }
+function isReviewerAccount(user=App.user){
+  return ['admin','superadmin'].includes(String(user?.role||'').trim().toLowerCase());
+}
+function syncReviewNavBadge(){
+  const btn=$('adminReviewNavBtn');
+  const badge=$('adminReviewNavCount');
+  if(!btn || !badge) return;
+  if(!isReviewerAccount()){
+    badge.style.display='none';
+    badge.textContent='0';
+    btn.title='Review Center';
+    btn.setAttribute('aria-label','Review Center');
+    return;
+  }
+  const businessCount=Array.isArray(App.adminReviewShops)?App.adminReviewShops.length:0;
+  const claimCount=Array.isArray(App.adminReviewClaims)?App.adminReviewClaims.length:0;
+  const total=businessCount+claimCount;
+  badge.textContent=String(total);
+  badge.style.display=total>0?'inline-flex':'none';
+  const label=total>0
+    ? `Review Center, ${total} pending item${total===1?'':'s'}`
+    : 'Review Center';
+  btn.title=label;
+  btn.setAttribute('aria-label',label);
+}
+function syncReviewerUi(user=App.user){
+  const reviewBtn=$('adminReviewNavBtn');
+  if(reviewBtn){
+    reviewBtn.style.display=isReviewerAccount(user)?'':'none';
+  }
+  if(!isReviewerAccount(user) && document.querySelector('.asub.on')?.id==='sub-review'){
+    switchAdminSub(user?'shops':'account',{refreshShops:false});
+  }
+  const guide=$('ownerReviewGuideCard');
+  if(guide){
+    guide.innerHTML=isReviewerAccount(user)
+      ? '<strong>How review works</strong> This account can review business launches and ownership claims from <strong>Admin > Review Center</strong>.'
+      : '<strong>How review works</strong> Business verification requests and ownership claims are reviewed from <strong>Admin > Review Center</strong>. Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can approve them.';
+  }
+  syncReviewNavBadge();
+}
 function profileInitial(user=App.user){
   const name=String(user?.display_name||user?.email||'').trim();
   return (name ? name[0] : 'U').toUpperCase();
@@ -11006,6 +11077,7 @@ function renderAdminAccountState(user=App.user){
   const nameEl=$('adminAccountName');
   const emailEl=$('adminAccountEmail');
   const badge=$('adminAccountVerifyBadge');
+  const roleBadge=$('adminAccountRoleBadge');
   const note=$('adminAccountVerifyNote');
   const nameInput=$('accountDisplayName');
   const emailInput=$('accountEmail');
@@ -11021,6 +11093,10 @@ function renderAdminAccountState(user=App.user){
     if(emailEl) emailEl.textContent='';
     if(nameInput) nameInput.value='';
     if(emailInput) emailInput.value='';
+    if(roleBadge){
+      roleBadge.textContent='Customer';
+      roleBadge.className='badge';
+    }
     if($('accountPass1')) $('accountPass1').value='';
     if($('accountPass2')) $('accountPass2').value='';
     if(photoBtn) photoBtn.disabled=true;
@@ -11033,6 +11109,7 @@ function renderAdminAccountState(user=App.user){
   const safeEmail=String(user.email||'').trim();
   const safeName=String(user.display_name||safeEmail.split('@')[0]||'Guest').trim()||'Guest';
   const verified=!!user.email_verified;
+  const reviewer=isReviewerAccount(user);
   summary.style.display='grid';
   manage.style.display='grid';
   if(avatar) setProfilePhotoElement(avatar,user.avatar_url||'',profileInitial(user));
@@ -11047,6 +11124,10 @@ function renderAdminAccountState(user=App.user){
   if(badge){
     badge.textContent=verified?'Verified':'Verification pending';
     badge.className=`badge ${verified?'g':'y'}`;
+  }
+  if(roleBadge){
+    roleBadge.textContent=reviewer?'Reviewer':'Business / Customer';
+    roleBadge.className=`badge ${reviewer?'a':''}`.trim();
   }
   if(note) note.style.display=verified?'none':'';
   if(warnTitle) warnTitle.textContent=verified?'Email verified':'Email verification pending';
@@ -11084,6 +11165,7 @@ function renderUserUI(){
   }
   renderAdminAccountState(u);
   syncAdminAccountNav();
+  syncReviewerUi(u);
 }
 $('profileBtn').addEventListener('click',()=>{
   if(!App.user){openAuthModal('login');return;}
@@ -13664,6 +13746,9 @@ function switchAdminSub(sub,{refreshShops=true}={}){
   const currentShopView=document.querySelector('[data-shop-view].on')?.dataset.shopView||'';
   if(sub==='shops'){
     if(currentShopView && currentShopView!=='landing' && !showShopManagerView('landing')) return;
+  }else if(sub==='review'){
+    if(!isReviewerAccount()) return;
+    if(currentShopView && currentShopView!=='landing' && !showShopManagerView('landing')) return;
   }else if(['shopform','productform'].includes(currentShopView) && !canLeaveShopManagerView(currentShopView)){
     return;
   }
@@ -13671,6 +13756,10 @@ function switchAdminSub(sub,{refreshShops=true}={}){
   document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.classList.toggle('on',b.dataset.sub===sub));
   if(sub==='analytics'&&App.adminShopId)loadAnalytics();
   if(sub==='shops'&&refreshShops&&tok()) loadMyShops();
+  if(sub==='review'&&tok()){
+    loadAdminReviewQueue();
+    loadAdminClaimReviewQueue();
+  }
 }
 document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.addEventListener('click',()=>{
   if(b.id==='adminAccountNavBtn' && b.dataset.mode==='logout'){ doLogout(); return; }
@@ -14264,6 +14353,7 @@ async function loadAdminReviewQueue(){
   if(!isAdmin){
     App.adminReviewShops=[];
     renderAdminReviewQueue();
+    syncReviewNavBadge();
     return;
   }
   try{
@@ -14271,10 +14361,12 @@ async function loadAdminReviewQueue(){
     App.adminReviewShops=d.businesses||[];
     renderAdminReviewQueue();
     setFieldHint('adminReviewQueueStatus',`${App.adminReviewShops.length} business${App.adminReviewShops.length===1?'':'es'} waiting for review.`,App.adminReviewShops.length?'':'ok');
+    syncReviewNavBadge();
   }catch(e){
     App.adminReviewShops=[];
     renderAdminReviewQueue();
     setFieldHint('adminReviewQueueStatus',e.message,'err');
+    syncReviewNavBadge();
   }
 }
 function renderClaimSearchResults(){
@@ -14376,8 +14468,8 @@ async function requestBusinessClaim(shopId=''){
   try{
     setFieldHint('claimSearchStatus','Sending claim request...');
     await api(`/admin/business/${encodeURIComponent(shopId)}/claim`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});
-    toast('Claim requested','The business page is now waiting for staff review.');
-    setFieldHint('claimSearchStatus','Claim request sent. Staff will review it before transferring the page.','ok');
+    toast('Claim requested','A reviewer must approve it from Admin > Review Center before the page moves to you.');
+    setFieldHint('claimSearchStatus','Claim request sent. Staff will review it from Admin > Review Center before transferring the page.','ok');
     await loadOwnerBusinessClaims();
   }catch(e){
     setFieldHint('claimSearchStatus',e.message,'err');
@@ -14418,6 +14510,7 @@ async function loadAdminClaimReviewQueue(){
   if(!isAdmin){
     App.adminReviewClaims=[];
     renderAdminClaimQueue();
+    syncReviewNavBadge();
     return;
   }
   try{
@@ -14425,10 +14518,12 @@ async function loadAdminClaimReviewQueue(){
     App.adminReviewClaims=Array.isArray(d.claims)?d.claims.map(normalizeBusinessClaimRecord):[];
     renderAdminClaimQueue();
     setFieldHint('adminClaimQueueStatus',`${App.adminReviewClaims.length} ownership claim${App.adminReviewClaims.length===1?'':'s'} waiting for review.`,App.adminReviewClaims.length?'':'ok');
+    syncReviewNavBadge();
   }catch(e){
     App.adminReviewClaims=[];
     renderAdminClaimQueue();
     setFieldHint('adminClaimQueueStatus',e.message,'err');
+    syncReviewNavBadge();
   }
 }
 async function approveBusinessClaim(claimId=''){
@@ -14706,8 +14801,8 @@ async function submitBusinessForReview(){
     await api(`/admin/business/${encodeURIComponent(shopId)}/submit-for-review`,{method:'POST',auth:true});
     await refreshBusinessWorkspace(shopId);
     if(App.adminShopData?.shop) populateShopForm(App.adminShopData.shop);
-    toast('Submitted for review','The business stays private until it is approved.');
-    setS('shopStatus','Business submitted for review. It will stay private until staff approval.','ok');
+    toast('Submitted for review','A reviewer must approve it from Admin > Review Center before it goes live.');
+    setS('shopStatus','Business submitted for review. It stays private until a staff reviewer approves it from Admin > Review Center.','ok');
   }catch(e){
     setS('shopStatus',e.message,'err');
     toast('Submit failed',e.message,'err');
@@ -14775,6 +14870,7 @@ $('createShopBtn').addEventListener('click',createShop);
 $('saveShopBtn').addEventListener('click',saveShop);
 $('claimSearchBtn')?.addEventListener('click',()=>searchClaimableBusinesses());
 $('claimSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchClaimableBusinesses();}});
+$('refreshReviewCenterBtn')?.addEventListener('click',()=>{loadAdminReviewQueue();loadAdminClaimReviewQueue();});
 $('deleteShopBtn').addEventListener('click',deleteShop);
 $('rebuildKbBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a business first','','err');
