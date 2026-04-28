@@ -575,8 +575,13 @@ class UpdateProfileReq(BaseModel):
     display_name: str = ""
 
 class BrowserSessionReq(BaseModel):
-    access_token: str
+    access_token: str = ""
     refresh_token: str = ""
+    auth_code: str = ""
+    code_verifier: str = ""
+    token_hash: str = ""
+    type: str = ""
+    redirect_to: str = ""
 
 class ShopInfo(BaseModel):
     name: str
@@ -801,8 +806,67 @@ def load_profile(user_id: str) -> Dict[str, Any]:
     prof_res = supabase.table("profiles").select("*").eq("id", user_id).execute()
     return prof_res.data[0] if prof_res.data else {}
 
+def normalize_display_name(value: str = "", email: str = "") -> str:
+    name = re.sub(r"\s+", " ", str(value or "").strip())
+    if name:
+        return name[:120]
+    clean = clean_email(email or "")
+    if clean and "@" in clean:
+        return clean.split("@", 1)[0][:120]
+    return ""
+
+def profile_defaults_for_user(user: Any, prof: Optional[Dict[str, Any]] = None, preferred_display_name: str = "") -> Dict[str, Any]:
+    profile = prof or {}
+    metadata = getattr(user, "user_metadata", {}) or {}
+    email = str(getattr(user, "email", "") or "").strip()
+    return {
+        "display_name": normalize_display_name(
+            preferred_display_name or profile.get("display_name", "") or metadata.get("display_name", ""),
+            email,
+        ),
+        "avatar_url": str(profile.get("avatar_url", "") or metadata.get("avatar_url", "") or "").strip(),
+        "role": str(profile.get("role", "") or metadata.get("role", "") or "customer").strip() or "customer",
+    }
+
+def ensure_profile_row(user: Any, prof: Optional[Dict[str, Any]] = None, preferred_display_name: str = "") -> Dict[str, Any]:
+    profile = dict(prof or load_profile(user.id) or {})
+    defaults = profile_defaults_for_user(user, profile, preferred_display_name)
+    if profile:
+        updates: Dict[str, Any] = {}
+        current_name = str(profile.get("display_name", "") or "").strip()
+        current_avatar = str(profile.get("avatar_url", "") or "").strip()
+        current_role = str(profile.get("role", "") or "").strip()
+        if preferred_display_name and defaults["display_name"] and defaults["display_name"] != current_name:
+            updates["display_name"] = defaults["display_name"]
+        elif not current_name and defaults["display_name"]:
+            updates["display_name"] = defaults["display_name"]
+        if not current_avatar and defaults["avatar_url"]:
+            updates["avatar_url"] = defaults["avatar_url"]
+        if not current_role:
+            updates["role"] = defaults["role"]
+        if updates:
+            supabase.table("profiles").update(updates).eq("id", user.id).execute()
+            profile.update(updates)
+        return {**defaults, **profile}
+    payload = {"id": user.id, **defaults}
+    supabase.table("profiles").insert(payload).execute()
+    return payload
+
+def safe_ensure_profile_row(user: Any, prof: Optional[Dict[str, Any]] = None, preferred_display_name: str = "") -> Dict[str, Any]:
+    try:
+        return ensure_profile_row(user, prof, preferred_display_name)
+    except Exception as e:
+        print(f"[Profile Sync Warning] user={getattr(user, 'id', '')}: {e}")
+        return profile_defaults_for_user(user, prof, preferred_display_name)
+
+def require_password_min_length(password: str, context: str = "password") -> str:
+    value = str(password or "")
+    if len(value.strip()) < 8:
+        raise HTTPException(400, f"Use at least 8 characters for your {context}.")
+    return value
+
 def auth_user_payload(user: Any, prof: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    profile = prof or load_profile(user.id)
+    profile = profile_defaults_for_user(user, prof or load_profile(user.id))
     shops = supabase.table("shops").select("shop_id, name").eq("owner_user_id", user.id).execute().data
     favs = supabase.table("favourites").select("shop_id").eq("user_id", user.id).execute().data
     revs = supabase.table("reviews").select("id").eq("user_id", user.id).execute().data
@@ -3620,16 +3684,23 @@ def serve_shop_image(shop_id: str, filename: str):
 @app.post("/auth/register")
 def register(body: RegisterReq, request: Request):
     enforce_rate_limit(request, "auth_register", limit=8, window_seconds=900, key_suffix=clean_email(body.email or "").lower())
+    email = clean_email(body.email or "")
+    display_name = normalize_display_name(body.display_name, email)
+    require_password_min_length(body.password, "password")
+    if not email:
+        raise HTTPException(400, "Enter a valid email address.")
     try:
         auth_client = require_supabase_auth()
-        auth_client.auth.sign_up({
-            "email": body.email.strip(),
+        res = auth_client.auth.sign_up({
+            "email": email,
             "password": body.password,
             "options": {
-                "data": {"display_name": body.display_name.strip()},
+                "data": {"display_name": display_name},
                 "email_redirect_to": ui_redirect_url(),
             },
         })
+        if getattr(res, "user", None):
+            safe_ensure_profile_row(res.user, preferred_display_name=display_name)
         return {"ok": True, "message": "Account created. Check your inbox for the verification link. If it is not there, check Spam, Junk, or Promotions."}
     except Exception as e:
         raise HTTPException(400, str(e))
@@ -3641,7 +3712,7 @@ def login(body: LoginReq, request: Request, response: Response):
         auth_client = require_supabase_auth()
         res = auth_client.auth.sign_in_with_password({"email": body.email, "password": body.password})
         user = res.user
-        prof = load_profile(user.id)
+        prof = safe_ensure_profile_row(user)
         access_token = str(getattr(res.session, "access_token", "") or "").strip()
         refresh_token = str(getattr(res.session, "refresh_token", "") or "").strip()
         expires_in = int(getattr(res.session, "expires_in", AUTH_ACCESS_COOKIE_MAX_AGE) or AUTH_ACCESS_COOKIE_MAX_AGE)
@@ -3654,11 +3725,48 @@ def login(body: LoginReq, request: Request, response: Response):
 def auth_session(body: BrowserSessionReq, request: Request, response: Response):
     enforce_rate_limit(request, "auth_session", limit=12, window_seconds=900)
     access_token = str(body.access_token or "").strip()
+    refresh_token = str(body.refresh_token or "").strip()
+    redirect_to = str(body.redirect_to or ui_redirect_url()).strip() or ui_redirect_url()
+    if access_token:
+        user, prof = get_user(f"Bearer {access_token}")
+        prof = safe_ensure_profile_row(user, prof)
+        set_auth_cookies(response, access_token, refresh_token)
+        return {**auth_user_payload(user, prof), "access_token": access_token, "refresh_token": refresh_token}
+    auth_client = require_supabase_auth()
+    auth_code = str(body.auth_code or "").strip()
+    token_hash = str(body.token_hash or "").strip()
+    flow_type = str(body.type or "").strip().lower()
+    try:
+        if token_hash and flow_type:
+            res = auth_client.auth.verify_otp({
+                "token_hash": token_hash,
+                "type": flow_type,
+                "options": {"redirect_to": redirect_to},
+            })
+        elif auth_code:
+            exchange_params = {
+                "auth_code": auth_code,
+                "redirect_to": redirect_to,
+            }
+            code_verifier = str(body.code_verifier or "").strip()
+            if code_verifier:
+                exchange_params["code_verifier"] = code_verifier
+            res = auth_client.auth.exchange_code_for_session(exchange_params)
+        else:
+            raise HTTPException(400, "Missing access token or auth link parameters")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    access_token = str(getattr(res.session, "access_token", "") or "").strip()
+    refresh_token = str(getattr(res.session, "refresh_token", "") or refresh_token).strip()
     if not access_token:
-        raise HTTPException(400, "Missing access token")
-    user, prof = get_user(f"Bearer {access_token}")
-    set_auth_cookies(response, access_token, str(body.refresh_token or "").strip())
-    return auth_user_payload(user, prof)
+        raise HTTPException(400, "This email link did not create a usable session. Request a new link and try again.")
+    user = res.user
+    prof = safe_ensure_profile_row(user)
+    expires_in = int(getattr(res.session, "expires_in", AUTH_ACCESS_COOKIE_MAX_AGE) or AUTH_ACCESS_COOKIE_MAX_AGE)
+    set_auth_cookies(response, access_token, refresh_token, expires_in)
+    return {**auth_user_payload(user, prof), "access_token": access_token, "refresh_token": refresh_token}
 
 @app.post("/auth/refresh")
 def auth_refresh(request: Request, response: Response):
@@ -3668,6 +3776,7 @@ def auth_refresh(request: Request, response: Response):
     expires_in = int(data.get("expires_in") or AUTH_ACCESS_COOKIE_MAX_AGE)
     set_auth_cookies(response, access_token, refresh_token, expires_in)
     user, prof = get_user(f"Bearer {access_token}")
+    prof = safe_ensure_profile_row(user, prof)
     return auth_user_payload(user, prof)
 
 @app.get("/auth/me")
@@ -3722,9 +3831,7 @@ def forgot_password(body: ForgotPasswordReq, request: Request):
 @app.post("/auth/update-password")
 def update_password(body: ResetPasswordReq, authorization: Optional[str] = Header(None)):
     token = bearer(authorization)
-    password = (body.password or "").strip()
-    if len(password) < 8:
-        raise HTTPException(400, "Use at least 8 characters for the new password.")
+    password = require_password_min_length(body.password, "new password").strip()
     url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/user"
     res = requests.put(url, headers=supabase_auth_headers(token), json={"password": password}, timeout=20)
     if res.status_code >= 400:
@@ -3738,8 +3845,8 @@ def update_password(body: ResetPasswordReq, authorization: Optional[str] = Heade
 @app.put("/auth/profile")
 def update_profile(body: UpdateProfileReq, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
-    supabase.table("profiles").update({"display_name": body.display_name.strip()}).eq("id", user.id).execute()
-    return {"ok": True}
+    profile = ensure_profile_row(user, prof, body.display_name)
+    return {"ok": True, "display_name": profile.get("display_name", "")}
 
 @app.post("/auth/profile/avatar")
 def upload_avatar(authorization: Optional[str] = Header(None), avatar: UploadFile = File(...)):

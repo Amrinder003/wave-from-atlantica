@@ -901,18 +901,32 @@ a{color:inherit;text-decoration:none}
 /* ── USER PROFILE PANEL ── */
 .profile-bg{position:fixed;inset:0;background:rgba(15,23,42,.4);backdrop-filter:blur(4px);z-index:420;display:none;align-items:flex-start;justify-content:flex-end;padding-top:70px}
 .profile-bg.on{display:flex}
-.profile-panel{background:var(--sf);border-radius:var(--r3);box-shadow:var(--s4);width:min(360px,100%);margin-right:16px;animation:pop .18s ease;overflow:hidden}
+.profile-panel{background:var(--sf);border-radius:var(--r3);box-shadow:var(--s4);width:min(380px,100%);margin-right:16px;animation:pop .18s ease;overflow:hidden}
 @media(max-width:680px){
   .profile-bg{padding:12px;align-items:flex-start;justify-content:center}
-  .profile-panel{width:100%;margin-right:0}
+  .profile-panel{width:min(420px,calc(100vw - 24px));margin-right:0}
+  .profile-head-main{align-items:flex-start}
+  .profile-photo-btn{width:100%;justify-content:center}
+  .profile-verify-warn{display:grid}
+  .profile-verify-warn .btn{width:100%;justify-content:center}
 }
-.profile-head{padding:16px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:12px}
-.profile-avatar{width:42px;height:42px;border-radius:99px;background:var(--Ap);display:grid;place-items:center;font-size:18px;color:var(--A);flex-shrink:0;position:relative;overflow:hidden}
+.profile-head{padding:18px;border-bottom:1px solid var(--bd);display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.profile-head-main{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.profile-avatar-wrap{position:relative;display:grid;place-items:center;cursor:pointer;flex-shrink:0}
+.profile-avatar{width:56px;height:56px;border-radius:18px;background:var(--Ap);display:grid;place-items:center;font-size:22px;color:var(--A2);font-weight:800;flex-shrink:0;position:relative;overflow:hidden}
 .profile-avatar img{width:100%;height:100%;display:block;object-fit:cover}
 .profile-avatar.is-uploading::after{content:"";position:absolute;inset:0;background:rgba(15,23,42,.34);border-radius:inherit}
-.profile-name{font-weight:700;font-size:14px}
-.profile-email{font-size:12px;color:var(--ink3)}
-.profile-verify-warn{background:var(--Yp);border-top:1px solid rgba(217,119,6,.15);padding:10px 18px;font-size:12px;color:var(--Y);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.profile-avatar-badge{position:absolute;right:-4px;bottom:-4px;width:24px;height:24px;border-radius:999px;background:var(--A);display:grid;place-items:center;color:#fff;border:2px solid var(--sf);box-shadow:var(--s1)}
+.profile-avatar-badge svg{width:13px;height:13px;display:block;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.profile-copy{display:grid;gap:4px;min-width:0;flex:1}
+.profile-name{font-family:'Sora',sans-serif;font-weight:800;font-size:17px;line-height:1.15}
+.profile-email{font-size:12px;color:var(--ink3);line-height:1.55;word-break:break-word}
+.profile-photo-btn{justify-self:start;min-height:36px;padding-inline:12px;margin-top:4px}
+.profile-head>.btn,.profile-close-btn{flex-shrink:0;min-width:42px;min-height:42px}
+.profile-verify-warn{background:var(--Yp);border-top:1px solid rgba(217,119,6,.15);padding:12px 18px;font-size:12px;color:var(--Y);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.profile-verify-copy{display:grid;gap:4px;min-width:0}
+.profile-verify-title{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--Y)}
+.profile-verify-text{font-size:12px;line-height:1.55;color:var(--ink2)}
 .profile-menu{padding:8px 0}
 .pm-btn{display:flex;align-items:center;gap:10px;width:100%;padding:10px 18px;font-size:14px;font-weight:500;color:var(--ink2);transition:.11s;text-align:left;cursor:pointer}
 .pm-btn:hover{background:var(--sf2)}
@@ -926,6 +940,27 @@ a{color:inherit;text-decoration:none}
 .account-note-copy{font-size:13px;color:var(--ink3);line-height:1.65;margin-top:6px}
 
 /* ── FAVOURITES PAGE ── */
+.account-summary{display:grid;gap:12px;padding:15px 16px;border-radius:22px;background:#fff;border:1px solid var(--bd);box-shadow:0 16px 30px rgba(71,42,22,.05)}
+.account-summary-top{display:flex;align-items:center;gap:12px}
+.account-summary-avatar{width:56px;height:56px;border-radius:18px;background:var(--Ap);display:grid;place-items:center;font-size:22px;font-weight:800;color:var(--A2);overflow:hidden;flex-shrink:0}
+.account-summary-avatar img{width:100%;height:100%;display:block;object-fit:cover}
+.account-summary-copy{display:grid;gap:3px;min-width:0;flex:1}
+.account-summary-name{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;line-height:1.15;color:var(--ink);word-break:break-word}
+.account-summary-email{font-size:13px;color:var(--ink3);line-height:1.55;word-break:break-word}
+.account-inline-note{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:18px;background:var(--Yp);border:1px solid rgba(217,119,6,.16)}
+.account-inline-note-title{font-size:12px;font-weight:800;color:var(--Y);text-transform:uppercase;letter-spacing:.06em}
+.account-inline-note-copy{font-size:13px;color:var(--ink2);line-height:1.6;margin-top:4px}
+.account-manage{display:grid;gap:14px}
+.account-section{display:grid;gap:12px;padding:15px 16px;border-radius:22px;background:#fff;border:1px solid var(--bd);box-shadow:0 16px 30px rgba(71,42,22,.05)}
+.account-section-head{display:grid;gap:4px}
+.account-section-title{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;color:var(--ink)}
+.account-section-copy{font-size:12px;line-height:1.6;color:var(--ink3)}
+#adminAccountManage input[readonly]{background:var(--sf2);color:var(--ink3);cursor:default}
+@media(max-width:640px){
+  .account-summary-top{align-items:flex-start;flex-wrap:wrap}
+  .account-inline-note{display:grid}
+  .account-inline-note .btn{width:100%;justify-content:center}
+}
 .fav-page{max-width:1280px;margin:0 auto;padding:28px 20px 70px}
 
 /* ── CHAT ── */
@@ -3741,6 +3776,36 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
 #profileBg .profile-email{
   color:var(--ink3)!important;
 }
+#profileBg .profile-avatar-wrap{
+  position:relative!important;
+  display:grid!important;
+  place-items:center!important;
+}
+#profileBg .profile-avatar-badge{
+  background:var(--A)!important;
+  color:#fff!important;
+  border-color:#fff!important;
+}
+#profileBg .profile-photo-btn{
+  background:#fff!important;
+  color:var(--A2)!important;
+  border:1px solid var(--bd)!important;
+}
+#profileBg .profile-photo-btn:hover{
+  background:#eef7f4!important;
+}
+#profileBg .profile-verify-warn{
+  background:#fff7e8!important;
+  border-top:1px solid rgba(217,119,6,.16)!important;
+  border-bottom:1px solid rgba(217,119,6,.12)!important;
+  color:var(--ink2)!important;
+}
+#profileBg .profile-verify-title{
+  color:var(--Y)!important;
+}
+#profileBg .profile-verify-text{
+  color:var(--ink2)!important;
+}
 #profileBg .profile-menu{
   background:#fff!important;
 }
@@ -3765,6 +3830,21 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   border:0!important;
   border-top:1px solid var(--bd)!important;
   margin:8px 0!important;
+}
+#authBg .stxt:not(:empty),#pg-admin #sub-account .stxt:not(:empty){
+  background:#f8faf9!important;
+  border:1px solid var(--bd)!important;
+  color:var(--ink2)!important;
+}
+#authBg .stxt.ok:not(:empty),#pg-admin #sub-account .stxt.ok:not(:empty){
+  background:var(--Gp)!important;
+  border-color:#a7e8c3!important;
+  color:var(--G)!important;
+}
+#authBg .stxt.err:not(:empty),#pg-admin #sub-account .stxt.err:not(:empty){
+  background:var(--Rp)!important;
+  border-color:#f5b1bd!important;
+  color:var(--R)!important;
 }
 #authBg .auth-tab{
   background:#fff!important;
@@ -5441,6 +5521,53 @@ select.btn{
               <button id="adminRegisterBtn" class="btn btn-o btn-sm">Register</button>
               <button id="adminForgotBtn" class="btn btn-g btn-sm">Reset Password</button>
             </div>
+            <div id="adminAccountSummary" class="account-summary" style="display:none">
+              <div class="account-summary-top">
+                <div id="adminAccountAvatar" class="account-summary-avatar">U</div>
+                <div class="account-summary-copy">
+                  <div id="adminAccountName" class="account-summary-name">Guest</div>
+                  <div id="adminAccountEmail" class="account-summary-email"></div>
+                </div>
+                <span id="adminAccountVerifyBadge" class="badge g">Verified</span>
+              </div>
+              <div id="adminAccountVerifyNote" class="account-inline-note" style="display:none">
+                <div>
+                  <div class="account-inline-note-title">Verification pending</div>
+                  <div class="account-inline-note-copy">Verify your email to create businesses, leave reviews, and keep recovery links working cleanly.</div>
+                </div>
+                <button id="adminResendVerifyBtn" class="btn btn-o btn-sm" type="button">Resend email</button>
+              </div>
+            </div>
+            <div id="adminAccountManage" class="account-manage" style="display:none">
+              <div class="account-section">
+                <div class="account-section-head">
+                  <div class="account-section-title">Profile</div>
+                  <div class="account-section-copy">Keep the name customers and businesses see consistent across the app.</div>
+                </div>
+                <div class="fg2">
+                  <div class="fld"><label>Display Name</label><input id="accountDisplayName" placeholder="Your name"/></div>
+                  <div class="fld"><label>Email</label><input id="accountEmail" type="email" readonly placeholder="you@example.com"/></div>
+                </div>
+                <div class="btn-row">
+                  <button id="accountSaveProfileBtn" class="btn btn-A btn-sm" type="button">Save Profile</button>
+                </div>
+                <div id="accountProfileStatus" class="stxt"></div>
+              </div>
+              <div class="account-section">
+                <div class="account-section-head">
+                  <div class="account-section-title">Password</div>
+                  <div class="account-section-copy">Change the password for this signed-in account on this browser session.</div>
+                </div>
+                <div class="fg2">
+                  <div class="fld"><label>New Password</label><input id="accountPass1" type="password" placeholder="Use at least 8 characters"/></div>
+                  <div class="fld"><label>Confirm New Password</label><input id="accountPass2" type="password" placeholder="Repeat the new password"/></div>
+                </div>
+                <div class="btn-row">
+                  <button id="accountChangePassBtn" class="btn btn-o btn-sm" type="button">Change Password</button>
+                </div>
+                <div id="accountPasswordStatus" class="stxt"></div>
+              </div>
+            </div>
             <div id="adminUserActions" class="btn-row" style="display:none">
               <button id="adminLogoutBtn" class="btn btn-g btn-sm">Sign Out</button>
             </div>
@@ -6058,20 +6185,31 @@ select.btn{
 
 <div id="profileBg" class="profile-bg">
   <div class="profile-panel">
-    <div class="profile-head" style="position: relative;">
-      <label style="cursor: pointer; position: relative;">
-      <div class="profile-avatar" id="profileAvatar" style="overflow: hidden;">U</div>
-        <input type="file" id="avatarUploadInp" accept="image/*" style="display: none;" />
-        <div style="position: absolute; bottom: 0; right: -5px; background: var(--A); color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; box-shadow: var(--s1); border: 2px solid var(--sf);">+</div>
-      </label>
-      <div>
+    <div class="profile-head">
+      <div class="profile-head-main">
+        <label class="profile-avatar-wrap" for="avatarUploadInp" aria-label="Change profile photo">
+          <div class="profile-avatar" id="profileAvatar">U</div>
+          <input type="file" id="avatarUploadInp" accept="image/*" style="display:none" />
+          <span class="profile-avatar-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M7.5 8.5h2.1l1.2-1.8h2.4l1.2 1.8h2.1a2 2 0 0 1 2 2v5.8a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-5.8a2 2 0 0 1 2-2z"></path>
+              <circle cx="12" cy="13.2" r="2.6"></circle>
+            </svg>
+          </span>
+        </label>
+        <div class="profile-copy">
         <div class="profile-name" id="profileName">Guest</div>
         <div class="profile-email" id="profileEmail"></div>
+        <button id="profilePhotoBtn" class="btn btn-o btn-sm profile-photo-btn" type="button">Change Photo</button>
+      </div>
       </div>
       <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="closeProfile()">×</button>
     </div>
     <div id="profileVerifyWarn" class="profile-verify-warn" style="display:none">
-      <span>Email not verified</span>
+      <div class="profile-verify-copy">
+        <div id="profileVerifyTitle" class="profile-verify-title">Email verification pending</div>
+        <div id="profileVerifyText" class="profile-verify-text">Verify your email to keep reviews, business tools, and recovery links working cleanly.</div>
+      </div>
       <button class="btn btn-o btn-sm" id="resendVerifyBtn">Resend email</button>
     </div>
     <div class="profile-menu">
@@ -6471,6 +6609,7 @@ const App = {
   favouriteProductIds: {},
   adminProducts: [],
   recoveryToken: '',
+  sessionExpiredNoticeShown: false,
   locationSupport: null,
   timezoneSupport: [],
   viewerCurrency: '',
@@ -10276,7 +10415,9 @@ async function api(path,opts={}){
       if(refreshed){
         return fetchJson(base,false);
       }
-      clearUser();
+      if(!String(path||'').startsWith('/auth/logout')){
+        handleSessionExpired(d?.detail||d?.message||'Session expired. Sign in again.');
+      }
     }
     return {r,d};
   }
@@ -10530,11 +10671,18 @@ function highlightCat(cat){$('catSubnav').querySelectorAll('.snav').forEach(b=>b
    AUTH — Modal & User Logic
 ═════════════════════════════════════════════ */
 function openAuthModal(tab='login'){
-  $('authBg').classList.add('on');document.body.style.overflow='hidden';
+  $('authBg').classList.add('on');
+  syncOverlayBodyLock();
   switchAuthTab(tab);
+  const focusMap={login:'loginEmail',register:'regName',forgot:'forgotEmail',reset:'resetPass'};
+  requestAnimationFrame(()=>$((focusMap[tab]||focusMap.login))?.focus());
 }
-function closeAuthModal(){$('authBg').classList.remove('on');document.body.style.overflow='';}
+function closeAuthModal(){$('authBg').classList.remove('on');syncOverlayBodyLock();clearAuthPanelStatuses();}
+function clearAuthPanelStatuses(){
+  ['loginStatus','regStatus','forgotStatus','resetStatus'].forEach(id=>setS(id,''));
+}
 function switchAuthTab(tab){
+  clearAuthPanelStatuses();
   $('authModalTitle').textContent=tab==='register'?'Create Account':tab==='forgot'?'Reset Password':tab==='reset'?'Choose a New Password':'Sign In';
   $('authBg').querySelector('.auth-tabs').style.display=tab==='reset'?'none':'flex';
   $('authBg').querySelectorAll('.auth-tab').forEach(b=>b.classList.toggle('on',b.dataset.atab===tab));
@@ -10547,6 +10695,7 @@ $('authBg').addEventListener('click',e=>{if(e.target===$('authBg'))closeAuthModa
 function saveUser(data){
   App.user={email:data.email,display_name:data.display_name||'',avatar_url:data.avatar_url||'',
              email_verified:data.email_verified,role:data.role||'customer',user_id:data.user_id||''};
+  App.sessionExpiredNoticeShown=false;
   localStorage.removeItem('lm_user');
   renderUserUI();
 }
@@ -10559,6 +10708,17 @@ function clearUser(){
   renderUserUI();
   refreshVisibleProductCards();
   setRequestBanner(null);
+}
+function handleSessionExpired(message='Session expired. Sign in again.'){
+  if(!App.user || App.sessionExpiredNoticeShown) return;
+  App.sessionExpiredNoticeShown=true;
+  closeProfile();
+  clearUser();
+  if($('authBg')?.classList.contains('on')) switchAuthTab('login');
+  if($('pg-admin')?.classList.contains('show')) switchAdminSub('account',{refreshShops:false});
+  setS('authStatus',message,'err');
+  setS('loginStatus',message,'err');
+  toast('Session expired','Sign in again.','err');
 }
 
 function syncAdminAccountNav(){
@@ -10623,16 +10783,70 @@ function renderProfilePhoto(user=App.user){
   setProfilePhotoElement($('profileAvatar'),user?.avatar_url||'',initial);
   setProfileNavIcon(user?.avatar_url||'',initial);
 }
+function renderAdminAccountState(user=App.user){
+  const summary=$('adminAccountSummary');
+  const manage=$('adminAccountManage');
+  if(!summary || !manage) return;
+  const avatar=$('adminAccountAvatar');
+  const nameEl=$('adminAccountName');
+  const emailEl=$('adminAccountEmail');
+  const badge=$('adminAccountVerifyBadge');
+  const note=$('adminAccountVerifyNote');
+  const nameInput=$('accountDisplayName');
+  const emailInput=$('accountEmail');
+  const warn=$('profileVerifyWarn');
+  const warnTitle=$('profileVerifyTitle');
+  const warnText=$('profileVerifyText');
+  const photoBtn=$('profilePhotoBtn');
+  if(!user){
+    summary.style.display='none';
+    manage.style.display='none';
+    if(avatar) setProfilePhotoElement(avatar,'','U');
+    if(nameEl) nameEl.textContent='Guest';
+    if(emailEl) emailEl.textContent='';
+    if(nameInput) nameInput.value='';
+    if(emailInput) emailInput.value='';
+    if($('accountPass1')) $('accountPass1').value='';
+    if($('accountPass2')) $('accountPass2').value='';
+    if(photoBtn) photoBtn.disabled=true;
+    if(warnTitle) warnTitle.textContent='Email verification pending';
+    if(warnText) warnText.textContent='Verify your email to keep reviews, business tools, and recovery links working cleanly.';
+    setS('accountProfileStatus','');
+    setS('accountPasswordStatus','');
+    return;
+  }
+  const safeEmail=String(user.email||'').trim();
+  const safeName=String(user.display_name||safeEmail.split('@')[0]||'Guest').trim()||'Guest';
+  const verified=!!user.email_verified;
+  summary.style.display='grid';
+  manage.style.display='grid';
+  if(avatar) setProfilePhotoElement(avatar,user.avatar_url||'',profileInitial(user));
+  if(nameEl) nameEl.textContent=safeName;
+  if(emailEl){
+    emailEl.textContent=safeEmail;
+    emailEl.title=safeEmail;
+  }
+  if(photoBtn) photoBtn.disabled=false;
+  if(nameInput) nameInput.value=user.display_name||safeName;
+  if(emailInput) emailInput.value=safeEmail;
+  if(badge){
+    badge.textContent=verified?'Verified':'Verification pending';
+    badge.className=`badge ${verified?'g':'y'}`;
+  }
+  if(note) note.style.display=verified?'none':'';
+  if(warnTitle) warnTitle.textContent=verified?'Email verified':'Email verification pending';
+  if(warnText) warnText.textContent=verified?'Your account email is verified.':'Verify your email to keep reviews, business tools, and recovery links working cleanly.';
+}
 function renderUserUI(){
   const u=App.user;
   if(u){
     const safeEmail=u.email||'';
     const safeName=u.display_name||safeEmail.split('@')[0]||'Guest';
-    $('profileLbl').textContent=u.display_name||'Me';
+    $('profileLbl').textContent=safeName;
     $('profileName').textContent=safeName;
     $('profileEmail').textContent=safeEmail;
     renderProfilePhoto(u);
-    $('profileVerifyWarn').style.display=u.email_verified?'none':'flex';
+    $('profileVerifyWarn').style.display=u.email_verified?'none':'';
     $('authBadge').textContent=u.display_name||safeEmail||'Signed in';
     $('authBadge').className='badge g';
     $('adminAuthFields').style.display='none';
@@ -10653,21 +10867,25 @@ function renderUserUI(){
     $('adminUserActions').style.display='none';
     setS('authStatus','');
   }
+  renderAdminAccountState(u);
   syncAdminAccountNav();
 }
 $('profileBtn').addEventListener('click',()=>{
   if(!App.user){openAuthModal('login');return;}
   $('profileBg').classList.toggle('on');
+  syncOverlayBodyLock();
 });
 $('profileBg').addEventListener('click',e=>{if(e.target===$('profileBg'))closeProfile();});
-function closeProfile(){$('profileBg').classList.remove('on');}
+function closeProfile(){$('profileBg').classList.remove('on');syncOverlayBodyLock();}
 $('profileLogoutBtn').addEventListener('click',()=>doLogout());
+$('profilePhotoBtn')?.addEventListener('click',()=>{ if(App.user) $('avatarUploadInp')?.click(); });
 $('avatarUploadInp')?.addEventListener('change',async e=>{
   const file=e.target?.files?.[0];
   if(!file || !App.user) return;
   const avatar=$('profileAvatar');
   const preview=URL.createObjectURL(file);
   if(avatar) avatar.classList.add('is-uploading');
+  setBtnBusy('profilePhotoBtn',true,'Uploading...');
   setProfilePhotoElement(avatar,preview,profileInitial(App.user));
   setProfileNavIcon(preview,profileInitial(App.user));
   try{
@@ -10682,60 +10900,229 @@ $('avatarUploadInp')?.addEventListener('change',async e=>{
     toast('Upload failed',err.message,'err');
   }finally{
     if(avatar) avatar.classList.remove('is-uploading');
+    setBtnBusy('profilePhotoBtn',false,'Uploading...');
     URL.revokeObjectURL(preview);
     e.target.value='';
   }
 });
-$('resendVerifyBtn').addEventListener('click',async()=>{
-  try{await api('/auth/resend-verification',{method:'POST',auth:true});toast('Verification email sent','Check your inbox, Spam, Junk, or Promotions.');}
-  catch(e){toast('Failed',e.message,'err');}
-});
+async function sendVerificationEmail(buttonId='',statusId=''){
+  if(!App.user) return handleSessionExpired('Sign in again to verify your email.');
+  if(buttonId) setBtnBusy(buttonId,true,'Sending...');
+  try{
+    await api('/auth/resend-verification',{method:'POST',auth:true});
+    const msg='Verification email sent. Check your inbox, Spam, Junk, or Promotions.';
+    if(statusId) setS(statusId,msg,'ok');
+    toast('Verification email sent','Check your inbox, Spam, Junk, or Promotions.');
+  }catch(e){
+    if(statusId) setS(statusId,e.message,'err');
+    toast('Failed',e.message,'err');
+  }finally{
+    if(buttonId) setBtnBusy(buttonId,false,'Sending...');
+  }
+}
+$('resendVerifyBtn').addEventListener('click',()=>sendVerificationEmail('resendVerifyBtn'));
+$('adminResendVerifyBtn')?.addEventListener('click',()=>sendVerificationEmail('adminResendVerifyBtn','authStatus'));
+
+async function saveAccountProfile(){
+  if(!App.user) return handleSessionExpired('Sign in again to update your profile.');
+  const nameInput=$('accountDisplayName');
+  const nextName=String(nameInput?.value||'').trim().replace(/\s+/g,' ');
+  if(!nextName) return setS('accountProfileStatus','Enter a display name.','err');
+  if(nameInput) nameInput.disabled=true;
+  setBtnBusy('accountSaveProfileBtn',true,'Saving...');
+  try{
+    setS('accountProfileStatus','Saving profile...');
+    const d=await api('/auth/profile',{method:'PUT',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({display_name:nextName})});
+    App.user={...App.user,display_name:d.display_name||nextName};
+    renderUserUI();
+    setS('accountProfileStatus','Profile saved.','ok');
+    setS('authStatus','Account profile updated.','ok');
+    toast('Profile updated');
+  }catch(e){
+    setS('accountProfileStatus',e.message,'err');
+  }finally{
+    if(nameInput) nameInput.disabled=false;
+    setBtnBusy('accountSaveProfileBtn',false,'Saving...');
+  }
+}
+async function updateSignedInPassword(){
+  if(!App.user) return handleSessionExpired('Sign in again to change your password.');
+  const pass1=$('accountPass1');
+  const pass2=$('accountPass2');
+  const nextPassword=String(pass1?.value||'').trim();
+  const confirmPassword=String(pass2?.value||'').trim();
+  if(!authPasswordValid(nextPassword)) return setS('accountPasswordStatus','Use at least 8 characters for the new password.','err');
+  if(nextPassword!==confirmPassword) return setS('accountPasswordStatus','Passwords do not match.','err');
+  if(pass1) pass1.disabled=true;
+  if(pass2) pass2.disabled=true;
+  setBtnBusy('accountChangePassBtn',true,'Updating...');
+  try{
+    setS('accountPasswordStatus','Updating password...');
+    await api('/auth/update-password',{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({password:nextPassword})});
+    if(pass1) pass1.value='';
+    if(pass2) pass2.value='';
+    setS('accountPasswordStatus','Password updated.','ok');
+    toast('Password updated');
+  }catch(e){
+    setS('accountPasswordStatus',e.message,'err');
+  }finally{
+    if(pass1) pass1.disabled=false;
+    if(pass2) pass2.disabled=false;
+    setBtnBusy('accountChangePassBtn',false,'Updating...');
+  }
+}
+$('accountSaveProfileBtn')?.addEventListener('click',saveAccountProfile);
+$('accountChangePassBtn')?.addEventListener('click',updateSignedInPassword);
+
+const AUTH_SCOPE_META={
+  login:{panelId:'atab-login',fieldIds:['loginEmail','loginPass'],buttonIds:['loginSubmitBtn']},
+  register:{panelId:'atab-register',fieldIds:['regName','regEmail','regPass'],buttonIds:['regSubmitBtn']},
+  forgot:{panelId:'atab-forgot',fieldIds:['forgotEmail'],buttonIds:['forgotSubmitBtn','backToLoginBtn']},
+  reset:{panelId:'atab-reset',fieldIds:['resetPass','resetPass2'],buttonIds:['resetSubmitBtn']},
+  admin:{panelId:'adminAuthFields',fieldIds:['authEmail','authPass'],buttonIds:['adminLoginBtn','adminRegisterBtn','adminForgotBtn']},
+};
+const authBusyScopes=new Set();
+function setAuthScopeBusy(scope,busy,activeButtonId='',label='Working...'){
+  const meta=AUTH_SCOPE_META[scope];
+  if(!meta) return;
+  meta.fieldIds.forEach(id=>{ const el=$(id); if(el) el.disabled=busy; });
+  meta.buttonIds.forEach(id=>{
+    const btn=$(id);
+    if(!btn) return;
+    if(id===activeButtonId) setBtnBusy(id,busy,label);
+    else btn.disabled=busy;
+  });
+  const panel=$(meta.panelId);
+  if(panel) panel.setAttribute('aria-busy',busy?'true':'false');
+}
+async function runAuthAction(scope,activeButtonId,label,task){
+  if(authBusyScopes.has(scope)) return;
+  authBusyScopes.add(scope);
+  setAuthScopeBusy(scope,true,activeButtonId,label);
+  try{
+    return await task();
+  }finally{
+    setAuthScopeBusy(scope,false,activeButtonId,label);
+    authBusyScopes.delete(scope);
+  }
+}
+function authPasswordValid(password=''){
+  return String(password||'').trim().length>=8;
+}
+function authRedirectTarget(recovery=false){
+  const base=`${window.location.origin}${location.pathname}`;
+  return recovery ? `${base}?auth=recovery` : base;
+}
+function readStoredAuthCodeVerifier(){
+  const stores=[];
+  try{stores.push(sessionStorage);}catch{}
+  try{stores.push(localStorage);}catch{}
+  for(const store of stores){
+    try{
+      for(let i=0;i<store.length;i++){
+        const key=store.key(i)||'';
+        if(!/code-verifier$/i.test(key)) continue;
+        const value=String(store.getItem(key)||'').trim();
+        if(value) return value;
+      }
+    }catch{}
+  }
+  return '';
+}
+async function refreshAfterAuthLogin(){
+  await Promise.all([loadAllShops(),loadMyShops()]);
+}
+function prefillRegisterFromAdmin(){
+  const email=$('authEmail')?.value.trim()||'';
+  const password=$('authPass')?.value||'';
+  if($('regEmail')) $('regEmail').value=email;
+  if($('regPass')) $('regPass').value=password;
+  if($('regName') && !$('regName').value.trim() && email.includes('@')) $('regName').value=email.split('@')[0];
+}
+async function completeAuthSessionFromRedirect(payload={},recovery=false){
+  const d=await api('/auth/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(recovery){
+    App.recoveryToken=String(d.access_token||'').trim();
+    saveUser(d);
+    openAuthModal('reset');
+    setS('resetStatus','Choose a new password to finish resetting your account.','');
+    return true;
+  }
+  saveUser(d);
+  await refreshViewerFavourites();
+  toast('Email verified','You are now signed in.','ok');
+  return true;
+}
 
 async function doLogin(){
   const email=$('loginEmail').value.trim(),pw=$('loginPass').value.trim();
-  try{
-    setS('loginStatus','Signing in...');
-    const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
-    saveUser(d);
-    await refreshViewerFavourites();
-    closeAuthModal();
-    toast('Welcome back!',d.display_name||d.email);
-    await loadAllShops();
-    await loadMyShops();
-  }
-  catch(e){setS('loginStatus',e.message,'err');}
+  if(!email) return setS('loginStatus','Enter your email address.','err');
+  if(!pw) return setS('loginStatus','Enter your password.','err');
+  await runAuthAction('login','loginSubmitBtn','Signing in...',async()=>{
+    try{
+      setS('loginStatus','Signing in...');
+      const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
+      saveUser(d);
+      await refreshViewerFavourites();
+      closeAuthModal();
+      toast('Welcome back!',d.display_name||d.email);
+      await refreshAfterAuthLogin();
+    }catch(e){
+      setS('loginStatus',e.message,'err');
+    }
+  });
 }
 async function doRegister(){
   const email=$('regEmail').value.trim(),pw=$('regPass').value.trim(),name=$('regName').value.trim();
-  try{
-    setS('regStatus','Creating account...');
-    await api('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw,display_name:name})});
-    setS('regStatus','Account created. Check your inbox for the verification link. If it is missing, check Spam, Junk, or Promotions.','ok');
-    toast('Account created','Check your inbox, Spam, Junk, or Promotions.');
-  }catch(e){setS('regStatus',e.message,'err');}
+  if(!email) return setS('regStatus','Enter your email address.','err');
+  if(!authPasswordValid(pw)) return setS('regStatus','Use at least 8 characters for your password.','err');
+  await runAuthAction('register','regSubmitBtn','Creating account...',async()=>{
+    try{
+      setS('regStatus','Creating account...');
+      await api('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw,display_name:name})});
+      if($('loginEmail')) $('loginEmail').value=email;
+      setS('regStatus','Account created. Check your inbox for the verification link. If it is missing, check Spam, Junk, or Promotions.','ok');
+      toast('Account created','Check your inbox, Spam, Junk, or Promotions.');
+    }catch(e){
+      setS('regStatus',e.message,'err');
+    }
+  });
 }
 async function doForgot(){
   const email=$('forgotEmail').value.trim();
-  try{setS('forgotStatus','Sending...');await api('/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});setS('forgotStatus','If that email exists, the reset link has been sent. Check your inbox, Spam, Junk, or Promotions.','ok');}
-  catch(e){setS('forgotStatus',e.message,'err');}
+  if(!email) return setS('forgotStatus','Enter your email address.','err');
+  await runAuthAction('forgot','forgotSubmitBtn','Sending...',async()=>{
+    try{
+      setS('forgotStatus','Sending...');
+      await api('/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+      setS('forgotStatus','If that email exists, the reset link has been sent. Check your inbox, Spam, Junk, or Promotions.','ok');
+    }catch(e){
+      setS('forgotStatus',e.message,'err');
+    }
+  });
 }
 async function doResetPassword(){
   const pw=$('resetPass').value.trim(),pw2=$('resetPass2').value.trim();
   if(!App.recoveryToken) return setS('resetStatus','This reset link is no longer active. Request a new one.','err');
-  if(pw.length<8) return setS('resetStatus','Use at least 8 characters for the new password.','err');
+  if(!authPasswordValid(pw)) return setS('resetStatus','Use at least 8 characters for the new password.','err');
   if(pw!==pw2) return setS('resetStatus','Passwords do not match.','err');
-  try{
-    setS('resetStatus','Updating password...');
-    await api('/auth/update-password',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${App.recoveryToken}`},body:JSON.stringify({password:pw})});
-    App.recoveryToken='';
-    $('resetPass').value='';$('resetPass2').value='';
-    setS('resetStatus','Password updated. You can sign in now.','ok');
-    switchAuthTab('login');
-    toast('Password updated','Sign in with your new password.');
-  }catch(e){setS('resetStatus',e.message,'err');}
+  await runAuthAction('reset','resetSubmitBtn','Updating password...',async()=>{
+    try{
+      setS('resetStatus','Updating password...');
+      await api('/auth/update-password',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${App.recoveryToken}`},body:JSON.stringify({password:pw})});
+      App.recoveryToken='';
+      $('resetPass').value='';$('resetPass2').value='';
+      switchAuthTab('login');
+      setS('loginStatus','Password updated. You can sign in now.','ok');
+      toast('Password updated','Sign in with your new password.');
+    }catch(e){
+      setS('resetStatus',e.message,'err');
+    }
+  });
 }
 async function doLogout(){
   closeProfile();
+  App.sessionExpiredNoticeShown=false;
   try{await api('/auth/logout',{method:'POST',auth:true});}catch{}
   clearUser();toast('Signed out');
 }
@@ -10750,38 +11137,53 @@ $('backToLoginBtn').addEventListener('click',()=>switchAuthTab('login'));
 $('resetSubmitBtn').addEventListener('click',doResetPassword);
 $('adminLoginBtn').addEventListener('click',async()=>{
   const email=$('authEmail').value.trim(),pw=$('authPass').value.trim();
-  try{
-    setS('authStatus','Signing in...');
-    const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
-    saveUser(d);
-    await refreshViewerFavourites();
-    setS('authStatus',`Welcome, ${d.display_name||d.email}!`,'ok');
-    toast('Logged in');
-    await loadAllShops();
-    await loadMyShops();
-  }catch(e){setS('authStatus',e.message,'err');}
+  if(!email) return setS('authStatus','Enter your email address.','err');
+  if(!pw) return setS('authStatus','Enter your password.','err');
+  await runAuthAction('admin','adminLoginBtn','Signing in...',async()=>{
+    try{
+      setS('authStatus','Signing in...');
+      const d=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
+      saveUser(d);
+      await refreshViewerFavourites();
+      setS('authStatus',`Welcome, ${d.display_name||d.email}!`,'ok');
+      toast('Logged in');
+      await refreshAfterAuthLogin();
+    }catch(e){
+      setS('authStatus',e.message,'err');
+    }
+  });
 });
-$('adminRegisterBtn').addEventListener('click',async()=>{
-  const email=$('authEmail').value.trim(),pw=$('authPass').value.trim();
-  try{
-    setS('authStatus','Registering...');
-    await api('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw,display_name:''})});
-    setS('authStatus','Registered. Check your inbox for the verification link. If it is missing, check Spam, Junk, or Promotions.','ok');
-    toast('Account created', 'Check your inbox, Spam, Junk, or Promotions.');
-  }catch(e){setS('authStatus',e.message,'err');}
+$('adminRegisterBtn').addEventListener('click',()=>{
+  prefillRegisterFromAdmin();
+  openAuthModal('register');
+  $('regName')?.focus();
 });
 $('adminForgotBtn').addEventListener('click',()=>{
   $('forgotEmail').value=$('authEmail').value.trim();
   openAuthModal('forgot');
 });
 $('adminLogoutBtn').addEventListener('click',async()=>{
-  try{await api('/auth/logout',{method:'POST',auth:true});}catch{}
-  clearUser();setS('authStatus','Logged out.');
+  await doLogout();
+  setS('authStatus','Logged out.','ok');
 });
 
 /* ═════════════════════════════════════════════
    CART
 ═════════════════════════════════════════════ */
+function bindEnterSubmit(ids,handler){
+  ids.forEach(id=>$(id)?.addEventListener('keydown',e=>{
+    if(e.key!=='Enter' || e.shiftKey) return;
+    e.preventDefault();
+    handler();
+  }));
+}
+bindEnterSubmit(['loginEmail','loginPass'],doLogin);
+bindEnterSubmit(['regName','regEmail','regPass'],doRegister);
+bindEnterSubmit(['forgotEmail'],doForgot);
+bindEnterSubmit(['resetPass','resetPass2'],doResetPassword);
+bindEnterSubmit(['authEmail','authPass'],()=>$('adminLoginBtn')?.click());
+bindEnterSubmit(['accountDisplayName'],saveAccountProfile);
+bindEnterSubmit(['accountPass1','accountPass2'],updateSignedInPassword);
 function updateCartBadge(){
   if(!CART_UI_ENABLED){$('cartBadge')?.classList.add('off');return;}
   const n=App.cart.reduce((s,i)=>s+i.qty,0);$('cartBadge').textContent=n;$('cartBadge').classList.toggle('off',n===0);
@@ -14318,7 +14720,7 @@ function isRecoveryAuthRedirect(params){
   return ['recovery','password_recovery','reset','reset_password'].includes(type) || path.includes('reset-password');
 }
 function hasAuthRedirectParams(params){
-  return ['access_token','refresh_token','type','auth','flow','code','error','error_code','error_description'].some(key=>params.has(key));
+  return ['access_token','refresh_token','token_hash','type','auth','flow','code','error','error_code','error_description'].some(key=>params.has(key));
 }
 function clearAuthRedirectFromUrl(){
   try{history.replaceState({},'',appUiRootPath());}
@@ -14329,6 +14731,9 @@ async function handleHashAuth() {
   if(!hasAuthRedirectParams(params)) return false;
   const token=String(params.get('access_token')||'').trim();
   const refreshToken=String(params.get('refresh_token')||'').trim();
+  const tokenHash=String(params.get('token_hash')||'').trim();
+  const authCode=String(params.get('code')||'').trim();
+  const redirectTo=authRedirectTarget(isRecoveryAuthRedirect(params));
   const recovery=isRecoveryAuthRedirect(params);
   const error=params.get('error_description')||params.get('error')||params.get('error_code')||'';
   clearAuthRedirectFromUrl();
@@ -14344,14 +14749,29 @@ async function handleHashAuth() {
     return true;
   }
   if(!token){
+    if(tokenHash || authCode){
+      try{
+        return await completeAuthSessionFromRedirect({
+          token_hash: tokenHash,
+          auth_code: authCode,
+          code_verifier: readStoredAuthCodeVerifier(),
+          type: String(params.get('type')||params.get('auth')||params.get('flow')||'').trim().toLowerCase(),
+          redirect_to: redirectTo,
+        },recovery);
+      }catch(e){
+        if(recovery){
+          openAuthModal('forgot');
+          setS('forgotStatus',e.message || 'That reset link could not be used. Request a new reset link.','err');
+        }else{
+          openAuthModal('login');
+          setS('loginStatus',e.message || 'This email link could not be completed in this browser. Please sign in, or request a new email link.','err');
+        }
+        return true;
+      }
+    }
     if(recovery){
       openAuthModal('forgot');
       setS('forgotStatus','This reset link did not include a usable reset session. Request a new reset link and open the latest email.','err');
-      return true;
-    }
-    if(params.has('code')){
-      openAuthModal('login');
-      setS('loginStatus','This email link could not be completed in this browser. Please sign in, or request a new email link.','err');
       return true;
     }
     return false;
@@ -14363,9 +14783,7 @@ async function handleHashAuth() {
     return true;
   }
   try {
-    const d = await api('/auth/session', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,refresh_token:refreshToken})});
-    saveUser(d);
-    toast('Email verified','You are now signed in.','ok');
+    await completeAuthSessionFromRedirect({access_token:token,refresh_token:refreshToken},false);
     return true;
   } catch(e) {
     clearUser();
