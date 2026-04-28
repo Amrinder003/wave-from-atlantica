@@ -1777,6 +1777,8 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out["currency_code"] = clean_currency(out.get("currency_code") or currency_for_country(out.get("country_code", "")))
     out["timezone_name"] = (out.get("timezone_name") or timezone_for_country(out.get("country_code", ""))).strip()
     out["hours_structured"] = parse_hours_structured(out.get("hours_structured"))
+    if not out["hours_structured"]:
+        out["hours_structured"] = parse_hours_summary_text(out.get("hours"))
     out["hours"] = (out.get("hours") or "").strip() or format_hours_structured(out["hours_structured"])
     formatted_address = (out.get("formatted_address") or "").strip()
     if out["location_mode"] in {"storefront", "hybrid"}:
@@ -2008,6 +2010,48 @@ def parse_hours_structured(value: Any) -> List[Dict[str, Any]]:
         seen.add(day)
     out.sort(key=lambda item: DAY_ORDER.index(item["day"]))
     return out
+
+def parse_hours_summary_text(value: Any) -> List[Dict[str, Any]]:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if not text:
+        return []
+    parsed: Dict[str, Dict[str, Any]] = {}
+    day_token = "(Mon|Tue|Wed|Thu|Fri|Sat|Sun)"
+    pattern = re.compile(
+        rf"^{day_token}(?:-({day_token[1:-1]}))?\s+(Closed|\d{{2}}:\d{{2}}\s*-\s*\d{{2}}:\d{{2}})$",
+        re.IGNORECASE,
+    )
+    for chunk in [part.strip() for part in text.split(",") if part.strip()]:
+        match = pattern.fullmatch(chunk)
+        if not match:
+            return []
+        start_day = match.group(1).lower()[:3]
+        end_day = (match.group(2) or match.group(1)).lower()[:3]
+        if start_day not in DAY_ORDER or end_day not in DAY_ORDER:
+            return []
+        start_idx = DAY_ORDER.index(start_day)
+        end_idx = DAY_ORDER.index(end_day)
+        if end_idx < start_idx:
+            return []
+        slot = match.group(3)
+        closed = slot.lower() == "closed"
+        start = ""
+        end = ""
+        if not closed:
+            times = re.findall(r"\d{2}:\d{2}", slot)
+            if len(times) != 2 or times[0] >= times[1]:
+                return []
+            start, end = times
+        for day in DAY_ORDER[start_idx:end_idx + 1]:
+            if day in parsed:
+                return []
+            parsed[day] = {
+                "day": day,
+                "closed": closed,
+                "start": "" if closed else start,
+                "end": "" if closed else end,
+            }
+    return [parsed[day] for day in DAY_ORDER if day in parsed]
 
 def format_hours_structured(hours_structured: List[Dict[str, Any]]) -> str:
     if not hours_structured:
@@ -2508,8 +2552,11 @@ def validate_shop_payload(shop: ShopInfo) -> Dict[str, Any]:
     elif location_mode == "service_area":
         if not data.get("service_area", "").strip():
             raise HTTPException(400, "Describe the service area")
+    data["hours_structured"] = parse_hours_structured(data.get("hours_structured")) or parse_hours_summary_text(data.get("hours"))
     if not data.get("hours_structured"):
         raise HTTPException(400, "Set the business working days and hours")
+    if not any(not slot.get("closed") for slot in data["hours_structured"]):
+        raise HTTPException(400, "Mark at least one working day as open")
     if not is_supported_timezone_name(data.get("timezone_name") or "UTC"):
         raise HTTPException(400, "Select a valid business timezone")
     data["currency_code"] = clean_currency(data.get("currency_code") or currency_for_country(data["country_code"]))

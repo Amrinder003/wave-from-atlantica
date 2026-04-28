@@ -6467,6 +6467,7 @@ const App = {
   srchPage: 1,
   activeCat: '',
   homeMobileView: 'shops',
+  publicCatalogDirty: false,
   favouriteProductIds: {},
   adminProducts: [],
   recoveryToken: '',
@@ -10199,16 +10200,20 @@ function normalizeShopDeliveryInputs(){
   normalizeDecimalInputElement($('shopDeliveryFee'),{maxDecimals:2});
 }
 let addressSuggestTimer=null;
+let addressSuggestRequestKey=0;
 async function loadAddressSuggestions(){
   const target=$('shopAddressSuggest');
   const q=$('shopStreet1')?.value.trim()||'';
   const country=selectedCountryCode();
+  const requestKey=++addressSuggestRequestKey;
   if(!target) return;
   target.innerHTML='';
   target.style.display='none';
   if(q.length<5||!country) return;
   try{
     const d=await api(`/public/address/search?q=${encodeURIComponent(q)}&country=${encodeURIComponent(country)}`);
+    if(requestKey!==addressSuggestRequestKey) return;
+    if(($('shopStreet1')?.value.trim()||'')!==q || selectedCountryCode()!==country) return;
     const suggestions=d.suggestions||[];
     if(!suggestions.length) return;
     target.innerHTML='';
@@ -10324,6 +10329,7 @@ function showPage(pg){
   if(pg!=='shop') setShopMobileSheet('',false);
   if(pg!=='shop') setShopSnapshotModal(false);
   window.scrollTo({top:0,behavior:'auto'});
+  if(pg==='home' && App.publicCatalogDirty) setTimeout(()=>loadAllShops(),0);
   if(pg==='home') setTimeout(()=>maybeOfferLocationOnLaunch().catch(()=>{}),0);
 }
 function goHome(){App.activeCat='';App.marketAttrFilter={key:'',value:'',category:''};highlightCat('');showPage('home');setPublicPath(appUiRootPath());}
@@ -12371,10 +12377,14 @@ async function loadAllShops(){
     const d=normalizeCatalogPayload(await api(`/public/businesses${buildShopFilterQuery()}`));
     assertPublicBrowseOk(d,'Businesses are temporarily unavailable.');
     App.allShops=d.businesses||[];
+    App.publicCatalogDirty=false;
     renderHomeShops();
     loadFeatured();
   }
   catch(e){$('homeShopGrid').innerHTML=`<div class="empty"><div class="ei">Warning</div><div class="et">${esc(e.message)}</div></div>`;}
+}
+function markPublicCatalogDirty(){
+  App.publicCatalogDirty=true;
 }
 function renderHomeShops(){
   let shops=App.allShops;
@@ -13033,11 +13043,17 @@ window.visualViewport?.addEventListener('resize',()=>scheduleMapSheetViewportRef
     },{passive:true});
   }
 }
-function switchAdminSub(sub){
+function switchAdminSub(sub,{refreshShops=true}={}){
+  const currentShopView=document.querySelector('[data-shop-view].on')?.dataset.shopView||'';
+  if(sub==='shops'){
+    if(currentShopView && currentShopView!=='landing' && !showShopManagerView('landing')) return;
+  }else if(['shopform','productform'].includes(currentShopView) && !canLeaveShopManagerView(currentShopView)){
+    return;
+  }
   document.querySelectorAll('.asub').forEach(el=>el.classList.toggle('on',el.id===`sub-${sub}`));
   document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.classList.toggle('on',b.dataset.sub===sub));
   if(sub==='analytics'&&App.adminShopId)loadAnalytics();
-  if(sub==='shops'){ showShopManagerView('landing'); if(tok()) loadMyShops(); }
+  if(sub==='shops'&&refreshShops&&tok()) loadMyShops();
 }
 document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.addEventListener('click',()=>{
   if(b.id==='adminAccountNavBtn' && b.dataset.mode==='logout'){ doLogout(); return; }
@@ -13499,7 +13515,7 @@ function refreshWorkspaceHeader(shop=null,stats={}){
   }
 }
 
-async function loadAdminShop(shopId){
+async function loadAdminShop(shopId,{refreshOwnerList=false}={}){
   if(!tok())return toast('Login required','','err');
   App.adminShopId=shopId;
   try{const [d,reqRes]=await Promise.all([
@@ -13544,9 +13560,16 @@ async function loadAdminShop(shopId){
     renderAdminProds(App.adminProducts);
     setFieldHint('myShopsStatus',`Opened ${s.name||shopId}.`,'ok');
     setS('shopStatus',`Loaded ${shopId}`,'ok');
-    switchAdminSub('shops');
+    switchAdminSub('shops',{refreshShops:refreshOwnerList});
     showShopManagerView('detail');
   }catch(e){setS('shopStatus',e.message,'err');toast('Load failed',e.message,'err');}
+}
+async function refreshBusinessWorkspace(shopId){
+  await Promise.all([
+    loadAdminShop(shopId),
+    loadMyShops(),
+  ]);
+  markPublicCatalogDirty();
 }
 function renderAdminProds(prods){
   if(!$('adminPGrid')||!$('adminPBadge')) return;
@@ -13606,9 +13629,7 @@ async function createShop(){
       toast('Business image update failed',imageErr.message,'err');
     }
     updateShopDraftState(false);
-    await loadMyShops();
-    await loadAdminShop(d.shop_id);
-    await loadAllShops();
+    await refreshBusinessWorkspace(d.shop_id);
     toast('Business created',d.shop_id);
     setS('shopStatus',
       syncError
@@ -13648,9 +13669,7 @@ async function saveShop(){
       toast('Business image update failed',imageErr.message,'err');
     }
     updateShopDraftState(false);
-    await loadMyShops();
-    await loadAllShops();
-    await loadAdminShop(shopId);
+    await refreshBusinessWorkspace(shopId);
     toast('Saved');
     setS('shopStatus',
       syncError
@@ -13674,7 +13693,7 @@ async function deleteShop(){
   const shopId=$('shopId').value.trim();if(!shopId)return toast('No business loaded','','err');
   const shopName=$('shopName').value.trim()||shopId;
   if(!confirm(`Delete "${shopName}" and all of its offerings? This cannot be undone.`))return;
-  try{await api(`/admin/business/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});toast('Business deleted',shopId);setS('shopStatus','');updateShopDraftState(false);$('shopStats').style.display='none';App.adminShopId=null;App.adminShopData=null;App.adminProducts=[];refreshWorkspaceHeader();renderAdminProds([]);clearProdForm();await loadMyShops();await loadAllShops();switchAdminSub('shops');showShopManagerView('landing');}catch(e){setS('shopStatus',e.message,'err');toast('Delete failed',e.message,'err');}
+  try{await api(`/admin/business/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});toast('Business deleted',shopId);setS('shopStatus','');updateShopDraftState(false);$('shopStats').style.display='none';App.adminShopId=null;App.adminShopData=null;App.adminProducts=[];refreshWorkspaceHeader();renderAdminProds([]);clearProdForm();await loadMyShops();markPublicCatalogDirty();switchAdminSub('shops',{refreshShops:false});showShopManagerView('landing');}catch(e){setS('shopStatus',e.message,'err');toast('Delete failed',e.message,'err');}
 }
 $('ownerCreateShopBtn').addEventListener('click',openCreateShopView);
 $('detailBackBtn').addEventListener('click',()=>showShopManagerView('landing'));
