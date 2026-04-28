@@ -5043,20 +5043,6 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     shop = validate_shop_payload(raw_business)
     owner_rows, all_rows = load_shop_trust_rows(user.id)
     enforce_creator_draft_limits(user, owner_rows)
-    duplicate_matches = duplicate_business_matches(
-        shop,
-        viewer_user_id=user.id,
-        rows=all_rows,
-        public_only=True,
-        blocking_only=True,
-        limit=3,
-    )
-    if duplicate_matches:
-        match = duplicate_matches[0]
-        match_name = str(match.get("name", "") or "This business").strip()
-        match_area = ", ".join([part for part in [match.get("city", ""), match.get("region", "")] if str(part or "").strip()])
-        detail = f"{match_name}{f' ({match_area})' if match_area else ''} already has a live business page. Use Claim Existing Business instead of creating another listing."
-        raise HTTPException(409, detail)
     trust_snapshot = build_shop_trust_snapshot(shop, user, owner_rows, all_rows, projected_new_unpublished=True)
     sid = gen_shop_id(shop["name"])
     shop_slug = unique_shop_slug(shop["name"])
@@ -5504,84 +5490,17 @@ def admin_reject_business(shop_id: str, body: ReviewDecisionReq, authorization: 
 @app.get("/admin/business-claim/candidates")
 @app.get("/admin/business-claims/candidates")
 def admin_business_claim_candidates(q: str = Query(""), limit: int = Query(BUSINESS_CLAIM_SEARCH_LIMIT, ge=1, le=20), authorization: Optional[str] = Header(None)):
-    user, prof = get_user(authorization)
-    results = search_claimable_businesses(q, viewer_user_id=user.id, limit=limit)
-    pending_ids: set = set()
-    if results:
-        try:
-            rows = supabase.table("business_claims").select("shop_id").eq("claimant_user_id", user.id).eq("status", CLAIM_STATUS_PENDING).execute().data or []
-            pending_ids = {str(row.get("shop_id", "")) for row in rows if row.get("shop_id")}
-        except Exception:
-            pending_ids = set()
-    for row in results:
-        row["has_pending_claim"] = str(row.get("shop_id", "")) in pending_ids
-        row["business_id"] = row.get("shop_id", "")
-        row["business_slug"] = row.get("shop_slug", "")
-    return alias_catalog_response({"ok": True, "shops": results})
+    raise HTTPException(410, "Business claim flow is disabled.")
 
 @app.post("/admin/business/{shop_id}/claim")
 @app.post("/admin/shop/{shop_id}/claim")
 def admin_create_business_claim(shop_id: str, body: BusinessClaimReq, authorization: Optional[str] = Header(None)):
-    user, prof = get_user(authorization)
-    require_verified(user)
-    prof = safe_ensure_profile_row(user, prof)
-    shop_rows = supabase.table("shops").select(CLAIMABLE_SHOP_FIELDS).eq("shop_id", shop_id).limit(1).execute().data or []
-    if not shop_rows:
-        raise HTTPException(404, "Business not found")
-    shop = normalize_shop_record(shop_rows[0])
-    if shop.get("listing_status") not in PUBLIC_LISTING_STATUSES:
-        raise HTTPException(400, "Only live businesses can be claimed.")
-    if str(shop.get("owner_user_id", "")) == str(user.id):
-        raise HTTPException(400, "You already manage this business.")
-    pending = supabase.table("business_claims").select("claim_id").eq("shop_id", shop_id).eq("claimant_user_id", user.id).eq("status", CLAIM_STATUS_PENDING).limit(1).execute().data or []
-    if pending:
-        raise HTTPException(409, "You already have a pending claim for this business.")
-    note = normalize_business_claim_note(body.note)
-    if len(note) < max(1, BUSINESS_CLAIM_NOTE_MIN_LEN):
-        raise HTTPException(400, f"Add a short ownership note before requesting access. Use at least {BUSINESS_CLAIM_NOTE_MIN_LEN} characters.")
-    display_name = normalize_display_name((prof or {}).get("display_name", ""), getattr(user, "email", ""))
-    claim_id = gen_business_claim_id(shop_id)
-    now_iso = datetime.now(timezone.utc).isoformat()
-    supabase.table("business_claims").insert({
-        "claim_id": claim_id,
-        "shop_id": shop_id,
-        "claimant_user_id": user.id,
-        "claimant_display_name": display_name,
-        "claimant_email": str(getattr(user, "email", "") or "").strip()[:200],
-        "note": note,
-        "status": CLAIM_STATUS_PENDING,
-        "review_note": "",
-        "created_at": now_iso,
-        "updated_at": now_iso,
-    }).execute()
-    try:
-        send_review_notification(
-            f"Ownership claim review needed: {shop.get('name', 'Business')}",
-            [
-                "A business ownership claim was submitted in Atlantic Ordinate.",
-                "",
-                f"Business: {shop.get('name', 'Business')}",
-                f"Business ID: {shop_id}",
-                f"Claim ID: {claim_id}",
-                f"Claimant: {display_name or 'Unknown'}",
-                f"Claimant email: {str(getattr(user, 'email', '') or '').strip() or 'Not provided'}",
-                f"Location: {shop.get('formatted_address', '') or shop.get('service_area', '') or shop.get('address', '') or 'Not provided'}",
-                f"Claim note: {note}",
-                "",
-                f"Review in app: {app_route_url('/ui')}",
-            ],
-        )
-    except Exception as notify_err:
-        print(f"[Review Notification Warning] Claim review email failed for {claim_id}: {notify_err}")
-    return {"ok": True, "claim_id": claim_id, "shop_id": shop_id, "business_id": shop_id, "status": CLAIM_STATUS_PENDING}
+    raise HTTPException(410, "Business claim flow is disabled.")
 
 @app.get("/admin/my-business-claims")
 @app.get("/admin/my-shop-claims")
 def admin_my_business_claims(authorization: Optional[str] = Header(None)):
-    user, prof = get_user(authorization)
-    rows = supabase.table("business_claims").select("*").eq("claimant_user_id", user.id).order("created_at", desc=True).execute().data or []
-    claims = attach_business_claim_shops(rows)
-    return {"ok": True, "claims": claims}
+    return {"ok": True, "claims": []}
 
 @app.get("/admin/review/business-claims")
 @app.get("/admin/review/shop-claims")
@@ -5589,67 +5508,17 @@ def admin_review_business_claims(status: str = Query(CLAIM_STATUS_PENDING), auth
     user, prof = get_user(authorization)
     prof = safe_ensure_profile_row(user, prof)
     require_admin_role(prof)
-    status_key = normalize_claim_status(status, default=CLAIM_STATUS_PENDING)
-    rows = supabase.table("business_claims").select("*").eq("status", status_key).order("created_at", desc=True).execute().data or []
-    claims = attach_business_claim_shops(rows)
-    return {"ok": True, "claims": claims}
+    return {"ok": True, "claims": []}
 
 @app.post("/admin/review/business-claim/{claim_id}/approve")
 @app.post("/admin/review/shop-claim/{claim_id}/approve")
 def admin_approve_business_claim(claim_id: str, authorization: Optional[str] = Header(None)):
-    user, prof = get_user(authorization)
-    prof = safe_ensure_profile_row(user, prof)
-    require_admin_role(prof)
-    rows = supabase.table("business_claims").select("*").eq("claim_id", claim_id).limit(1).execute().data or []
-    if not rows:
-        raise HTTPException(404, "Claim not found")
-    claim = normalize_business_claim_record(rows[0])
-    if claim.get("status") != CLAIM_STATUS_PENDING:
-        raise HTTPException(400, "This claim is already closed.")
-    shop_rows = supabase.table("shops").select("shop_id, owner_user_id").eq("shop_id", claim.get("shop_id", "")).limit(1).execute().data or []
-    if not shop_rows:
-        raise HTTPException(404, "Business not found")
-    now_iso = datetime.now(timezone.utc).isoformat()
-    supabase.table("shops").update({
-        "owner_user_id": claim.get("claimant_user_id", ""),
-    }).eq("shop_id", claim.get("shop_id", "")).execute()
-    supabase.table("business_claims").update({
-        "status": CLAIM_STATUS_APPROVED,
-        "review_note": "",
-        "updated_at": now_iso,
-    }).eq("claim_id", claim_id).execute()
-    supabase.table("business_claims").update({
-        "status": CLAIM_STATUS_REJECTED,
-        "review_note": "Another ownership claim for this business was approved.",
-        "updated_at": now_iso,
-    }).eq("shop_id", claim.get("shop_id", "")).eq("status", CLAIM_STATUS_PENDING).neq("claim_id", claim_id).execute()
-    return {
-        "ok": True,
-        "claim_id": claim_id,
-        "shop_id": claim.get("shop_id", ""),
-        "business_id": claim.get("shop_id", ""),
-        "status": CLAIM_STATUS_APPROVED,
-    }
+    raise HTTPException(410, "Business claim flow is disabled.")
 
 @app.post("/admin/review/business-claim/{claim_id}/reject")
 @app.post("/admin/review/shop-claim/{claim_id}/reject")
 def admin_reject_business_claim(claim_id: str, body: ReviewDecisionReq, authorization: Optional[str] = Header(None)):
-    user, prof = get_user(authorization)
-    prof = safe_ensure_profile_row(user, prof)
-    require_admin_role(prof)
-    reason = re.sub(r"\s+", " ", str(body.reason or "")).strip()
-    if len(reason) < 5:
-        raise HTTPException(400, "Add a short reason before rejecting the claim.")
-    rows = supabase.table("business_claims").select("claim_id").eq("claim_id", claim_id).limit(1).execute().data or []
-    if not rows:
-        raise HTTPException(404, "Claim not found")
-    now_iso = datetime.now(timezone.utc).isoformat()
-    supabase.table("business_claims").update({
-        "status": CLAIM_STATUS_REJECTED,
-        "review_note": reason[:BUSINESS_CLAIM_NOTE_MAX_LEN],
-        "updated_at": now_iso,
-    }).eq("claim_id", claim_id).execute()
-    return {"ok": True, "claim_id": claim_id, "status": CLAIM_STATUS_REJECTED, "reason": reason[:BUSINESS_CLAIM_NOTE_MAX_LEN]}
+    raise HTTPException(410, "Business claim flow is disabled.")
 
 @app.post("/admin/business/{shop_id}/profile-image")
 @app.post("/admin/shop/{shop_id}/profile-image")

@@ -5618,7 +5618,6 @@ select.btn{
               </div>
               <div class="workspace-actions">
                 <button id="ownerCreateShopBtn" class="btn btn-A btn-sm">+ Create Business</button>
-                <button id="ownerClaimBusinessBtn" class="btn btn-o btn-sm">Claim Existing Business</button>
                 <button id="ownerGeocodeShopsBtn" class="btn btn-o btn-sm">Refresh Map Data</button>
                 <button id="refreshMyShops" class="btn btn-o btn-sm">Refresh</button>
               </div>
@@ -5642,7 +5641,7 @@ select.btn{
               </div>
               <div id="ownerReviewGuideCard" class="review-note" style="margin-top:14px;display:block">
                 <strong>How review works</strong>
-                Business verification requests and ownership claims are reviewed from <strong>Admin &gt; Review Center</strong>. Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can approve them.
+                Business verification requests are reviewed from <strong>Admin &gt; Review Center</strong>. Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can approve them.
               </div>
               <div class="owner-filter-bar">
                 <div class="fld"><label>Country</label><input id="ownerFilterCountry" value="Canada" placeholder="Canada" readonly title="Canada only for launch"/></div>
@@ -5656,7 +5655,7 @@ select.btn{
               </div>
             </div>
           </div>
-          <div id="businessClaimCard" class="card">
+          <div id="businessClaimCard" class="card" style="display:none">
             <div class="card-head">
               <div class="card-title">Claim Existing Business</div>
             </div>
@@ -5856,7 +5855,7 @@ select.btn{
                 <div class="fg2">
                   <input id="shopId" type="hidden"/>
                   <div class="fld"><label>Business Reference</label><div id="shopIdRef" class="currency-pill" style="min-height:44px;display:flex;align-items:center">Generated after creation</div><div class="fld-hint">Atlantic Ordinate creates the business ID automatically. Owners do not need to choose one.</div></div>
-                  <div class="fld"><label>Business Name</label><input id="shopName" placeholder="Maple Juice Bar"/><div class="fld-hint">Use the public name exactly as you want customers to see it. If this business already has a live page, claim it instead of creating a duplicate listing.</div></div>
+                  <div class="fld"><label>Business Name</label><input id="shopName" placeholder="Maple Juice Bar"/><div class="fld-hint">Use the public name exactly as you want customers to see it.</div></div>
                   <div class="fld"><label>Business Type</label>
                     <select id="shopBusinessType">
                       <option value="retail">Retail business</option>
@@ -5976,7 +5975,7 @@ select.btn{
                 </div>
                 <div class="fg2">
                   <div class="fld"><label>Owner / Contact Name</label><input id="shopOwnerContactName" placeholder="Alicia Murray"/><div class="fld-hint">Used for business verification and staff follow-up. This is not shown to customers.</div></div>
-                  <div class="fld"><label>Verification Path</label><select id="shopVerificationMethod"><option value="">Select...</option><option value="website">Business website</option><option value="registry">Registry reference</option><option value="license">Licence / permit</option><option value="domain_email">Business email domain</option><option value="phone">Direct phone verification</option><option value="manual">Manual review note</option></select><div class="fld-hint">Choose the clearest proof path for this business.</div></div>
+                  <div class="fld"><label>Verification Path</label><select id="shopVerificationMethod"><option value="">Select...</option><option value="website">Business website</option><option value="registry">Registry reference</option><option value="license">Licence / permit</option><option value="manual">Manual review note</option></select><div class="fld-hint">Choose the clearest proof path for this business.</div></div>
                 </div>
                 <div class="fld" style="margin-top:14px"><label>Verification Note / Proof</label><textarea id="shopVerificationEvidence" placeholder="Example: atlanticordinate.ca/about or NS registry record 1234567 or municipal licence reference."></textarea><div class="fld-hint">Add the website, registry reference, licence note, or other proof staff can review quickly.</div></div>
                 <div class="owner-flag-list" style="margin-top:14px">
@@ -6229,8 +6228,8 @@ select.btn{
           <div class="workspace-hero">
             <div class="workspace-copy">
               <div class="workspace-kicker">Review Center</div>
-              <div class="workspace-title">Review new business launches and ownership claims.</div>
-              <div class="workspace-desc">This is the staff queue. Business verification requests and claim requests are reviewed here, not inside customer pages.</div>
+              <div class="workspace-title">Review new business launches.</div>
+              <div class="workspace-desc">This is the staff queue. Business verification requests are reviewed here, not inside customer pages.</div>
             </div>
             <div class="workspace-actions">
               <button id="refreshReviewCenterBtn" class="btn btn-o btn-sm">Refresh Review Center</button>
@@ -6238,13 +6237,13 @@ select.btn{
           </div>
         </div>
         <div class="card">
-          <div class="card-body">
-            <div id="reviewCenterGuide" class="review-note" style="display:block;margin:0">
-              <strong>Reviewer access</strong>
-              Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can see and act on these queues. If you submit a business and nobody can review it here, no reviewer account exists yet.
+            <div class="card-body">
+              <div id="reviewCenterGuide" class="review-note" style="display:block;margin:0">
+                <strong>Reviewer access</strong>
+                Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can see and act on this queue. If you submit a business and nobody can review it here, no reviewer account exists yet.
+              </div>
             </div>
           </div>
-        </div>
         <div id="adminReviewQueueCard" class="card" style="display:none">
           <div class="card-head">
             <div class="card-title">Business Review Queue</div>
@@ -11002,12 +11001,11 @@ function syncReviewNavBadge(){
     return;
   }
   const businessCount=Array.isArray(App.adminReviewShops)?App.adminReviewShops.length:0;
-  const claimCount=Array.isArray(App.adminReviewClaims)?App.adminReviewClaims.length:0;
-  const total=businessCount+claimCount;
+  const total=businessCount;
   badge.textContent=String(total);
   badge.style.display=total>0?'inline-flex':'none';
   const label=total>0
-    ? `Review Center, ${total} pending item${total===1?'':'s'}`
+    ? `Review Center, ${total} pending business review${total===1?'':'s'}`
     : 'Review Center';
   btn.title=label;
   btn.setAttribute('aria-label',label);
@@ -11023,8 +11021,8 @@ function syncReviewerUi(user=App.user){
   const guide=$('ownerReviewGuideCard');
   if(guide){
     guide.innerHTML=isReviewerAccount(user)
-      ? '<strong>How review works</strong> This account can review business launches and ownership claims from <strong>Admin > Review Center</strong>.'
-      : '<strong>How review works</strong> Business verification requests and ownership claims are reviewed from <strong>Admin > Review Center</strong>. Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can approve them.';
+      ? '<strong>How review works</strong> This account can review business submissions from <strong>Admin > Review Center</strong>.'
+      : '<strong>How review works</strong> Business verification requests are reviewed from <strong>Admin > Review Center</strong>. Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can approve them.';
   }
   syncReviewNavBadge();
 }
@@ -13758,7 +13756,6 @@ function switchAdminSub(sub,{refreshShops=true}={}){
   if(sub==='shops'&&refreshShops&&tok()) loadMyShops();
   if(sub==='review'&&tok()){
     loadAdminReviewQueue();
-    loadAdminClaimReviewQueue();
   }
 }
 document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.addEventListener('click',()=>{
@@ -14138,11 +14135,7 @@ async function loadMyShops(){
     App.ownerBusinessClaims=[];
     App.claimSearchResults=[];
     renderAdminReviewQueue();
-    renderAdminClaimQueue();
-    renderOwnerBusinessClaims();
-    renderClaimSearchResults();
     setFieldHint('myShopsStatus','Sign in to create or manage businesses.','');
-    setFieldHint('myBusinessClaimsStatus','Sign in to claim an existing business page.','');
     return;
   }
   try{
@@ -14169,12 +14162,7 @@ async function loadMyShops(){
       setFieldHint('myShopsStatus','You do not have a business yet.','');
       $('createFirstShopBtn')?.addEventListener('click',openCreateShopView);
       renderAdminReviewQueue();
-      renderAdminClaimQueue();
-      await Promise.all([
-        loadOwnerBusinessClaims(),
-        isAdmin ? loadAdminReviewQueue() : Promise.resolve(),
-        isAdmin ? loadAdminClaimReviewQueue() : Promise.resolve(),
-      ]);
+      if(isAdmin) await loadAdminReviewQueue();
       return;
     }
     shops.forEach(s=>{
@@ -14190,12 +14178,7 @@ async function loadMyShops(){
       grid.appendChild(card);
     });
     renderAdminReviewQueue();
-    renderAdminClaimQueue();
-    await Promise.all([
-      loadOwnerBusinessClaims(),
-      isAdmin ? loadAdminReviewQueue() : Promise.resolve(),
-      isAdmin ? loadAdminClaimReviewQueue() : Promise.resolve(),
-    ]);
+    if(isAdmin) await loadAdminReviewQueue();
     setFieldHint('myShopsStatus',`${shops.length} business${shops.length===1?'':'es'} ready to manage.`,'ok');
   }catch(e){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Error</div><div class="et">${esc(e.message)}</div></div>`;setFieldHint('myShopsStatus','Could not load your businesses.','err');}
 }
@@ -14733,9 +14716,6 @@ async function createShop(){
   }catch(e){
     setS('shopStatus',e.message,'err');
     toast('Create failed',e.message,'err');
-    if(/claim existing business|already has a live business page/i.test(String(e.message||''))){
-      openClaimWorkspace({seed:buildClaimSearchSeed()});
-    }
   }finally{
     setBtnBusy('createShopBtn',false);
     setBtnBusy('shopFloatingSubmitBtn',false);
