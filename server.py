@@ -79,6 +79,14 @@ ALLOWED_LISTING_STATUSES = {
     LISTING_STATUS_VERIFIED,
     LISTING_STATUS_REJECTED,
 }
+CLAIM_STATUS_PENDING = "pending"
+CLAIM_STATUS_APPROVED = "approved"
+CLAIM_STATUS_REJECTED = "rejected"
+ALLOWED_CLAIM_STATUSES = {
+    CLAIM_STATUS_PENDING,
+    CLAIM_STATUS_APPROVED,
+    CLAIM_STATUS_REJECTED,
+}
 PUBLIC_LISTING_STATUSES = {LISTING_STATUS_VERIFIED}
 ALLOWED_VERIFICATION_METHODS = {
     "manual",
@@ -111,6 +119,34 @@ NEW_CREATOR_ACCOUNT_AGE_DAYS = int(os.environ.get("NEW_CREATOR_ACCOUNT_AGE_DAYS"
 NEW_CREATOR_DRAFT_BURST_HOURS = int(os.environ.get("NEW_CREATOR_DRAFT_BURST_HOURS", "24") or 24)
 NEW_CREATOR_DRAFT_BURST_LIMIT = int(os.environ.get("NEW_CREATOR_DRAFT_BURST_LIMIT", "2") or 2)
 NEW_CREATOR_TOTAL_UNPUBLISHED_LIMIT = int(os.environ.get("NEW_CREATOR_TOTAL_UNPUBLISHED_LIMIT", "4") or 4)
+BUSINESS_CLAIM_SEARCH_LIMIT = int(os.environ.get("BUSINESS_CLAIM_SEARCH_LIMIT", "8") or 8)
+BUSINESS_CLAIM_NOTE_MIN_LEN = int(os.environ.get("BUSINESS_CLAIM_NOTE_MIN_LEN", "8") or 8)
+BUSINESS_CLAIM_NOTE_MAX_LEN = int(os.environ.get("BUSINESS_CLAIM_NOTE_MAX_LEN", "800") or 800)
+CLAIMABLE_SHOP_FIELDS = ",".join([
+    "shop_id",
+    "shop_slug",
+    "owner_user_id",
+    "listing_status",
+    "name",
+    "profile_image_url",
+    "formatted_address",
+    "address",
+    "service_area",
+    "location_mode",
+    "category",
+    "phone",
+    "whatsapp",
+    "country_code",
+    "country_name",
+    "region",
+    "city",
+    "postal_code",
+    "street_line1",
+    "street_line2",
+    "owner_contact_name",
+    "verified_at",
+    "created_at",
+])
 
 OPENROUTER_KEY    = os.environ.get("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_MODEL  = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4.1-mini").strip()
@@ -709,6 +745,9 @@ class ReviewReq(BaseModel):
 class ReviewDecisionReq(BaseModel):
     reason: str = ""
 
+class BusinessClaimReq(BaseModel):
+    note: str = ""
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # AUTH HELPERS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -957,6 +996,227 @@ def load_shop_trust_rows(owner_user_id: str = "") -> Tuple[List[Dict[str, Any]],
     rows = supabase.table("shops").select("*").order("created_at", desc=True).execute().data or []
     owner_rows = [row for row in rows if str(row.get("owner_user_id", "")) == str(owner_user_id or "")]
     return owner_rows, rows
+
+def normalize_claim_status(value: Any, *, default: str = CLAIM_STATUS_PENDING) -> str:
+    status = str(value or "").strip().lower()
+    if status in ALLOWED_CLAIM_STATUSES:
+        return status
+    return default
+
+def normalize_business_claim_note(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip()[:BUSINESS_CLAIM_NOTE_MAX_LEN]
+
+def gen_business_claim_id(shop_id: str = "") -> str:
+    base = slug_base(shop_id or "claim", "claim", 28)
+    return f"clm-{base}-{uuid.uuid4().hex[:6]}"
+
+def same_business_locality(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    shop_a = normalize_shop_record(a or {})
+    shop_b = normalize_shop_record(b or {})
+    city_a = normalize_name_fingerprint(shop_a.get("city", ""))
+    city_b = normalize_name_fingerprint(shop_b.get("city", ""))
+    region_a = normalize_name_fingerprint(shop_a.get("region", ""))
+    region_b = normalize_name_fingerprint(shop_b.get("region", ""))
+    postal_a = normalize_name_fingerprint(shop_a.get("postal_code", ""))
+    postal_b = normalize_name_fingerprint(shop_b.get("postal_code", ""))
+    if city_a and city_b and region_a and region_b and city_a == city_b and region_a == region_b:
+        return True
+    if postal_a and postal_b and postal_a == postal_b:
+        return True
+    if city_a and city_b and city_a == city_b:
+        return True
+    return False
+
+def same_storefront_address(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    fp_a = normalize_address_fingerprint(a)
+    fp_b = normalize_address_fingerprint(b)
+    if not fp_a or not fp_b or fp_a != fp_b:
+        return False
+    unit_a = normalize_name_fingerprint(normalize_shop_record(a or {}).get("street_line2", ""))
+    unit_b = normalize_name_fingerprint(normalize_shop_record(b or {}).get("street_line2", ""))
+    if unit_a and unit_b and unit_a != unit_b:
+        return False
+    return True
+
+def load_claimable_shop_rows(*, public_only: bool = True) -> List[Dict[str, Any]]:
+    q = supabase.table("shops").select(CLAIMABLE_SHOP_FIELDS)
+    if public_only:
+        q = q.eq("listing_status", LISTING_STATUS_VERIFIED)
+    rows = q.order("verified_at", desc=True).order("created_at", desc=True).execute().data or []
+    return [normalize_shop_record(row) for row in rows]
+
+def duplicate_business_matches(
+    shop_row: Dict[str, Any],
+    *,
+    viewer_user_id: str = "",
+    ignore_shop_id: str = "",
+    rows: Optional[List[Dict[str, Any]]] = None,
+    public_only: bool = True,
+    blocking_only: bool = False,
+    limit: int = 6,
+) -> List[Dict[str, Any]]:
+    source = normalize_shop_record(shop_row or {})
+    source_name = str(source.get("name", "") or "").strip()
+    if not source_name:
+        return []
+    name_fp = normalize_market_name_fingerprint(source)
+    address_matchable = same_storefront_address(source, source)
+    source_contacts = set(shop_contact_fingerprints(source))
+    base_rows = rows if rows is not None else load_claimable_shop_rows(public_only=public_only)
+    matches: List[Dict[str, Any]] = []
+    for raw in base_rows or []:
+        candidate = normalize_shop_record(raw or {})
+        if public_only and candidate.get("listing_status") not in PUBLIC_LISTING_STATUSES:
+            continue
+        if ignore_shop_id and str(candidate.get("shop_id", "")) == str(ignore_shop_id):
+            continue
+        if viewer_user_id and str(candidate.get("owner_user_id", "")) == str(viewer_user_id):
+            continue
+        candidate_name = str(candidate.get("name", "") or "").strip()
+        if not candidate_name:
+            continue
+        name_similarity = fuzzy_match_score(source_name, candidate_name)
+        candidate_name_fp = normalize_market_name_fingerprint(candidate)
+        exact_name_area = bool(name_fp and candidate_name_fp and name_fp == candidate_name_fp)
+        same_locality = same_business_locality(source, candidate)
+        same_address = address_matchable and same_storefront_address(source, candidate)
+        shared_contacts = sorted(source_contacts.intersection(shop_contact_fingerprints(candidate)))
+        score = 0
+        reasons: List[str] = []
+        if same_address:
+            score += 75
+            reasons.append("Same storefront address")
+        if shared_contacts:
+            score += 78
+            reasons.append("Same public contact number")
+        if exact_name_area:
+            score += 56
+            reasons.append("Same business name in the same area")
+        elif name_similarity >= 0.93:
+            score += 42
+            reasons.append("Nearly identical business name")
+        elif name_similarity >= 0.84 and same_locality:
+            score += 24
+            reasons.append("Very similar business name nearby")
+        if same_locality:
+            score += 10
+        blocked = (
+            (same_address and name_similarity >= 0.58)
+            or (shared_contacts and name_similarity >= 0.58)
+            or (exact_name_area and (same_address or shared_contacts))
+        )
+        suggested = blocked or (
+            score >= 55 and (
+                same_address
+                or shared_contacts
+                or exact_name_area
+                or (name_similarity >= 0.88 and same_locality)
+            )
+        )
+        if blocking_only and not blocked:
+            continue
+        if not blocking_only and not suggested:
+            continue
+        candidate["duplicate_score"] = score
+        candidate["duplicate_reasons"] = reasons[:3]
+        candidate["duplicate_blocking_match"] = blocked
+        matches.append(candidate)
+    matches.sort(
+        key=lambda row: (
+            1 if row.get("duplicate_blocking_match") else 0,
+            int(row.get("duplicate_score") or 0),
+            str(row.get("verified_at") or row.get("created_at") or ""),
+        ),
+        reverse=True,
+    )
+    return matches[:max(1, limit)]
+
+def search_claimable_businesses(query: str, *, viewer_user_id: str = "", limit: int = BUSINESS_CLAIM_SEARCH_LIMIT) -> List[Dict[str, Any]]:
+    q = norm_text(query)
+    if len(q) < 2:
+        return []
+    tokens = [tok for tok in re.findall(r"[a-z0-9]+", q) if len(tok) >= 2]
+    if not tokens:
+        return []
+    rows = load_claimable_shop_rows(public_only=True)
+    results: List[Dict[str, Any]] = []
+    for row in rows:
+        if viewer_user_id and str(row.get("owner_user_id", "")) == str(viewer_user_id):
+            continue
+        hay = " ".join([
+            str(row.get("name", "") or ""),
+            str(row.get("formatted_address", "") or row.get("address", "") or row.get("service_area", "") or ""),
+            str(row.get("city", "") or ""),
+            str(row.get("region", "") or ""),
+            str(row.get("postal_code", "") or ""),
+            str(row.get("phone", "") or row.get("whatsapp", "") or ""),
+            str(row.get("category", "") or ""),
+        ])
+        hay_norm = norm_text(hay)
+        score = 0
+        if q in norm_text(row.get("name", "")):
+            score += 80
+        if q in hay_norm:
+            score += 34
+        score += min(45, int(fuzzy_match_score(q, row.get("name", "")) * 45))
+        token_hits = sum(1 for tok in tokens if tok in hay_norm)
+        if not token_hits and q not in hay_norm and fuzzy_match_score(q, row.get("name", "")) < 0.55:
+            continue
+        score += token_hits * 8
+        row["duplicate_score"] = score
+        results.append(row)
+    results.sort(
+        key=lambda row: (
+            int(row.get("duplicate_score") or 0),
+            str(row.get("verified_at") or row.get("created_at") or ""),
+        ),
+        reverse=True,
+    )
+    return results[:max(1, limit)]
+
+def normalize_business_claim_record(row: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(row or {})
+    out["claim_id"] = str(out.get("claim_id", "") or "").strip()
+    out["shop_id"] = str(out.get("shop_id", "") or out.get("business_id", "") or "").strip()
+    out["business_id"] = out["shop_id"]
+    out["status"] = normalize_claim_status(out.get("status"), default=CLAIM_STATUS_PENDING)
+    out["note"] = normalize_business_claim_note(out.get("note", ""))
+    out["review_note"] = normalize_business_claim_note(out.get("review_note", ""))
+    out["claimant_user_id"] = str(out.get("claimant_user_id", "") or "").strip()
+    out["claimant_display_name"] = re.sub(r"\s+", " ", str(out.get("claimant_display_name", "") or "")).strip()[:120]
+    out["claimant_email"] = re.sub(r"\s+", " ", str(out.get("claimant_email", "") or "")).strip()[:200]
+    out["created_at"] = out.get("created_at") or None
+    out["updated_at"] = out.get("updated_at") or None
+    shop = out.get("shop") or out.get("business") or {}
+    if isinstance(shop, dict) and shop:
+        normalized_shop = normalize_shop_record(shop)
+        out["shop"] = normalized_shop
+        out["business"] = normalized_shop
+        out["shop_id"] = out["shop_id"] or normalized_shop.get("shop_id", "")
+        out["business_id"] = out["shop_id"]
+    else:
+        out["shop"] = {}
+        out["business"] = {}
+    return out
+
+def attach_business_claim_shops(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    claims = [normalize_business_claim_record(row) for row in (rows or [])]
+    shop_ids = [claim.get("shop_id") for claim in claims if claim.get("shop_id")]
+    shop_map: Dict[str, Dict[str, Any]] = {}
+    if shop_ids:
+        shop_rows = supabase.table("shops").select(CLAIMABLE_SHOP_FIELDS).in_("shop_id", shop_ids).execute().data or []
+        shop_map = {
+            str(row.get("shop_id", "")): normalize_shop_record(row)
+            for row in shop_rows
+            if row.get("shop_id")
+        }
+    for claim in claims:
+        shop = shop_map.get(str(claim.get("shop_id", "")), claim.get("shop") or {})
+        claim["shop"] = shop or {}
+        claim["business"] = shop or {}
+        claim["shop_name"] = (shop or {}).get("name", "")
+        claim["business_name"] = claim["shop_name"]
+    return claims
 
 def require_supabase() -> Client:
     if supabase is None:
@@ -4759,6 +5019,20 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     shop = validate_shop_payload(raw_business)
     owner_rows, all_rows = load_shop_trust_rows(user.id)
     enforce_creator_draft_limits(user, owner_rows)
+    duplicate_matches = duplicate_business_matches(
+        shop,
+        viewer_user_id=user.id,
+        rows=all_rows,
+        public_only=True,
+        blocking_only=True,
+        limit=3,
+    )
+    if duplicate_matches:
+        match = duplicate_matches[0]
+        match_name = str(match.get("name", "") or "This business").strip()
+        match_area = ", ".join([part for part in [match.get("city", ""), match.get("region", "")] if str(part or "").strip()])
+        detail = f"{match_name}{f' ({match_area})' if match_area else ''} already has a live business page. Use Claim Existing Business instead of creating another listing."
+        raise HTTPException(409, detail)
     trust_snapshot = build_shop_trust_snapshot(shop, user, owner_rows, all_rows, projected_new_unpublished=True)
     sid = gen_shop_id(shop["name"])
     shop_slug = unique_shop_slug(shop["name"])
@@ -5183,6 +5457,137 @@ def admin_reject_business(shop_id: str, body: ReviewDecisionReq, authorization: 
     if unsupported_cols:
         print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
     return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_REJECTED, "reason": reason[:500]}
+
+@app.get("/admin/business-claim/candidates")
+@app.get("/admin/business-claims/candidates")
+def admin_business_claim_candidates(q: str = Query(""), limit: int = Query(BUSINESS_CLAIM_SEARCH_LIMIT, ge=1, le=20), authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    results = search_claimable_businesses(q, viewer_user_id=user.id, limit=limit)
+    pending_ids: set = set()
+    if results:
+        try:
+            rows = supabase.table("business_claims").select("shop_id").eq("claimant_user_id", user.id).eq("status", CLAIM_STATUS_PENDING).execute().data or []
+            pending_ids = {str(row.get("shop_id", "")) for row in rows if row.get("shop_id")}
+        except Exception:
+            pending_ids = set()
+    for row in results:
+        row["has_pending_claim"] = str(row.get("shop_id", "")) in pending_ids
+        row["business_id"] = row.get("shop_id", "")
+        row["business_slug"] = row.get("shop_slug", "")
+    return alias_catalog_response({"ok": True, "shops": results})
+
+@app.post("/admin/business/{shop_id}/claim")
+@app.post("/admin/shop/{shop_id}/claim")
+def admin_create_business_claim(shop_id: str, body: BusinessClaimReq, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    require_verified(user)
+    prof = safe_ensure_profile_row(user, prof)
+    shop_rows = supabase.table("shops").select(CLAIMABLE_SHOP_FIELDS).eq("shop_id", shop_id).limit(1).execute().data or []
+    if not shop_rows:
+        raise HTTPException(404, "Business not found")
+    shop = normalize_shop_record(shop_rows[0])
+    if shop.get("listing_status") not in PUBLIC_LISTING_STATUSES:
+        raise HTTPException(400, "Only live businesses can be claimed.")
+    if str(shop.get("owner_user_id", "")) == str(user.id):
+        raise HTTPException(400, "You already manage this business.")
+    pending = supabase.table("business_claims").select("claim_id").eq("shop_id", shop_id).eq("claimant_user_id", user.id).eq("status", CLAIM_STATUS_PENDING).limit(1).execute().data or []
+    if pending:
+        raise HTTPException(409, "You already have a pending claim for this business.")
+    note = normalize_business_claim_note(body.note)
+    if len(note) < max(1, BUSINESS_CLAIM_NOTE_MIN_LEN):
+        raise HTTPException(400, f"Add a short ownership note before requesting access. Use at least {BUSINESS_CLAIM_NOTE_MIN_LEN} characters.")
+    display_name = normalize_display_name((prof or {}).get("display_name", ""), getattr(user, "email", ""))
+    claim_id = gen_business_claim_id(shop_id)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    supabase.table("business_claims").insert({
+        "claim_id": claim_id,
+        "shop_id": shop_id,
+        "claimant_user_id": user.id,
+        "claimant_display_name": display_name,
+        "claimant_email": str(getattr(user, "email", "") or "").strip()[:200],
+        "note": note,
+        "status": CLAIM_STATUS_PENDING,
+        "review_note": "",
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    }).execute()
+    return {"ok": True, "claim_id": claim_id, "shop_id": shop_id, "business_id": shop_id, "status": CLAIM_STATUS_PENDING}
+
+@app.get("/admin/my-business-claims")
+@app.get("/admin/my-shop-claims")
+def admin_my_business_claims(authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    rows = supabase.table("business_claims").select("*").eq("claimant_user_id", user.id).order("created_at", desc=True).execute().data or []
+    claims = attach_business_claim_shops(rows)
+    return {"ok": True, "claims": claims}
+
+@app.get("/admin/review/business-claims")
+@app.get("/admin/review/shop-claims")
+def admin_review_business_claims(status: str = Query(CLAIM_STATUS_PENDING), authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    status_key = normalize_claim_status(status, default=CLAIM_STATUS_PENDING)
+    rows = supabase.table("business_claims").select("*").eq("status", status_key).order("created_at", desc=True).execute().data or []
+    claims = attach_business_claim_shops(rows)
+    return {"ok": True, "claims": claims}
+
+@app.post("/admin/review/business-claim/{claim_id}/approve")
+@app.post("/admin/review/shop-claim/{claim_id}/approve")
+def admin_approve_business_claim(claim_id: str, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    rows = supabase.table("business_claims").select("*").eq("claim_id", claim_id).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Claim not found")
+    claim = normalize_business_claim_record(rows[0])
+    if claim.get("status") != CLAIM_STATUS_PENDING:
+        raise HTTPException(400, "This claim is already closed.")
+    shop_rows = supabase.table("shops").select("shop_id, owner_user_id").eq("shop_id", claim.get("shop_id", "")).limit(1).execute().data or []
+    if not shop_rows:
+        raise HTTPException(404, "Business not found")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    supabase.table("shops").update({
+        "owner_user_id": claim.get("claimant_user_id", ""),
+    }).eq("shop_id", claim.get("shop_id", "")).execute()
+    supabase.table("business_claims").update({
+        "status": CLAIM_STATUS_APPROVED,
+        "review_note": "",
+        "updated_at": now_iso,
+    }).eq("claim_id", claim_id).execute()
+    supabase.table("business_claims").update({
+        "status": CLAIM_STATUS_REJECTED,
+        "review_note": "Another ownership claim for this business was approved.",
+        "updated_at": now_iso,
+    }).eq("shop_id", claim.get("shop_id", "")).eq("status", CLAIM_STATUS_PENDING).neq("claim_id", claim_id).execute()
+    return {
+        "ok": True,
+        "claim_id": claim_id,
+        "shop_id": claim.get("shop_id", ""),
+        "business_id": claim.get("shop_id", ""),
+        "status": CLAIM_STATUS_APPROVED,
+    }
+
+@app.post("/admin/review/business-claim/{claim_id}/reject")
+@app.post("/admin/review/shop-claim/{claim_id}/reject")
+def admin_reject_business_claim(claim_id: str, body: ReviewDecisionReq, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    reason = re.sub(r"\s+", " ", str(body.reason or "")).strip()
+    if len(reason) < 5:
+        raise HTTPException(400, "Add a short reason before rejecting the claim.")
+    rows = supabase.table("business_claims").select("claim_id").eq("claim_id", claim_id).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Claim not found")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    supabase.table("business_claims").update({
+        "status": CLAIM_STATUS_REJECTED,
+        "review_note": reason[:BUSINESS_CLAIM_NOTE_MAX_LEN],
+        "updated_at": now_iso,
+    }).eq("claim_id", claim_id).execute()
+    return {"ok": True, "claim_id": claim_id, "status": CLAIM_STATUS_REJECTED, "reason": reason[:BUSINESS_CLAIM_NOTE_MAX_LEN]}
 
 @app.post("/admin/business/{shop_id}/profile-image")
 @app.post("/admin/shop/{shop_id}/profile-image")

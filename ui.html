@@ -1317,6 +1317,18 @@ a{color:inherit;text-decoration:none}
 .review-queue-actions{display:flex;flex-wrap:wrap;gap:8px}
 .review-queue-flags{display:flex;flex-wrap:wrap;gap:6px}
 .review-queue-empty{font-size:12px;color:var(--ink3)}
+.claim-search-shell{display:grid;gap:12px}
+.claim-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.claim-search-input{width:100%;min-width:0}
+.claim-section-title{margin:16px 0 10px;font-size:12px;font-weight:800;letter-spacing:.02em;color:var(--A2);text-transform:uppercase}
+.claim-result-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.claim-result-ident{display:flex;gap:12px;align-items:flex-start}
+.claim-result-avatar{width:42px;height:42px;border-radius:14px;overflow:hidden;flex:0 0 auto;box-shadow:var(--s2)}
+.claim-result-avatar .avatar-initial,.claim-result-avatar img{width:100%;height:100%}
+.claim-result-title{font-size:14px;font-weight:800;color:var(--ink)}
+.claim-result-meta{font-size:12px;line-height:1.55;color:var(--ink3)}
+.claim-result-note{font-size:12px;line-height:1.6;color:var(--ink2)}
+.claim-result-note strong{color:var(--ink)}
 @media(max-width:900px){
   .workspace-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .workspace-actions .btn{width:100%;justify-content:center}
@@ -1324,7 +1336,7 @@ a{color:inherit;text-decoration:none}
   .owner-filter-bar .btn-row{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
   .owner-filter-bar .btn-row .btn{width:100%;justify-content:center}
 }
-@media(max-width:680px){.owner-filter-bar{grid-template-columns:1fr}}
+@media(max-width:680px){.owner-filter-bar{grid-template-columns:1fr}.claim-search-row{grid-template-columns:1fr}}
 .owner-detail-card{overflow:hidden;background:linear-gradient(135deg,rgba(255,250,244,.98),rgba(250,242,232,.92));position:relative}
 .owner-detail-card::after{content:"";position:absolute;right:-40px;top:-26px;width:180px;height:180px;border-radius:999px;background:radial-gradient(circle,rgba(2,132,199,.1),rgba(2,132,199,0));pointer-events:none}
 .owner-detail-card-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:28px 26px 12px}
@@ -5599,10 +5611,11 @@ select.btn{
               <div class="workspace-copy">
                 <div class="workspace-kicker">Business Workspace</div>
                 <div class="workspace-title">Run your business from one clean workspace.</div>
-                <div class="workspace-desc">Create your business, keep the public details sharp, and manage offerings from the same place without switching between disconnected admin tabs.</div>
+              <div class="workspace-desc">Create your business, keep the public details sharp, and manage offerings from the same place without switching between disconnected admin tabs.</div>
               </div>
               <div class="workspace-actions">
                 <button id="ownerCreateShopBtn" class="btn btn-A btn-sm">+ Create Business</button>
+                <button id="ownerClaimBusinessBtn" class="btn btn-o btn-sm">Claim Existing Business</button>
                 <button id="ownerGeocodeShopsBtn" class="btn btn-o btn-sm">Refresh Map Data</button>
                 <button id="refreshMyShops" class="btn btn-o btn-sm">Refresh</button>
               </div>
@@ -5644,6 +5657,40 @@ select.btn{
               <div class="fld-hint" style="margin-bottom:10px">Only pending businesses appear here. Approving one makes it visible on the public app.</div>
               <div id="adminReviewQueueList" class="review-queue"><div class="review-queue-empty">No businesses waiting for review.</div></div>
               <div id="adminReviewQueueStatus" class="stxt"></div>
+            </div>
+          </div>
+          <div id="adminClaimQueueCard" class="card" style="display:none">
+            <div class="card-head">
+              <div class="card-title">Ownership Claim Queue</div>
+            </div>
+            <div class="card-body">
+              <div class="fld-hint" style="margin-bottom:10px">Approve a claim only when the requester has shown they should take over the existing business page.</div>
+              <div id="adminClaimQueueList" class="review-queue"><div class="review-queue-empty">No ownership claims waiting for review.</div></div>
+              <div id="adminClaimQueueStatus" class="stxt"></div>
+            </div>
+          </div>
+          <div id="businessClaimCard" class="card">
+            <div class="card-head">
+              <div class="card-title">Claim Existing Business</div>
+            </div>
+            <div class="card-body">
+              <div class="fld-hint" style="margin-bottom:12px">If a business already has a live page, claim it instead of creating a second listing for the same real-world business.</div>
+              <div class="claim-search-shell">
+                <div class="claim-search-row">
+                  <input id="claimSearchInput" class="claim-search-input" placeholder="Search by business name, phone, city, or address"/>
+                  <button id="claimSearchBtn" class="btn btn-o btn-sm" type="button">Search</button>
+                </div>
+                <div class="fld">
+                  <label>Ownership Note</label>
+                  <textarea id="claimRequestNote" placeholder="Explain why this page belongs to you. Include your role, a website, public phone, registry reference, licence note, or any quick proof staff can verify."></textarea>
+                  <div class="fld-hint">Used by staff when reviewing the claim.</div>
+                </div>
+              </div>
+              <div id="claimSearchStatus" class="stxt"></div>
+              <div id="claimSearchResults" class="review-queue"><div class="review-queue-empty">Search for the existing business page first.</div></div>
+              <div class="claim-section-title">My Claim Requests</div>
+              <div id="myBusinessClaimsList" class="review-queue"><div class="review-queue-empty">No claim requests yet.</div></div>
+              <div id="myBusinessClaimsStatus" class="stxt"></div>
             </div>
           </div>
           <div id="ownerShopGrid" class="owner-shop-grid">
@@ -5822,7 +5869,7 @@ select.btn{
                 <div class="fg2">
                   <input id="shopId" type="hidden"/>
                   <div class="fld"><label>Business Reference</label><div id="shopIdRef" class="currency-pill" style="min-height:44px;display:flex;align-items:center">Generated after creation</div><div class="fld-hint">Atlantic Ordinate creates the business ID automatically. Owners do not need to choose one.</div></div>
-                  <div class="fld"><label>Business Name</label><input id="shopName" placeholder="Maple Juice Bar"/><div class="fld-hint">Use the public name exactly as you want customers to see it.</div></div>
+                  <div class="fld"><label>Business Name</label><input id="shopName" placeholder="Maple Juice Bar"/><div class="fld-hint">Use the public name exactly as you want customers to see it. If this business already has a live page, claim it instead of creating a duplicate listing.</div></div>
                   <div class="fld"><label>Business Type</label>
                     <select id="shopBusinessType">
                       <option value="retail">Retail business</option>
@@ -6663,6 +6710,9 @@ const App = {
   favouriteProductIds: {},
   adminProducts: [],
   adminReviewShops: [],
+  adminReviewClaims: [],
+  ownerBusinessClaims: [],
+  claimSearchResults: [],
   recoveryToken: '',
   sessionExpiredNoticeShown: false,
   locationSupport: null,
@@ -6911,6 +6961,20 @@ function businessListingPillHtml(shop={},labelOverride=''){
   const meta=businessListingMeta(shop);
   return `<span class="${meta.pillClass}">${esc(labelOverride||meta.label)}</span>`;
 }
+function businessClaimStatusMeta(claim={}){
+  const status=String(claim?.status||'pending').trim().toLowerCase();
+  if(status==='approved'){
+    return {status:'approved',label:'Approved',pillClass:'listing-pill verified'};
+  }
+  if(status==='rejected'){
+    return {status:'rejected',label:'Rejected',pillClass:'listing-pill rejected'};
+  }
+  return {status:'pending',label:'Pending Review',pillClass:'listing-pill pending'};
+}
+function businessClaimPillHtml(claim={},labelOverride=''){
+  const meta=businessClaimStatusMeta(claim);
+  return `<span class="${meta.pillClass}">${esc(labelOverride||meta.label)}</span>`;
+}
 function normalizeBusinessRecord(row={}){
   const out={...(row||{})};
   out.business_id=out.business_id||out.shop_id||'';
@@ -6928,6 +6992,23 @@ function normalizeBusinessRecord(row={}){
   out.risk_score=Number.isFinite(Number(out.risk_score))?Number(out.risk_score):0;
   out.risk_level=['low','medium','high'].includes(String(out.risk_level||'').trim().toLowerCase())?String(out.risk_level||'').trim().toLowerCase():(out.risk_score>=60?'high':(out.risk_score>=25?'medium':'low'));
   out.is_publicly_listed=out.is_publicly_listed===true || out.listing_status==='verified';
+  return out;
+}
+function normalizeBusinessClaimRecord(row={}){
+  const out={...(row||{})};
+  out.claim_id=out.claim_id||'';
+  out.shop_id=out.shop_id||out.business_id||'';
+  out.business_id=out.business_id||out.shop_id||'';
+  out.status=['pending','approved','rejected'].includes(String(out.status||'').trim().toLowerCase())?String(out.status||'').trim().toLowerCase():'pending';
+  out.note=(out.note||'').trim();
+  out.review_note=(out.review_note||'').trim();
+  out.claimant_display_name=(out.claimant_display_name||'').trim();
+  out.claimant_email=(out.claimant_email||'').trim();
+  out.shop=normalizeBusinessRecord(out.shop||out.business||{});
+  out.business=out.shop;
+  out.has_pending_claim=out.has_pending_claim===true;
+  out.duplicate_reasons=Array.isArray(out.duplicate_reasons)?out.duplicate_reasons:[];
+  out.duplicate_score=Number.isFinite(Number(out.duplicate_score))?Number(out.duplicate_score):0;
   return out;
 }
 function normalizeOfferingRecord(row={}){
@@ -13961,10 +14042,24 @@ function openProductForm(product=null){
 }
 
 async function loadMyShops(){
-  if(!App.user){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Login</div><div class="et">Sign in first to manage your businesses.</div></div>`;App.adminReviewShops=[];renderAdminReviewQueue();setFieldHint('myShopsStatus','Sign in to create or manage businesses.','');return;}
+  if(!App.user){
+    $('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Login</div><div class="et">Sign in first to manage your businesses.</div></div>`;
+    App.adminReviewShops=[];
+    App.adminReviewClaims=[];
+    App.ownerBusinessClaims=[];
+    App.claimSearchResults=[];
+    renderAdminReviewQueue();
+    renderAdminClaimQueue();
+    renderOwnerBusinessClaims();
+    renderClaimSearchResults();
+    setFieldHint('myShopsStatus','Sign in to create or manage businesses.','');
+    setFieldHint('myBusinessClaimsStatus','Sign in to claim an existing business page.','');
+    return;
+  }
   try{
     const d=normalizeCatalogPayload(await api('/admin/my-businesses',{auth:true}));
     let shops=d.businesses||[];
+    const isAdmin=['admin','superadmin'].includes(String(App.user?.role||'').trim().toLowerCase());
     collectOwnerFilters();
     shops=shops.filter(s=>{
       const country=((s.country_name||s.country_code||'').toLowerCase());
@@ -13985,7 +14080,12 @@ async function loadMyShops(){
       setFieldHint('myShopsStatus','You do not have a business yet.','');
       $('createFirstShopBtn')?.addEventListener('click',openCreateShopView);
       renderAdminReviewQueue();
-      if(['admin','superadmin'].includes(String(App.user?.role||'').trim().toLowerCase())) await loadAdminReviewQueue();
+      renderAdminClaimQueue();
+      await Promise.all([
+        loadOwnerBusinessClaims(),
+        isAdmin ? loadAdminReviewQueue() : Promise.resolve(),
+        isAdmin ? loadAdminClaimReviewQueue() : Promise.resolve(),
+      ]);
       return;
     }
     shops.forEach(s=>{
@@ -14001,7 +14101,12 @@ async function loadMyShops(){
       grid.appendChild(card);
     });
     renderAdminReviewQueue();
-    if(['admin','superadmin'].includes(String(App.user?.role||'').trim().toLowerCase())) await loadAdminReviewQueue();
+    renderAdminClaimQueue();
+    await Promise.all([
+      loadOwnerBusinessClaims(),
+      isAdmin ? loadAdminReviewQueue() : Promise.resolve(),
+      isAdmin ? loadAdminClaimReviewQueue() : Promise.resolve(),
+    ]);
     setFieldHint('myShopsStatus',`${shops.length} business${shops.length===1?'':'es'} ready to manage.`,'ok');
   }catch(e){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Error</div><div class="et">${esc(e.message)}</div></div>`;setFieldHint('myShopsStatus','Could not load your businesses.','err');}
 }
@@ -14172,6 +14277,211 @@ async function loadAdminReviewQueue(){
     setFieldHint('adminReviewQueueStatus',e.message,'err');
   }
 }
+function renderClaimSearchResults(){
+  const list=$('claimSearchResults');
+  if(!list) return;
+  const claimsByShop=new Map((App.ownerBusinessClaims||[]).filter(claim=>claim.status==='pending').map(claim=>[claim.shop_id,claim]));
+  const rows=(App.claimSearchResults||[]).map(normalizeBusinessRecord);
+  if(!rows.length){
+    list.innerHTML='<div class="review-queue-empty">Search for the existing business page first.</div>';
+    return;
+  }
+  list.innerHTML='';
+  rows.forEach(shop=>{
+    const pendingClaim=claimsByShop.get(shop.shop_id||'');
+    const disabled=!!(shop.has_pending_claim || pendingClaim);
+    const reasons=Array.isArray(shop.duplicate_reasons)?shop.duplicate_reasons.filter(Boolean).slice(0,3):[];
+    const item=document.createElement('div');
+    item.className='review-queue-item';
+    item.innerHTML=`<div class="claim-result-head"><div class="claim-result-ident"><div class="claim-result-avatar">${businessAvatarHtml(shop,shop.name||'Business')}</div><div><div class="claim-result-title">${esc(shop.name||'Untitled Business')}</div><div class="claim-result-meta">${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}${shop.category?` - ${esc(shop.category)}`:''}</div></div></div>${businessListingPillHtml(shop,'Live')}</div>${reasons.length?`<div class="claim-result-note"><strong>Why this looks like the same business</strong> ${esc(reasons.join(' · '))}</div>`:''}<div class="review-queue-actions"><button class="btn btn-A btn-sm" type="button" data-claim-request="${esc(shop.shop_id||'')}" ${disabled?'disabled':''}>${disabled?'Requested':'Request Access'}</button><button class="btn btn-g btn-sm" type="button" data-claim-open="${esc(shop.shop_id||'')}">View Live Page</button></div>`;
+    item.querySelector('[data-claim-request]')?.addEventListener('click',()=>requestBusinessClaim(shop.shop_id||''));
+    item.querySelector('[data-claim-open]')?.addEventListener('click',()=>openShopPage(shop.shop_slug||shop.shop_id||''));
+    list.appendChild(item);
+  });
+}
+function renderOwnerBusinessClaims(){
+  const list=$('myBusinessClaimsList');
+  if(!list) return;
+  const claims=(App.ownerBusinessClaims||[]).map(normalizeBusinessClaimRecord);
+  if(!claims.length){
+    list.innerHTML='<div class="review-queue-empty">No claim requests yet.</div>';
+    return;
+  }
+  list.innerHTML='';
+  claims.forEach(claim=>{
+    const shop=normalizeBusinessRecord(claim.shop||claim.business||{});
+    const meta=businessClaimStatusMeta(claim);
+    const item=document.createElement('div');
+    item.className='review-queue-item';
+    item.innerHTML=`<div class="claim-result-head"><div class="claim-result-ident"><div class="claim-result-avatar">${businessAvatarHtml(shop,shop.name||'Business')}</div><div><div class="claim-result-title">${esc(shop.name||'Untitled Business')}</div><div class="claim-result-meta">${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}</div></div></div>${businessClaimPillHtml(claim,meta.label)}</div><div class="claim-result-note"><strong>Your note</strong> ${esc(claim.note||'No note added.')}</div>${claim.review_note?`<div class="claim-result-note"><strong>Review note</strong> ${esc(claim.review_note)}</div>`:''}<div class="review-queue-actions"><button class="btn btn-g btn-sm" type="button" data-claim-live="${esc(shop.shop_id||'')}">Open Live Page</button></div>`;
+    item.querySelector('[data-claim-live]')?.addEventListener('click',()=>openShopPage(shop.shop_slug||shop.shop_id||''));
+    list.appendChild(item);
+  });
+}
+async function loadOwnerBusinessClaims(){
+  if(!App.user){
+    App.ownerBusinessClaims=[];
+    App.claimSearchResults=[];
+    renderOwnerBusinessClaims();
+    renderClaimSearchResults();
+    setFieldHint('myBusinessClaimsStatus','Sign in to claim an existing business page.','');
+    return;
+  }
+  try{
+    const d=await api('/admin/my-business-claims',{auth:true});
+    App.ownerBusinessClaims=Array.isArray(d.claims)?d.claims.map(normalizeBusinessClaimRecord):[];
+    renderOwnerBusinessClaims();
+    renderClaimSearchResults();
+    setFieldHint('myBusinessClaimsStatus',`${App.ownerBusinessClaims.length} claim request${App.ownerBusinessClaims.length===1?'':'s'} tracked.`,App.ownerBusinessClaims.length?'ok':'');
+  }catch(e){
+    App.ownerBusinessClaims=[];
+    renderOwnerBusinessClaims();
+    renderClaimSearchResults();
+    setFieldHint('myBusinessClaimsStatus',e.message,'err');
+  }
+}
+async function searchClaimableBusinesses(seed=''){
+  if(!tok()) return toast('Login required','','err');
+  const input=$('claimSearchInput');
+  const query=String(seed||input?.value||'').trim();
+  if(input && seed) input.value=query;
+  if(query.length<2){
+    App.claimSearchResults=[];
+    renderClaimSearchResults();
+    setFieldHint('claimSearchStatus','Enter at least two characters to search for the existing business page.','');
+    return;
+  }
+  try{
+    setBtnBusy('claimSearchBtn',true,'Searching...');
+    setFieldHint('claimSearchStatus','Searching live business pages...');
+    const d=normalizeCatalogPayload(await api(`/admin/business-claim/candidates?q=${encodeURIComponent(query)}`,{auth:true}));
+    App.claimSearchResults=(d.businesses||[]).map(normalizeBusinessRecord);
+    renderClaimSearchResults();
+    setFieldHint('claimSearchStatus',App.claimSearchResults.length?`${App.claimSearchResults.length} possible match${App.claimSearchResults.length===1?'':'es'} found.`:'No matching live business pages found.',App.claimSearchResults.length?'ok':'');
+  }catch(e){
+    App.claimSearchResults=[];
+    renderClaimSearchResults();
+    setFieldHint('claimSearchStatus',e.message,'err');
+  }finally{
+    setBtnBusy('claimSearchBtn',false);
+  }
+}
+async function requestBusinessClaim(shopId=''){
+  if(!shopId) return;
+  const note=$('claimRequestNote')?.value.trim()||'';
+  if(note.length<8){
+    setFieldHint('claimSearchStatus','Add a short ownership note before requesting access.','err');
+    return;
+  }
+  try{
+    setFieldHint('claimSearchStatus','Sending claim request...');
+    await api(`/admin/business/${encodeURIComponent(shopId)}/claim`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});
+    toast('Claim requested','The business page is now waiting for staff review.');
+    setFieldHint('claimSearchStatus','Claim request sent. Staff will review it before transferring the page.','ok');
+    await loadOwnerBusinessClaims();
+  }catch(e){
+    setFieldHint('claimSearchStatus',e.message,'err');
+    toast('Claim failed',e.message,'err');
+  }
+}
+function renderAdminClaimQueue(){
+  const card=$('adminClaimQueueCard');
+  const list=$('adminClaimQueueList');
+  if(!card || !list) return;
+  const isAdmin=['admin','superadmin'].includes(String(App.user?.role||'').trim().toLowerCase());
+  if(!isAdmin){
+    card.style.display='none';
+    list.innerHTML='<div class="review-queue-empty">No ownership claims waiting for review.</div>';
+    return;
+  }
+  card.style.display='';
+  const claims=Array.isArray(App.adminReviewClaims)?App.adminReviewClaims:[];
+  if(!claims.length){
+    list.innerHTML='<div class="review-queue-empty">No ownership claims waiting for review.</div>';
+    return;
+  }
+  list.innerHTML='';
+  claims.forEach(rawClaim=>{
+    const claim=normalizeBusinessClaimRecord(rawClaim);
+    const shop=normalizeBusinessRecord(claim.shop||claim.business||{});
+    const item=document.createElement('div');
+    item.className='review-queue-item';
+    item.innerHTML=`<div class="claim-result-head"><div><div class="claim-result-title">${esc(shop.name||'Untitled Business')}</div><div class="claim-result-meta">${esc(claim.claimant_display_name||claim.claimant_email||'Unknown claimant')} - ${esc(claim.claimant_email||'No email')} - ${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}</div></div>${businessClaimPillHtml(claim,'Pending Review')}</div><div class="claim-result-note"><strong>Claim note</strong> ${esc(claim.note||'No note supplied.')}</div><div class="review-queue-actions"><button class="btn btn-A btn-sm" type="button" data-claim-approve="${esc(claim.claim_id||'')}">Approve Transfer</button><button class="btn btn-o btn-sm" type="button" data-claim-reject="${esc(claim.claim_id||'')}">Reject</button><button class="btn btn-g btn-sm" type="button" data-claim-open-shop="${esc(shop.shop_id||'')}">Open Live Page</button></div>`;
+    item.querySelector('[data-claim-approve]')?.addEventListener('click',()=>approveBusinessClaim(claim.claim_id||''));
+    item.querySelector('[data-claim-reject]')?.addEventListener('click',()=>rejectBusinessClaim(claim.claim_id||''));
+    item.querySelector('[data-claim-open-shop]')?.addEventListener('click',()=>openShopPage(shop.shop_slug||shop.shop_id||''));
+    list.appendChild(item);
+  });
+}
+async function loadAdminClaimReviewQueue(){
+  const isAdmin=['admin','superadmin'].includes(String(App.user?.role||'').trim().toLowerCase());
+  if(!isAdmin){
+    App.adminReviewClaims=[];
+    renderAdminClaimQueue();
+    return;
+  }
+  try{
+    const d=await api('/admin/review/business-claims',{auth:true});
+    App.adminReviewClaims=Array.isArray(d.claims)?d.claims.map(normalizeBusinessClaimRecord):[];
+    renderAdminClaimQueue();
+    setFieldHint('adminClaimQueueStatus',`${App.adminReviewClaims.length} ownership claim${App.adminReviewClaims.length===1?'':'s'} waiting for review.`,App.adminReviewClaims.length?'':'ok');
+  }catch(e){
+    App.adminReviewClaims=[];
+    renderAdminClaimQueue();
+    setFieldHint('adminClaimQueueStatus',e.message,'err');
+  }
+}
+async function approveBusinessClaim(claimId=''){
+  if(!claimId) return;
+  try{
+    setFieldHint('adminClaimQueueStatus','Approving ownership claim...');
+    await api(`/admin/review/business-claim/${encodeURIComponent(claimId)}/approve`,{method:'POST',auth:true});
+    await Promise.all([loadMyShops(),loadAdminClaimReviewQueue()]);
+    toast('Claim approved','Business ownership transferred.');
+  }catch(e){
+    setFieldHint('adminClaimQueueStatus',e.message,'err');
+    toast('Approval failed',e.message,'err');
+  }
+}
+async function rejectBusinessClaim(claimId=''){
+  if(!claimId) return;
+  const reason=prompt('Why should this ownership claim be rejected?');
+  if(reason===null) return;
+  try{
+    setFieldHint('adminClaimQueueStatus','Updating ownership claim...');
+    await api(`/admin/review/business-claim/${encodeURIComponent(claimId)}/reject`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({reason})});
+    await Promise.all([loadMyShops(),loadAdminClaimReviewQueue()]);
+    toast('Claim rejected','The requester can submit new proof later.');
+  }catch(e){
+    setFieldHint('adminClaimQueueStatus',e.message,'err');
+    toast('Claim update failed',e.message,'err');
+  }
+}
+function buildClaimSearchSeed(){
+  const name=$('shopName')?.value.trim()||'';
+  const street=$('shopStreet1')?.value.trim()||'';
+  const city=$('shopCity')?.value.trim()||'';
+  const region=$('shopRegion')?.value.trim()||'';
+  return [name,street,city,region].filter(Boolean).join(' ').trim();
+}
+function openClaimWorkspace({seed=''}={}){
+  const activeSub=document.querySelector('.asub.on')?.id||'';
+  if(activeSub!=='sub-shops'){
+    switchAdminSub('shops',{refreshShops:false});
+  }else{
+    const currentView=document.querySelector('[data-shop-view].on')?.dataset.shopView||'';
+    if(currentView!=='landing' && !showShopManagerView('landing')) return false;
+  }
+  if(document.querySelector('.asub.on')?.id!=='sub-shops') return false;
+  if((document.querySelector('[data-shop-view].on')?.dataset.shopView||'')!=='landing') return false;
+  const card=$('businessClaimCard');
+  const query=String(seed||buildClaimSearchSeed()||'').trim();
+  if($('claimSearchInput')) $('claimSearchInput').value=query;
+  card?.scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(()=>{$('claimSearchInput')?.focus();},80);
+  if(query.length>=2) searchClaimableBusinesses(query);
+  return true;
+}
 async function approveReviewBusiness(shopId=''){
   if(!shopId) return;
   try{
@@ -14328,6 +14638,9 @@ async function createShop(){
   }catch(e){
     setS('shopStatus',e.message,'err');
     toast('Create failed',e.message,'err');
+    if(/claim existing business|already has a live business page/i.test(String(e.message||''))){
+      openClaimWorkspace({seed:buildClaimSearchSeed()});
+    }
   }finally{
     setBtnBusy('createShopBtn',false);
     setBtnBusy('shopFloatingSubmitBtn',false);
@@ -14436,6 +14749,7 @@ function openAdminLiveBusiness(){
   openShopPage(shopId);
 }
 $('ownerCreateShopBtn').addEventListener('click',openCreateShopView);
+$('ownerClaimBusinessBtn')?.addEventListener('click',()=>openClaimWorkspace());
 $('detailBackBtn').addEventListener('click',()=>showShopManagerView('landing'));
 $('detailEditShopBtn').addEventListener('click',openEditShopView);
 $('detailAddProductBtn').addEventListener('click',()=>openProductForm());
@@ -14459,6 +14773,8 @@ $('shopFloatingSubmitBtn').addEventListener('click',()=>($('shopFloatingSubmitBt
 $('productFloatingSubmitBtn').addEventListener('click',saveProd);
 $('createShopBtn').addEventListener('click',createShop);
 $('saveShopBtn').addEventListener('click',saveShop);
+$('claimSearchBtn')?.addEventListener('click',()=>searchClaimableBusinesses());
+$('claimSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchClaimableBusinesses();}});
 $('deleteShopBtn').addEventListener('click',deleteShop);
 $('rebuildKbBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a business first','','err');
