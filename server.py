@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 import os, re, json, time, uuid, shutil, math, base64, hashlib, hmac, secrets
 import csv
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from difflib import SequenceMatcher
 import requests
 import smtplib
@@ -97,6 +97,20 @@ SHOP_REVIEW_WRITE_COLUMNS = [
     "verified_at",
     "verification_rejection_reason",
 ]
+SHOP_TRUST_WRITE_COLUMNS = [
+    "trust_flags",
+    "risk_score",
+    "risk_level",
+]
+UNPUBLISHED_LISTING_STATUSES = {
+    LISTING_STATUS_DRAFT,
+    LISTING_STATUS_PENDING_REVIEW,
+    LISTING_STATUS_REJECTED,
+}
+NEW_CREATOR_ACCOUNT_AGE_DAYS = int(os.environ.get("NEW_CREATOR_ACCOUNT_AGE_DAYS", "14") or 14)
+NEW_CREATOR_DRAFT_BURST_HOURS = int(os.environ.get("NEW_CREATOR_DRAFT_BURST_HOURS", "24") or 24)
+NEW_CREATOR_DRAFT_BURST_LIMIT = int(os.environ.get("NEW_CREATOR_DRAFT_BURST_LIMIT", "2") or 2)
+NEW_CREATOR_TOTAL_UNPUBLISHED_LIMIT = int(os.environ.get("NEW_CREATOR_TOTAL_UNPUBLISHED_LIMIT", "4") or 4)
 
 OPENROUTER_KEY    = os.environ.get("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_MODEL  = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4.1-mini").strip()
@@ -753,6 +767,197 @@ def normalize_owner_contact_name(value: Any) -> str:
 def normalize_verification_evidence(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()[:500]
 
+def parse_datetime_value(value: Any) -> Optional[datetime]:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        return None
+
+def normalize_phone_fingerprint(value: Any) -> str:
+    digits = re.sub(r"\D+", "", str(value or ""))
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    return digits
+
+def shop_contact_fingerprints(row: Dict[str, Any]) -> List[str]:
+    shop = normalize_shop_record(row or {})
+    values = [
+        normalize_phone_fingerprint(shop.get("phone", "")),
+        normalize_phone_fingerprint(shop.get("whatsapp", "")),
+    ]
+    seen: set = set()
+    ordered: List[str] = []
+    for value in values:
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        ordered.append(value)
+    return ordered
+
+def normalize_name_fingerprint(value: Any) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", norm_text(str(value or "")))).strip()
+
+def normalize_address_fingerprint(row: Dict[str, Any]) -> str:
+    shop = normalize_shop_record(row or {})
+    if shop.get("location_mode") not in {"storefront", "hybrid"}:
+        return ""
+    parts = [
+        shop.get("street_line1", ""),
+        shop.get("city", ""),
+        shop.get("region", ""),
+        shop.get("postal_code", ""),
+        shop.get("country_code", ""),
+    ]
+    fallback = shop.get("formatted_address", "") or shop.get("address", "")
+    raw = " ".join([part for part in parts if str(part or "").strip()]) or fallback
+    return normalize_name_fingerprint(raw)
+
+def normalize_market_name_fingerprint(row: Dict[str, Any]) -> str:
+    shop = normalize_shop_record(row or {})
+    name = normalize_name_fingerprint(shop.get("name", ""))
+    city = normalize_name_fingerprint(shop.get("city", ""))
+    region = normalize_name_fingerprint(shop.get("region", ""))
+    if not name or not (city or region):
+        return ""
+    return " | ".join([part for part in [name, city, region] if part])
+
+def risk_level_for_score(score: Any) -> str:
+    text = str(score or "").strip().lower()
+    if text in {"low", "medium", "high"}:
+        return text
+    try:
+        value = int(score or 0)
+    except Exception:
+        value = 0
+    if value >= 60:
+        return "high"
+    if value >= 25:
+        return "medium"
+    return "low"
+
+def is_new_creator_account(user: Any) -> bool:
+    created_at = parse_datetime_value(getattr(user, "created_at", None))
+    if not created_at:
+        return False
+    age = datetime.now(timezone.utc) - created_at
+    return age <= timedelta(days=max(1, NEW_CREATOR_ACCOUNT_AGE_DAYS))
+
+def summarize_creator_draft_counts(owner_rows: List[Dict[str, Any]]) -> Dict[str, int]:
+    now = datetime.now(timezone.utc)
+    unpublished = [
+        row for row in (owner_rows or [])
+        if normalize_listing_status(row.get("listing_status"), default=LISTING_STATUS_VERIFIED) in UNPUBLISHED_LISTING_STATUSES
+    ]
+    recent_unpublished = 0
+    for row in unpublished:
+        created_at = parse_datetime_value(row.get("created_at"))
+        if created_at and created_at >= now - timedelta(hours=max(1, NEW_CREATOR_DRAFT_BURST_HOURS)):
+            recent_unpublished += 1
+    return {
+        "recent_unpublished": recent_unpublished,
+        "total_unpublished": len(unpublished),
+        "total_all": len(owner_rows or []),
+    }
+
+def enforce_creator_draft_limits(user: Any, owner_rows: List[Dict[str, Any]]) -> None:
+    if not is_new_creator_account(user):
+        return
+    counts = summarize_creator_draft_counts(owner_rows or [])
+    if counts["recent_unpublished"] >= max(1, NEW_CREATOR_DRAFT_BURST_LIMIT):
+        raise HTTPException(429, f"New accounts can only create {NEW_CREATOR_DRAFT_BURST_LIMIT} fresh business drafts in {NEW_CREATOR_DRAFT_BURST_HOURS} hours. Finish or review the current drafts first.")
+    if counts["total_unpublished"] >= max(1, NEW_CREATOR_TOTAL_UNPUBLISHED_LIMIT):
+        raise HTTPException(429, f"New accounts can only keep {NEW_CREATOR_TOTAL_UNPUBLISHED_LIMIT} unpublished business drafts at a time. Submit or clean up the current drafts first.")
+
+def build_shop_trust_snapshot(
+    shop_row: Dict[str, Any],
+    user: Any,
+    owner_rows: Optional[List[Dict[str, Any]]] = None,
+    all_rows: Optional[List[Dict[str, Any]]] = None,
+    *,
+    ignore_shop_id: str = "",
+    projected_new_unpublished: bool = False,
+) -> Dict[str, Any]:
+    shop = normalize_shop_record(shop_row or {})
+    owner_rows = [normalize_shop_record(row) for row in (owner_rows or [])]
+    all_rows = [normalize_shop_record(row) for row in (all_rows or [])]
+    flags: List[str] = []
+    score = 0
+    if is_new_creator_account(user):
+        counts = summarize_creator_draft_counts(owner_rows)
+        projected_recent = counts["recent_unpublished"] + (1 if projected_new_unpublished else 0)
+        projected_total = counts["total_unpublished"] + (1 if projected_new_unpublished else 0)
+        if projected_recent >= max(1, NEW_CREATOR_DRAFT_BURST_LIMIT):
+            flags.append("Review: new account is creating several drafts quickly")
+            score += 25
+        if projected_total >= max(2, NEW_CREATOR_TOTAL_UNPUBLISHED_LIMIT):
+            flags.append("Review: new account already has several unpublished businesses")
+            score += 20
+    phone_fingerprints = shop_contact_fingerprints(shop)
+    if phone_fingerprints:
+        other_owner_phone_matches = [
+            row for row in all_rows
+            if str(row.get("shop_id", "")) != str(ignore_shop_id or "")
+            and str(row.get("owner_user_id", "")) != str(getattr(user, "id", "") or "")
+            and any(match in shop_contact_fingerprints(row) for match in phone_fingerprints)
+        ]
+        if other_owner_phone_matches:
+            flags.append("Review: phone number matches another business listing")
+            score += 45
+        same_owner_phone_matches = [
+            row for row in owner_rows
+            if str(row.get("shop_id", "")) != str(ignore_shop_id or "")
+            and any(match in shop_contact_fingerprints(row) for match in phone_fingerprints)
+        ]
+        if len(same_owner_phone_matches) >= 2:
+            flags.append("Review: same phone number is reused across several businesses")
+            score += 10
+    address_fingerprint = normalize_address_fingerprint(shop)
+    if address_fingerprint:
+        other_owner_address_matches = [
+            row for row in all_rows
+            if str(row.get("shop_id", "")) != str(ignore_shop_id or "")
+            and str(row.get("owner_user_id", "")) != str(getattr(user, "id", "") or "")
+            and normalize_address_fingerprint(row) == address_fingerprint
+        ]
+        if other_owner_address_matches:
+            flags.append("Review: address matches another owner's business listing")
+            score += 35
+    market_name_fingerprint = normalize_market_name_fingerprint(shop)
+    if market_name_fingerprint:
+        similar_name_matches = [
+            row for row in all_rows
+            if str(row.get("shop_id", "")) != str(ignore_shop_id or "")
+            and str(row.get("owner_user_id", "")) != str(getattr(user, "id", "") or "")
+            and normalize_market_name_fingerprint(row) == market_name_fingerprint
+        ]
+        if similar_name_matches:
+            flags.append("Review: very similar business name already exists in the same area")
+            score += 18
+    deduped: List[str] = []
+    seen: set = set()
+    for item in flags:
+        key = str(item or "").strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(str(item).strip()[:160])
+    return {
+        "trust_flags": deduped,
+        "risk_score": score,
+        "risk_level": risk_level_for_score(score),
+    }
+
+def load_shop_trust_rows(owner_user_id: str = "") -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    rows = supabase.table("shops").select("*").order("created_at", desc=True).execute().data or []
+    owner_rows = [row for row in rows if str(row.get("owner_user_id", "")) == str(owner_user_id or "")]
+    return owner_rows, rows
+
 def require_supabase() -> Client:
     if supabase is None:
         raise HTTPException(503, "Server is missing Supabase configuration.")
@@ -1197,7 +1402,7 @@ def unique_product_slug(shop_id: str, name: str, ignore_product_id: str = "") ->
         candidate = f"{base[:max(1, 50-len(suffix))]}{suffix}"
     return f"{base[:40]}-{uuid.uuid4().hex[:6]}"
 
-SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area", "profile_image_url", *SHOP_REVIEW_WRITE_COLUMNS]
+SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area", "profile_image_url", *SHOP_REVIEW_WRITE_COLUMNS, *SHOP_TRUST_WRITE_COLUMNS]
 PRODUCT_OPTIONAL_WRITE_COLUMNS = [
     "price_amount", "stock_quantity", "product_slug", "variant_data", "variant_matrix",
     "attribute_data", "currency_code", "offering_type", "price_mode", "availability_mode",
@@ -1948,6 +2153,20 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out["verified_at"] = out.get("verified_at") or None
     out["verification_rejection_reason"] = re.sub(r"\s+", " ", str(out.get("verification_rejection_reason") or "")).strip()[:500]
     out["is_publicly_listed"] = out["listing_status"] in PUBLIC_LISTING_STATUSES
+    trust_flags = out.get("trust_flags", [])
+    if isinstance(trust_flags, str):
+        try:
+            trust_flags = json.loads(trust_flags)
+        except Exception:
+            trust_flags = [trust_flags]
+    if not isinstance(trust_flags, list):
+        trust_flags = []
+    out["trust_flags"] = [re.sub(r"\s+", " ", str(item or "")).strip()[:160] for item in trust_flags if str(item or "").strip()]
+    try:
+        out["risk_score"] = int(out.get("risk_score") or 0)
+    except Exception:
+        out["risk_score"] = 0
+    out["risk_level"] = risk_level_for_score(out.get("risk_level") or out["risk_score"])
     try:
         out["delivery_radius_km"] = round(float(out.get("delivery_radius_km")), 2) if out.get("delivery_radius_km") not in (None, "") else None
     except Exception:
@@ -4538,6 +4757,9 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     if raw_business is None:
         raise HTTPException(400, "Business payload is required")
     shop = validate_shop_payload(raw_business)
+    owner_rows, all_rows = load_shop_trust_rows(user.id)
+    enforce_creator_draft_limits(user, owner_rows)
+    trust_snapshot = build_shop_trust_snapshot(shop, user, owner_rows, all_rows, projected_new_unpublished=True)
     sid = gen_shop_id(shop["name"])
     shop_slug = unique_shop_slug(shop["name"])
     for _ in range(5):
@@ -4588,6 +4810,9 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         "verification_submitted_at": None,
         "verified_at": None,
         "verification_rejection_reason": "",
+        "trust_flags": trust_snapshot["trust_flags"],
+        "risk_score": trust_snapshot["risk_score"],
+        "risk_level": trust_snapshot["risk_level"],
     }
     strict_cols = list(SHOP_REVIEW_WRITE_COLUMNS)
     if shop.get("business_type") != "retail":
@@ -4612,12 +4837,17 @@ def my_shops(authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     shops_res = supabase.table("shops").select("*").eq("owner_user_id", user.id).order("created_at", desc=True).execute()
     rows = shops_res.data
+    owner_rows, all_rows = load_shop_trust_rows(user.id)
     
     for r in rows:
         r.update(normalize_shop_record(r))
+        trust_snapshot = build_shop_trust_snapshot(r, user, owner_rows, all_rows, ignore_shop_id=r.get("shop_id", ""))
         stats = shop_stats(r["shop_id"])
         r["stats"] = stats
-        r["quality_flags"] = shop_completeness_flags(r, stats)
+        r["trust_flags"] = trust_snapshot["trust_flags"]
+        r["risk_score"] = trust_snapshot["risk_score"]
+        r["risk_level"] = trust_snapshot["risk_level"]
+        r["quality_flags"] = [*shop_completeness_flags(r, stats), *r["trust_flags"]]
         r["review_requirements"] = shop_review_requirements(r, stats)
         r["review_ready"] = not r["review_requirements"]
         r["is_publicly_listed"] = shop_is_publicly_listable(r)
@@ -4704,9 +4934,14 @@ def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     check_shop_owner(user.id, shop_id)
     
     shop = normalize_shop_record(supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data[0])
+    owner_rows, all_rows = load_shop_trust_rows(user.id)
+    trust_snapshot = build_shop_trust_snapshot(shop, user, owner_rows, all_rows, ignore_shop_id=shop_id)
     prods = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
     stats = shop_stats(shop_id)
-    shop["quality_flags"] = shop_completeness_flags(shop, stats)
+    shop["trust_flags"] = trust_snapshot["trust_flags"]
+    shop["risk_score"] = trust_snapshot["risk_score"]
+    shop["risk_level"] = trust_snapshot["risk_level"]
+    shop["quality_flags"] = [*shop_completeness_flags(shop, stats), *shop["trust_flags"]]
     shop["review_requirements"] = shop_review_requirements(shop, stats)
     shop["review_ready"] = not shop["review_requirements"]
     shop["is_publicly_listed"] = shop_is_publicly_listable(shop)
@@ -4779,6 +5014,8 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
         raise HTTPException(404, "Business not found")
     existing_shop = normalize_shop_record(existing_rows[0])
     shop = validate_shop_payload(body)
+    owner_rows, all_rows = load_shop_trust_rows(user.id)
+    trust_snapshot = build_shop_trust_snapshot(shop, user, owner_rows, all_rows, ignore_shop_id=shop_id)
     shop_slug = unique_shop_slug(shop["name"], shop_id)
     listing_status = existing_shop.get("listing_status", LISTING_STATUS_VERIFIED)
     owner_contact_name = shop.get("owner_contact_name") or existing_shop.get("owner_contact_name", "") or normalize_display_name((prof or {}).get("display_name", ""), getattr(user, "email", ""))
@@ -4821,6 +5058,9 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
         "verification_submitted_at": existing_shop.get("verification_submitted_at"),
         "verified_at": existing_shop.get("verified_at"),
         "verification_rejection_reason": existing_shop.get("verification_rejection_reason", "") if listing_status == LISTING_STATUS_REJECTED else "",
+        "trust_flags": trust_snapshot["trust_flags"],
+        "risk_score": trust_snapshot["risk_score"],
+        "risk_level": trust_snapshot["risk_level"],
     }
     strict_cols = list(SHOP_REVIEW_WRITE_COLUMNS)
     if shop.get("business_type") != "retail":
@@ -4849,6 +5089,8 @@ def admin_submit_shop_for_review(shop_id: str, authorization: Optional[str] = He
         raise HTTPException(400, "This business is already verified and live.")
     if shop.get("listing_status") == LISTING_STATUS_PENDING_REVIEW:
         raise HTTPException(400, "This business is already waiting for review.")
+    owner_rows, all_rows = load_shop_trust_rows(user.id)
+    trust_snapshot = build_shop_trust_snapshot(shop, user, owner_rows, all_rows, ignore_shop_id=shop_id)
     stats = shop_stats(shop_id)
     requirements = shop_review_requirements(shop, stats)
     if requirements:
@@ -4858,6 +5100,9 @@ def admin_submit_shop_for_review(shop_id: str, authorization: Optional[str] = He
         "listing_status": LISTING_STATUS_PENDING_REVIEW,
         "verification_submitted_at": now_iso,
         "verification_rejection_reason": "",
+        "trust_flags": trust_snapshot["trust_flags"],
+        "risk_score": trust_snapshot["risk_score"],
+        "risk_level": trust_snapshot["risk_level"],
     }
     if not shop.get("verified_at"):
         payload["verified_at"] = None
@@ -4890,10 +5135,18 @@ def admin_review_businesses(status: str = Query(LISTING_STATUS_PENDING_REVIEW), 
         row.update(normalize_shop_record(row))
         stats = shop_stats(row["shop_id"])
         row["stats"] = stats
-        row["quality_flags"] = shop_completeness_flags(row, stats)
+        row["quality_flags"] = [*shop_completeness_flags(row, stats), *(row.get("trust_flags", []) or [])]
         row["review_requirements"] = shop_review_requirements(row, stats)
         row["review_ready"] = not row["review_requirements"]
         row["is_publicly_listed"] = shop_is_publicly_listable(row)
+    rows = sorted(
+        rows,
+        key=lambda row: (
+            int(row.get("risk_score") or 0),
+            str(row.get("verification_submitted_at") or row.get("created_at") or ""),
+        ),
+        reverse=True,
+    )
     return alias_catalog_response({"ok": True, "shops": rows})
 
 @app.post("/admin/review/business/{shop_id}/approve")

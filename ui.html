@@ -6923,7 +6923,10 @@ function normalizeBusinessRecord(row={}){
   out.verification_evidence=(out.verification_evidence||'').trim();
   out.verification_rejection_reason=(out.verification_rejection_reason||'').trim();
   out.review_requirements=Array.isArray(out.review_requirements)?out.review_requirements:[];
+  out.trust_flags=Array.isArray(out.trust_flags)?out.trust_flags:[];
   out.quality_flags=Array.isArray(out.quality_flags)?out.quality_flags:[];
+  out.risk_score=Number.isFinite(Number(out.risk_score))?Number(out.risk_score):0;
+  out.risk_level=['low','medium','high'].includes(String(out.risk_level||'').trim().toLowerCase())?String(out.risk_level||'').trim().toLowerCase():(out.risk_score>=60?'high':(out.risk_score>=25?'medium':'low'));
   out.is_publicly_listed=out.is_publicly_listed===true || out.listing_status==='verified';
   return out;
 }
@@ -14068,18 +14071,22 @@ function renderBusinessListingUi(shop={}){
   const isEdit=!!normalized.shop_id;
   const reviewerNote=String(normalized.verification_rejection_reason||'').trim();
   const unmet=Array.isArray(normalized.review_requirements)?normalized.review_requirements:[];
+  const trustFlags=Array.isArray(normalized.trust_flags)?normalized.trust_flags:[];
   if($('ownerListingStateTitle')) $('ownerListingStateTitle').textContent=meta.title;
   if($('ownerListingStateCopy')) $('ownerListingStateCopy').textContent=unmet.length && meta.canSubmit ? `${meta.copy} Next: ${unmet[0]}` : meta.copy;
   if($('ownerListingStateBadge')) $('ownerListingStateBadge').outerHTML=businessListingPillHtml(normalized,meta.label).replace('<span ','<span id="ownerListingStateBadge" ');
   if($('shopListingStateBadge')) $('shopListingStateBadge').outerHTML=businessListingPillHtml(normalized,meta.label).replace('<span ','<span id="shopListingStateBadge" ');
   if($('shopListingStateCopy')) $('shopListingStateCopy').textContent=isEdit ? (unmet.length && meta.canSubmit ? `${meta.copy} Next: ${unmet[0]}` : meta.copy) : 'Create the business first. Draft businesses stay private until they are reviewed and approved.';
-  const noteHtml=reviewerNote ? `<strong>Reviewer note</strong>${esc(reviewerNote)}` : '';
+  const noteParts=[];
+  if(reviewerNote) noteParts.push(`<strong>Reviewer note</strong>${esc(reviewerNote)}`);
+  if(trustFlags.length) noteParts.push(`<strong>Review flags</strong>${trustFlags.slice(0,3).map(flag=>esc(flag)).join('<br/>')}`);
+  const noteHtml=noteParts.join('<div style="height:8px"></div>');
   if($('ownerReviewerNote')){
-    $('ownerReviewerNote').style.display=reviewerNote?'block':'none';
+    $('ownerReviewerNote').style.display=noteHtml?'block':'none';
     $('ownerReviewerNote').innerHTML=noteHtml;
   }
   if($('shopReviewNote')){
-    $('shopReviewNote').style.display=reviewerNote?'block':'none';
+    $('shopReviewNote').style.display=noteHtml?'block':'none';
     $('shopReviewNote').innerHTML=noteHtml;
   }
   const canSubmit=isEdit && meta.canSubmit;
@@ -14114,6 +14121,9 @@ function currentShopListingSnapshot(){
     phone,
     whatsapp,
     review_requirements:requirements,
+    trust_flags:App.adminShopData?.shop?.trust_flags||[],
+    risk_score:App.adminShopData?.shop?.risk_score||0,
+    risk_level:App.adminShopData?.shop?.risk_level||'low',
   });
 }
 function renderAdminReviewQueue(){
