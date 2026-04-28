@@ -1,0 +1,2 @@
+[Public Browse Warning] top_offerings: [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions
+INFO:     127.0.0.1:59022 - "GET /public/top-offerings?limit=2 HTTP/1.1" 200 OK

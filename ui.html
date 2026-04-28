@@ -1300,6 +1300,23 @@ a{color:inherit;text-decoration:none}
 .owner-flag-list{display:flex;flex-wrap:wrap;gap:8px}
 .owner-flag{font-size:11px;font-weight:700;padding:6px 9px;border-radius:999px;background:#fff4ea;color:#a24b1d;border:1px solid rgba(185,97,40,.24)}
 .owner-good{font-size:11px;font-weight:700;padding:6px 9px;border-radius:999px;background:#ebfbf2;color:#1f7a4b;border:1px solid rgba(31,122,75,.18)}
+.listing-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid rgba(191,174,149,.28);background:#fff;font-size:11px;font-weight:800;line-height:1;color:var(--ink2)}
+.listing-pill.verified{background:#ebfbf2;color:#1f7a4b;border-color:rgba(31,122,75,.18)}
+.listing-pill.pending{background:#eef7ff;color:#1769aa;border-color:rgba(23,105,170,.18)}
+.listing-pill.draft{background:#fff7e8;color:#8e5b10;border-color:rgba(142,91,16,.16)}
+.listing-pill.rejected{background:#fff0f0;color:#b42318;border-color:rgba(180,35,24,.16)}
+.listing-state-copy{font-size:12px;line-height:1.6;color:var(--ink3)}
+.review-note{margin-top:10px;padding:12px 13px;border-radius:14px;background:#fff7f2;border:1px solid rgba(185,97,40,.18);font-size:12px;line-height:1.6;color:#8d4f1f}
+.review-note strong{display:block;color:var(--ink);margin-bottom:4px}
+.review-queue{display:grid;gap:12px}
+.review-queue-item{padding:14px 15px;border-radius:18px;border:1px solid rgba(191,174,149,.24);background:rgba(255,255,255,.86);display:grid;gap:10px}
+.review-queue-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.review-queue-title{font-size:14px;font-weight:800;color:var(--ink)}
+.review-queue-meta{font-size:12px;line-height:1.55;color:var(--ink3)}
+.review-queue-copy{font-size:12px;line-height:1.6;color:var(--ink3)}
+.review-queue-actions{display:flex;flex-wrap:wrap;gap:8px}
+.review-queue-flags{display:flex;flex-wrap:wrap;gap:6px}
+.review-queue-empty{font-size:12px;color:var(--ink3)}
 @media(max-width:900px){
   .workspace-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .workspace-actions .btn{width:100%;justify-content:center}
@@ -5619,6 +5636,16 @@ select.btn{
               </div>
             </div>
           </div>
+          <div id="adminReviewQueueCard" class="card" style="display:none">
+            <div class="card-head">
+              <div class="card-title">Business Review Queue</div>
+            </div>
+            <div class="card-body">
+              <div class="fld-hint" style="margin-bottom:10px">Only pending businesses appear here. Approving one makes it visible on the public app.</div>
+              <div id="adminReviewQueueList" class="review-queue"><div class="review-queue-empty">No businesses waiting for review.</div></div>
+              <div id="adminReviewQueueStatus" class="stxt"></div>
+            </div>
+          </div>
           <div id="ownerShopGrid" class="owner-shop-grid">
             <div class="empty"><div class="ei">Login</div><div class="et">Sign in to see and manage your businesses.</div></div>
           </div>
@@ -5667,10 +5694,16 @@ select.btn{
             </div>
             <div class="owner-side-stack">
               <div class="owner-side-card">
-                <div class="owner-side-label">Quick Actions</div>
-                <div class="owner-side-title">Keep this business live and complete.</div>
-                <div class="owner-side-copy">Use this panel for the actions owners reach for most often while updating the public page.</div>
+                <div class="owner-side-label">Listing Status</div>
+                <div id="ownerListingStateTitle" class="owner-side-title">Business not loaded</div>
+                <div id="ownerListingStateCopy" class="owner-side-copy">Open a business to see whether it is private, pending review, or live on the public app.</div>
+                <div class="owner-flag-list" style="margin-top:12px">
+                  <span id="ownerListingStateBadge" class="listing-pill draft">Draft</span>
+                </div>
+                <div id="ownerReviewerNote" class="review-note" style="display:none"></div>
                 <div class="owner-side-actions">
+                  <button id="detailSubmitReviewBtn" class="btn btn-A btn-sm">Submit for Review</button>
+                  <button id="detailMoveDraftBtn" class="btn btn-o btn-sm" style="display:none">Move to Draft</button>
                   <button id="detailAddProductBtnSide" class="btn btn-A btn-sm">+ Add Offering</button>
                   <button id="detailEditShopBtnSide" class="btn btn-o btn-sm">Edit Business Details</button>
                   <button id="detailOpenLiveShopBtnSide" class="btn btn-g btn-sm">Open Live Page</button>
@@ -5868,8 +5901,8 @@ select.btn{
                   <div id="hoursGrid" class="hours-grid"></div>
                 </div>
                 <div class="fg2" style="margin-top:14px">
-                  <div class="fld"><label>WhatsApp (optional)</label><input id="shopWhatsapp" placeholder="+1 902-XXX-XXXX"/><div class="fld-hint">Used when customers ask how to contact the business.</div></div>
-                  <div class="fld"><label>Phone</label><input id="shopPhone" placeholder="+1 902-XXX-XXXX"/><div class="fld-hint">Optional, but useful for customer support questions.</div></div>
+                  <div class="fld"><label>WhatsApp (optional)</label><input id="shopWhatsapp" placeholder="+1 902-XXX-XXXX"/><div class="fld-hint">Used when customers ask how to contact the business. A phone or WhatsApp contact is needed before review approval.</div></div>
+                  <div class="fld"><label>Phone</label><input id="shopPhone" placeholder="+1 902-XXX-XXXX"/><div class="fld-hint">Customers may use this directly, and review approval expects at least one public contact number.</div></div>
                   <div class="setup-callout">
                     <div class="setup-callout-title">Public preview</div>
                     <div id="shopFormattedPreview" class="setup-callout-copy">Customers open the business page, browse offerings, and can chat with the assistant immediately.</div>
@@ -5900,6 +5933,27 @@ select.btn{
                   <div class="setup-section-copy">A strong overview helps the public page feel credible and gives the assistant better context.</div>
                 </div>
                 <div class="fld"><label>About This Business</label><textarea id="shopOverview" placeholder="Tell customers what makes this business special..."></textarea><div class="fld-hint">A stronger overview improves both the public page and the assistant's answers.</div></div>
+              </div>
+              <div class="setup-section">
+                <div class="setup-section-head">
+                  <div class="setup-section-kicker">Step 5</div>
+                  <div class="setup-section-title">Verification and launch</div>
+                  <div class="setup-section-copy">New businesses stay private first. Submit the business for review only after the public profile is complete and trustworthy.</div>
+                </div>
+                <div class="fg2">
+                  <div class="fld"><label>Owner / Contact Name</label><input id="shopOwnerContactName" placeholder="Alicia Murray"/><div class="fld-hint">Used for business verification and staff follow-up. This is not shown to customers.</div></div>
+                  <div class="fld"><label>Verification Path</label><select id="shopVerificationMethod"><option value="">Select...</option><option value="website">Business website</option><option value="registry">Registry reference</option><option value="license">Licence / permit</option><option value="domain_email">Business email domain</option><option value="phone">Direct phone verification</option><option value="manual">Manual review note</option></select><div class="fld-hint">Choose the clearest proof path for this business.</div></div>
+                </div>
+                <div class="fld" style="margin-top:14px"><label>Verification Note / Proof</label><textarea id="shopVerificationEvidence" placeholder="Example: atlanticordinate.ca/about or NS registry record 1234567 or municipal licence reference."></textarea><div class="fld-hint">Add the website, registry reference, licence note, or other proof staff can review quickly.</div></div>
+                <div class="owner-flag-list" style="margin-top:14px">
+                  <span id="shopListingStateBadge" class="listing-pill draft">Draft</span>
+                </div>
+                <div id="shopListingStateCopy" class="listing-state-copy" style="margin-top:10px">Create the business first. Draft businesses stay private until they are reviewed and approved.</div>
+                <div id="shopReviewNote" class="review-note" style="display:none"></div>
+                <div class="btn-row" style="margin-top:14px">
+                  <button id="shopSubmitReviewBtn" class="btn btn-A btn-sm" type="button">Submit for Review</button>
+                  <button id="shopMoveDraftBtn" class="btn btn-o btn-sm" type="button" style="display:none">Move to Draft</button>
+                </div>
               </div>
               <div class="btn-row">
                 <button id="rebuildKbBtn" class="btn btn-gr btn-sm">Rebuild Knowledge</button>
@@ -6608,6 +6662,7 @@ const App = {
   publicCatalogDirty: false,
   favouriteProductIds: {},
   adminProducts: [],
+  adminReviewShops: [],
   recoveryToken: '',
   sessionExpiredNoticeShown: false,
   locationSupport: null,
@@ -6788,12 +6843,88 @@ function buildShopPublicPath(shopRef=''){
 function buildProductPublicPath(shopRef='', productRef=''){
   return buildOfferingPublicPath(shopRef, productRef);
 }
+function normalizeBusinessListingStatus(value=''){
+  const status=String(value||'').trim().toLowerCase();
+  return ['draft','pending_review','verified','rejected'].includes(status) ? status : 'verified';
+}
+function businessListingMeta(shop={}){
+  const s=normalizeBusinessRecord(shop||{});
+  const status=normalizeBusinessListingStatus(s.listing_status||'');
+  const requirements=Array.isArray(s.review_requirements)?s.review_requirements:[];
+  const reason=String(s.verification_rejection_reason||'').trim();
+  if(status==='pending_review'){
+    return {
+      status,
+      label:'Pending Review',
+      pillClass:'listing-pill pending',
+      title:'Pending review',
+      copy:'This business is private right now. It will go live after staff review and approval.',
+      live:false,
+      canSubmit:false,
+      canMoveDraft:true,
+      requirements,
+      reason,
+    };
+  }
+  if(status==='rejected'){
+    return {
+      status,
+      label:'Needs Info',
+      pillClass:'listing-pill rejected',
+      title:'Needs more verification',
+      copy:'This business is private. Fix the notes below, save the profile, then submit it again for review.',
+      live:false,
+      canSubmit:true,
+      canMoveDraft:true,
+      requirements,
+      reason,
+    };
+  }
+  if(status==='verified'){
+    return {
+      status,
+      label:'Verified',
+      pillClass:'listing-pill verified',
+      title:'Live on the public app',
+      copy:'Customers can open this business page, find it in search, and chat with it now.',
+      live:true,
+      canSubmit:false,
+      canMoveDraft:true,
+      requirements,
+      reason,
+    };
+  }
+  return {
+    status:'draft',
+    label:'Draft',
+    pillClass:'listing-pill draft',
+    title:'Private draft',
+    copy:'This business is saved privately. Customers cannot see it until you submit it for review and it is approved.',
+    live:false,
+    canSubmit:true,
+    canMoveDraft:false,
+    requirements,
+    reason,
+  };
+}
+function businessListingPillHtml(shop={},labelOverride=''){
+  const meta=businessListingMeta(shop);
+  return `<span class="${meta.pillClass}">${esc(labelOverride||meta.label)}</span>`;
+}
 function normalizeBusinessRecord(row={}){
   const out={...(row||{})};
   out.business_id=out.business_id||out.shop_id||'';
   out.shop_id=out.shop_id||out.business_id||'';
   out.business_slug=out.business_slug||out.shop_slug||'';
   out.shop_slug=out.shop_slug||out.business_slug||'';
+  out.listing_status=normalizeBusinessListingStatus(out.listing_status||'');
+  out.owner_contact_name=(out.owner_contact_name||'').trim();
+  out.verification_method=(out.verification_method||'').trim();
+  out.verification_evidence=(out.verification_evidence||'').trim();
+  out.verification_rejection_reason=(out.verification_rejection_reason||'').trim();
+  out.review_requirements=Array.isArray(out.review_requirements)?out.review_requirements:[];
+  out.quality_flags=Array.isArray(out.quality_flags)?out.quality_flags:[];
+  out.is_publicly_listed=out.is_publicly_listed===true || out.listing_status==='verified';
   return out;
 }
 function normalizeOfferingRecord(row={}){
@@ -13702,9 +13833,11 @@ async function syncShopProfileImage(shopId){
 
 function resetShopForm(){
   suspendFormDirty=true;
-  ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopLat','shopLng','shopDeliveryRadius','shopDeliveryFee','shopPickupNotes','shopServiceArea','shopProfileImageFile'].forEach(id=>$(id).value='');
+  ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopLat','shopLng','shopDeliveryRadius','shopDeliveryFee','shopPickupNotes','shopServiceArea','shopProfileImageFile','shopOwnerContactName','shopVerificationEvidence'].forEach(id=>$(id).value='');
   if($('shopIdRef')) $('shopIdRef').textContent='Generated after creation';
   if($('shopBusinessType')) $('shopBusinessType').value='retail';
+  if($('shopVerificationMethod')) $('shopVerificationMethod').value='';
+  if($('shopOwnerContactName')) $('shopOwnerContactName').value=String(App.user?.display_name||'').trim();
   App.shopProfileImageUrl='';
   App.shopProfileImageRemoved=false;
   renderCategoryOptionsForBusiness('retail','');
@@ -13728,6 +13861,7 @@ function resetShopForm(){
   setS('shopStatus','');
   suspendFormDirty=false;
   updateShopDraftState(false);
+  renderBusinessListingUi({listing_status:'draft',review_requirements:[]});
 }
 
 function populateShopForm(shop=null){
@@ -13758,6 +13892,9 @@ function populateShopForm(shop=null){
   $('shopOverview').value=shop.overview||'';
   $('shopPhone').value=shop.phone||'';
   $('shopWhatsapp').value=shop.whatsapp||'';
+  if($('shopOwnerContactName')) $('shopOwnerContactName').value=shop.owner_contact_name||'';
+  if($('shopVerificationMethod')) $('shopVerificationMethod').value=shop.verification_method||'';
+  if($('shopVerificationEvidence')) $('shopVerificationEvidence').value=shop.verification_evidence||'';
   $('shopSupportsPickup').checked=shop.supports_pickup!==false;
   $('shopSupportsDelivery').checked=!!shop.supports_delivery;
   $('shopSupportsWalkIn').checked=shop.supports_walk_in!==false;
@@ -13772,6 +13909,7 @@ function populateShopForm(shop=null){
   buildShopAddressPayload();
   populateHoursEditor(shop.hours_structured||[]);
   refreshShopProfileImagePreview();
+  renderBusinessListingUi(shop);
 }
 
 function openCreateShopView(){
@@ -13788,7 +13926,7 @@ function openCreateShopView(){
   syncShopFormActions('create');
   $('deleteShopBtn').style.display='none';
   $('rebuildKbBtn').style.display='none';
-  setFieldHint('shopStatus','Start with the public details customers will see on the business page.','');
+  setFieldHint('shopStatus','Start with the public details customers will see on the business page. New businesses begin as private drafts.','');
   switchAdminSub('shops');
   showShopManagerView('shopform');
 }
@@ -13800,7 +13938,7 @@ function openEditShopView(){
   syncShopFormActions('edit');
   $('deleteShopBtn').style.display='';
   $('rebuildKbBtn').style.display='';
-  setFieldHint('shopStatus','Update the public details, then save to refresh the business page.','');
+  setFieldHint('shopStatus','Update the public details, then save to refresh the business workspace and review state.','');
   switchAdminSub('shops');
   showShopManagerView('shopform');
 }
@@ -13820,7 +13958,7 @@ function openProductForm(product=null){
 }
 
 async function loadMyShops(){
-  if(!App.user){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Login</div><div class="et">Sign in first to manage your businesses.</div></div>`;setFieldHint('myShopsStatus','Sign in to create or manage businesses.','');return;}
+  if(!App.user){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Login</div><div class="et">Sign in first to manage your businesses.</div></div>`;App.adminReviewShops=[];renderAdminReviewQueue();setFieldHint('myShopsStatus','Sign in to create or manage businesses.','');return;}
   try{
     const d=normalizeCatalogPayload(await api('/admin/my-businesses',{auth:true}));
     let shops=d.businesses||[];
@@ -13843,19 +13981,24 @@ async function loadMyShops(){
       grid.innerHTML=`<div class="card"><div class="card-body"><div class="empty"><div class="ei">Business</div><div class="et">No businesses yet. Create your first one, then start adding offerings under it.</div><button class="btn btn-A btn-sm empty-action" id="createFirstShopBtn">+ Create Business</button></div></div></div>`;
       setFieldHint('myShopsStatus','You do not have a business yet.','');
       $('createFirstShopBtn')?.addEventListener('click',openCreateShopView);
+      renderAdminReviewQueue();
+      if(['admin','superadmin'].includes(String(App.user?.role||'').trim().toLowerCase())) await loadAdminReviewQueue();
       return;
     }
     shops.forEach(s=>{
       const stats=s.stats||{};
       const flags=s.quality_flags||[];
+      const listingMeta=businessListingMeta(s);
       const nouns=offeringNouns(s);
       const offeringCount=stats.offering_count??stats.product_count??0;
       const card=document.createElement('button');
       card.className='owner-shop-card';
-      card.innerHTML=`<div class="owner-shop-card-top"><div class="owner-shop-card-ident"><div class="owner-shop-card-avatar">${businessAvatarHtml(s,s.name||'Business')}</div><div><div class="owner-shop-card-name">${esc(s.name||'Untitled Business')}</div><div class="owner-shop-card-meta">${esc(s.address||s.service_area||'Profile in progress')}${s.category?` - ${esc(s.category)}`:''}</div></div></div><span class="badge">${offeringCount} ${esc(nouns.plural)}</span></div><div class="owner-shop-card-overview">${esc((s.overview||'Open this workspace to update your business page, manage offerings, and keep the customer chat accurate.').slice(0,150))}</div><div class="owner-flag-list">${flags.length?flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join(''):'<span class="owner-good">Ready to publish</span>'}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">${esc(nouns.plural.charAt(0).toUpperCase()+nouns.plural.slice(1))}</div><div class="owner-shop-card-stat-v">${offeringCount}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Chats / 30d</div><div class="owner-shop-card-stat-v">${stats.chat_hits_30d??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Rating</div><div class="owner-shop-card-stat-v">${Number(stats.avg_rating||0).toFixed(1)}</div></div></div><div class="owner-shop-card-go"><span>Open business workspace</span><span>&gt;</span></div>`;
+      card.innerHTML=`<div class="owner-shop-card-top"><div class="owner-shop-card-ident"><div class="owner-shop-card-avatar">${businessAvatarHtml(s,s.name||'Business')}</div><div><div class="owner-shop-card-name">${esc(s.name||'Untitled Business')}</div><div class="owner-shop-card-meta">${esc(s.address||s.service_area||'Profile in progress')}${s.category?` - ${esc(s.category)}`:''}</div></div></div><span class="badge">${offeringCount} ${esc(nouns.plural)}</span></div><div class="owner-shop-card-overview">${esc((s.overview||'Open this workspace to update your business page, manage offerings, and keep the customer chat accurate.').slice(0,150))}</div><div class="owner-flag-list">${businessListingPillHtml(s,listingMeta.label)}${flags.length?flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join(''):(listingMeta.live?'<span class="owner-good">Listing ready</span>':'')}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">${esc(nouns.plural.charAt(0).toUpperCase()+nouns.plural.slice(1))}</div><div class="owner-shop-card-stat-v">${offeringCount}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Chats / 30d</div><div class="owner-shop-card-stat-v">${stats.chat_hits_30d??0}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-k">Rating</div><div class="owner-shop-card-stat-v">${Number(stats.avg_rating||0).toFixed(1)}</div></div></div><div class="owner-shop-card-go"><span>Open business workspace</span><span>&gt;</span></div>`;
       card.addEventListener('click',()=>loadAdminShop(s.shop_id));
       grid.appendChild(card);
     });
+    renderAdminReviewQueue();
+    if(['admin','superadmin'].includes(String(App.user?.role||'').trim().toLowerCase())) await loadAdminReviewQueue();
     setFieldHint('myShopsStatus',`${shops.length} business${shops.length===1?'':'es'} ready to manage.`,'ok');
   }catch(e){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Error</div><div class="et">${esc(e.message)}</div></div>`;setFieldHint('myShopsStatus','Could not load your businesses.','err');}
 }
@@ -13890,11 +14033,12 @@ function refreshWorkspaceHeader(shop=null,stats={}){
   const nouns=offeringNouns(shop||{});
   const offeringCount=stats.offering_count??stats.product_count??0;
   const location=[shop?.address||shop?.service_area||'',shop?.category||'',shop?.hours||''].filter(Boolean);
+  const listingMeta=businessListingMeta(shop||{});
   $('workspaceTitle').textContent=shop?.name||'Select a business to manage';
   $('workspaceDesc').textContent=shop
-    ? `${location.slice(0,2).join(' - ')||'No location yet'}. Keep the business page polished, manage ${nouns.plural}, and open the live customer view from one place.`
+    ? `${location.slice(0,2).join(' - ')||'No location yet'}. ${listingMeta.live?'This listing is live for customers.':'This listing is private until it is approved.'} Manage ${nouns.plural} and verification from one place.`
     : 'Open one of your businesses to manage its page and offerings.';
-  $('wkStatus').textContent=shop?.shop_id||'No business loaded';
+  $('wkStatus').textContent=shop?listingMeta.label:'No business loaded';
   $('wkProducts').textContent=String(offeringCount);
   $('wkChats').textContent=String(stats.chat_hits_30d??0);
   if($('wkShopViews')) $('wkShopViews').textContent=String(stats.shop_views_30d??0);
@@ -13908,12 +14052,142 @@ function refreshWorkspaceHeader(shop=null,stats={}){
   if($('ownerDetailTags')){
     const tags = shop
       ? [
+          listingMeta.label,
+          listingMeta.live?'Public Listing':'Private Listing',
           shop.category||'General',
           `${offeringCount} ${nouns.plural}`,
           shop.whatsapp||shop.phone ? 'Contact Ready' : 'Add Contact Details'
         ]
       : ['Business Page','Products','Chat Ready'];
     $('ownerDetailTags').innerHTML = tags.map(t=>`<div class="owner-detail-tag">${esc(t)}</div>`).join('');
+  }
+}
+function renderBusinessListingUi(shop={}){
+  const normalized=normalizeBusinessRecord(shop||{});
+  const meta=businessListingMeta(normalized);
+  const isEdit=!!normalized.shop_id;
+  const reviewerNote=String(normalized.verification_rejection_reason||'').trim();
+  const unmet=Array.isArray(normalized.review_requirements)?normalized.review_requirements:[];
+  if($('ownerListingStateTitle')) $('ownerListingStateTitle').textContent=meta.title;
+  if($('ownerListingStateCopy')) $('ownerListingStateCopy').textContent=unmet.length && meta.canSubmit ? `${meta.copy} Next: ${unmet[0]}` : meta.copy;
+  if($('ownerListingStateBadge')) $('ownerListingStateBadge').outerHTML=businessListingPillHtml(normalized,meta.label).replace('<span ','<span id="ownerListingStateBadge" ');
+  if($('shopListingStateBadge')) $('shopListingStateBadge').outerHTML=businessListingPillHtml(normalized,meta.label).replace('<span ','<span id="shopListingStateBadge" ');
+  if($('shopListingStateCopy')) $('shopListingStateCopy').textContent=isEdit ? (unmet.length && meta.canSubmit ? `${meta.copy} Next: ${unmet[0]}` : meta.copy) : 'Create the business first. Draft businesses stay private until they are reviewed and approved.';
+  const noteHtml=reviewerNote ? `<strong>Reviewer note</strong>${esc(reviewerNote)}` : '';
+  if($('ownerReviewerNote')){
+    $('ownerReviewerNote').style.display=reviewerNote?'block':'none';
+    $('ownerReviewerNote').innerHTML=noteHtml;
+  }
+  if($('shopReviewNote')){
+    $('shopReviewNote').style.display=reviewerNote?'block':'none';
+    $('shopReviewNote').innerHTML=noteHtml;
+  }
+  const canSubmit=isEdit && meta.canSubmit;
+  if($('detailSubmitReviewBtn')) $('detailSubmitReviewBtn').style.display=isEdit?'':'none';
+  if($('detailSubmitReviewBtn')) $('detailSubmitReviewBtn').disabled=!canSubmit;
+  if($('shopSubmitReviewBtn')) $('shopSubmitReviewBtn').disabled=!canSubmit;
+  if($('detailMoveDraftBtn')) $('detailMoveDraftBtn').style.display=(isEdit && meta.canMoveDraft)?'':'none';
+  if($('shopMoveDraftBtn')) $('shopMoveDraftBtn').style.display=(isEdit && meta.canMoveDraft)?'':'none';
+  if($('detailOpenLiveShopBtn')) $('detailOpenLiveShopBtn').disabled=!meta.live;
+  if($('detailOpenLiveShopBtnSide')) $('detailOpenLiveShopBtnSide').disabled=!meta.live;
+  const submitTitle=canSubmit ? 'Submit for review' : (isEdit ? 'Complete the requirements first' : 'Create the business first');
+  if($('detailSubmitReviewBtn')) $('detailSubmitReviewBtn').title=submitTitle;
+  if($('shopSubmitReviewBtn')) $('shopSubmitReviewBtn').title=submitTitle;
+}
+function currentShopListingSnapshot(){
+  const ownerName=$('shopOwnerContactName')?.value.trim() || App.adminShopData?.shop?.owner_contact_name || '';
+  const verificationMethod=$('shopVerificationMethod')?.value || App.adminShopData?.shop?.verification_method || '';
+  const verificationEvidence=$('shopVerificationEvidence')?.value.trim() || App.adminShopData?.shop?.verification_evidence || '';
+  const phone=$('shopPhone')?.value.trim() || App.adminShopData?.shop?.phone || '';
+  const whatsapp=$('shopWhatsapp')?.value.trim() || App.adminShopData?.shop?.whatsapp || '';
+  const requirements=[];
+  if(!phone && !whatsapp) requirements.push('Add a public phone or WhatsApp number.');
+  if(!ownerName) requirements.push('Add the owner or primary contact name.');
+  if(!verificationMethod) requirements.push('Choose how the business should be verified.');
+  if(verificationEvidence.length<8) requirements.push('Add a short verification note with a website, registry, licence, or other proof reference.');
+  return normalizeBusinessRecord({
+    ...(App.adminShopData?.shop||{}),
+    shop_id:$('shopId')?.value.trim() || App.adminShopId || '',
+    owner_contact_name:ownerName,
+    verification_method:verificationMethod,
+    verification_evidence:verificationEvidence,
+    phone,
+    whatsapp,
+    review_requirements:requirements,
+  });
+}
+function renderAdminReviewQueue(){
+  const card=$('adminReviewQueueCard');
+  const list=$('adminReviewQueueList');
+  if(!card || !list) return;
+  const isAdmin=['admin','superadmin'].includes(String(App.user?.role||'').trim().toLowerCase());
+  if(!isAdmin){
+    card.style.display='none';
+    list.innerHTML='<div class="review-queue-empty">No businesses waiting for review.</div>';
+    return;
+  }
+  card.style.display='';
+  const shops=Array.isArray(App.adminReviewShops)?App.adminReviewShops:[];
+  if(!shops.length){
+    list.innerHTML='<div class="review-queue-empty">No businesses waiting for review.</div>';
+    return;
+  }
+  list.innerHTML='';
+  shops.forEach(shop=>{
+    const meta=businessListingMeta(shop);
+    const item=document.createElement('div');
+    item.className='review-queue-item';
+    const flags=(shop.quality_flags||[]).slice(0,4);
+    item.innerHTML=`<div class="review-queue-head"><div><div class="review-queue-title">${esc(shop.name||'Untitled Business')}</div><div class="review-queue-meta">${esc(shop.owner_contact_name||'No contact')} - ${esc(shop.phone||shop.whatsapp||'No public phone')} - ${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}</div></div>${businessListingPillHtml(shop,meta.label)}</div><div class="review-queue-copy">${esc(shop.verification_evidence||'No verification note supplied.')}</div>${flags.length?`<div class="review-queue-flags">${flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join('')}</div>`:''}<div class="review-queue-actions"><button class="btn btn-A btn-sm" type="button" data-review-approve="${esc(shop.shop_id||'')}">Approve</button><button class="btn btn-o btn-sm" type="button" data-review-reject="${esc(shop.shop_id||'')}">Needs Info</button></div>`;
+    item.querySelector('[data-review-approve]')?.addEventListener('click',()=>approveReviewBusiness(shop.shop_id||''));
+    item.querySelector('[data-review-reject]')?.addEventListener('click',()=>rejectReviewBusiness(shop.shop_id||''));
+    list.appendChild(item);
+  });
+}
+async function loadAdminReviewQueue(){
+  const isAdmin=['admin','superadmin'].includes(String(App.user?.role||'').trim().toLowerCase());
+  if(!isAdmin){
+    App.adminReviewShops=[];
+    renderAdminReviewQueue();
+    return;
+  }
+  try{
+    const d=normalizeCatalogPayload(await api('/admin/review/businesses',{auth:true}));
+    App.adminReviewShops=d.businesses||[];
+    renderAdminReviewQueue();
+    setFieldHint('adminReviewQueueStatus',`${App.adminReviewShops.length} business${App.adminReviewShops.length===1?'':'es'} waiting for review.`,App.adminReviewShops.length?'':'ok');
+  }catch(e){
+    App.adminReviewShops=[];
+    renderAdminReviewQueue();
+    setFieldHint('adminReviewQueueStatus',e.message,'err');
+  }
+}
+async function approveReviewBusiness(shopId=''){
+  if(!shopId) return;
+  try{
+    setFieldHint('adminReviewQueueStatus','Approving business...');
+    await api(`/admin/review/business/${encodeURIComponent(shopId)}/approve`,{method:'POST',auth:true});
+    if(App.adminShopId===shopId) await loadAdminShop(shopId);
+    await loadMyShops();
+    toast('Business approved','The listing is now live.');
+  }catch(e){
+    setFieldHint('adminReviewQueueStatus',e.message,'err');
+    toast('Approval failed',e.message,'err');
+  }
+}
+async function rejectReviewBusiness(shopId=''){
+  if(!shopId) return;
+  const reason=prompt('Why should this business stay private for now?');
+  if(reason===null) return;
+  try{
+    setFieldHint('adminReviewQueueStatus','Updating review...');
+    await api(`/admin/review/business/${encodeURIComponent(shopId)}/reject`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({reason})});
+    if(App.adminShopId===shopId) await loadAdminShop(shopId);
+    await loadMyShops();
+    toast('Business sent back','The owner can revise and resubmit it.');
+  }catch(e){
+    setFieldHint('adminReviewQueueStatus',e.message,'err');
+    toast('Review update failed',e.message,'err');
   }
 }
 
@@ -13959,6 +14233,7 @@ async function loadAdminShop(shopId,{refreshOwnerList=false}={}){
     const requests=reqRes.requests||[];
     renderOwnerRequests(requests);
     refreshWorkspaceHeader(s,st);
+    renderBusinessListingUi(s);
     renderAdminProds(App.adminProducts);
     setFieldHint('myShopsStatus',`Opened ${s.name||shopId}.`,'ok');
     setS('shopStatus',`Loaded ${shopId}`,'ok');
@@ -14016,7 +14291,7 @@ async function createShop(){
   if(formErr){setS('shopStatus',formErr,'err');return toast('Business details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
   const hoursData=updateHoursSummary();
-  const payload={shop:{name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim()}};
+  const payload={shop:{name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()}}; 
   try{
     setBtnBusy('createShopBtn',true,'Creating...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Creating...');
@@ -14035,10 +14310,10 @@ async function createShop(){
     toast('Business created',d.shop_id);
     setS('shopStatus',
       syncError
-        ? `Business created, but the profile image could not be saved: ${syncError}`
+        ? `Business draft created, but the profile image could not be saved: ${syncError}`
         : (syncResult.uploaded
-            ? 'Business created and profile image saved successfully.'
-            : 'Business created successfully.'),
+            ? 'Business draft created and profile image saved successfully.'
+            : 'Business draft created successfully.'),
       syncError?'err':'ok');
   }catch(e){
     setS('shopStatus',e.message,'err');
@@ -14056,7 +14331,7 @@ async function saveShop(){
   if(formErr){setS('shopStatus',formErr,'err');return toast('Business details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
   const hoursData=updateHoursSummary();
-  const payload={name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim()};
+  const payload={name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()};
   try{
     setBtnBusy('saveShopBtn',true,'Saving...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Saving...');
@@ -14097,26 +14372,75 @@ async function deleteShop(){
   if(!confirm(`Delete "${shopName}" and all of its offerings? This cannot be undone.`))return;
   try{await api(`/admin/business/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});toast('Business deleted',shopId);setS('shopStatus','');updateShopDraftState(false);$('shopStats').style.display='none';App.adminShopId=null;App.adminShopData=null;App.adminProducts=[];refreshWorkspaceHeader();renderAdminProds([]);clearProdForm();await loadMyShops();markPublicCatalogDirty();switchAdminSub('shops',{refreshShops:false});showShopManagerView('landing');}catch(e){setS('shopStatus',e.message,'err');toast('Delete failed',e.message,'err');}
 }
+async function submitBusinessForReview(){
+  if(!tok()) return toast('Login required','','err');
+  const shopId=$('shopId').value.trim()||App.adminShopId||'';
+  if(!shopId) return toast('Create the business first','','err');
+  try{
+    setBtnBusy('detailSubmitReviewBtn',true,'Submitting...');
+    setBtnBusy('shopSubmitReviewBtn',true,'Submitting...');
+    setS('shopStatus','Submitting the business for review...');
+    await api(`/admin/business/${encodeURIComponent(shopId)}/submit-for-review`,{method:'POST',auth:true});
+    await refreshBusinessWorkspace(shopId);
+    if(App.adminShopData?.shop) populateShopForm(App.adminShopData.shop);
+    toast('Submitted for review','The business stays private until it is approved.');
+    setS('shopStatus','Business submitted for review. It will stay private until staff approval.','ok');
+  }catch(e){
+    setS('shopStatus',e.message,'err');
+    toast('Submit failed',e.message,'err');
+  }finally{
+    setBtnBusy('detailSubmitReviewBtn',false);
+    setBtnBusy('shopSubmitReviewBtn',false);
+  }
+}
+async function moveBusinessToDraft(){
+  if(!tok()) return toast('Login required','','err');
+  const shopId=$('shopId').value.trim()||App.adminShopId||'';
+  if(!shopId) return toast('Load a business first','','err');
+  const meta=businessListingMeta(App.adminShopData?.shop||{});
+  if(meta.live && !confirm('This will hide the business from the public app until you submit and approve it again. Continue?')) return;
+  try{
+    setBtnBusy('detailMoveDraftBtn',true,'Updating...');
+    setBtnBusy('shopMoveDraftBtn',true,'Updating...');
+    setS('shopStatus','Moving the business back to draft...');
+    await api(`/admin/business/${encodeURIComponent(shopId)}/move-to-draft`,{method:'POST',auth:true});
+    await refreshBusinessWorkspace(shopId);
+    if(App.adminShopData?.shop) populateShopForm(App.adminShopData.shop);
+    toast('Moved to draft','The business is private again.');
+    setS('shopStatus','Business moved back to draft and hidden from the public app.','ok');
+  }catch(e){
+    setS('shopStatus',e.message,'err');
+    toast('Update failed',e.message,'err');
+  }finally{
+    setBtnBusy('detailMoveDraftBtn',false);
+    setBtnBusy('shopMoveDraftBtn',false);
+  }
+}
+function openAdminLiveBusiness(){
+  const shop=App.adminShopData?.shop||{};
+  const shopId=App.adminShopId||$('shopId').value.trim();
+  if(!shopId) return toast('Load a business first','','err');
+  if(!businessListingMeta(shop).live){
+    return toast('Business not live yet','Submit the business for review and wait for approval before opening the public page.','err');
+  }
+  openShopPage(shopId);
+}
 $('ownerCreateShopBtn').addEventListener('click',openCreateShopView);
 $('detailBackBtn').addEventListener('click',()=>showShopManagerView('landing'));
 $('detailEditShopBtn').addEventListener('click',openEditShopView);
 $('detailAddProductBtn').addEventListener('click',()=>openProductForm());
 $('detailEditShopBtnSide').addEventListener('click',openEditShopView);
 $('detailAddProductBtnSide').addEventListener('click',()=>openProductForm());
+$('detailSubmitReviewBtn')?.addEventListener('click',submitBusinessForReview);
+$('detailMoveDraftBtn')?.addEventListener('click',moveBusinessToDraft);
+$('shopSubmitReviewBtn')?.addEventListener('click',submitBusinessForReview);
+$('shopMoveDraftBtn')?.addEventListener('click',moveBusinessToDraft);
 $('addVariantBtn')?.addEventListener('click',()=>appendVariantOption('Other'));
 $('addVariantSizeBtn')?.addEventListener('click',()=>appendVariantOption('Size'));
 $('addVariantColorBtn')?.addEventListener('click',()=>appendVariantOption('Color'));
 $('refreshVariantMatrixBtn')?.addEventListener('click',()=>{renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData());markProductFormDirty();});
-$('detailOpenLiveShopBtn').addEventListener('click',()=>{
-  const shopId=App.adminShopId||$('shopId').value.trim();
-  if(!shopId)return toast('Load a business first','','err');
-  openShopPage(shopId);
-});
-$('detailOpenLiveShopBtnSide').addEventListener('click',()=>{
-  const shopId=App.adminShopId||$('shopId').value.trim();
-  if(!shopId)return toast('Load a business first','','err');
-  openShopPage(shopId);
-});
+$('detailOpenLiveShopBtn').addEventListener('click',openAdminLiveBusiness);
+$('detailOpenLiveShopBtnSide').addEventListener('click',openAdminLiveBusiness);
 $('shopFormBackBtn').addEventListener('click',()=>showShopManagerView(App.adminShopId?'detail':'landing'));
 $('productFormBackBtn').addEventListener('click',()=>showShopManagerView('detail'));
 $('shopFloatingBackBtn').addEventListener('click',()=>showShopManagerView(App.adminShopId?'detail':'landing'));
@@ -14355,8 +14679,8 @@ if($('bulkAction')) $('bulkAction').addEventListener('change',syncBulkEditBar);
 if($('csvErrorsDownloadBtn')) $('csvErrorsDownloadBtn').addEventListener('click',downloadCsvErrors);
 
 /* ── Analytics ── */
-['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2'].forEach(id=>{
-  $(id)?.addEventListener('input',markShopFormDirty);
+['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopOwnerContactName','shopVerificationEvidence'].forEach(id=>{
+  $(id)?.addEventListener('input',()=>{markShopFormDirty();renderBusinessListingUi(currentShopListingSnapshot());});
 });
 $('shopName')?.addEventListener('input',refreshShopProfileImagePreview);
 $('shopSupportsPickup')?.addEventListener('change',markShopFormDirty);
@@ -14365,6 +14689,7 @@ $('shopSupportsWalkIn')?.addEventListener('change',markShopFormDirty);
 $('shopDeliveryRadius')?.addEventListener('input',markShopFormDirty);
 $('shopDeliveryFee')?.addEventListener('input',markShopFormDirty);
 $('shopPickupNotes')?.addEventListener('input',markShopFormDirty);
+$('shopVerificationMethod')?.addEventListener('change',()=>{markShopFormDirty();renderBusinessListingUi(currentShopListingSnapshot());});
 $('shopProfileImageFile')?.addEventListener('change',()=>{
   App.shopProfileImageRemoved=false;
   refreshShopProfileImagePreview();

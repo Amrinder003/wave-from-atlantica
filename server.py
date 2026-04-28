@@ -69,6 +69,34 @@ PUBLIC_SHOP_FIELDS = (
     "longitude", "supports_pickup", "supports_delivery", "supports_walk_in", "delivery_radius_km",
     "delivery_fee", "pickup_notes",
 )
+LISTING_STATUS_DRAFT = "draft"
+LISTING_STATUS_PENDING_REVIEW = "pending_review"
+LISTING_STATUS_VERIFIED = "verified"
+LISTING_STATUS_REJECTED = "rejected"
+ALLOWED_LISTING_STATUSES = {
+    LISTING_STATUS_DRAFT,
+    LISTING_STATUS_PENDING_REVIEW,
+    LISTING_STATUS_VERIFIED,
+    LISTING_STATUS_REJECTED,
+}
+PUBLIC_LISTING_STATUSES = {LISTING_STATUS_VERIFIED}
+ALLOWED_VERIFICATION_METHODS = {
+    "manual",
+    "registry",
+    "license",
+    "website",
+    "domain_email",
+    "phone",
+}
+SHOP_REVIEW_WRITE_COLUMNS = [
+    "listing_status",
+    "owner_contact_name",
+    "verification_method",
+    "verification_evidence",
+    "verification_submitted_at",
+    "verified_at",
+    "verification_rejection_reason",
+]
 
 OPENROUTER_KEY    = os.environ.get("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_MODEL  = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4.1-mini").strip()
@@ -614,6 +642,9 @@ class ShopInfo(BaseModel):
     delivery_radius_km: Optional[float] = None
     delivery_fee: Optional[float] = None
     pickup_notes: str = ""
+    owner_contact_name: str = ""
+    verification_method: str = ""
+    verification_evidence: str = ""
 
 class OrderRequestReq(BaseModel):
     shop_id: str = ""
@@ -661,6 +692,9 @@ class ReviewReq(BaseModel):
     rating: int = Field(..., ge=1, le=5)
     body: str
 
+class ReviewDecisionReq(BaseModel):
+    reason: str = ""
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # AUTH HELPERS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -699,6 +733,25 @@ def optional_user_id(auth: Optional[str] = None, request: Optional[Request] = No
 def require_verified(user):
     if not user.email_confirmed_at:
         raise HTTPException(403, "Email not verified. Check your inbox.")
+
+def require_admin_role(prof: Optional[Dict[str, Any]] = None):
+    role = str((prof or {}).get("role", "") or "").strip().lower()
+    if role not in {"admin", "superadmin"}:
+        raise HTTPException(403, "Admin access required")
+
+def normalize_listing_status(value: Any, *, default: str = LISTING_STATUS_DRAFT) -> str:
+    status = str(value or "").strip().lower()
+    return status if status in ALLOWED_LISTING_STATUSES else default
+
+def normalize_verification_method(value: Any) -> str:
+    method = str(value or "").strip().lower()
+    return method if method in ALLOWED_VERIFICATION_METHODS else ""
+
+def normalize_owner_contact_name(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip()[:120]
+
+def normalize_verification_evidence(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip()[:500]
 
 def require_supabase() -> Client:
     if supabase is None:
@@ -1144,7 +1197,7 @@ def unique_product_slug(shop_id: str, name: str, ignore_product_id: str = "") ->
         candidate = f"{base[:max(1, 50-len(suffix))]}{suffix}"
     return f"{base[:40]}-{uuid.uuid4().hex[:6]}"
 
-SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area", "profile_image_url"]
+SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area", "profile_image_url", *SHOP_REVIEW_WRITE_COLUMNS]
 PRODUCT_OPTIONAL_WRITE_COLUMNS = [
     "price_amount", "stock_quantity", "product_slug", "variant_data", "variant_matrix",
     "attribute_data", "currency_code", "offering_type", "price_mode", "availability_mode",
@@ -1721,6 +1774,34 @@ def infer_country_code(country_code: str = "", country_name: str = "") -> str:
         return BUSINESS_COUNTRY_LOCK_CODE
     return ""
 
+def shop_is_publicly_listable(row: Dict[str, Any]) -> bool:
+    shop = normalize_shop_record(row or {})
+    return shop.get("listing_status", LISTING_STATUS_DRAFT) in PUBLIC_LISTING_STATUSES
+
+def shop_review_requirements(row: Dict[str, Any], stats: Optional[Dict[str, Any]] = None) -> List[str]:
+    shop = normalize_shop_record(row or {})
+    issues: List[str] = []
+    quality_flags = shop_completeness_flags(shop, stats or {})
+    if quality_flags:
+        issues.extend([f"Complete: {flag}" for flag in quality_flags])
+    if not shop.get("phone", "").strip() and not shop.get("whatsapp", "").strip():
+        issues.append("Add a public phone or WhatsApp number.")
+    if not shop.get("owner_contact_name", "").strip():
+        issues.append("Add the owner or primary contact name.")
+    if not shop.get("verification_method", "").strip():
+        issues.append("Choose how the business should be verified.")
+    if len(shop.get("verification_evidence", "").strip()) < 8:
+        issues.append("Add a short verification note with a website, registry, licence, or other proof reference.")
+    deduped: List[str] = []
+    seen: set = set()
+    for item in issues:
+        key = str(item or "").strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(str(item).strip())
+    return deduped
+
 def shop_matches_market_country(row: Dict[str, Any]) -> bool:
     locked_country = active_market_country_code()
     if not locked_country:
@@ -1731,6 +1812,8 @@ def ensure_market_shop_access(row: Dict[str, Any]) -> Dict[str, Any]:
     shop = normalize_shop_record(row or {})
     locked_country = active_market_country_code()
     if locked_country and shop.get("country_code", "") != locked_country:
+        raise HTTPException(404, "Business not found")
+    if not shop_is_publicly_listable(shop):
         raise HTTPException(404, "Business not found")
     return shop
 
@@ -1856,6 +1939,15 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out["supports_pickup"] = bool(out.get("supports_pickup", True))
     out["supports_delivery"] = bool(out.get("supports_delivery", False))
     out["supports_walk_in"] = bool(out.get("supports_walk_in", True))
+    status_default = LISTING_STATUS_VERIFIED if "listing_status" not in out else LISTING_STATUS_DRAFT
+    out["listing_status"] = normalize_listing_status(out.get("listing_status"), default=status_default)
+    out["owner_contact_name"] = normalize_owner_contact_name(out.get("owner_contact_name", ""))
+    out["verification_method"] = normalize_verification_method(out.get("verification_method", ""))
+    out["verification_evidence"] = normalize_verification_evidence(out.get("verification_evidence", ""))
+    out["verification_submitted_at"] = out.get("verification_submitted_at") or None
+    out["verified_at"] = out.get("verified_at") or None
+    out["verification_rejection_reason"] = re.sub(r"\s+", " ", str(out.get("verification_rejection_reason") or "")).strip()[:500]
+    out["is_publicly_listed"] = out["listing_status"] in PUBLIC_LISTING_STATUSES
     try:
         out["delivery_radius_km"] = round(float(out.get("delivery_radius_km")), 2) if out.get("delivery_radius_km") not in (None, "") else None
     except Exception:
@@ -2646,6 +2738,9 @@ def validate_shop_payload(shop: ShopInfo) -> Dict[str, Any]:
         data["longitude"] = None
     data["address"] = data["formatted_address"]
     data["hours"] = format_hours_structured(data["hours_structured"])
+    data["owner_contact_name"] = normalize_owner_contact_name(data.get("owner_contact_name", ""))
+    data["verification_method"] = normalize_verification_method(data.get("verification_method", ""))
+    data["verification_evidence"] = normalize_verification_evidence(data.get("verification_evidence", ""))
     if location_mode in {"storefront", "hybrid"} and (data.get("latitude") in (None, "") or data.get("longitude") in (None, "")):
         geo = geocode_structured_address(data)
         if geo.get("latitude") is not None and geo.get("longitude") is not None:
@@ -3991,6 +4086,8 @@ def public_shops(
         for r in rows:
             nr = ensure_shop_coordinates(r)
             r.update(nr)
+            if not shop_is_publicly_listable(r):
+                continue
             if target_country and clean_code(r.get("country_code", "")) != target_country:
                 continue
             if region and region.lower() not in (r.get("region", "") or "").lower():
@@ -4230,11 +4327,11 @@ def search_global(request: Request, q: str = Query(...), attr_key: str = Query("
     if not qn:
         return alias_catalog_response({"ok": True, "q": q, "results": [], "total": 0, "pagination": paginate_list([], 1, limit)["pagination"]})
     try:
-        rows = supabase.table("products").select("*, shops(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").order("updated_at", desc=True).execute().data
+        rows = supabase.table("products").select("*, shops(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, whatsapp, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2, listing_status)").order("updated_at", desc=True).execute().data
         normalized_rows = []
         for row in rows:
             shop = normalize_shop_record(row.get("shops", {}) or {})
-            if not shop_matches_market_country(shop):
+            if not shop_matches_market_country(shop) or not shop_is_publicly_listable(shop):
                 continue
             normalized_rows.append({**row, "shops": shop})
         rows = [row for row in normalized_rows if product_matches_query(row, qn, row.get("shops", {}).get("category", ""), row.get("shops", {}).get("business_type", ""))]
@@ -4264,13 +4361,13 @@ def search_global(request: Request, q: str = Query(...), attr_key: str = Query("
 @app.get("/public/top-products")
 def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60), category: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query("")):
     try:
-        q = supabase.table("products").select("*, shops!inner(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2)").neq("stock", "out")
+        q = supabase.table("products").select("*, shops!inner(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2, listing_status)").neq("stock", "out")
         if category: q = q.ilike("shops.category", f"%{category}%")
         rows = q.execute().data
         normalized_rows = []
         for row in rows:
             shop = normalize_shop_record(row.get("shops", {}) or {})
-            if not shop_matches_market_country(shop):
+            if not shop_matches_market_country(shop) or not shop_is_publicly_listable(shop):
                 continue
             normalized_rows.append({**row, "shops": shop})
         rows = normalized_rows
@@ -4436,6 +4533,7 @@ def check_shop_owner(user_id: str, shop_id: str):
 def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     require_verified(user)
+    prof = safe_ensure_profile_row(user, prof)
     raw_business = body.business or body.shop
     if raw_business is None:
         raise HTTPException(400, "Business payload is required")
@@ -4453,6 +4551,7 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     payload = {
         "shop_slug": shop_slug,
         "owner_user_id": user.id,
+        "listing_status": LISTING_STATUS_DRAFT,
         "name": shop["name"].strip(),
         "profile_image_url": shop.get("profile_image_url", ""),
         "address": shop["address"],
@@ -4483,8 +4582,14 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         "delivery_radius_km": shop.get("delivery_radius_km"),
         "delivery_fee": shop.get("delivery_fee"),
         "pickup_notes": shop.get("pickup_notes", ""),
+        "owner_contact_name": shop.get("owner_contact_name") or normalize_display_name(prof.get("display_name", ""), getattr(user, "email", "")),
+        "verification_method": shop.get("verification_method", ""),
+        "verification_evidence": shop.get("verification_evidence", ""),
+        "verification_submitted_at": None,
+        "verified_at": None,
+        "verification_rejection_reason": "",
     }
-    strict_cols = []
+    strict_cols = list(SHOP_REVIEW_WRITE_COLUMNS)
     if shop.get("business_type") != "retail":
         strict_cols.append("business_type")
     if shop.get("location_mode") != "storefront":
@@ -4494,10 +4599,12 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     payload, unsupported_cols = shop_write_payload_with_fallback(sid, payload, False, strict_cols)
     if unsupported_cols:
         print(f"[Shop Schema Warning] {sid}: saved without optional columns {unsupported_cols}")
-    supabase.table("profiles").update({"role": "shopkeeper"}).eq("id", user.id).execute()
+    current_role = str((prof or {}).get("role", "") or "").strip().lower()
+    next_role = current_role if current_role in {"admin", "superadmin"} else "shopkeeper"
+    supabase.table("profiles").update({"role": next_role}).eq("id", user.id).execute()
     
     rebuild_kb(sid)
-    return {"ok": True, "shop_id": sid, "business_id": sid, "shop_slug": shop_slug, "business_slug": shop_slug}
+    return {"ok": True, "shop_id": sid, "business_id": sid, "shop_slug": shop_slug, "business_slug": shop_slug, "listing_status": LISTING_STATUS_DRAFT}
 
 @app.get("/admin/my-businesses")
 @app.get("/admin/my-shops")
@@ -4511,6 +4618,9 @@ def my_shops(authorization: Optional[str] = Header(None)):
         stats = shop_stats(r["shop_id"])
         r["stats"] = stats
         r["quality_flags"] = shop_completeness_flags(r, stats)
+        r["review_requirements"] = shop_review_requirements(r, stats)
+        r["review_ready"] = not r["review_requirements"]
+        r["is_publicly_listed"] = shop_is_publicly_listable(r)
     return alias_catalog_response({"ok": True, "shops": rows})
 
 @app.post("/admin/businesses/geocode-missing")
@@ -4596,6 +4706,10 @@ def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     shop = normalize_shop_record(supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data[0])
     prods = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
     stats = shop_stats(shop_id)
+    shop["quality_flags"] = shop_completeness_flags(shop, stats)
+    shop["review_requirements"] = shop_review_requirements(shop, stats)
+    shop["review_ready"] = not shop["review_requirements"]
+    shop["is_publicly_listed"] = shop_is_publicly_listable(shop)
     
     ser_prods = serialize_products_bulk(prods, None, {shop_id: shop})
     return {
@@ -4660,11 +4774,18 @@ def admin_update_request_status(shop_id: str, request_id: str, body: OrderStatus
 def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
+    existing_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).limit(1).execute().data or []
+    if not existing_rows:
+        raise HTTPException(404, "Business not found")
+    existing_shop = normalize_shop_record(existing_rows[0])
     shop = validate_shop_payload(body)
     shop_slug = unique_shop_slug(shop["name"], shop_id)
+    listing_status = existing_shop.get("listing_status", LISTING_STATUS_VERIFIED)
+    owner_contact_name = shop.get("owner_contact_name") or existing_shop.get("owner_contact_name", "") or normalize_display_name((prof or {}).get("display_name", ""), getattr(user, "email", ""))
     payload = {
         "name": shop["name"].strip(),
         "shop_slug": shop_slug,
+        "listing_status": listing_status,
         "profile_image_url": shop.get("profile_image_url", ""),
         "address": shop["address"],
         "formatted_address": shop["formatted_address"],
@@ -4694,8 +4815,14 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
         "delivery_radius_km": shop.get("delivery_radius_km"),
         "delivery_fee": shop.get("delivery_fee"),
         "pickup_notes": shop.get("pickup_notes", ""),
+        "owner_contact_name": owner_contact_name,
+        "verification_method": shop.get("verification_method", "") or existing_shop.get("verification_method", ""),
+        "verification_evidence": shop.get("verification_evidence", "") or existing_shop.get("verification_evidence", ""),
+        "verification_submitted_at": existing_shop.get("verification_submitted_at"),
+        "verified_at": existing_shop.get("verified_at"),
+        "verification_rejection_reason": existing_shop.get("verification_rejection_reason", "") if listing_status == LISTING_STATUS_REJECTED else "",
     }
-    strict_cols = []
+    strict_cols = list(SHOP_REVIEW_WRITE_COLUMNS)
     if shop.get("business_type") != "retail":
         strict_cols.append("business_type")
     if shop.get("location_mode") != "storefront":
@@ -4706,7 +4833,103 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
     if unsupported_cols:
         print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
     rebuild_kb(shop_id)
-    return {"ok": True, "business_id": shop_id}
+    return {"ok": True, "business_id": shop_id, "listing_status": listing_status}
+
+@app.post("/admin/business/{shop_id}/submit-for-review")
+@app.post("/admin/shop/{shop_id}/submit-for-review")
+def admin_submit_shop_for_review(shop_id: str, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    require_verified(user)
+    check_shop_owner(user.id, shop_id)
+    rows = supabase.table("shops").select("*").eq("shop_id", shop_id).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Business not found")
+    shop = normalize_shop_record(rows[0])
+    if shop.get("listing_status") == LISTING_STATUS_VERIFIED:
+        raise HTTPException(400, "This business is already verified and live.")
+    if shop.get("listing_status") == LISTING_STATUS_PENDING_REVIEW:
+        raise HTTPException(400, "This business is already waiting for review.")
+    stats = shop_stats(shop_id)
+    requirements = shop_review_requirements(shop, stats)
+    if requirements:
+        raise HTTPException(400, requirements[0])
+    now_iso = datetime.now(timezone.utc).isoformat()
+    payload = {
+        "listing_status": LISTING_STATUS_PENDING_REVIEW,
+        "verification_submitted_at": now_iso,
+        "verification_rejection_reason": "",
+    }
+    if not shop.get("verified_at"):
+        payload["verified_at"] = None
+    payload, unsupported_cols = shop_write_payload_with_fallback(shop_id, payload, True, SHOP_REVIEW_WRITE_COLUMNS)
+    if unsupported_cols:
+        print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
+    return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_PENDING_REVIEW, "verification_submitted_at": now_iso}
+
+@app.post("/admin/business/{shop_id}/move-to-draft")
+@app.post("/admin/shop/{shop_id}/move-to-draft")
+def admin_move_shop_to_draft(shop_id: str, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    require_verified(user)
+    check_shop_owner(user.id, shop_id)
+    payload = {"listing_status": LISTING_STATUS_DRAFT}
+    payload, unsupported_cols = shop_write_payload_with_fallback(shop_id, payload, True, SHOP_REVIEW_WRITE_COLUMNS)
+    if unsupported_cols:
+        print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
+    return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_DRAFT}
+
+@app.get("/admin/review/businesses")
+@app.get("/admin/review/shops")
+def admin_review_businesses(status: str = Query(LISTING_STATUS_PENDING_REVIEW), authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    status_key = normalize_listing_status(status, default=LISTING_STATUS_PENDING_REVIEW)
+    rows = supabase.table("shops").select("*").eq("listing_status", status_key).order("verification_submitted_at", desc=True).order("created_at", desc=True).execute().data or []
+    for row in rows:
+        row.update(normalize_shop_record(row))
+        stats = shop_stats(row["shop_id"])
+        row["stats"] = stats
+        row["quality_flags"] = shop_completeness_flags(row, stats)
+        row["review_requirements"] = shop_review_requirements(row, stats)
+        row["review_ready"] = not row["review_requirements"]
+        row["is_publicly_listed"] = shop_is_publicly_listable(row)
+    return alias_catalog_response({"ok": True, "shops": rows})
+
+@app.post("/admin/review/business/{shop_id}/approve")
+@app.post("/admin/review/shop/{shop_id}/approve")
+def admin_approve_business(shop_id: str, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    payload = {
+        "listing_status": LISTING_STATUS_VERIFIED,
+        "verified_at": now_iso,
+        "verification_rejection_reason": "",
+    }
+    payload, unsupported_cols = shop_write_payload_with_fallback(shop_id, payload, True, SHOP_REVIEW_WRITE_COLUMNS)
+    if unsupported_cols:
+        print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
+    return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_VERIFIED, "verified_at": now_iso}
+
+@app.post("/admin/review/business/{shop_id}/reject")
+@app.post("/admin/review/shop/{shop_id}/reject")
+def admin_reject_business(shop_id: str, body: ReviewDecisionReq, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    reason = re.sub(r"\s+", " ", str(body.reason or "")).strip()
+    if len(reason) < 5:
+        raise HTTPException(400, "Add a short reason before rejecting the business.")
+    payload = {
+        "listing_status": LISTING_STATUS_REJECTED,
+        "verification_rejection_reason": reason[:500],
+    }
+    payload, unsupported_cols = shop_write_payload_with_fallback(shop_id, payload, True, SHOP_REVIEW_WRITE_COLUMNS)
+    if unsupported_cols:
+        print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
+    return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_REJECTED, "reason": reason[:500]}
 
 @app.post("/admin/business/{shop_id}/profile-image")
 @app.post("/admin/shop/{shop_id}/profile-image")
