@@ -1521,6 +1521,24 @@ def send_review_notification(subject: str, lines: List[str]) -> int:
             sent += 1
     return sent
 
+def review_notification_status_payload() -> Dict[str, Any]:
+    recipients = review_notification_recipients()
+    smtp_ready = bool(SMTP_HOST and SMTP_FROM_EMAIL)
+    return {
+        "ok": True,
+        "smtp_ready": smtp_ready,
+        "smtp_host_set": bool(SMTP_HOST),
+        "smtp_port": SMTP_PORT if SMTP_HOST else None,
+        "smtp_username_set": bool(SMTP_USERNAME),
+        "smtp_password_set": bool(SMTP_PASSWORD),
+        "from_email": SMTP_FROM_EMAIL,
+        "from_name": SMTP_FROM_NAME,
+        "tls_enabled": SMTP_USE_TLS,
+        "recipient_count": len(recipients),
+        "recipients": recipients,
+        "ready": smtp_ready and bool(recipients),
+    }
+
 def request_track_payload(request_id: str, phone: str) -> str:
     rid = str(request_id or "").strip()
     phone_digits = re.sub(r"\D+", "", str(phone or ""))
@@ -1867,6 +1885,21 @@ def normalize_image_list(shop_id: str, images: Any) -> List[str]:
     if not isinstance(images, list):
         images = []
     return dedup([normalize_image_ref(shop_id, img) for img in images if str(img or "").strip()])
+
+def parse_image_ref_field(shop_id: str, raw: Any) -> List[str]:
+    if raw in (None, ""):
+        return []
+    if isinstance(raw, list):
+        return normalize_image_list(shop_id, raw)
+    text = str(raw or "").strip()
+    if not text:
+        return []
+    try:
+        parsed = json.loads(text)
+        return normalize_image_list(shop_id, parsed)
+    except Exception:
+        pass
+    return normalize_image_list(shop_id, [part.strip() for part in re.split(r"[|\n;]+", text) if part.strip()])
 
 def save_images(shop_id: str, files: List[UploadFile]) -> List[str]:
     out = []
@@ -6549,7 +6582,7 @@ def admin_export_products_csv(authorization: Optional[str] = Header(None)):
         row.get("shop_id"): normalize_shop_record(row)
         for row in (supabase.table("shops").select("*").in_("shop_id", shop_ids).execute().data or [])
     } if shop_ids else {}
-    writer.writerow(["shop_id", "product_id", "offering_type", "price_mode", "availability_mode", "name", "price_amount", "currency_code", "price", "stock", "stock_quantity", "duration_minutes", "capacity", "variants", "variant_data_json", "variant_matrix_json", "attribute_data_json", "overview"])
+    writer.writerow(["shop_id", "product_id", "offering_type", "price_mode", "availability_mode", "name", "price_amount", "currency_code", "price", "stock", "stock_quantity", "duration_minutes", "capacity", "variants", "variant_data_json", "variant_matrix_json", "attribute_data_json", "overview", "image_urls"])
     for row in rows or []:
         shop_row = shop_meta.get(row.get("shop_id"), {})
         business_type = shop_row.get("business_type", "")
@@ -6562,6 +6595,7 @@ def admin_export_products_csv(authorization: Optional[str] = Header(None)):
             json.dumps(normalize_variant_matrix(row.get("variant_matrix", []), normalize_variant_data(row.get("variant_data") or row.get("variants", ""), row.get("shop_id", "")), row.get("shop_id", "")), ensure_ascii=False),
             json.dumps(normalize_attribute_data(row.get("attribute_data"), category, offering_type, business_type), ensure_ascii=False),
             row.get("overview", ""),
+            "|".join(normalize_image_list(row.get("shop_id", ""), row.get("images", []))),
         ])
     return PlainTextResponse(
         content=buffer.getvalue(),
@@ -6814,6 +6848,43 @@ def admin_review_businesses(status: str = Query(LISTING_STATUS_PENDING_REVIEW), 
         reverse=True,
     )
     return alias_catalog_response({"ok": True, "shops": rows})
+
+@app.get("/admin/review/notification-status")
+def admin_review_notification_status(authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    return review_notification_status_payload()
+
+@app.post("/admin/review/test-notification")
+def admin_test_review_notification(authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    status = review_notification_status_payload()
+    if not status.get("smtp_ready"):
+        raise HTTPException(400, "SMTP is not configured for review notifications.")
+    if not status.get("recipient_count"):
+        raise HTTPException(400, "No review notification recipients are configured.")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    sent = send_review_notification(
+        "Atlantic Ordinate review notification test",
+        [
+            "This is a test review notification from Atlantic Ordinate.",
+            "",
+            f"Triggered by: {clean_email(getattr(user, 'email', '') or '') or 'Unknown admin'}",
+            f"Sent at: {now_iso}",
+            f"App: {app_route_url('/ui')}",
+        ],
+    )
+    if sent <= 0:
+        raise HTTPException(400, "The test notification did not send. Check SMTP settings and recipient emails.")
+    return {
+        "ok": True,
+        "sent_count": sent,
+        "recipient_count": status.get("recipient_count", 0),
+        "sent_at": now_iso,
+    }
 
 @app.post("/admin/review/business/{shop_id}/approve")
 @app.post("/admin/review/shop/{shop_id}/approve")
@@ -7159,7 +7230,8 @@ async def admin_product_with_images(
     price_amount: str = Form(""), currency_code: str = Form(""),
     offering_type: str = Form(""), price_mode: str = Form("fixed"), availability_mode: str = Form(""),
     stock: str = Form("in"), stock_quantity: str = Form(""), duration_minutes: str = Form(""), capacity: str = Form(""),
-    variants: str = Form(""), variant_data_json: str = Form(""), variant_matrix_json: str = Form(""), attribute_data_json: str = Form(""), images: List[UploadFile] = File(default=[])
+    variants: str = Form(""), variant_data_json: str = Form(""), variant_matrix_json: str = Form(""), attribute_data_json: str = Form(""),
+    image_urls: str = Form(""), images_json: str = Form(""), images: List[UploadFile] = File(default=[])
 ):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
@@ -7200,8 +7272,9 @@ async def admin_product_with_images(
         if cm:
             combo_upload_map.setdefault(int(cm.group(1)), []).append(value)
 
+    referenced_urls = parse_image_ref_field(shop_id, images_json or image_urls)
     new_urls = save_images(shop_id, images)
-    merged = dedup(current_imgs + new_urls)
+    merged = dedup(current_imgs + referenced_urls + new_urls)
     parsed_price_amount = parse_price_amount(price_amount)
     if str(price_amount).strip() and parsed_price_amount is None:
         raise HTTPException(400, "Enter a valid numeric price")

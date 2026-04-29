@@ -1268,6 +1268,13 @@ a{color:inherit;text-decoration:none}
 .csv-box{background:#eff6ff;border:1px solid rgba(37,99,235,.18);border-radius:var(--r2);padding:14px}
 .csv-title{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#1e40af;margin-bottom:5px}
 .csv-hint{font-size:12px;color:#3b5bdb;opacity:.8;margin-bottom:10px;line-height:1.55}
+.csv-note{font-size:12px;color:var(--ink3);line-height:1.6;margin:8px 0 10px}
+.csv-media-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:10px 0}
+.csv-media-field{display:grid;gap:5px}
+.csv-media-field label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3)}
+.csv-file-count{font-size:11px;color:var(--ink4)}
+#csvImageFiles{min-height:44px;padding:6px 10px;border:1px dashed rgba(37,99,235,.24);border-radius:7px;font-size:12px;background:#fff;color:var(--ink)}
+#csvImageFiles::file-selector-button{margin-right:10px;border:1px solid rgba(37,99,235,.2);border-radius:999px;background:#fff;color:#1e40af;font-weight:800;padding:7px 12px;cursor:pointer}
 .csv-prog{display:none;margin-top:8px}
 .csv-prog progress{width:100%;height:5px;accent-color:#1d4ed8}
 .csv-pt{font-size:11px;color:var(--ink3);margin-top:3px}
@@ -2449,14 +2456,14 @@ body{
 .fld-hint,.product-media-meta,.prev-empty,.shop-profile-preview-meta,.variant-row-eyebrow,.variant-media-kicker,.admin-pc-edit,.admin-pc-noprice,.toast-txt{
   color:rgba(255,224,174,.72);
 }
-.fld input:not([type=file]),.fld textarea,.fld select,.mini-search,.share-inp,.sort-sel,.shop-search-box input,.nav-search input,#csvFile,select.btn{
+.fld input:not([type=file]),.fld textarea,.fld select,.mini-search,.share-inp,.sort-sel,.shop-search-box input,.nav-search input,#csvFile,#csvImageFiles,select.btn{
   background:rgba(255,238,211,.105);
   border-color:rgba(255,224,174,.28);
   color:#fff5e3;
   caret-color:#f5bd6c;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
 }
-.fld input:not([type=file]):hover,.fld textarea:hover,.fld select:hover,.mini-search:hover,.share-inp:hover,.sort-sel:hover,#csvFile:hover,select.btn:hover{
+.fld input:not([type=file]):hover,.fld textarea:hover,.fld select:hover,.mini-search:hover,.share-inp:hover,.sort-sel:hover,#csvFile:hover,#csvImageFiles:hover,select.btn:hover{
   border-color:rgba(255,224,174,.42);
   background:rgba(255,238,211,.135);
 }
@@ -2496,12 +2503,12 @@ option,optgroup{
   background:#2d1a0f;
   color:#fff5e3;
 }
-.fld input[type=file],#csvFile{
+.fld input[type=file],#csvFile,#csvImageFiles{
   min-height:44px;
   border-style:dashed;
   color:#ffe8bd;
 }
-.fld input[type=file]::file-selector-button,#csvFile::file-selector-button{
+.fld input[type=file]::file-selector-button,#csvFile::file-selector-button,#csvImageFiles::file-selector-button{
   margin-right:10px;
   border:1px solid rgba(255,224,174,.34);
   border-radius:999px;
@@ -3218,7 +3225,7 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   color:var(--ink)!important;
 }
 .shop-toolbar{padding:12px!important}
-.shop-search-box,.chat-input-wrap,.chat-compose-shell,.share-inp,.sort-sel,.mini-search,.fld input:not([type=file]),.fld textarea,.fld select,select.btn,#csvFile{
+.shop-search-box,.chat-input-wrap,.chat-compose-shell,.share-inp,.sort-sel,.mini-search,.fld input:not([type=file]),.fld textarea,.fld select,select.btn,#csvFile,#csvImageFiles{
   border-radius:8px!important;
   background:#fff!important;
   border:1px solid var(--bd)!important;
@@ -4183,6 +4190,7 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
 .share-inp,
 .sort-sel,
 #csvFile,
+#csvImageFiles,
 select.btn{
   caret-color:var(--A)!important;
 }
@@ -5800,7 +5808,7 @@ select.btn{
               </div>
               <div id="ownerReviewGuideCard" class="review-note" style="margin-top:14px;display:block">
                 <strong>How review works</strong>
-                Business verification requests are reviewed from <strong>Admin &gt; Review Center</strong>. Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can approve them. No registry or licence is required to submit if you add a clear note and a review phone number.
+                Atlantic Ordinate reviews submitted businesses before they go live. No registry or licence is required if you add a clear note and a review phone number.
               </div>
               <div class="owner-filter-bar">
                 <div class="fld"><label>Country</label><input id="ownerFilterCountry" value="Canada" placeholder="Canada" readonly title="Canada only for launch"/></div>
@@ -5969,11 +5977,19 @@ select.btn{
             <div class="card-body">
               <div class="csv-box">
                 <div class="csv-title">Import multiple offerings into this business</div>
-                <div class="csv-hint">Columns: <code>product_id, offering_type, name, price_mode, price, availability_mode, stock, stock_quantity, duration_minutes, capacity, overview, variants, variant_data_json, variant_matrix_json, attribute_data_json</code>. <code>product_id</code> is optional and Atlantic Ordinate will generate it when blank. Retail items can use stock and variants. Services, classes, and events can use availability and duration.</div>
+                <div class="csv-hint">Latest columns: <code>product_id, offering_type, name, price_mode, price, currency_code, availability_mode, stock, stock_quantity, duration_minutes, capacity, overview, image_urls, image_files, variant_image_files, variant_combo_image_files, variants, variant_data_json, variant_matrix_json, attribute_data_json</code>. <code>product_id</code> is optional and Atlantic Ordinate will generate it when blank.</div>
+                <div class="csv-note">For established shops, select the CSV and the image folder in one import. Use <code>image_files</code> for main product photos. Variant option and exact combination photos can be referenced inside <code>variant_data_json.images</code> and <code>variant_matrix_json.images</code>, or with the helper columns <code>variant_image_files</code> and <code>variant_combo_image_files</code>.</div>
                 <div class="btn-row">
                   <input id="csvFile" type="file" accept=".csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
                   <button id="importCsvBtn" class="btn btn-o btn-sm">Import</button>
                   <button id="csvTplBtn" class="btn btn-g btn-sm">⬇ Template</button>
+                </div>
+                <div class="csv-media-grid">
+                  <div class="csv-media-field">
+                    <label for="csvImageFiles">Optional product image folder</label>
+                    <input id="csvImageFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple webkitdirectory/>
+                    <div id="csvImageFileCount" class="csv-file-count">No image folder selected. Hosted URLs in <code>image_urls</code> still work.</div>
+                  </div>
                 </div>
                 <div id="csvProg" class="csv-prog"><progress id="csvBar" max="100" value="0"></progress><div id="csvTxt" class="csv-pt"></div></div>
                 <div id="csvErrors" class="csv-errors">
@@ -6415,6 +6431,20 @@ select.btn{
               </div>
             </div>
           </div>
+        <div id="reviewNotifyCard" class="card">
+          <div class="card-head">
+            <div class="card-title">Notification Check</div>
+          </div>
+          <div class="card-body">
+            <div class="fld-hint" style="margin-bottom:10px">Use this to verify whether review emails are configured and whether a test notification can be delivered to the internal review inbox.</div>
+            <div id="reviewNotifySummary" class="tp-list"></div>
+            <div class="btn-row" style="margin-top:12px">
+              <button id="refreshReviewNotifyBtn" class="btn btn-o btn-sm" type="button">Refresh Status</button>
+              <button id="sendReviewNotifyTestBtn" class="btn btn-A btn-sm" type="button">Send Test Email</button>
+            </div>
+            <div id="reviewNotifyStatus" class="stxt"></div>
+          </div>
+        </div>
         <div id="adminReviewQueueCard" class="card" style="display:none">
           <div class="card-head">
             <div class="card-title">Business Review Queue</div>
@@ -6911,6 +6941,7 @@ const App = {
   adminProducts: [],
   adminReviewShops: [],
   adminReviewClaims: [],
+  adminReviewNotifyStatus: null,
   ownerBusinessClaims: [],
   claimSearchResults: [],
   recoveryToken: '',
@@ -7110,7 +7141,7 @@ function businessListingMeta(shop={}){
       label:'Pending Review',
       pillClass:'listing-pill pending',
       title:'Pending review',
-      copy:'This business is private right now. A staff reviewer must approve it from Admin > Review Center before it goes live.',
+      copy:'This business is private right now while Atlantic Ordinate reviews it before launch.',
       live:false,
       canSubmit:false,
       canMoveDraft:true,
@@ -10561,6 +10592,208 @@ function parseCsvLine(line=''){
   out.push(cur);
   return out.map(v=>v.trim());
 }
+function parseCsvRecords(text=''){
+  const rows=[]; let row=[]; let cur=''; let inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(ch==='"'){
+      if(inQuotes && text[i+1]==='"'){cur+='"';i++;}
+      else inQuotes=!inQuotes;
+    }else if(ch===',' && !inQuotes){
+      row.push(cur);cur='';
+    }else if((ch==='\n'||ch==='\r') && !inQuotes){
+      if(ch==='\r' && text[i+1]==='\n') i++;
+      row.push(cur);
+      if(row.some(cell=>String(cell||'').trim())) rows.push(row.map(v=>String(v||'').trim()));
+      row=[];cur='';
+    }else{
+      cur+=ch;
+    }
+  }
+  row.push(cur);
+  if(row.some(cell=>String(cell||'').trim())) rows.push(row.map(v=>String(v||'').trim()));
+  return rows;
+}
+function csvCell(value=''){
+  const s=value==null?'':String(value);
+  return /[",\r\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;
+}
+function downloadCsvRows(filename,rows=[]){
+  const csv=rows.map(row=>row.map(csvCell).join(',')).join('\n')+'\n';
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=filename;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),500);
+}
+function splitCsvRefs(value=''){
+  if(Array.isArray(value)) return value.flatMap(splitCsvRefs);
+  const text=String(value||'').trim();
+  if(!text) return [];
+  try{
+    const parsed=JSON.parse(text);
+    if(Array.isArray(parsed)) return parsed.flatMap(splitCsvRefs);
+  }catch{}
+  return text.split(/[|\n;]+/).map(v=>v.trim()).filter(Boolean);
+}
+function dedupeStrings(items=[]){
+  const out=[]; const seen=new Set();
+  (items||[]).forEach(item=>{
+    const v=String(item||'').trim();
+    if(v&&!seen.has(v)){seen.add(v);out.push(v);}
+  });
+  return out;
+}
+function isHostedImageRef(value=''){
+  const text=String(value||'').trim();
+  return /^https?:\/\//i.test(text) || text.startsWith('/shops/');
+}
+function normalizeCsvAssetRef(value=''){
+  let text=String(value||'').trim().replace(/^["']|["']$/g,'').replace(/\\/g,'/');
+  try{text=decodeURIComponent(text);}catch{}
+  text=text.replace(/^\/+/,'');
+  while(text.startsWith('./')) text=text.slice(2);
+  return text.toLowerCase();
+}
+function buildCsvImageLookup(files=[]){
+  const map=new Map();
+  const add=(key,file)=>{const k=normalizeCsvAssetRef(key);if(k&&!map.has(k)) map.set(k,file);};
+  Array.from(files||[]).forEach(file=>{
+    const rel=normalizeCsvAssetRef(file.webkitRelativePath||file.name||'');
+    const parts=rel.split('/').filter(Boolean);
+    for(let i=0;i<parts.length;i++) add(parts.slice(i).join('/'),file);
+    add(file.name||'',file);
+  });
+  return map;
+}
+function findCsvImageFile(imageMap,ref=''){
+  if(!imageMap||!imageMap.size) return null;
+  const key=normalizeCsvAssetRef(ref);
+  if(imageMap.has(key)) return imageMap.get(key);
+  const base=key.split('/').pop();
+  return base&&imageMap.has(base)?imageMap.get(base):null;
+}
+function resolveCsvImageRef(ref,imageMap,rowNumber,errors,context){
+  const value=String(ref||'').trim();
+  if(!value) return null;
+  if(isHostedImageRef(value)) return {url:value};
+  const file=findCsvImageFile(imageMap,value);
+  if(file) return {file};
+  errors.push(`Row ${rowNumber}: ${context} image "${value}" was not found in the selected image folder.`);
+  return null;
+}
+function addIndexedFile(map,idx,file){
+  if(!file) return;
+  if(!map.has(idx)) map.set(idx,[]);
+  map.get(idx).push(file);
+}
+function normalizeCsvKey(value=''){
+  return String(value||'').trim().toLowerCase().replace(/\s+/g,' ');
+}
+function normalizeCsvPairTarget(target=''){
+  const text=String(target||'').trim();
+  const m=text.match(/^(.+?)(?:=|:)(.+)$/);
+  return m?`${normalizeCsvKey(m[1])}=${normalizeCsvKey(m[2])}`:normalizeCsvKey(text);
+}
+function parseCsvImageAssignments(value=''){
+  return splitCsvRefs(value).map(entry=>{
+    const cut=entry.indexOf('>');
+    if(cut<0) return null;
+    return {target:entry.slice(0,cut).trim(),ref:entry.slice(cut+1).trim()};
+  }).filter(item=>item&&item.target&&item.ref);
+}
+function csvComboSignature(selections={}){
+  return Object.entries(selections||{}).map(([group,label])=>`${normalizeCsvKey(group)}=${normalizeCsvKey(label)}`).sort().join('|');
+}
+function csvComboTargetSignature(target=''){
+  const parts=String(target||'').split('+').map(normalizeCsvPairTarget).filter(item=>item.includes('=')).sort();
+  return parts.length?parts.join('|'):normalizeCsvKey(target);
+}
+function buildCsvRowMediaPlan(obj,rowNumber,variantData=[],variantMatrix=[],imageMap,errors){
+  const productFiles=[]; const productImageUrls=[];
+  const absorbMain=(ref,context='product')=>{
+    const resolved=resolveCsvImageRef(ref,imageMap,rowNumber,errors,context);
+    if(resolved?.file) productFiles.push(resolved.file);
+    if(resolved?.url) productImageUrls.push(resolved.url);
+  };
+  [obj.image_urls,obj.images_json,obj.images].filter(Boolean).forEach(field=>splitCsvRefs(field).forEach(ref=>absorbMain(ref,'product URL/file')));
+  splitCsvRefs(obj.image_files||'').forEach(ref=>absorbMain(ref,'product file'));
+
+  const variantFileMap=new Map();
+  const comboFileMap=new Map();
+  const cleanVariantData=(Array.isArray(variantData)?variantData:[]).map((item,idx)=>{
+    const next={...item};
+    const urls=[];
+    splitCsvRefs(item?.images||[]).forEach(ref=>{
+      const resolved=resolveCsvImageRef(ref,imageMap,rowNumber,errors,`variant option ${item?.group||'Option'}=${item?.label||idx+1}`);
+      if(resolved?.file) addIndexedFile(variantFileMap,idx,resolved.file);
+      if(resolved?.url) urls.push(resolved.url);
+    });
+    next.images=dedupeStrings(urls);
+    return next;
+  });
+  const optionIndex=new Map();
+  cleanVariantData.forEach((item,idx)=>{
+    const group=normalizeCsvKey(item.group||'Option');
+    const label=normalizeCsvKey(item.label||'');
+    if(label){
+      optionIndex.set(`${group}=${label}`,idx);
+      optionIndex.set(label,idx);
+    }
+  });
+  [
+    obj.variant_image_files,
+    obj.variant_option_image_files,
+    obj.option_image_files
+  ].filter(Boolean).forEach(field=>{
+    parseCsvImageAssignments(field).forEach(({target,ref})=>{
+      const idx=optionIndex.get(normalizeCsvPairTarget(target));
+      if(idx==null){errors.push(`Row ${rowNumber}: variant image target "${target}" did not match variant_data_json.`);return;}
+      const resolved=resolveCsvImageRef(ref,imageMap,rowNumber,errors,`variant option ${target}`);
+      if(resolved?.file) addIndexedFile(variantFileMap,idx,resolved.file);
+      if(resolved?.url) cleanVariantData[idx].images=dedupeStrings([...(cleanVariantData[idx].images||[]),resolved.url]);
+    });
+  });
+
+  const cleanVariantMatrix=(Array.isArray(variantMatrix)?variantMatrix:[]).map((item,idx)=>{
+    const next={...item};
+    const urls=[];
+    splitCsvRefs(item?.images||[]).forEach(ref=>{
+      const resolved=resolveCsvImageRef(ref,imageMap,rowNumber,errors,`variant combination ${item?.selection_key||idx+1}`);
+      if(resolved?.file) addIndexedFile(comboFileMap,idx,resolved.file);
+      if(resolved?.url) urls.push(resolved.url);
+    });
+    next.images=dedupeStrings(urls);
+    return next;
+  });
+  const comboIndex=new Map();
+  cleanVariantMatrix.forEach((item,idx)=>{
+    const sig=csvComboSignature(item.selections||{});
+    if(sig) comboIndex.set(sig,idx);
+    if(item.selection_key) comboIndex.set(normalizeCsvKey(item.selection_key),idx);
+  });
+  [
+    obj.variant_combo_image_files,
+    obj.combo_image_files,
+    obj.combination_image_files
+  ].filter(Boolean).forEach(field=>{
+    parseCsvImageAssignments(field).forEach(({target,ref})=>{
+      const idx=comboIndex.get(csvComboTargetSignature(target));
+      if(idx==null){errors.push(`Row ${rowNumber}: combination image target "${target}" did not match variant_matrix_json.`);return;}
+      const resolved=resolveCsvImageRef(ref,imageMap,rowNumber,errors,`variant combination ${target}`);
+      if(resolved?.file) addIndexedFile(comboFileMap,idx,resolved.file);
+      if(resolved?.url) cleanVariantMatrix[idx].images=dedupeStrings([...(cleanVariantMatrix[idx].images||[]),resolved.url]);
+    });
+  });
+  return {
+    productFiles,
+    productImageUrls:dedupeStrings(productImageUrls),
+    variantData:cleanVariantData,
+    variantMatrix:cleanVariantMatrix,
+    variantFileMap,
+    comboFileMap
+  };
+}
 function showCsvErrors(errors=[]){
   const wrap=$('csvErrors'), list=$('csvErrorsList'), btn=$('csvErrorsDownloadBtn');
   if(!wrap||!list) return;
@@ -10572,7 +10805,8 @@ function showCsvErrors(errors=[]){
     return;
   }
   wrap.classList.add('on');
-  list.innerHTML=errors.map(err=>`<div>${esc(err)}</div>`).join('');
+  const visible=errors.slice(0,40);
+  list.innerHTML=visible.map(err=>`<div>${esc(err)}</div>`).join('')+(errors.length>visible.length?`<div>${esc(errors.length-visible.length)} more issue(s). Download the report for the full list.</div>`:'');
   if(btn) btn.style.display='';
 }
 function downloadCsvErrors(){
@@ -10593,13 +10827,13 @@ function validateCsvRow(obj,rowNumber,category='',businessType=''){
   const priceMode=normalizePriceMode(obj.price_mode||'fixed');
   const availabilityMode=normalizeAvailabilityMode(obj.availability_mode||'',offeringType,normalizedBusinessType,category);
   const name=String(obj.name||'').trim();
-  const priceRaw=String(obj.price||'').trim();
+  const priceRaw=String(obj.price||obj.price_amount||'').trim();
   const qtyRaw=String(obj.stock_quantity||'').trim();
   const stockRaw=String(obj.stock||'in').trim().toLowerCase();
   const durationRaw=String(obj.duration_minutes||'').trim();
   const capacityRaw=String(obj.capacity||'').trim();
   if(!name) errs.push(`Row ${rowNumber}: name is required.`);
-  const numeric=Number(priceRaw);
+  const numeric=priceRaw===''?null:Number(priceRaw);
   if(!['free','inquiry','custom'].includes(priceMode) && (!priceRaw || !Number.isFinite(numeric) || numeric<0)) errs.push(`Row ${rowNumber}: price must be a valid non-negative number.`);
   const qty=Number(qtyRaw);
   if(tracksInventory(offeringType,normalizedBusinessType,category) && (qtyRaw==='' || !Number.isInteger(qty) || qty<0)) errs.push(`Row ${rowNumber}: stock_quantity must be a whole number.`);
@@ -10611,13 +10845,15 @@ function validateCsvRow(obj,rowNumber,category='',businessType=''){
   const capacity=capacityRaw===''?null:Number(capacityRaw);
   if(capacityRaw!=='' && (!Number.isInteger(capacity) || capacity<0)) errs.push(`Row ${rowNumber}: capacity must be a whole number.`);
   let attr={};
+  let variantData=[];
+  let variantMatrix=[];
   if(String(obj.attribute_data_json||'').trim()){
-    try{ attr=JSON.parse(obj.attribute_data_json); }
+    try{ attr=JSON.parse(obj.attribute_data_json); if(!attr||Array.isArray(attr)||typeof attr!=='object') errs.push(`Row ${rowNumber}: attribute_data_json must be a JSON object.`); }
     catch{ errs.push(`Row ${rowNumber}: attribute_data_json is not valid JSON.`); }
   }
   if(String(obj.variant_data_json||'').trim()){
     try{
-      const variantData=JSON.parse(obj.variant_data_json);
+      variantData=JSON.parse(obj.variant_data_json);
       if(!Array.isArray(variantData)) errs.push(`Row ${rowNumber}: variant_data_json must be a JSON array.`);
     }catch{
       errs.push(`Row ${rowNumber}: variant_data_json is not valid JSON.`);
@@ -10625,7 +10861,7 @@ function validateCsvRow(obj,rowNumber,category='',businessType=''){
   }
   if(String(obj.variant_matrix_json||'').trim()){
     try{
-      const variantMatrix=JSON.parse(obj.variant_matrix_json);
+      variantMatrix=JSON.parse(obj.variant_matrix_json);
       if(!Array.isArray(variantMatrix)) errs.push(`Row ${rowNumber}: variant_matrix_json must be a JSON array.`);
     }catch{
       errs.push(`Row ${rowNumber}: variant_matrix_json is not valid JSON.`);
@@ -10636,7 +10872,7 @@ function validateCsvRow(obj,rowNumber,category='',businessType=''){
     const allowed=new Set(schema.map(([key])=>key));
     Object.keys(attr||{}).forEach(key=>{ if(!allowed.has(key)) errs.push(`Row ${rowNumber}: ${key} is not valid for ${category}.`); });
   }
-  return {errors:errs, attr, numeric, qty, durationMinutes, capacity, offeringType, priceMode, availabilityMode};
+  return {errors:errs, attr, numeric, priceRaw, qty:qtyRaw===''?null:qty, durationMinutes, capacity, offeringType, priceMode, availabilityMode, variantData:Array.isArray(variantData)?variantData:[], variantMatrix:Array.isArray(variantMatrix)?variantMatrix:[]};
 }
 function syncBulkEditBar(){
   const bar=$('bulkEditBar'), note=$('bulkEditNote');
@@ -11199,8 +11435,9 @@ function syncReviewerUi(user=App.user){
   if(guide){
     guide.innerHTML=isReviewerAccount(user)
       ? '<strong>How review works</strong> This account can review business submissions from <strong>Admin > Review Center</strong>.'
-      : '<strong>How review works</strong> Business verification requests are reviewed from <strong>Admin > Review Center</strong>. Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can approve them.';
+      : '<strong>How review works</strong> Atlantic Ordinate reviews submitted businesses before they go live. No registry or licence is required if you add a clear note and a review phone number.';
   }
+  renderReviewNotificationStatus();
   syncReviewNavBadge();
 }
 function profileInitial(user=App.user){
@@ -14825,6 +15062,61 @@ function currentShopListingSnapshot(){
     risk_level:App.adminShopData?.shop?.risk_level||'low',
   });
 }
+function renderReviewNotificationStatus(){
+  const card=$('reviewNotifyCard');
+  const summary=$('reviewNotifySummary');
+  const isAdmin=isReviewerAccount();
+  if(card) card.style.display=isAdmin?'':'none';
+  if(!summary) return;
+  if(!isAdmin){
+    summary.innerHTML='';
+    return;
+  }
+  const s=App.adminReviewNotifyStatus||{};
+  const items=[
+    ['SMTP','smtp_ready' in s ? (s.smtp_ready?'Configured':'Not ready') : 'Unknown'],
+    ['From address',s.from_email||'Not set'],
+    ['Recipients',`${Number(s.recipient_count||0)} configured`],
+    ['TLS',s.tls_enabled===true?'Enabled':(s.tls_enabled===false?'Disabled':'Unknown')],
+    ['Auth',('smtp_username_set' in s || 'smtp_password_set' in s) ? ((s.smtp_username_set||s.smtp_password_set)?'Configured':'Not set') : 'Unknown'],
+  ];
+  summary.innerHTML=items.map(([label,value])=>`<div class="tp-row"><div>${esc(label)}</div><b>${esc(String(value))}</b></div>`).join('');
+}
+async function loadReviewNotificationStatus(){
+  if(!isReviewerAccount()){
+    App.adminReviewNotifyStatus=null;
+    renderReviewNotificationStatus();
+    return;
+  }
+  try{
+    const d=await api('/admin/review/notification-status',{auth:true});
+    App.adminReviewNotifyStatus=d||{};
+    renderReviewNotificationStatus();
+    const recipientCount=Number(d?.recipient_count||0);
+    const ready=!!d?.ready;
+    setFieldHint('reviewNotifyStatus',ready?`Notifications look ready. ${recipientCount} recipient${recipientCount===1?'':'s'} configured.`:'Notifications are not fully configured yet.','ok');
+  }catch(e){
+    App.adminReviewNotifyStatus=null;
+    renderReviewNotificationStatus();
+    setFieldHint('reviewNotifyStatus',e.message,'err');
+  }
+}
+async function sendReviewNotificationTest(){
+  if(!isReviewerAccount()) return;
+  try{
+    setBtnBusy('sendReviewNotifyTestBtn',true,'Sending...');
+    setFieldHint('reviewNotifyStatus','Sending test notification...');
+    const d=await api('/admin/review/test-notification',{method:'POST',auth:true});
+    await loadReviewNotificationStatus();
+    toast('Test email sent',`${d.sent_count||0} notification${(d.sent_count||0)===1?'':'s'} delivered`);
+    setFieldHint('reviewNotifyStatus',`Test email sent to ${d.sent_count||0} recipient${(d.sent_count||0)===1?'':'s'}.`,'ok');
+  }catch(e){
+    setFieldHint('reviewNotifyStatus',e.message,'err');
+    toast('Test email failed',e.message,'err');
+  }finally{
+    setBtnBusy('sendReviewNotifyTestBtn',false);
+  }
+}
 function renderAdminReviewQueue(){
   const card=$('adminReviewQueueCard');
   const list=$('adminReviewQueueList');
@@ -14858,6 +15150,8 @@ async function loadAdminReviewQueue(){
   if(!isAdmin){
     App.adminReviewShops=[];
     renderAdminReviewQueue();
+    App.adminReviewNotifyStatus=null;
+    renderReviewNotificationStatus();
     syncReviewNavBadge();
     return;
   }
@@ -14866,6 +15160,7 @@ async function loadAdminReviewQueue(){
     App.adminReviewShops=d.businesses||[];
     renderAdminReviewQueue();
     setFieldHint('adminReviewQueueStatus',`${App.adminReviewShops.length} business${App.adminReviewShops.length===1?'':'es'} waiting for review.`,App.adminReviewShops.length?'':'ok');
+    await loadReviewNotificationStatus();
     syncReviewNavBadge();
   }catch(e){
     App.adminReviewShops=[];
@@ -14973,8 +15268,8 @@ async function requestBusinessClaim(shopId=''){
   try{
     setFieldHint('claimSearchStatus','Sending claim request...');
     await api(`/admin/business/${encodeURIComponent(shopId)}/claim`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});
-    toast('Claim requested','A reviewer must approve it from Admin > Review Center before the page moves to you.');
-    setFieldHint('claimSearchStatus','Claim request sent. Staff will review it from Admin > Review Center before transferring the page.','ok');
+    toast('Claim requested','Your request was sent for review.');
+    setFieldHint('claimSearchStatus','Claim request sent. We will review it before transferring the page.','ok');
     await loadOwnerBusinessClaims();
   }catch(e){
     setFieldHint('claimSearchStatus',e.message,'err');
@@ -15303,8 +15598,8 @@ async function submitBusinessForReview(){
     await api(`/admin/business/${encodeURIComponent(shopId)}/submit-for-review`,{method:'POST',auth:true});
     await refreshBusinessWorkspace(shopId);
     if(App.adminShopData?.shop) populateShopForm(App.adminShopData.shop);
-    toast('Submitted for review','A reviewer must approve it from Admin > Review Center before it goes live.');
-    setS('shopStatus','Business submitted for review. It stays private until a staff reviewer approves it from Admin > Review Center.','ok');
+    toast('Submitted for review','Your business is now under review.');
+    setS('shopStatus','Business submitted for review. It stays private until Atlantic Ordinate approves it.','ok');
   }catch(e){
     setS('shopStatus',e.message,'err');
     toast('Submit failed',e.message,'err');
@@ -15318,7 +15613,7 @@ async function moveBusinessToDraft(){
   const shopId=$('shopId').value.trim()||App.adminShopId||'';
   if(!shopId) return toast('Load a business first','','err');
   const meta=businessListingMeta(App.adminShopData?.shop||{});
-  if(meta.live && !confirm('This will hide the business from the public app until you submit and approve it again. Continue?')) return;
+  if(meta.live && !confirm('This will hide the business from the public app until you submit it for review again. Continue?')) return;
   try{
     setBtnBusy('detailMoveDraftBtn',true,'Updating...');
     setBtnBusy('shopMoveDraftBtn',true,'Updating...');
@@ -15373,6 +15668,8 @@ $('saveShopBtn').addEventListener('click',saveShop);
 $('claimSearchBtn')?.addEventListener('click',()=>searchClaimableBusinesses());
 $('claimSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchClaimableBusinesses();}});
 $('refreshReviewCenterBtn')?.addEventListener('click',()=>{loadAdminReviewQueue();loadAdminClaimReviewQueue();});
+$('refreshReviewNotifyBtn')?.addEventListener('click',loadReviewNotificationStatus);
+$('sendReviewNotifyTestBtn')?.addEventListener('click',sendReviewNotificationTest);
 $('deleteShopBtn').addEventListener('click',deleteShop);
 $('rebuildKbBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a business first','','err');
@@ -15751,25 +16048,52 @@ $('refreshAnBtn').addEventListener('click',loadAnalytics);
 $('anDays').addEventListener('change',loadAnalytics);
 
 /* ── CSV ── */
-$('csvTplBtn').addEventListener('click',()=>{const csv='product_id,offering_type,name,price_mode,price,availability_mode,stock,stock_quantity,duration_minutes,capacity,overview,variants,variant_data_json,variant_matrix_json,attribute_data_json\np001,product,Example Product,fixed,9.99,in_stock,in,12,,,A great product,"Size: Small, Large (+2.00) | Color: Red, Blue","[{""group"":""Size"",""label"":""Small"",""price_delta"":0},{""group"":""Size"",""label"":""Large"",""price_delta"":2},{""group"":""Color"",""label"":""Red"",""price_delta"":0},{""group"":""Color"",""label"":""Blue"",""price_delta"":0}]","[{""selections"":{""Color"":""Red"",""Size"":""Large""},""price_delta"":1.5,""stock_quantity"":4}]","{""brand"":""Wave Goods""}"\ns001,service,Discovery Call,inquiry,,available,,,,A short intro call to understand the client needs,,,,\"{\"\"service_mode\"\":\"\"Online\"\",\"\"provider\"\":\"\"Wave Team\"\"}\"\n';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='offerings_template.csv';a.click();});
+function downloadOfferingsCsvTemplate(){
+  const headers=['product_id','offering_type','name','price_mode','price','currency_code','availability_mode','stock','stock_quantity','duration_minutes','capacity','overview','image_urls','image_files','variant_image_files','variant_combo_image_files','variants','variant_data_json','variant_matrix_json','attribute_data_json'];
+  const variantData=JSON.stringify([
+    {group:'Size',label:'Small',price_delta:0,stock_quantity:6},
+    {group:'Size',label:'Large',price_delta:2,stock_quantity:4},
+    {group:'Color',label:'Red',price_delta:0,images:['products/classic-tee/red-option.jpg']},
+    {group:'Color',label:'Blue',price_delta:0,images:['products/classic-tee/blue-option.jpg']}
+  ]);
+  const variantMatrix=JSON.stringify([
+    {selections:{Color:'Red',Size:'Large'},price_delta:1.5,stock_quantity:2,images:['products/classic-tee/red-large.jpg']},
+    {selections:{Color:'Blue',Size:'Small'},price_delta:0,stock_quantity:3}
+  ]);
+  downloadCsvRows('offerings_template.csv',[
+    headers,
+    ['p001','product','Classic Tee','fixed','19.99','','in_stock','in','10','','','Cotton shirt with size and color variants','','products/classic-tee/front.jpg|products/classic-tee/back.jpg','Color=Red>products/classic-tee/red-alt.jpg','Color=Red+Size=Large>products/classic-tee/red-large-alt.jpg','Size: Small, Large (+2.00) | Color: Red, Blue',variantData,variantMatrix,JSON.stringify({brand:'Wave Goods',material:'Cotton',sizes:'Small, Large',colors:'Red, Blue'})],
+    ['s001','service','Discovery Call','inquiry','','','available','','','30','','Short intro call to understand the client needs','','','','','','','',JSON.stringify({service_mode:'Online',provider:'Wave Team'})]
+  ]);
+}
+$('csvTplBtn').addEventListener('click',downloadOfferingsCsvTemplate);
+$('csvImageFiles')?.addEventListener('change',()=>{
+  const files=Array.from($('csvImageFiles')?.files||[]);
+  const count=$('csvImageFileCount');
+  if(count) count.textContent=files.length?`${files.length} image file${files.length===1?'':'s'} selected for CSV matching.`:'No image folder selected. Hosted URLs in image_urls still work.';
+});
 $('importCsvBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a business first','','err');if(!tok())return toast('Login required','','err');
   const file=$('csvFile').files[0];if(!file)return toast('Select a CSV','','err');
   showCsvErrors([]);
   const category=App.adminShopData?.shop?.category||'';
   const businessType=App.adminShopData?.shop?.business_type||'';
-  const text=await file.text(),lines=text.trim().split(/\r?\n/),headers=parseCsvLine(lines[0]||'').map(h=>h.trim().toLowerCase()),rows=lines.slice(1).filter(l=>l.trim());
+  const imageFiles=Array.from($('csvImageFiles')?.files||[]);
+  const imageMap=buildCsvImageLookup(imageFiles);
+  const text=await file.text(),records=parseCsvRecords(text),headers=(records[0]||[]).map(h=>h.trim().replace(/^\ufeff/,'').toLowerCase()),rows=records.slice(1).filter(row=>row.some(cell=>String(cell||'').trim()));
+  if(!headers.length)return toast('CSV is empty','','err');
+  if(!headers.includes('name'))return toast('CSV needs a name column','','err');
   if(!rows.length)return toast('CSV is empty','','err');
   const parsedRows=[]; const preflightErrors=[];
-  rows.forEach((row,idx)=>{
-    const vals=parseCsvLine(row).map(v=>v.replace(/^"|"$/g,''));
+  rows.forEach((vals,idx)=>{
     const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');
     const validation=validateCsvRow(obj,idx+2,category,businessType);
     if(validation.errors.length) preflightErrors.push(...validation.errors);
-    parsedRows.push({obj,...validation});
+    const media=buildCsvRowMediaPlan(obj,idx+2,validation.variantData,validation.variantMatrix,imageMap,preflightErrors);
+    parsedRows.push({obj,...validation,media});
   });
   if(preflightErrors.length){
-    showCsvErrors(preflightErrors.slice(0,18));
+    showCsvErrors(preflightErrors);
     return toast('CSV needs fixes',`${preflightErrors.length} issue${preflightErrors.length===1?'':'s'} found`,'err');
   }
   const prog=$('csvProg'),bar=$('csvBar'),txt=$('csvTxt');prog.style.display='block';bar.value=0;
@@ -15779,9 +16103,37 @@ $('importCsvBtn').addEventListener('click',async()=>{
   for(const row of parsedRows){
     const obj=row.obj;
     try{
-      let variantData=[]; try{variantData=obj.variant_data_json?JSON.parse(obj.variant_data_json):[];}catch{}
-      let variantMatrix=[]; try{variantMatrix=obj.variant_matrix_json?JSON.parse(obj.variant_matrix_json):[];}catch{}
-      await api(`/admin/business/${encodeURIComponent(shopId)}/offering`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:obj.product_id||'',offering_id:obj.offering_id||obj.product_id||'',name:obj.name||'Unnamed',price:obj.price||'',price_amount:obj.price===''?null:row.numeric,currency_code:$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD',overview:obj.overview||'',offering_type:row.offeringType,price_mode:row.priceMode,availability_mode:row.availabilityMode,stock:obj.stock||'in',stock_quantity:row.qty,duration_minutes:row.durationMinutes,capacity:row.capacity,variants:obj.variants||variantSummary(variantData),variant_data:variantData,variant_matrix:variantMatrix,attribute_data:row.attr||{},images:[]})});
+      const currencyCode=(obj.currency_code||$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD').toUpperCase();
+      const payload={product_id:obj.product_id||'',offering_id:obj.offering_id||obj.product_id||'',name:obj.name||'Unnamed',price:row.priceRaw||'',price_amount:row.numeric,currency_code:currencyCode,overview:obj.overview||'',offering_type:row.offeringType,price_mode:row.priceMode,availability_mode:row.availabilityMode,stock:obj.stock||'in',stock_quantity:row.qty,duration_minutes:row.durationMinutes,capacity:row.capacity,variants:obj.variants||variantSummary(row.media.variantData),variant_data:row.media.variantData,variant_matrix:row.media.variantMatrix,attribute_data:row.attr||{},images:row.media.productImageUrls||[]};
+      const hasLocalFiles=row.media.productFiles.length||row.media.variantFileMap.size||row.media.comboFileMap.size;
+      if(hasLocalFiles){
+        const form=new FormData();
+        form.append('product_id',payload.product_id||'');
+        form.append('offering_id',payload.offering_id||payload.product_id||'');
+        form.append('name',payload.name);
+        form.append('overview',payload.overview);
+        form.append('price',payload.price);
+        form.append('price_amount',payload.price_amount==null?'':String(payload.price_amount));
+        form.append('currency_code',payload.currency_code);
+        form.append('offering_type',payload.offering_type);
+        form.append('price_mode',payload.price_mode);
+        form.append('availability_mode',payload.availability_mode);
+        form.append('stock',payload.stock);
+        form.append('stock_quantity',payload.stock_quantity==null?'':String(payload.stock_quantity));
+        form.append('duration_minutes',payload.duration_minutes==null?'':String(payload.duration_minutes));
+        form.append('capacity',payload.capacity==null?'':String(payload.capacity));
+        form.append('variants',payload.variants||'');
+        form.append('variant_data_json',JSON.stringify(payload.variant_data||[]));
+        form.append('variant_matrix_json',JSON.stringify(payload.variant_matrix||[]));
+        form.append('attribute_data_json',JSON.stringify(payload.attribute_data||{}));
+        form.append('image_urls',JSON.stringify(payload.images||[]));
+        row.media.productFiles.forEach(file=>form.append('images',file));
+        row.media.variantFileMap.forEach((files,idx)=>files.forEach(file=>form.append(`variant_images_${idx}`,file)));
+        row.media.comboFileMap.forEach((files,idx)=>files.forEach(file=>form.append(`variant_combo_images_${idx}`,file)));
+        await api(`/admin/business/${encodeURIComponent(shopId)}/offering-with-images`,{method:'POST',auth:true,body:form});
+      }else{
+        await api(`/admin/business/${encodeURIComponent(shopId)}/offering`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      }
       done++;
     }catch(e){
       failed++;
@@ -15791,7 +16143,7 @@ $('importCsvBtn').addEventListener('click',async()=>{
   }
   txt.textContent=`Import complete: ${done} imported, ${failed} failed.`;
   setBtnBusy('importCsvBtn',false);
-  showCsvErrors(preflightErrors.slice(0,18));
+  showCsvErrors(preflightErrors);
   toast(`Import complete`,`${done} imported, ${failed} failed`);await loadAdminShop(shopId);
   setTimeout(()=>prog.style.display='none',3000);
 });
