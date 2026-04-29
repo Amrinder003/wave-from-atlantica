@@ -448,7 +448,25 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
                         "rating": 5,
                         "body": "Very helpful planning session.",
                         "created_at": "2026-04-13T00:00:00+00:00",
-                    }
+                    },
+                    {
+                        "id": 2,
+                        "shop_id": "shoe-1",
+                        "product_id": "shoe-a1",
+                        "user_id": "user-1",
+                        "rating": 5,
+                        "body": "Great fit and very comfortable.",
+                        "created_at": "2026-04-13T00:10:00+00:00",
+                    },
+                    {
+                        "id": 3,
+                        "shop_id": "shoe-2",
+                        "product_id": "shoe-b1",
+                        "user_id": "user-1",
+                        "rating": 5,
+                        "body": "Excellent value for the price.",
+                        "created_at": "2026-04-13T00:20:00+00:00",
+                    },
                 ],
                 "analytics": [],
                 "order_requests": [],
@@ -599,6 +617,23 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertEqual(len(data.get("offerings", [])), 1)
         self.assertEqual(data["offerings"][0]["business_name"], "Alpha Shoes")
         self.assertEqual(data["offerings"][0]["name"], "Trail Runner Shoes")
+
+    def test_global_chat_finds_five_star_products_across_shops(self):
+        response = self.client.get("/chat/global", params={"q": "Show me products with five star ratings"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertEqual(data["assistant"], "Atlantica")
+        self.assertEqual(data["mode"], "global")
+        self.assertIn("5-star", data["answer"])
+        offerings = data.get("offerings", [])
+        names = {item["name"] for item in offerings}
+        businesses = {item["business_name"] for item in offerings}
+        self.assertIn("Trail Runner Shoes", names)
+        self.assertIn("City Walker Shoes", names)
+        self.assertIn("Alpha Shoes", businesses)
+        self.assertIn("Budget Steps", businesses)
+        self.assertTrue(all(item["avg_rating"] == 5.0 for item in offerings))
 
     def test_build_chat_suggestions_returns_question_list_for_ranked_results(self):
         shop = server.normalize_shop_record(self.fake_supabase.tables["shops"][0])

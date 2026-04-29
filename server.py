@@ -2026,6 +2026,36 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Opt
         }))
     return out
 
+def load_product_metric_maps(rows: List[Dict[str, Any]]) -> Tuple[Dict[Tuple[str, str], List[int]], Dict[Tuple[str, str], int]]:
+    pairs = {(str(r.get("shop_id", "")), str(r.get("product_id", ""))) for r in rows if r.get("shop_id") and r.get("product_id")}
+    if not pairs or supabase is None:
+        return {}, {}
+
+    shop_ids = sorted({shop_id for shop_id, _ in pairs})
+    product_ids = sorted({product_id for _, product_id in pairs})
+    review_map: Dict[Tuple[str, str], List[int]] = {}
+    view_map: Dict[Tuple[str, str], int] = {}
+
+    try:
+        review_rows = supabase.table("reviews").select("shop_id, product_id, rating").in_("shop_id", shop_ids).in_("product_id", product_ids).execute().data
+        for review in review_rows:
+            key = (str(review.get("shop_id", "")), str(review.get("product_id", "")))
+            if key in pairs:
+                review_map.setdefault(key, []).append(int(review.get("rating", 0)))
+    except Exception:
+        review_map = {}
+
+    try:
+        view_rows = supabase.table("analytics").select("shop_id, product_id").eq("event", "view").in_("shop_id", shop_ids).in_("product_id", product_ids).execute().data
+        for view in view_rows:
+            key = (str(view.get("shop_id", "")), str(view.get("product_id", "")))
+            if key in pairs:
+                view_map[key] = view_map.get(key, 0) + 1
+    except Exception:
+        view_map = {}
+
+    return review_map, view_map
+
 def shop_stats(shop_id: str) -> Dict:
     sb = require_supabase()
     prods = sb.table("products").select("images").eq("shop_id", shop_id).execute().data
@@ -3408,6 +3438,96 @@ def is_price_lookup_query(q: str) -> bool:
     qn = norm_text(q)
     return any(t in qn for t in ["how much", "price of", "price for", "cost of", "cost for"])
 
+RATING_WORD_VALUES = {
+    "one": 1.0,
+    "two": 2.0,
+    "three": 3.0,
+    "four": 4.0,
+    "five": 5.0,
+}
+
+def is_rating_query(q: str) -> bool:
+    qn = norm_text(q)
+    return any(
+        token in qn
+        for token in [
+            "rating",
+            "ratings",
+            "review",
+            "reviews",
+            "star",
+            "stars",
+            "top rated",
+            "highest rated",
+            "best rated",
+        ]
+    )
+
+def extract_rating_value(q: str) -> Optional[float]:
+    qn = norm_text(q)
+    patterns = [
+        r"\b([1-5](?:\.\d)?)\s*[- ]?stars?\b",
+        r"\brated\s*([1-5](?:\.\d)?)\b",
+        r"\brating(?:s)?\s*(?:of|at)?\s*([1-5](?:\.\d)?)\b",
+        r"\b(one|two|three|four|five)\s*[- ]?stars?\b",
+        r"\brated\s*(one|two|three|four|five)\b",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, qn)
+        if not match:
+            continue
+        raw = str(match.group(1) or "").strip().lower()
+        if raw in RATING_WORD_VALUES:
+            return RATING_WORD_VALUES[raw]
+        try:
+            value = float(raw)
+        except Exception:
+            continue
+        if 1 <= value <= 5:
+            return value
+    return None
+
+def rating_query_mode(q: str) -> str:
+    qn = norm_text(q)
+    if any(token in qn for token in ["top rated", "highest rated", "best rated"]):
+        return "top"
+    if any(token in qn for token in ["at least", "or higher", "and above", "or above", "minimum", "min rating"]):
+        return "min"
+    if any(token in qn for token in ["above", "more than"]):
+        return "above"
+    if any(token in qn for token in ["below", "less than", "under"]):
+        return "max"
+    if extract_rating_value(q) is not None:
+        return "exact"
+    return "top"
+
+def query_prefers_product_offerings(q: str) -> bool:
+    qn = norm_text(q)
+    return any(token in qn for token in ["product", "products", "item", "items"])
+
+def query_prefers_service_offerings(q: str) -> bool:
+    qn = norm_text(q)
+    return any(token in qn for token in ["service", "services", "appointment", "appointments"])
+
+def rating_query_subject(q: str) -> str:
+    qn = norm_text(q)
+    qn = re.sub(r"\b(top rated|highest rated|best rated)\b", " ", qn)
+    qn = re.sub(r"\b([1-5](?:\.\d+)?|one|two|three|four|five)\s*[- ]?stars?\b", " ", qn)
+    qn = re.sub(r"\brated\s*([1-5](?:\.\d+)?|one|two|three|four|five)\b", " ", qn)
+    qn = re.sub(r"\brating(?:s)?\b", " ", qn)
+    qn = re.sub(r"\breview(?:s)?\b", " ", qn)
+    qn = re.sub(r"\b(show|find|me|with|that|have|has|all|any|only|products?|items?|offerings?|services?|please)\b", " ", qn)
+    qn = re.sub(r"\s+", " ", qn).strip()
+    return qn
+
+def product_rating_label(row: Dict[str, Any]) -> str:
+    avg = float(row.get("avg_rating", 0) or 0)
+    count = int(row.get("review_count", 0) or 0)
+    if count <= 0 or avg <= 0:
+        return "No public rating yet"
+    review_word = "review" if count == 1 else "reviews"
+    return f"{avg:.1f} stars from {count} {review_word}"
+
 def default_catalog_question(shop: dict, rows: Optional[List[Dict[str, Any]]] = None) -> str:
     nouns = offering_nouns(shop, rows or [])
     plural = nouns["plural"]
@@ -3462,6 +3582,9 @@ def enrich_chat_row(row: Dict[str, Any], shop: Optional[Dict[str, Any]] = None, 
         "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
         "attribute_data": attr_data,
         "attribute_lines": format_attribute_lines(attr_data, category, offering_type, business_type),
+        "avg_rating": row.get("avg_rating", 0),
+        "review_count": row.get("review_count", 0),
+        "product_views": row.get("product_views", 0),
     }
 
 def chat_item_line(item: Dict[str, Any], shop: Optional[Dict[str, Any]] = None) -> str:
@@ -4304,12 +4427,21 @@ def public_marketplace_snapshot(currency: str = "") -> Tuple[List[Dict[str, Any]
         shop_map[str(shop.get("shop_id", ""))] = shop
 
     product_rows = supabase.table("products").select("*").order("updated_at", desc=True).execute().data or []
+    review_map, view_map = load_product_metric_maps(product_rows)
     prod_rows: List[Dict[str, Any]] = []
     for row in product_rows:
         shop = shop_map.get(str(row.get("shop_id", "")))
         if not shop:
             continue
-        prod_rows.append({**row, **get_display_price_fields(row, shop, currency)})
+        key = (str(row.get("shop_id", "")), str(row.get("product_id", "")))
+        ratings = review_map.get(key, [])
+        prod_rows.append({
+            **row,
+            **get_display_price_fields(row, shop, currency),
+            "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else 0,
+            "review_count": len(ratings),
+            "product_views": view_map.get(key, 0),
+        })
     return shops, shop_map, prod_rows
 
 def marketplace_focus_tokens(q: str) -> List[str]:
@@ -4528,11 +4660,13 @@ def score_marketplace_product(row: Dict[str, Any], shop: Dict[str, Any], q: str)
     category = shop.get("category", "")
     offering_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
     attr_text = product_attribute_text(row, category, offering_type, business_type)
+    rating_text = f"{row.get('avg_rating', 0)} star {row.get('review_count', 0)} reviews"
     hay = norm_text(" ".join([
         str(row.get("name", "")),
         str(row.get("overview", "")),
         str(row.get("variants", "")),
         attr_text,
+        rating_text,
         str(shop.get("name", "")),
         str(shop.get("category", "")),
         str(shop.get("overview", "")),
@@ -4561,6 +4695,9 @@ def score_marketplace_product(row: Dict[str, Any], shop: Dict[str, Any], q: str)
             score += sum(0.7 for token in tokens if token in name_n)
         if qn and not tokens and row_is_available_for_chat(row, shop):
             score += 1.0
+        if is_rating_query(q) and float(row.get("avg_rating", 0) or 0) > 0:
+            score += float(row.get("avg_rating", 0) or 0) * 0.35
+            score += min(float(row.get("review_count", 0) or 0), 8.0) * 0.08
     if row_is_available_for_chat(row, shop):
         score += 0.35
     if normalize_image_list(row.get("shop_id", ""), row.get("images", [])):
@@ -4874,6 +5011,136 @@ def answer_marketplace_open_now_query(shops: List[Dict[str, Any]], prod_rows: Li
         "meta": {"llm_used": False, "reason": "open_now_businesses", "suggestions": ["Show me shoes", "Find the cheapest option", "What can I buy on this app?"]},
     }
 
+def answer_marketplace_rating_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Optional[Dict[str, Any]]:
+    if not is_rating_query(q):
+        return None
+
+    qn = norm_text(q)
+    subject_q = rating_query_subject(q)
+    if subject_q:
+        ranked = match_marketplace_products(prod_rows, subject_q, shop_map)
+        pool = ranked or rank_marketplace_products(prod_rows, subject_q, shop_map)
+    else:
+        pool = rank_marketplace_products(prod_rows, "", shop_map)
+
+    prefers_products = query_prefers_product_offerings(q)
+    prefers_services = query_prefers_service_offerings(q)
+    mode = rating_query_mode(q)
+    target_rating = extract_rating_value(q)
+    matches: List[Dict[str, Any]] = []
+
+    for row in pool:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        business_type = shop.get("business_type", "")
+        category = shop.get("category", "")
+        offering_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
+        if prefers_products and offering_type != "product":
+            continue
+        if prefers_services and offering_type == "product":
+            continue
+        avg_rating = round(float(row.get("avg_rating", 0) or 0), 1)
+        review_count = int(row.get("review_count", 0) or 0)
+        if review_count <= 0 or avg_rating <= 0:
+            continue
+        if target_rating is not None:
+            if mode == "min" and avg_rating < target_rating:
+                continue
+            if mode == "above" and avg_rating <= target_rating:
+                continue
+            if mode == "max" and avg_rating > target_rating:
+                continue
+            if mode == "exact":
+                if round(target_rating, 1) == 5.0:
+                    if avg_rating < 5.0:
+                        continue
+                elif avg_rating != round(target_rating, 1):
+                    continue
+        matches.append({**row, "_rating_value": avg_rating, "_review_total": review_count})
+
+    if not matches:
+        offering_label = "products" if prefers_products else "services" if prefers_services else "offerings"
+        if target_rating is not None and mode == "exact" and round(target_rating, 1) == 5.0:
+            detail = "**5-star**"
+        elif target_rating is not None and mode == "min":
+            detail = f"rated **{target_rating:g} stars or higher**"
+        elif target_rating is not None and mode == "above":
+            detail = f"rated **above {target_rating:g} stars**"
+        elif target_rating is not None and mode == "max":
+            detail = f"rated **{target_rating:g} stars or lower**"
+        elif target_rating is not None:
+            detail = f"rated **{target_rating:g} stars**"
+        else:
+            detail = "with public ratings"
+        scope = f" at **{shops[0].get('name')}**" if len(shops) == 1 and shops[0].get("name") else ""
+        return {
+            "answer": f"I could not find any public {offering_label} {detail}{scope} right now.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "market_rating_empty", "suggestions": ["Show me top rated products", "Show me shoes", "Find the cheapest option"]},
+        }
+
+    if is_cheapest_query(q):
+        matches.sort(
+            key=lambda row: (
+                parse_price_value(row.get("price", "")) is None,
+                parse_price_value(row.get("price", "")) if parse_price_value(row.get("price", "")) is not None else float("inf"),
+                -float(row.get("_rating_value", 0) or 0),
+                -int(row.get("_review_total", 0) or 0),
+                -float(row.get("_market_score", 0) or 0),
+            )
+        )
+    else:
+        matches.sort(
+            key=lambda row: (
+                float(row.get("_rating_value", 0) or 0),
+                int(row.get("_review_total", 0) or 0),
+                float(row.get("product_views", 0) or 0),
+                float(row.get("_market_score", 0) or 0),
+                str(row.get("name", "")).lower(),
+            ),
+            reverse=True,
+        )
+
+    top = matches[:8]
+    if target_rating is not None and mode == "exact" and round(target_rating, 1) == 5.0:
+        rating_phrase = "**5-star**"
+    elif target_rating is not None and mode == "min":
+        rating_phrase = f"rated **{target_rating:g} stars or higher**"
+    elif target_rating is not None and mode == "above":
+        rating_phrase = f"rated **above {target_rating:g} stars**"
+    elif target_rating is not None and mode == "max":
+        rating_phrase = f"rated **{target_rating:g} stars or lower**"
+    elif target_rating is not None:
+        rating_phrase = f"rated **{target_rating:g} stars**"
+    else:
+        rating_phrase = "**top-rated**"
+
+    offering_label = "product" if prefers_products else "service" if prefers_services else "offering"
+    offering_plural = f"{offering_label}s" if offering_label != "service" else "services"
+    scope = f" at **{shops[0].get('name')}**" if len(shops) == 1 and shops[0].get("name") else " across the marketplace"
+    opener = f"I found **{len(matches)}** {offering_plural} {rating_phrase}{scope}:"
+    if mode == "top" and target_rating is None:
+        opener = f"Here are the strongest rated {offering_plural}{scope}:"
+
+    lines = [opener]
+    for row in top:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        summary_bits = offering_summary_bits(row, shop)
+        summary_bits.insert(0, product_rating_label(row))
+        line = f"- **{row.get('name', 'Offering')}** from **{shop.get('name', 'Business')}** - {' | '.join(bit for bit in summary_bits if bit)}"
+        lines.append(line)
+    if len(matches) > len(top):
+        lines.append(f"\nI attached the first **{len(top)}** cards below. Ask me to narrow it by product type, shop, or budget.")
+
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_marketplace_products(top, shop_map, currency),
+        "meta": {
+            "llm_used": False,
+            "reason": "market_rating",
+            "suggestions": build_marketplace_chat_suggestions(q, top, shops, shop_map),
+        },
+    }
+
 def answer_marketplace_price_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Optional[Dict[str, Any]]:
     if not is_price_lookup_query(q):
         return None
@@ -5101,7 +5368,10 @@ def build_marketplace_context(shops: List[Dict[str, Any]], picked: List[Dict[str
             attr_lines = format_attribute_lines(normalize_attribute_data(row.get("attribute_data"), shop.get("category", ""), row_type, shop.get("business_type", "")), shop.get("category", ""), row_type, shop.get("business_type", ""))
             attr_part = f" | Details: {'; '.join(attr_lines[:3])}" if attr_lines else ""
             location_part = f" | Location: {location}" if location else ""
-            lines.append(f"- {row.get('name', 'Offering')} | Business: {shop.get('name', 'Business')} | Category: {shop.get('category', 'Business')} | {summary_bits}{location_part}{attr_part}")
+            rating_part = ""
+            if float(row.get("avg_rating", 0) or 0) > 0 and int(row.get("review_count", 0) or 0) > 0:
+                rating_part = f" | Rating: {product_rating_label(row)}"
+            lines.append(f"- {row.get('name', 'Offering')} | Business: {shop.get('name', 'Business')} | Category: {shop.get('category', 'Business')} | {summary_bits}{rating_part}{location_part}{attr_part}")
     else:
         lines.append("\nSample businesses:")
         counts = marketplace_shop_offering_counts(prod_rows)
@@ -5901,6 +6171,10 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
     business_list_answer = answer_marketplace_business_list_query(shops, prod_rows, q)
     if business_list_answer is not None:
         return respond(business_list_answer)
+
+    rating_answer = answer_marketplace_rating_query(scope_shops, scope_prod_rows, q, scope_shop_map, currency)
+    if rating_answer is not None:
+        return respond(rating_answer)
 
     budget_answer = answer_marketplace_budget_query(scope_shops, scope_prod_rows, q, scope_shop_map, currency)
     if budget_answer is not None:
