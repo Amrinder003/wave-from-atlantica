@@ -177,6 +177,14 @@ REVIEW_NOTIFICATION_EMAILS = [
     for item in os.environ.get("REVIEW_NOTIFICATION_EMAILS", "").split(",")
     if re.sub(r"\s+", "", item).strip()
 ]
+LAST_REVIEW_NOTIFICATION_RESULT: Dict[str, Any] = {
+    "attempted_at": None,
+    "subject": "",
+    "sent_count": 0,
+    "recipient_count": 0,
+    "delivered_to": [],
+    "errors": [],
+}
 AUTH_ACCESS_COOKIE = os.environ.get("AUTH_ACCESS_COOKIE", "wave_at").strip() or "wave_at"
 AUTH_REFRESH_COOKIE = os.environ.get("AUTH_REFRESH_COOKIE", "wave_rt").strip() or "wave_rt"
 AUTH_CSRF_COOKIE = os.environ.get("AUTH_CSRF_COOKIE", "wave_csrf").strip() or "wave_csrf"
@@ -1452,7 +1460,7 @@ def supabase_refresh_session(refresh_token: str) -> Dict[str, Any]:
     return data
 
 def notifications_enabled() -> bool:
-    return bool(SMTP_HOST and SMTP_FROM_EMAIL)
+    return bool(SMTP_HOST and SMTP_FROM_EMAIL and (not SMTP_USERNAME or SMTP_PASSWORD))
 
 def clean_email(value: str) -> str:
     return re.sub(r"\s+", "", str(value or "").strip()).lower()
@@ -1502,6 +1510,34 @@ def send_email_message(to_email: str, subject: str, text_body: str) -> bool:
         print(f"[Notification Warning] Email send failed for {recipient}: {e}")
         return False
 
+def send_email_message_detailed(to_email: str, subject: str, text_body: str) -> Tuple[bool, str]:
+    recipient = clean_email(to_email)
+    if not recipient:
+        return False, "Recipient email is empty."
+    if not SMTP_HOST:
+        return False, "SMTP_HOST is not configured."
+    if not SMTP_FROM_EMAIL:
+        return False, "SMTP_FROM_EMAIL is not configured."
+    if SMTP_USERNAME and not SMTP_PASSWORD:
+        return False, "SMTP_PASSWORD is missing for the configured SMTP username."
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>" if SMTP_FROM_NAME else SMTP_FROM_EMAIL
+        msg["To"] = recipient
+        msg.set_content(text_body)
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as smtp:
+            if SMTP_USE_TLS:
+                smtp.starttls()
+            if SMTP_USERNAME:
+                smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+            smtp.send_message(msg)
+        return True, ""
+    except Exception as e:
+        message = str(e or "").strip() or "Unknown SMTP error."
+        print(f"[Notification Warning] Email send failed for {recipient}: {message}")
+        return False, message
+
 def review_notification_recipients() -> List[str]:
     seen: set = set()
     recipients: List[str] = []
@@ -1514,16 +1550,35 @@ def review_notification_recipients() -> List[str]:
     return recipients
 
 def send_review_notification(subject: str, lines: List[str]) -> int:
+    return send_review_notification_report(subject, lines).get("sent_count", 0)
+
+def send_review_notification_report(subject: str, lines: List[str]) -> Dict[str, Any]:
+    global LAST_REVIEW_NOTIFICATION_RESULT
     sent = 0
     body = "\n".join([str(line or "") for line in lines if str(line or "").strip()])
-    for email in review_notification_recipients():
-        if send_email_message(email, subject, body):
+    delivered_to: List[str] = []
+    errors: List[Dict[str, str]] = []
+    recipients = review_notification_recipients()
+    for email in recipients:
+        ok, error = send_email_message_detailed(email, subject, body)
+        if ok:
             sent += 1
-    return sent
+            delivered_to.append(email)
+        else:
+            errors.append({"email": email, "error": error})
+    LAST_REVIEW_NOTIFICATION_RESULT = {
+        "attempted_at": datetime.now(timezone.utc).isoformat(),
+        "subject": subject,
+        "sent_count": sent,
+        "recipient_count": len(recipients),
+        "delivered_to": delivered_to,
+        "errors": errors,
+    }
+    return dict(LAST_REVIEW_NOTIFICATION_RESULT)
 
 def review_notification_status_payload() -> Dict[str, Any]:
     recipients = review_notification_recipients()
-    smtp_ready = bool(SMTP_HOST and SMTP_FROM_EMAIL)
+    smtp_ready = notifications_enabled()
     return {
         "ok": True,
         "smtp_ready": smtp_ready,
@@ -1537,6 +1592,9 @@ def review_notification_status_payload() -> Dict[str, Any]:
         "recipient_count": len(recipients),
         "recipients": recipients,
         "ready": smtp_ready and bool(recipients),
+        "last_attempted_at": LAST_REVIEW_NOTIFICATION_RESULT.get("attempted_at"),
+        "last_sent_count": LAST_REVIEW_NOTIFICATION_RESULT.get("sent_count", 0),
+        "last_errors": LAST_REVIEW_NOTIFICATION_RESULT.get("errors", []),
     }
 
 def request_track_payload(request_id: str, phone: str) -> str:
@@ -5469,6 +5527,7 @@ def serve_ui():
     return read_ui_html()
 
 @app.get("/", response_class=HTMLResponse)
+@app.get("/internal/review", response_class=HTMLResponse)
 @app.get("/reset-password", response_class=HTMLResponse)
 @app.get("/auth/callback", response_class=HTMLResponse)
 def serve_app_shell():
@@ -6802,7 +6861,7 @@ def admin_submit_shop_for_review(shop_id: str, authorization: Optional[str] = He
                 f"Verification path: {shop.get('verification_method', '') or 'Not provided'}",
                 f"Verification note: {shop.get('verification_evidence', '') or 'Not provided'}",
                 "",
-                f"Review in app: {app_route_url('/ui')}",
+                f"Review in app: {app_route_url('/internal/review')}",
             ],
         )
     except Exception as notify_err:
@@ -6867,18 +6926,21 @@ def admin_test_review_notification(authorization: Optional[str] = Header(None)):
     if not status.get("recipient_count"):
         raise HTTPException(400, "No review notification recipients are configured.")
     now_iso = datetime.now(timezone.utc).isoformat()
-    sent = send_review_notification(
+    report = send_review_notification_report(
         "Atlantic Ordinate review notification test",
         [
             "This is a test review notification from Atlantic Ordinate.",
             "",
             f"Triggered by: {clean_email(getattr(user, 'email', '') or '') or 'Unknown admin'}",
             f"Sent at: {now_iso}",
-            f"App: {app_route_url('/ui')}",
+            f"App: {app_route_url('/internal/review')}",
         ],
     )
+    sent = int(report.get("sent_count") or 0)
     if sent <= 0:
-        raise HTTPException(400, "The test notification did not send. Check SMTP settings and recipient emails.")
+        errors = report.get("errors") or []
+        detail = str((errors[0] or {}).get("error") or "").strip() if errors else ""
+        raise HTTPException(400, detail or "The test notification did not send. Check SMTP settings and recipient emails.")
     return {
         "ok": True,
         "sent_count": sent,

@@ -5696,7 +5696,6 @@ select.btn{
       <button class="anav-btn on" id="adminAccountNavBtn" data-sub="account"><span class="ai" id="adminAccountNavIcon">ID</span><span id="adminAccountNavLabel">Login / Register</span></button>
       <div class="anav-lbl">Manage</div>
       <button class="anav-btn" data-sub="shops"><span class="ai">SH</span>Businesses</button>
-      <button class="anav-btn" id="adminReviewNavBtn" data-sub="review" style="display:none"><span class="ai">RV</span>Review Center<span id="adminReviewNavCount" class="anav-count" style="display:none">0</span></button>
       <div class="anav-lbl">Insights</div>
       <button class="anav-btn" data-sub="analytics"><span class="ai">AN</span>Analytics</button>
     </aside>
@@ -5735,6 +5734,9 @@ select.btn{
                   <div class="account-inline-note-copy">Verify your email to create businesses, leave reviews, and keep recovery links working cleanly.</div>
                 </div>
                 <button id="adminResendVerifyBtn" class="btn btn-o btn-sm" type="button">Resend email</button>
+              </div>
+              <div id="adminReviewerAccess" class="btn-row" style="display:none">
+                <button id="openInternalReviewBtn" class="btn btn-o btn-sm" type="button">Open Internal Review</button>
               </div>
             </div>
             <div id="adminAccountManage" class="account-manage" style="display:none">
@@ -7125,6 +7127,12 @@ function buildShopPublicPath(shopRef=''){
 }
 function buildProductPublicPath(shopRef='', productRef=''){
   return buildOfferingPublicPath(shopRef, productRef);
+}
+function buildInternalReviewPath(){
+  return '/internal/review';
+}
+function isInternalReviewPath(pathname=location.pathname||''){
+  return /^\/internal\/review\/?$/i.test(String(pathname||'').trim());
 }
 function normalizeBusinessListingStatus(value=''){
   const status=String(value||'').trim().toLowerCase();
@@ -11348,6 +11356,7 @@ function switchAuthTab(tab){
 $('authBg').querySelectorAll('.auth-tab').forEach(b=>b.addEventListener('click',()=>switchAuthTab(b.dataset.atab)));
 $('authClose').addEventListener('click',closeAuthModal);
 $('authBg').addEventListener('click',e=>{if(e.target===$('authBg'))closeAuthModal();});
+$('openInternalReviewBtn')?.addEventListener('click',openInternalReviewWorkspace);
 
 function saveUser(data){
   App.user={email:data.email,display_name:data.display_name||'',avatar_url:data.avatar_url||'',
@@ -11355,6 +11364,7 @@ function saveUser(data){
   App.sessionExpiredNoticeShown=false;
   localStorage.removeItem('lm_user');
   renderUserUI();
+  applyInternalReviewRouteState();
 }
 function clearUser(){
   App.user=null;
@@ -11363,6 +11373,7 @@ function clearUser(){
   App.chatContextToken+=1;
   localStorage.removeItem('lm_user');
   renderUserUI();
+  applyInternalReviewRouteState();
   refreshVisibleProductCards();
   setRequestBanner(null);
 }
@@ -11424,10 +11435,8 @@ function syncReviewNavBadge(){
   btn.setAttribute('aria-label',label);
 }
 function syncReviewerUi(user=App.user){
-  const reviewBtn=$('adminReviewNavBtn');
-  if(reviewBtn){
-    reviewBtn.style.display=isReviewerAccount(user)?'':'none';
-  }
+  const reviewerAccess=$('adminReviewerAccess');
+  if(reviewerAccess) reviewerAccess.style.display=isReviewerAccount(user)?'flex':'none';
   if(!isReviewerAccount(user) && document.querySelector('.asub.on')?.id==='sub-review'){
     switchAdminSub(user?'shops':'account',{refreshShops:false});
   }
@@ -11544,6 +11553,10 @@ function renderAdminAccountState(user=App.user){
   if(note) note.style.display=verified?'none':'';
   if(warnTitle) warnTitle.textContent=verified?'Email verified':'Email verification pending';
   if(warnText) warnText.textContent=verified?'Your account email is verified.':'Verify your email to keep reviews, business tools, and recovery links working cleanly.';
+}
+function openInternalReviewWorkspace(){
+  if(!isReviewerAccount()) return;
+  window.location.href=buildInternalReviewPath();
 }
 function renderUserUI(){
   const u=App.user;
@@ -16395,6 +16408,23 @@ async function handleHashAuth() {
   }
 }
 
+function applyInternalReviewRouteState(user=App.user){
+  if(!isInternalReviewPath()) return false;
+  if(isReviewerAccount(user)){
+    showPage('admin');
+    switchAdminSub('review',{refreshShops:false});
+    return true;
+  }
+  if(user){
+    try{history.replaceState({},'',appUiRootPath());}catch{}
+    showPage('home');
+    return true;
+  }
+  showPage('admin');
+  switchAdminSub('account',{refreshShops:false});
+  return true;
+}
+
 async function migrateLegacyUserSession(){
   let legacy=null;
   try{legacy=JSON.parse(localStorage.getItem('lm_user')||'null');}catch{legacy=null;}
@@ -16433,6 +16463,7 @@ async function init(){
   await migrateLegacyUserSession();
   try{const d=await api('/auth/me',{auth:true});saveUser(d);}
   catch{clearUser();}
+  if(applyInternalReviewRouteState()) return;
   await refreshViewerFavourites();
   await loadAllShops();
   if(App.user)await loadMyShops();
@@ -16475,7 +16506,10 @@ $('shopMobileFiltersBtn')?.addEventListener('click',()=>toggleShopMobileSheet('f
 $('shopMobileSheetClose')?.addEventListener('click',()=>setShopMobileSheet('',false));
 $('shopMobileScrim')?.addEventListener('click',()=>setShopMobileSheet('',false));
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshRequestNotification(); });
-window.addEventListener('popstate',()=>{handlePathDeepLink('popstate').catch(()=>{});});
+window.addEventListener('popstate',()=>{
+  if(applyInternalReviewRouteState()) return;
+  handlePathDeepLink('popstate').catch(()=>{});
+});
 init().catch(err=>surfaceBootstrapError(err));
 </script>
 </body>
