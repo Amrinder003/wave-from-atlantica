@@ -63,7 +63,7 @@ AVATAR_IMAGE_PREFIX = "avatars"
 RATE_LIMIT_STATE: Dict[str, List[float]] = {}
 CURRENT_REQUEST: ContextVar[Optional[Request]] = ContextVar("current_request", default=None)
 PUBLIC_SHOP_FIELDS = (
-    "shop_id", "shop_slug", "name", "profile_image_url", "address", "formatted_address", "overview", "phone", "hours",
+    "shop_id", "shop_slug", "name", "profile_image_url", "address", "formatted_address", "overview", "phone", "phone_public", "hours",
     "hours_structured", "category", "business_type", "location_mode", "service_area", "whatsapp", "country_code", "country_name", "timezone_name",
     "region", "city", "postal_code", "street_line1", "street_line2", "currency_code", "latitude",
     "longitude", "supports_pickup", "supports_delivery", "supports_walk_in", "delivery_radius_km",
@@ -672,6 +672,7 @@ class ShopInfo(BaseModel):
     profile_image_url: str = ""
     overview: str = ""
     phone: str = ""
+    phone_public: bool = False
     hours: str = ""
     hours_structured: List[Dict[str, Any]] = []
     category: str = ""
@@ -804,6 +805,13 @@ def normalize_listing_status(value: Any, *, default: str = LISTING_STATUS_DRAFT)
 def normalize_verification_method(value: Any) -> str:
     method = str(value or "").strip().lower()
     return method if method in ALLOWED_VERIFICATION_METHODS else ""
+
+def normalize_bool_flag(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value in (None, ""):
+        return default
+    return str(value).strip().lower() in {"1", "true", "t", "yes", "y", "on"}
 
 def normalize_owner_contact_name(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()[:120]
@@ -1093,7 +1101,7 @@ def duplicate_business_matches(
             reasons.append("Same storefront address")
         if shared_contacts:
             score += 78
-            reasons.append("Same public contact number")
+            reasons.append("Same business contact number")
         if exact_name_area:
             score += 56
             reasons.append("Same business name in the same area")
@@ -1449,6 +1457,30 @@ def notifications_enabled() -> bool:
 def clean_email(value: str) -> str:
     return re.sub(r"\s+", "", str(value or "").strip()).lower()
 
+def load_auth_email_map(user_ids: List[str]) -> Dict[str, str]:
+    admin_api = getattr(getattr(supabase, "auth", None), "admin", None)
+    if not admin_api or not hasattr(admin_api, "get_user_by_id"):
+        return {}
+    out: Dict[str, str] = {}
+    for user_id in {str(uid or "").strip() for uid in (user_ids or []) if str(uid or "").strip()}:
+        try:
+            res = admin_api.get_user_by_id(user_id)
+            user_obj = getattr(res, "user", None)
+            if user_obj is None and isinstance(res, dict):
+                user_obj = res.get("user") or res
+            email = ""
+            if isinstance(user_obj, dict):
+                email = clean_email(user_obj.get("email", ""))
+            elif user_obj is not None:
+                email = clean_email(getattr(user_obj, "email", ""))
+            elif hasattr(res, "email"):
+                email = clean_email(getattr(res, "email", ""))
+            if email:
+                out[user_id] = email
+        except Exception as e:
+            print(f"[Auth Lookup Warning] {user_id}: {e}")
+    return out
+
 def send_email_message(to_email: str, subject: str, text_body: str) -> bool:
     recipient = clean_email(to_email)
     if not recipient or not notifications_enabled():
@@ -1686,7 +1718,7 @@ def unique_product_slug(shop_id: str, name: str, ignore_product_id: str = "") ->
         candidate = f"{base[:max(1, 50-len(suffix))]}{suffix}"
     return f"{base[:40]}-{uuid.uuid4().hex[:6]}"
 
-SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area", "profile_image_url", *SHOP_REVIEW_WRITE_COLUMNS, *SHOP_TRUST_WRITE_COLUMNS]
+SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area", "profile_image_url", "phone_public", *SHOP_REVIEW_WRITE_COLUMNS, *SHOP_TRUST_WRITE_COLUMNS]
 PRODUCT_OPTIONAL_WRITE_COLUMNS = [
     "price_amount", "stock_quantity", "product_slug", "variant_data", "variant_matrix",
     "attribute_data", "currency_code", "offering_type", "price_mode", "availability_mode",
@@ -2145,8 +2177,9 @@ def rebuild_kb(shop_id: str):
             "images": imgs
         })
     
-    obj = {"shop": {k: shop_row.get(k, "") for k in ("name","profile_image_url","address","overview","phone","hours","hours_structured","category","business_type","location_mode","service_area","country_code","country_name","timezone_name","region","city","postal_code","street_line1","street_line2","currency_code")},
+    obj = {"shop": {k: shop_row.get(k, "") for k in ("name","profile_image_url","address","overview","hours","hours_structured","category","business_type","location_mode","service_area","country_code","country_name","timezone_name","region","city","postal_code","street_line1","street_line2","currency_code")},
            "products": p_serialized}
+    obj["shop"]["phone"] = public_shop_phone_value(shop_row)
            
     d = os.path.join(SHOPS_DIR, shop_id)
     os.makedirs(d, exist_ok=True)
@@ -2273,8 +2306,8 @@ def shop_review_requirements(row: Dict[str, Any], stats: Optional[Dict[str, Any]
     quality_flags = shop_completeness_flags(shop, stats or {})
     if quality_flags:
         issues.extend([f"Complete: {flag}" for flag in quality_flags])
-    if not shop.get("phone", "").strip() and not shop.get("whatsapp", "").strip():
-        issues.append("Add a public phone or WhatsApp number.")
+    if not shop.get("phone", "").strip():
+        issues.append("Add a business phone number for private review use.")
     if not shop.get("owner_contact_name", "").strip():
         issues.append("Add the owner or primary contact name.")
     if not shop.get("verification_method", "").strip():
@@ -2425,6 +2458,9 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
         formatted_address = formatted_address or "Online"
     out["formatted_address"] = formatted_address
     out["address"] = out["formatted_address"] or (out.get("address") or "").strip()
+    out["phone"] = re.sub(r"\s+", " ", str(out.get("phone") or "")).strip()[:40]
+    out["phone_public"] = normalize_bool_flag(out.get("phone_public"), default=False)
+    out["whatsapp"] = re.sub(r"\s+", " ", str(out.get("whatsapp") or "")).strip()[:40]
     out["supports_pickup"] = bool(out.get("supports_pickup", True))
     out["supports_delivery"] = bool(out.get("supports_delivery", False))
     out["supports_walk_in"] = bool(out.get("supports_walk_in", True))
@@ -2462,6 +2498,10 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out["pickup_notes"] = (out.get("pickup_notes") or "").strip()
     return out
 
+def public_shop_phone_value(row: Dict[str, Any]) -> str:
+    shop = normalize_shop_record(row or {})
+    return shop.get("phone", "") if shop.get("phone_public") else ""
+
 NON_MAPPABLE_ADDRESS_VALUES = {
     "online",
     "online only",
@@ -2493,6 +2533,7 @@ def shop_has_mappable_address(row: Dict[str, Any]) -> bool:
 
 def map_safe_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     shop = normalize_shop_record(row or {})
+    shop["phone"] = public_shop_phone_value(shop)
     if not shop_has_mappable_address(shop):
         shop["latitude"] = None
         shop["longitude"] = None
@@ -3188,6 +3229,8 @@ def validate_shop_payload(shop: ShopInfo) -> Dict[str, Any]:
     data = normalize_shop_record(raw)
     if not data.get("name", "").strip():
         raise HTTPException(400, "Business name is required")
+    if not data.get("phone", "").strip():
+        raise HTTPException(400, "Enter a business phone number for private review use")
     data["business_type"] = normalize_business_type(data.get("business_type", ""), data.get("category", ""))
     data["location_mode"] = normalize_location_mode(data.get("location_mode", ""), data.get("business_type", ""), data.get("category", ""))
     if BUSINESS_COUNTRY_LOCK_ENABLED:
@@ -3499,7 +3542,7 @@ def answer_shop_info_query(shop: dict, q: str) -> Optional[Dict[str, Any]]:
             }
     if is_contact_query(q):
         parts = []
-        phone = (shop.get("phone") or "").strip()
+        phone = public_shop_phone_value(shop).strip()
         whatsapp = (shop.get("whatsapp") or "").strip()
         if phone:
             parts.append(f"Phone: **{phone}**")
@@ -3845,7 +3888,8 @@ def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Op
     ]
     if shop.get("address"): lines.append(f"Address: {shop.get('address','')}")
     if shop.get("service_area"): lines.append(f"Service area: {shop.get('service_area','')}")
-    if shop.get("phone"): lines.append(f"Phone: {shop['phone']}")
+    public_phone = public_shop_phone_value(shop)
+    if public_phone: lines.append(f"Phone: {public_phone}")
     if shop.get("hours"): lines.append(f"Hours: {shop['hours']}")
     if shop.get("category"): lines.append(f"Category: {shop['category']}")
     if shop.get("location_mode"): lines.append(f"Location mode: {shop['location_mode']}")
@@ -3874,7 +3918,11 @@ def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Op
     if rag_chunks:
         lines.append("\nKnowledge base notes:")
         for chunk in rag_chunks[:4]:
-            lines.append(chunk.strip())
+            chunk_text = chunk.strip()
+            if not public_phone:
+                chunk_text = re.sub(r"(?im)^phone:\s.*(?:\n|$)", "", chunk_text).strip()
+            if chunk_text:
+                lines.append(chunk_text)
     return "\n".join(lines)
 
 CHAT_GENERIC_BOLD_TERMS = {
@@ -5078,6 +5126,7 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         "longitude": shop.get("longitude"),
         "overview": shop["overview"],
         "phone": shop["phone"],
+        "phone_public": shop.get("phone_public", False),
         "hours": shop["hours"],
         "hours_structured": shop["hours_structured"],
         "category": shop["category"],
@@ -5161,7 +5210,7 @@ def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
     writer = csv.writer(buffer)
     writer.writerow([
         "shop_id", "name", "business_type", "location_mode", "service_area", "category", "country_code", "country_name", "region", "city", "postal_code",
-        "formatted_address", "profile_image_url", "timezone_name", "currency_code", "hours", "phone", "whatsapp",
+        "formatted_address", "profile_image_url", "timezone_name", "currency_code", "hours", "phone", "phone_public", "whatsapp",
         "supports_pickup", "supports_delivery", "supports_walk_in", "delivery_radius_km", "delivery_fee", "pickup_notes", "overview"
     ])
     for row in rows:
@@ -5169,7 +5218,7 @@ def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
             row.get("shop_id", ""), row.get("name", ""), row.get("business_type", ""), row.get("location_mode", ""), row.get("service_area", ""), row.get("category", ""), row.get("country_code", ""),
             row.get("country_name", ""), row.get("region", ""), row.get("city", ""), row.get("postal_code", ""),
             row.get("formatted_address", "") or row.get("address", ""), row.get("profile_image_url", ""), row.get("timezone_name", ""),
-            row.get("currency_code", ""), row.get("hours", ""), row.get("phone", ""), row.get("whatsapp", ""),
+            row.get("currency_code", ""), row.get("hours", ""), row.get("phone", ""), row.get("phone_public", False), row.get("whatsapp", ""),
             row.get("supports_pickup", True), row.get("supports_delivery", False), row.get("supports_walk_in", True),
             row.get("delivery_radius_km", ""), row.get("delivery_fee", ""), row.get("pickup_notes", ""), row.get("overview", ""),
         ])
@@ -5326,6 +5375,7 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
         "longitude": shop.get("longitude"),
         "overview": shop["overview"],
         "phone": shop["phone"],
+        "phone_public": shop.get("phone_public", False),
         "hours": shop["hours"],
         "hours_structured": shop["hours_structured"],
         "category": shop["category"],
@@ -5402,7 +5452,9 @@ def admin_submit_shop_for_review(shop_id: str, authorization: Optional[str] = He
                 f"Business: {shop.get('name', 'Business')}",
                 f"Business ID: {shop_id}",
                 f"Owner contact: {shop.get('owner_contact_name', '') or 'Not provided'}",
-                f"Phone: {shop.get('phone', '') or shop.get('whatsapp', '') or 'Not provided'}",
+                f"Owner account email: {clean_email(getattr(user, 'email', '') or '') or 'Not provided'}",
+                f"Internal review phone: {shop.get('phone', '') or 'Not provided'}",
+                f"Public WhatsApp: {shop.get('whatsapp', '') or 'Not provided'}",
                 f"Location: {shop.get('formatted_address', '') or shop.get('service_area', '') or shop.get('address', '') or 'Not provided'}",
                 f"Verification path: {shop.get('verification_method', '') or 'Not provided'}",
                 f"Verification note: {shop.get('verification_evidence', '') or 'Not provided'}",
@@ -5434,8 +5486,10 @@ def admin_review_businesses(status: str = Query(LISTING_STATUS_PENDING_REVIEW), 
     require_admin_role(prof)
     status_key = normalize_listing_status(status, default=LISTING_STATUS_PENDING_REVIEW)
     rows = supabase.table("shops").select("*").eq("listing_status", status_key).order("verification_submitted_at", desc=True).order("created_at", desc=True).execute().data or []
+    owner_email_map = load_auth_email_map([row.get("owner_user_id", "") for row in rows])
     for row in rows:
         row.update(normalize_shop_record(row))
+        row["owner_email"] = owner_email_map.get(str(row.get("owner_user_id", "")).strip(), "")
         stats = shop_stats(row["shop_id"])
         row["stats"] = stats
         row["quality_flags"] = [*shop_completeness_flags(row, stats), *(row.get("trust_flags", []) or [])]

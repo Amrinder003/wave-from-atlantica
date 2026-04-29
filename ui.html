@@ -5641,7 +5641,7 @@ select.btn{
               </div>
               <div id="ownerReviewGuideCard" class="review-note" style="margin-top:14px;display:block">
                 <strong>How review works</strong>
-                Business verification requests are reviewed from <strong>Admin &gt; Review Center</strong>. Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can approve them.
+                Business verification requests are reviewed from <strong>Admin &gt; Review Center</strong>. Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can approve them. No registry or licence is required to submit if you add a clear note and a review phone number.
               </div>
               <div class="owner-filter-bar">
                 <div class="fld"><label>Country</label><input id="ownerFilterCountry" value="Canada" placeholder="Canada" readonly title="Canada only for launch"/></div>
@@ -5934,8 +5934,16 @@ select.btn{
                   <div id="hoursGrid" class="hours-grid"></div>
                 </div>
                 <div class="fg2" style="margin-top:14px">
-                  <div class="fld"><label>WhatsApp (optional)</label><input id="shopWhatsapp" placeholder="+1 902-XXX-XXXX"/><div class="fld-hint">Used when customers ask how to contact the business. A phone or WhatsApp contact is needed before review approval.</div></div>
-                  <div class="fld"><label>Phone</label><input id="shopPhone" placeholder="+1 902-XXX-XXXX"/><div class="fld-hint">Customers may use this directly, and review approval expects at least one public contact number.</div></div>
+                  <div class="fld"><label>WhatsApp (optional)</label><input id="shopWhatsapp" placeholder="+1 902-XXX-XXXX"/><div class="fld-hint">Optional public contact channel for customers. Leave blank if the business does not use WhatsApp.</div></div>
+                  <div class="fld">
+                    <label>Business Phone for Review</label>
+                    <input id="shopPhone" placeholder="+1 902-XXX-XXXX"/>
+                    <div class="fld-hint">Required for Atlantic Ordinate review records. This number stays private unless you choose to show it publicly.</div>
+                    <label class="owner-check" style="margin-top:12px">
+                      <input id="shopPhonePublic" type="checkbox" style="margin-top:2px"/>
+                      <span><strong>Show this phone on the public business page</strong><br/><span class="fld-hint">Turn this on only if customers should be able to call this number directly.</span></span>
+                    </label>
+                  </div>
                   <div class="setup-callout">
                     <div class="setup-callout-title">Public preview</div>
                     <div id="shopFormattedPreview" class="setup-callout-copy">Customers open the business page, browse offerings, and can chat with the assistant immediately.</div>
@@ -5975,9 +5983,13 @@ select.btn{
                 </div>
                 <div class="fg2">
                   <div class="fld"><label>Owner / Contact Name</label><input id="shopOwnerContactName" placeholder="Alicia Murray"/><div class="fld-hint">Used for business verification and staff follow-up. This is not shown to customers.</div></div>
-                  <div class="fld"><label>Verification Path</label><select id="shopVerificationMethod"><option value="">Select...</option><option value="website">Business website</option><option value="registry">Registry reference</option><option value="license">Licence / permit</option><option value="manual">Manual review note</option></select><div class="fld-hint">Choose the clearest proof path for this business.</div></div>
+                  <div class="fld"><label>Verification Path</label><select id="shopVerificationMethod"><option value="">Select...</option><option value="website">Business website</option><option value="registry">Registry reference</option><option value="license">Licence / permit</option><option value="manual">Manual review note</option></select><div class="fld-hint">Choose the clearest proof path you have today. If there is no registry or licence yet, choose manual review note.</div></div>
                 </div>
                 <div class="fld" style="margin-top:14px"><label>Verification Note / Proof</label><textarea id="shopVerificationEvidence" placeholder="Example: atlanticordinate.ca/about or NS registry record 1234567 or municipal licence reference."></textarea><div class="fld-hint">Add the website, registry reference, licence note, or other proof staff can review quickly.</div></div>
+                <div class="setup-callout" style="margin-top:14px">
+                  <div class="setup-callout-title">No documents yet?</div>
+                  <div class="setup-callout-copy">You can still submit this business for review. Add any context that helps Atlantic Ordinate verify it, such as a website, social page, storefront details, or a short note. Reviewers may verify the business from the information you provide, including website, public business presence, account email, or phone.</div>
+                </div>
                 <div class="owner-flag-list" style="margin-top:14px">
                   <span id="shopListingStateBadge" class="listing-pill draft">Draft</span>
                 </div>
@@ -6240,7 +6252,7 @@ select.btn{
             <div class="card-body">
               <div id="reviewCenterGuide" class="review-note" style="display:block;margin:0">
                 <strong>Reviewer access</strong>
-                Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can see and act on this queue. If you submit a business and nobody can review it here, no reviewer account exists yet.
+                Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can see and act on this queue. Reviewers use the verification note, account email, and private review phone shown here. If you submit a business and nobody can review it here, no reviewer account exists yet.
               </div>
             </div>
           </div>
@@ -7012,6 +7024,10 @@ function normalizeBusinessRecord(row={}){
   out.shop_slug=out.shop_slug||out.business_slug||'';
   out.listing_status=normalizeBusinessListingStatus(out.listing_status||'');
   out.owner_contact_name=(out.owner_contact_name||'').trim();
+  out.owner_email=(out.owner_email||'').trim();
+  out.phone=(out.phone||'').trim();
+  out.whatsapp=(out.whatsapp||'').trim();
+  out.phone_public=out.phone_public===true || ['1','true','yes','on'].includes(String(out.phone_public||'').trim().toLowerCase());
   out.verification_method=(out.verification_method||'').trim();
   out.verification_evidence=(out.verification_evidence||'').trim();
   out.verification_rejection_reason=(out.verification_rejection_reason||'').trim();
@@ -13868,6 +13884,7 @@ function validateShopForm(){
   const name=$('shopName').value.trim();
   const addr=buildShopAddressPayload();
   const category=$('shopCat').value.trim();
+  const reviewPhone=$('shopPhone')?.value.trim()||'';
   const locationMode=addr.location_mode;
   if(!name) return 'Enter a business name customers will recognize.';
   if(!addr.country_code) return 'Select the country where the business operates.';
@@ -13886,6 +13903,7 @@ function validateShopForm(){
   if(openSlots.some(h=>!h.start||!h.end||h.start>=h.end)) return 'Each open day needs a valid start and end time.';
   if(!$('shopTimezone')?.value) return 'Select the business timezone.';
   if(!category) return 'Select the category that best matches this business.';
+  if(!reviewPhone) return 'Enter a business phone number for Atlantic Ordinate review use.';
   if(!($('shopSupportsPickup')?.checked || $('shopSupportsDelivery')?.checked || $('shopSupportsWalkIn')?.checked)) return 'Enable at least one customer access option.';
   if($('shopSupportsDelivery')?.checked){
     const radiusRaw=$('shopDeliveryRadius')?.value.trim()||'';
@@ -14004,6 +14022,7 @@ async function syncShopProfileImage(shopId){
 function resetShopForm(){
   suspendFormDirty=true;
   ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopLat','shopLng','shopDeliveryRadius','shopDeliveryFee','shopPickupNotes','shopServiceArea','shopProfileImageFile','shopOwnerContactName','shopVerificationEvidence'].forEach(id=>$(id).value='');
+  if($('shopPhonePublic')) $('shopPhonePublic').checked=false;
   if($('shopIdRef')) $('shopIdRef').textContent='Generated after creation';
   if($('shopBusinessType')) $('shopBusinessType').value='retail';
   if($('shopVerificationMethod')) $('shopVerificationMethod').value='';
@@ -14061,6 +14080,7 @@ function populateShopForm(shop=null){
   $('shopLng').value=shop.longitude??'';
   $('shopOverview').value=shop.overview||'';
   $('shopPhone').value=shop.phone||'';
+  if($('shopPhonePublic')) $('shopPhonePublic').checked=!!shop.phone_public;
   $('shopWhatsapp').value=shop.whatsapp||'';
   if($('shopOwnerContactName')) $('shopOwnerContactName').value=shop.owner_contact_name||'';
   if($('shopVerificationMethod')) $('shopVerificationMethod').value=shop.verification_method||'';
@@ -14236,7 +14256,9 @@ function refreshWorkspaceHeader(shop=null,stats={}){
           listingMeta.live?'Public Listing':'Private Listing',
           shop.category||'General',
           `${offeringCount} ${nouns.plural}`,
-          shop.whatsapp||shop.phone ? 'Contact Ready' : 'Add Contact Details'
+          shop.whatsapp || (shop.phone_public && shop.phone)
+            ? 'Public Contact Ready'
+            : (shop.phone ? 'Review Phone Added' : 'Add Review Phone')
         ]
       : ['Business Page','Products','Chat Ready'];
     $('ownerDetailTags').innerHTML = tags.map(t=>`<div class="owner-detail-tag">${esc(t)}</div>`).join('');
@@ -14280,12 +14302,14 @@ function renderBusinessListingUi(shop={}){
 }
 function currentShopListingSnapshot(){
   const ownerName=$('shopOwnerContactName')?.value.trim() || App.adminShopData?.shop?.owner_contact_name || '';
+  const ownerEmail=String(App.adminShopData?.shop?.owner_email||'').trim();
   const verificationMethod=$('shopVerificationMethod')?.value || App.adminShopData?.shop?.verification_method || '';
   const verificationEvidence=$('shopVerificationEvidence')?.value.trim() || App.adminShopData?.shop?.verification_evidence || '';
   const phone=$('shopPhone')?.value.trim() || App.adminShopData?.shop?.phone || '';
+  const phonePublic=!!($('shopPhonePublic')?.checked ?? App.adminShopData?.shop?.phone_public);
   const whatsapp=$('shopWhatsapp')?.value.trim() || App.adminShopData?.shop?.whatsapp || '';
   const requirements=[];
-  if(!phone && !whatsapp) requirements.push('Add a public phone or WhatsApp number.');
+  if(!phone) requirements.push('Add a business phone number for private review use.');
   if(!ownerName) requirements.push('Add the owner or primary contact name.');
   if(!verificationMethod) requirements.push('Choose how the business should be verified.');
   if(verificationEvidence.length<8) requirements.push('Add a short verification note with a website, registry, licence, or other proof reference.');
@@ -14293,9 +14317,11 @@ function currentShopListingSnapshot(){
     ...(App.adminShopData?.shop||{}),
     shop_id:$('shopId')?.value.trim() || App.adminShopId || '',
     owner_contact_name:ownerName,
+    owner_email:ownerEmail,
     verification_method:verificationMethod,
     verification_evidence:verificationEvidence,
     phone,
+    phone_public:phonePublic,
     whatsapp,
     review_requirements:requirements,
     trust_flags:App.adminShopData?.shop?.trust_flags||[],
@@ -14325,7 +14351,7 @@ function renderAdminReviewQueue(){
     const item=document.createElement('div');
     item.className='review-queue-item';
     const flags=(shop.quality_flags||[]).slice(0,4);
-    item.innerHTML=`<div class="review-queue-head"><div><div class="review-queue-title">${esc(shop.name||'Untitled Business')}</div><div class="review-queue-meta">${esc(shop.owner_contact_name||'No contact')} - ${esc(shop.phone||shop.whatsapp||'No public phone')} - ${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}</div></div>${businessListingPillHtml(shop,meta.label)}</div><div class="review-queue-copy">${esc(shop.verification_evidence||'No verification note supplied.')}</div>${flags.length?`<div class="review-queue-flags">${flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join('')}</div>`:''}<div class="review-queue-actions"><button class="btn btn-A btn-sm" type="button" data-review-approve="${esc(shop.shop_id||'')}">Approve</button><button class="btn btn-o btn-sm" type="button" data-review-reject="${esc(shop.shop_id||'')}">Needs Info</button></div>`;
+    item.innerHTML=`<div class="review-queue-head"><div><div class="review-queue-title">${esc(shop.name||'Untitled Business')}</div><div class="review-queue-meta">${esc(shop.owner_contact_name||'No contact')} - Review phone: ${esc(shop.phone||'Not provided')}</div><div class="review-queue-meta">${esc(shop.owner_email||'No account email')} - ${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}</div></div>${businessListingPillHtml(shop,meta.label)}</div><div class="review-queue-copy">${esc(shop.verification_evidence||'No verification note supplied.')}</div>${flags.length?`<div class="review-queue-flags">${flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join('')}</div>`:''}<div class="review-queue-actions"><button class="btn btn-A btn-sm" type="button" data-review-approve="${esc(shop.shop_id||'')}">Approve</button><button class="btn btn-o btn-sm" type="button" data-review-reject="${esc(shop.shop_id||'')}">Needs Info</button></div>`;
     item.querySelector('[data-review-approve]')?.addEventListener('click',()=>approveReviewBusiness(shop.shop_id||''));
     item.querySelector('[data-review-reject]')?.addEventListener('click',()=>rejectReviewBusiness(shop.shop_id||''));
     list.appendChild(item);
@@ -14689,7 +14715,7 @@ async function createShop(){
   if(formErr){setS('shopStatus',formErr,'err');return toast('Business details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
   const hoursData=updateHoursSummary();
-  const payload={shop:{name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()}}; 
+    const payload={shop:{name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),phone_public:Boolean($('shopPhonePublic')?.checked),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()}}; 
   try{
     setBtnBusy('createShopBtn',true,'Creating...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Creating...');
@@ -14729,7 +14755,7 @@ async function saveShop(){
   if(formErr){setS('shopStatus',formErr,'err');return toast('Business details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
   const hoursData=updateHoursSummary();
-  const payload={name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()};
+  const payload={name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),phone_public:Boolean($('shopPhonePublic')?.checked),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()};
   try{
     setBtnBusy('saveShopBtn',true,'Saving...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Saving...');
@@ -15084,6 +15110,7 @@ if($('csvErrorsDownloadBtn')) $('csvErrorsDownloadBtn').addEventListener('click'
 ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopOwnerContactName','shopVerificationEvidence'].forEach(id=>{
   $(id)?.addEventListener('input',()=>{markShopFormDirty();renderBusinessListingUi(currentShopListingSnapshot());});
 });
+$('shopPhonePublic')?.addEventListener('change',()=>{markShopFormDirty();renderBusinessListingUi(currentShopListingSnapshot());});
 $('shopName')?.addEventListener('input',refreshShopProfileImagePreview);
 $('shopSupportsPickup')?.addEventListener('change',markShopFormDirty);
 $('shopSupportsDelivery')?.addEventListener('change',()=>{syncDeliverySettingsVisibility();markShopFormDirty();});
