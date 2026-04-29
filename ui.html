@@ -5219,7 +5219,7 @@ select.btn{
           <div class="hero-actions">
             <button class="btn btn-A" onclick="focusHomeSection('shops')">Explore Businesses</button>
             <button class="btn btn-map" onclick="openMapSheet('home')">Open Map</button>
-            <button class="btn btn-o" onclick="showPage('chat')">Open Assistant</button>
+            <button class="btn btn-o" onclick="openAtlantica()">Ask Atlantica</button>
           </div>
           <div class="hero-note">
             <span>Direct business answers</span>
@@ -5446,9 +5446,9 @@ select.btn{
   <div class="chat-layout">
     <div class="chat-col">
       <div class="chat-topbar">
-        <div class="chat-status" style="cursor:pointer" onclick="if(App.shopId)openShopPage(App.shopId)">
+        <div id="chatStatus" class="chat-status" style="cursor:pointer">
           <div class="chat-status-top">
-            <span class="chat-live-pill">Live Assistant</span>
+            <span id="chatModePill" class="chat-live-pill">Live Assistant</span>
             <span id="chatMeta" class="badge chat-meta ready">Ready</span>
           </div>
           <div id="chatSN" class="chat-sn">No business selected</div>
@@ -5479,21 +5479,21 @@ select.btn{
       <div class="chat-side-head">
         <div class="chat-side-grab"></div>
         <div class="chat-side-head-row">
-          <div class="chat-side-lbl" style="margin-bottom:0">Business Info</div>
+          <div id="chatSideHeading" class="chat-side-lbl" style="margin-bottom:0">Business Info</div>
           <button id="chatSideClose" class="chat-side-close">Back to Chat</button>
         </div>
       </div>
       <div class="chat-side-stack">
         <div class="chat-side-card">
-          <div class="chat-side-lbl">Assistant Context</div>
-          <div class="chat-side-title">Ask like you are already talking to the business.</div>
-          <div class="chat-side-copy">Ask direct questions about price, availability, hours, contact details, photos, or the best fit for what you need.</div>
+          <div id="chatContextLabel" class="chat-side-lbl">Assistant Context</div>
+          <div id="chatContextTitle" class="chat-side-title">Ask like you are already talking to the business.</div>
+          <div id="chatContextCopy" class="chat-side-copy">Ask direct questions about price, availability, hours, contact details, photos, or the best fit for what you need.</div>
           <div id="chatShopFacts" class="chat-side-facts">
             <div class="chat-side-fact"><div class="chat-side-fact-k">Status</div><div class="chat-side-fact-v">Open a business to load live context</div></div>
           </div>
         </div>
         <div class="chat-side-card">
-          <div class="chat-side-lbl">Prompt Ideas</div>
+          <div id="chatPromptHeading" class="chat-side-lbl">Prompt Ideas</div>
           <div id="chatPromptList" class="chat-prompt-list">
             <button class="chat-prompt" onclick="sendPreset('Show everything')">Show everything</button>
             <button class="chat-prompt" onclick="sendPreset('What is available right now?')">What's available?</button>
@@ -5503,7 +5503,7 @@ select.btn{
           </div>
         </div>
         <div>
-          <div class="chat-side-lbl">Suggested Products</div>
+          <div id="chatProductsHeading" class="chat-side-lbl">Suggested Products</div>
           <div id="chatSideGrid" class="chat-side-grid">
             <div class="empty" style="grid-column:1/-1"><div class="ei">Info</div><div class="et">Products appear after you ask.</div></div>
           </div>
@@ -6779,6 +6779,8 @@ const App = {
   pdVariantSelection: {},
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
   mapSupport: null,
+  chatMode: 'business',
+  atlanticaSummary: null,
   locationUi: {
     permission: 'unknown',
     statusHandle: null,
@@ -13106,6 +13108,7 @@ function renderHomeShops(){
   const totalShops=String(App.allShops.length||0);
   const totalProducts=String(App.allShops.reduce((n,s)=>n+businessOfferingCount(s),0));
   const totalCategories=String(new Set(App.allShops.map(s=>(s.category||'').trim()).filter(Boolean)).size||0);
+  updateAtlanticaSummary(buildAtlanticaSummaryFromShops(App.allShops));
   if($('heroShopCount')) $('heroShopCount').textContent=totalShops;
   if($('heroProductCount')) $('heroProductCount').textContent=totalProducts;
   if($('heroCategoryCount')) $('heroCategoryCount').textContent=totalCategories;
@@ -13290,11 +13293,13 @@ function renderShopLoadError(message='Business is temporarily unavailable.'){
   $('shopProdCount').textContent='Business unavailable';
   $('shopProdGrid').innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Warning</div><div class="et">${esc(detail)}</div></div>`;
   $('shopPagination').innerHTML='';
-  $('chatSN').textContent='Business unavailable';
-  $('chatSM').textContent=detail;
-  if($('cqChips')) $('cqChips').innerHTML='';
-  if($('chatPromptList')) $('chatPromptList').innerHTML='';
-  renderChatFacts({}, {}, 0);
+  if(currentChatMode()!=='global'){
+    $('chatSN').textContent='Business unavailable';
+    $('chatSM').textContent=detail;
+    if($('cqChips')) $('cqChips').innerHTML='';
+    if($('chatPromptList')) $('chatPromptList').innerHTML='';
+    renderChatFacts({}, {}, 0);
+  }
 }
 async function openShopPage(shopId,page=1,sort='',stock='',opts={}){
   const preserveSearch=!!opts?.preserveSearch;
@@ -13390,11 +13395,13 @@ async function openShopPage(shopId,page=1,sort='',stock='',opts={}){
     $('shopProdCount').textContent=`${total} ${total===1?nouns.singular:nouns.plural}${attrActive}`;
     fillGrid($('shopProdGrid'),products,{mode:'browse',showShop:false});
     buildPagination($('shopPagination'),d.pagination,p=>openShopPage(activeShopRef,p,$('shopSort').value,App.shopStock));
-    $('chatSN').textContent=s.name;
-    $('chatSM').textContent=[locationLabel||'', `${d.pagination?.total ?? products.length ?? 0} ${nouns.plural}`].filter(Boolean).join(' - ') || `Ask about ${nouns.plural}, pricing, hours, or availability`;
-    renderCQchips(visibleQuestions);
-    renderChatPromptList(visibleQuestions);
-    renderChatFacts(s,st,d.pagination?.total ?? products.length ?? 0);
+    if(currentChatMode()!=='global'){
+      $('chatSN').textContent=s.name;
+      $('chatSM').textContent=[locationLabel||'', `${d.pagination?.total ?? products.length ?? 0} ${nouns.plural}`].filter(Boolean).join(' - ') || `Ask about ${nouns.plural}, pricing, hours, or availability`;
+      renderCQchips(visibleQuestions);
+      renderChatPromptList(visibleQuestions);
+      renderChatFacts(s,st,d.pagination?.total ?? products.length ?? 0);
+    }
   }catch(e){
     if(App.shopCatalogRequestKey!==requestKey) return;
     renderShopLoadError(e.message);
@@ -13731,6 +13738,291 @@ $('clearChatBtn').addEventListener('click',()=>{
 /* ═════════════════════════════════════════════
    ADMIN
 ═════════════════════════════════════════════ */
+const BUSINESS_CHAT_DEFAULTS=()=>['What do you offer?','Show everything','What\'s available?','What do you recommend?'];
+const ATLANTICA_CHAT_DEFAULTS=()=>['What can I buy on this app?','Show me shoes','Find the cheapest shoes','Which businesses are open now?'];
+function currentChatMode(){return App.chatMode==='global'?'global':'business';}
+function currentChatDefaults(){return currentChatMode()==='global'?ATLANTICA_CHAT_DEFAULTS():BUSINESS_CHAT_DEFAULTS();}
+function chatInfoLabel(){return currentChatMode()==='global'?'Marketplace Info':'Business Info';}
+function chatAssistantLabel(){return currentChatMode()==='global'?'Atlantica':'Business Assistant';}
+function chatEmptyStateHtml(){
+  return currentChatMode()==='global'
+    ? `<div class="empty"><div class="ei">Atlantica</div><div class="et">Ask Atlantica about products, prices, businesses, or comparisons across the app.</div></div>`
+    : `<div class="empty"><div class="ei">Chat</div><div class="et">Open a business and click <strong>Chat with Business</strong> to start.</div></div>`;
+}
+function businessOfferingCount(s={}){
+  return Number(s?.stats?.offering_count ?? s?.stats?.offerings_count ?? s?.stats?.product_count ?? s?.offering_count ?? s?.offerings_count ?? s?.product_count ?? s?.products_count ?? 0)||0;
+}
+function buildAtlanticaSummaryFromShops(shops=[]){
+  const categories=[...new Set((shops||[]).map(s=>(s.category||'').trim()).filter(Boolean))];
+  return {
+    businessCount:(shops||[]).length||0,
+    offeringCount:(shops||[]).reduce((sum,shop)=>sum+businessOfferingCount(shop),0),
+    categoryCount:categories.length||0,
+    openNowCount:(shops||[]).filter(shop=>!!shop?.is_open_now).length||0,
+    categories,
+  };
+}
+function normalizeAtlanticaSummary(summary={}){
+  return {
+    businessCount:Number(summary.businessCount ?? summary.business_count ?? 0)||0,
+    offeringCount:Number(summary.offeringCount ?? summary.offering_count ?? 0)||0,
+    categoryCount:Number(summary.categoryCount ?? summary.category_count ?? 0)||0,
+    openNowCount:Number(summary.openNowCount ?? summary.open_now_count ?? 0)||0,
+    categories:Array.isArray(summary.categories)?summary.categories.filter(Boolean):[],
+  };
+}
+function updateAtlanticaSummary(summary={}){
+  App.atlanticaSummary=normalizeAtlanticaSummary(summary);
+  return App.atlanticaSummary;
+}
+async function ensureAtlanticaSummary(){
+  if(App.atlanticaSummary?.businessCount || App.atlanticaSummary?.offeringCount) return App.atlanticaSummary;
+  if(Array.isArray(App.allShops) && App.allShops.length) return updateAtlanticaSummary(buildAtlanticaSummaryFromShops(App.allShops));
+  try{
+    const d=normalizeCatalogPayload(await api('/public/businesses'));
+    assertPublicBrowseOk(d,'Businesses are temporarily unavailable.');
+    App.allShops=d.businesses||[];
+    return updateAtlanticaSummary(buildAtlanticaSummaryFromShops(App.allShops));
+  }catch{
+    return updateAtlanticaSummary({});
+  }
+}
+function applyChatModeUi(extra={}){
+  const global=currentChatMode()==='global';
+  const summary=normalizeAtlanticaSummary(extra.summary||App.atlanticaSummary||{});
+  if($('chatModePill')) $('chatModePill').textContent=global?'Atlantica':'Live Assistant';
+  if($('chatSideHeading')) $('chatSideHeading').textContent=chatInfoLabel();
+  if($('chatContextLabel')) $('chatContextLabel').textContent=global?'Marketplace Context':'Assistant Context';
+  if($('chatContextTitle')) $('chatContextTitle').textContent=global?'Ask across the full marketplace.':'Ask like you are already talking to the business.';
+  if($('chatContextCopy')) $('chatContextCopy').textContent=global
+    ? 'Ask about products, cheapest options, business hours, locations, or compare similar offerings across registered businesses.'
+    : 'Ask direct questions about price, availability, hours, contact details, photos, or the best fit for what you need.';
+  if($('chatProductsHeading')) $('chatProductsHeading').textContent=global?'Matching Offerings':'Suggested Products';
+  if($('chatIn')) $('chatIn').placeholder=global
+    ? 'Ask Atlantica about products, prices, or businesses... (Enter to send)'
+    : 'Ask about products, availability, or prices... (Enter to send)';
+  if($('chatStatus')) $('chatStatus').style.cursor=global?'default':((App.chatShopId||App.shopId)?'pointer':'default');
+  if($('chatInfoBtn')) $('chatInfoBtn').textContent=chatInfoLabel();
+  if(global){
+    if($('chatSN')) $('chatSN').textContent='Atlantica';
+    if($('chatSM')) $('chatSM').textContent=summary.businessCount||summary.offeringCount
+      ? `${summary.businessCount} businesses - ${summary.offeringCount} offerings`
+      : 'Marketplace-wide help across all registered businesses';
+  }
+}
+function setChatMode(mode='business',extra={}){
+  const next=mode==='global'?'global':'business';
+  if(App.chatMode!==next) App.chatContextToken+=1;
+  App.chatMode=next;
+  if(next==='global') App.chatShopId='';
+  if(next==='global' && extra.summary) updateAtlanticaSummary(extra.summary);
+  applyChatModeUi(extra);
+}
+function renderCQchips(qs){
+  const wrap=$('cqChips');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  (qs?.length?qs:currentChatDefaults()).forEach(q=>{const b=document.createElement('button');b.className='cqchip';b.textContent=q;b.addEventListener('click',()=>sendPreset(q));wrap.appendChild(b);});
+}
+function renderChatPromptList(qs){
+  const wrap=$('chatPromptList');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  (qs?.length?qs:currentChatDefaults()).slice(0,4).forEach(q=>{
+    const b=document.createElement('button');
+    b.className='chat-prompt';
+    b.textContent=q;
+    b.addEventListener('click',()=>sendPreset(q));
+    wrap.appendChild(b);
+  });
+}
+function renderAtlanticaFacts(summaryInput={}){
+  const wrap=$('chatShopFacts');
+  if(!wrap) return;
+  const summary=normalizeAtlanticaSummary(summaryInput||App.atlanticaSummary||{});
+  const categoryPreview=summary.categories.length?summary.categories.slice(0,3).join(', '):'Browse every category';
+  const facts=[
+    ['Businesses',String(summary.businessCount||0)],
+    ['Offerings',String(summary.offeringCount||0)],
+    ['Categories',String(summary.categoryCount||0)],
+    ['Open Now',String(summary.openNowCount||0)],
+    ['Ask For',categoryPreview],
+  ];
+  wrap.innerHTML=facts.map(([k,v])=>`<div class="chat-side-fact"><div class="chat-side-fact-k">${esc(k)}</div><div class="chat-side-fact-v">${esc(v)}</div></div>`).join('');
+}
+function buildAtlanticaWelcome(summaryInput={}){
+  const summary=normalizeAtlanticaSummary(summaryInput||App.atlanticaSummary||{});
+  const coverage=summary.businessCount||summary.offeringCount
+    ? `I can help across **${summary.businessCount}** businesses and **${summary.offeringCount}** offerings.`
+    : 'I can help across the full public marketplace.';
+  return `Welcome to **Atlantica**.
+
+${coverage}
+
+Ask about products, cheapest options, business hours, locations, or which business is the best fit.
+
+Good starters:
+ - **What can I buy on this app?**
+ - **Show me shoes**
+ - **Find the cheapest shoes**
+ - **Which businesses are open now?**`;
+}
+function resetChatForAtlantica(summary={}){
+  const nextSummary=updateAtlanticaSummary(summary||App.atlanticaSummary||{});
+  App.chatHistory=[];
+  setChatMeta('Ready','ready');
+  renderChatSide([]);
+  $('chatMsgs').innerHTML='';
+  renderAtlanticaFacts(nextSummary);
+  renderCQchips([]);
+  renderChatPromptList([]);
+  addMsg(buildAtlanticaWelcome(nextSummary),'assistant');
+}
+async function openAtlantica(preset=''){
+  const summary=await ensureAtlanticaSummary();
+  const shouldReset=currentChatMode()!=='global' || !App.chatHistory?.length || $('chatMsgs')?.querySelector('.empty');
+  setChatMode('global',{summary});
+  showPage('chat');
+  setChatMobileSide(false);
+  if(shouldReset) resetChatForAtlantica(summary);
+  if(preset){$('chatIn').value=preset;sendChatMsg();}
+}
+async function openChatFor(sid,sname,preset){
+  const targetRef=String(sid||'').trim();
+  if(!targetRef) return;
+  const sameShop=chatContextMatchesShop(targetRef);
+  const switchingFromGlobal=currentChatMode()==='global';
+  setChatMode('business');
+  App.shopId=targetRef;save();
+  showPage('chat');
+  setChatMobileSide(false);
+  const token=++App.chatContextToken;
+  const ctx=await syncChatShopContext(targetRef,sname);
+  if(token!==App.chatContextToken) return;
+  App.chatShopId=ctx.effectiveRef||targetRef;
+  App.shopId=App.chatShopId;save();
+  if(switchingFromGlobal || !sameShop || !App.chatHistory?.length || $('chatMsgs')?.querySelector('.empty')) resetChatForShop(App.chatShopId,ctx.shop.name||sname||App.chatShopId,ctx.shop);
+  if(preset){$('chatIn').value=preset;sendChatMsg();}
+}
+function addMsg(text,role='assistant',loading=false,products=[]){
+  const msgs=$('chatMsgs');
+  if(msgs.querySelector('.empty'))msgs.innerHTML='';
+  const row=document.createElement('div');row.className=`msg ${role}`;
+  const av=document.createElement('div');av.className='msg-av';
+  if(role==='user') av.textContent='You';
+  else if(currentChatMode()==='global') populateBusinessAvatarNode(av,{name:'Atlantica'},'Atlantica');
+  else populateBusinessAvatarNode(av,App.shopData?.shop||{},App.shopData?.shop?.name||App.chatShopId||App.shopId||'Business');
+  row.appendChild(av);
+  const col=document.createElement('div');col.className='msg-col';
+  const meta=document.createElement('div');meta.className='msg-meta';meta.textContent=role==='user'?'You':chatAssistantLabel();
+  col.appendChild(meta);
+  if(loading){
+    const bub=document.createElement('div');bub.className='bubble thinking';bub.innerHTML=`Thinking... <span class="dots"><span></span><span></span><span></span></span>`;
+    col.appendChild(bub);
+    row.appendChild(col);
+  }else{
+    const bub=document.createElement('div');bub.className='bubble';bub.style.maxWidth='100%';
+    bub.innerHTML=renderTxt(text);
+    bub.querySelectorAll('[data-lb]').forEach(img=>img.addEventListener('click',()=>openLbox(img.dataset.lb)));
+    col.appendChild(bub);
+    if(products.length&&role==='assistant'){
+      const ig=document.createElement('div');
+      ig.className='inline-pgrid';
+      products.forEach(p=>ig.appendChild(makeCard(p,{mode:'chat',showShop:currentChatMode()==='global'})));
+      col.appendChild(ig);
+    }
+    row.appendChild(col);
+  }
+  msgs.appendChild(row);msgs.scrollTop=msgs.scrollHeight;return row;
+}
+function renderChatSide(prods){
+  const g=$('chatSideGrid');g.innerHTML='';
+  if(!prods||!prods.length){
+    const copy=currentChatMode()==='global'
+      ? 'Matching offerings appear here after you ask. Tap a business name to jump into that business page.'
+      : 'Products and photos appear here after you ask. Tap a card to open the product.';
+    g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Info</div><div class="et">${esc(copy)}</div></div>`;
+    return;
+  }
+  prods.forEach(p=>g.appendChild(makeCard(p,{mode:'chat',showShop:currentChatMode()==='global'})));
+}
+function setChatMobileSide(open){
+  const page=$('pg-chat');
+  if(!page) return;
+  syncChatSidePlacement();
+  const side=document.body.querySelector('.chat-side') || page.querySelector('.chat-side');
+  const scrim=$('chatSideScrim');
+  const active=!!open && isMobileChat();
+  page.classList.toggle('mobile-side-on',active);
+  side?.classList.toggle('mobile-side-on',active);
+  scrim?.classList.toggle('on',active);
+  if($('chatInfoBtn')) $('chatInfoBtn').textContent=active?'Back to Chat':chatInfoLabel();
+  if(active) side?.scrollTo?.({top:0,behavior:'smooth'});
+  if(!active) syncChatSidePlacement();
+  syncOverlayBodyLock();
+}
+async function sendChatMsg(){
+  const mode=currentChatMode();
+  const sid=App.chatShopId||App.shopId;
+  const q=$('chatIn').value.trim();
+  if(mode!=='global' && !sid)return toast('Open a business first','Go to Home, open a business, then tap Chat with Business.','err');
+  if(!q)return;
+  setChatMobileSide(false);
+  setChatMeta('Thinking','live');
+  $('sendChatBtn').disabled=true;
+  addMsg(q,'user');$('chatIn').value='';autoSizeChatInput();
+  const lr=addMsg('','assistant',true);
+  try{
+    const endpoint=mode==='global'
+      ? withViewerCurrency(`/chat/global?q=${encodeURIComponent(q)}`)
+      : withViewerCurrency(`/chat?business_id=${encodeURIComponent(sid)}&q=${encodeURIComponent(q)}`);
+    const d=normalizeCatalogPayload(await api(endpoint));
+    if(mode==='business' && sid!==(App.chatShopId||App.shopId)){lr.remove();$('sendChatBtn').disabled=false;return;}
+    if(mode==='global' && d.context?.summary){
+      const summary=updateAtlanticaSummary(d.context.summary);
+      applyChatModeUi({summary});
+      renderAtlanticaFacts(summary);
+    }
+    lr.remove();
+    const prods=d.products||[];
+    addMsg(d.answer||'No answer.','assistant',false,prods);
+    App.chatHistory.push({q,a:d.answer});
+    renderChatSide(prods);
+    const m=d.meta||{};
+    if(mode==='global') setChatMeta(m.llm_used?'Atlantica':'Marketplace Match',m.llm_used?'live':'quick');
+    else setChatMeta(m.llm_used?'Business Assistant':'Quick Answer',m.llm_used?'live':'quick');
+    if(m.suggestions?.length){renderCQchips(m.suggestions);renderChatPromptList(m.suggestions);}
+    else{renderCQchips([]);renderChatPromptList([]);}
+  }catch(e){lr.remove();addMsg(`Sorry - ${e.message}`,'assistant');setChatMeta('Error','error');}
+  $('sendChatBtn').disabled=false;
+}
+function initializeChatOverrides(){
+  const clearBtn=$('clearChatBtn');
+  if(clearBtn && !clearBtn.dataset.overrideBound){
+    const clone=clearBtn.cloneNode(true);
+    clone.dataset.overrideBound='1';
+    clearBtn.replaceWith(clone);
+    clone.addEventListener('click',async ()=>{
+      if(currentChatMode()==='global'){
+        const summary=await ensureAtlanticaSummary();
+        setChatMode('global',{summary});
+        resetChatForAtlantica(summary);
+        return;
+      }
+      const shop=App.shopData?.shop||{};
+      const ref=App.chatShopId||shop.shop_slug||shop.shop_id||App.shopId;
+      const name=shop.name||$('chatSN')?.textContent||ref;
+      const suggestions=App.shopData?.suggested_questions||[];
+      if(ref){renderCQchips(suggestions);renderChatPromptList(suggestions);resetChatForShop(ref,name,shop);return;}
+      App.chatHistory=[];setChatMeta('Ready','ready');renderChatSide([]);$('chatMsgs').innerHTML=chatEmptyStateHtml();
+    });
+  }
+  applyChatModeUi();
+  if($('chatStatus')) $('chatStatus').addEventListener('click',()=>{ if(currentChatMode()==='business'){ const ref=App.chatShopId||App.shopId; if(ref) openShopPage(ref); } });
+  if(currentChatMode()==='global') renderAtlanticaFacts(App.atlanticaSummary||{});
+}
+initializeChatOverrides();
+
 window.addEventListener('resize',()=>{
   syncChatSidePlacement();
   if(!isMobileChat()) setChatMobileSide(false);
@@ -15591,7 +15883,7 @@ async function init(){
   await refreshRequestNotification();
   startRequestWatcher();
   if(App.shopId){
-    try{const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(App.shopId)}`),{auth:!!tok()}));assertPublicBrowseOk(d,'Business is temporarily unavailable.');App.shopData=d;App.chatShopId=d.shop?.shop_slug||d.shop?.shop_id||App.shopId;$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}catch{}
+    try{const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(App.shopId)}`),{auth:!!tok()}));assertPublicBrowseOk(d,'Business is temporarily unavailable.');App.shopData=d;App.chatShopId=d.shop?.shop_slug||d.shop?.shop_id||App.shopId;if(currentChatMode()!=='global'){$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}}catch{}
   }
   await handlePathDeepLink('init');
   applyPageQueryState();

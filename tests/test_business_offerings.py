@@ -79,15 +79,21 @@ class FakeQuery:
         self.table_name = table_name
         self.mode = "select"
         self.fields = "*"
+        self.count_requested = False
+        self.head_only = False
         self.filters = []
         self.order_field = None
         self.order_desc = False
         self.limit_n = None
+        self.range_start = None
+        self.range_end = None
         self.payload = None
 
-    def select(self, fields="*"):
+    def select(self, fields="*", count=None, head=False):
         self.mode = "select"
         self.fields = fields
+        self.count_requested = count is not None
+        self.head_only = bool(head)
         return self
 
     def eq(self, key, value):
@@ -125,6 +131,11 @@ class FakeQuery:
         self.limit_n = int(limit_n)
         return self
 
+    def range(self, start, end):
+        self.range_start = int(start)
+        self.range_end = int(end)
+        return self
+
     def insert(self, payload):
         self.mode = "insert"
         self.payload = copy.deepcopy(payload)
@@ -149,15 +160,21 @@ class FakeQuery:
                 key=lambda row: self.db.field_value(self.table_name, row, self.order_field) or "",
                 reverse=self.order_desc,
             )
-        if self.limit_n is not None:
-            matched = matched[: self.limit_n]
         return matched
 
     def execute(self):
         rows = self.db.tables.setdefault(self.table_name, [])
         if self.mode == "select":
-            data = [self.db.enrich_row(self.table_name, row, self.fields) for row in self._matching_rows()]
-            return SimpleNamespace(data=data)
+            matched = self._matching_rows()
+            total_count = len(matched)
+            if self.range_start is not None:
+                start = max(0, self.range_start)
+                end = self.range_end if self.range_end is not None else total_count - 1
+                matched = matched[start : max(start, end) + 1]
+            if self.limit_n is not None:
+                matched = matched[: self.limit_n]
+            data = [] if self.head_only else [self.db.enrich_row(self.table_name, row, self.fields) for row in matched]
+            return SimpleNamespace(data=data, count=total_count if self.count_requested else None)
         if self.mode == "insert":
             payloads = self.payload if isinstance(self.payload, list) else [self.payload]
             inserted = []
@@ -268,7 +285,83 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
                         "delivery_fee": None,
                         "pickup_notes": "Appointments preferred before visiting.",
                         "created_at": "2026-04-13T00:00:00+00:00",
-                    }
+                    },
+                    {
+                        "shop_id": "shoe-1",
+                        "shop_slug": "alpha-shoes",
+                        "owner_user_id": "owner-1",
+                        "name": "Alpha Shoes",
+                        "address": "10 Spring Garden Rd, Halifax",
+                        "formatted_address": "10 Spring Garden Rd, Halifax",
+                        "overview": "Athletic and casual shoes for everyday wear.",
+                        "phone": "+1 902 555 0200",
+                        "hours": "Mon-Sat 10:00-18:00",
+                        "hours_structured": [
+                            {"day": "mon", "start": "10:00", "end": "18:00"},
+                            {"day": "tue", "start": "10:00", "end": "18:00"},
+                        ],
+                        "category": "Clothing",
+                        "business_type": "retail",
+                        "location_mode": "storefront",
+                        "service_area": "",
+                        "whatsapp": "",
+                        "country_code": "CA",
+                        "country_name": "Canada",
+                        "timezone_name": "America/Halifax",
+                        "region": "Nova Scotia",
+                        "city": "Halifax",
+                        "postal_code": "B3J 3N5",
+                        "street_line1": "10 Spring Garden Rd",
+                        "street_line2": "",
+                        "currency_code": "CAD",
+                        "latitude": 44.6422,
+                        "longitude": -63.5800,
+                        "supports_pickup": True,
+                        "supports_delivery": False,
+                        "supports_walk_in": True,
+                        "delivery_radius_km": None,
+                        "delivery_fee": None,
+                        "pickup_notes": "",
+                        "created_at": "2026-04-12T00:00:00+00:00",
+                    },
+                    {
+                        "shop_id": "shoe-2",
+                        "shop_slug": "budget-steps",
+                        "owner_user_id": "owner-1",
+                        "name": "Budget Steps",
+                        "address": "25 Queen St, Halifax",
+                        "formatted_address": "25 Queen St, Halifax",
+                        "overview": "Budget-friendly shoe options and simple daily basics.",
+                        "phone": "+1 902 555 0300",
+                        "hours": "Mon-Fri 09:00-17:00",
+                        "hours_structured": [
+                            {"day": "mon", "start": "09:00", "end": "17:00"},
+                            {"day": "tue", "start": "09:00", "end": "17:00"},
+                        ],
+                        "category": "Clothing",
+                        "business_type": "retail",
+                        "location_mode": "storefront",
+                        "service_area": "",
+                        "whatsapp": "",
+                        "country_code": "CA",
+                        "country_name": "Canada",
+                        "timezone_name": "America/Halifax",
+                        "region": "Nova Scotia",
+                        "city": "Halifax",
+                        "postal_code": "B3J 2H1",
+                        "street_line1": "25 Queen St",
+                        "street_line2": "",
+                        "currency_code": "CAD",
+                        "latitude": 44.6460,
+                        "longitude": -63.5740,
+                        "supports_pickup": True,
+                        "supports_delivery": False,
+                        "supports_walk_in": True,
+                        "delivery_radius_km": None,
+                        "delivery_fee": None,
+                        "pickup_notes": "",
+                        "created_at": "2026-04-11T00:00:00+00:00",
+                    },
                 ],
                 "products": [
                     {
@@ -293,7 +386,53 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
                         "attribute_data": {"service_mode": "Online", "provider": "Senior agent"},
                         "images": [],
                         "updated_at": "2026-04-13T00:00:00+00:00",
-                    }
+                    },
+                    {
+                        "shop_id": "shoe-1",
+                        "product_id": "shoe-a1",
+                        "product_slug": "trail-runner",
+                        "name": "Trail Runner Shoes",
+                        "overview": "Lightweight daily running shoes with extra grip.",
+                        "price": "CAD 89.00",
+                        "price_amount": 89.0,
+                        "currency_code": "CAD",
+                        "offering_type": "product",
+                        "price_mode": "fixed",
+                        "availability_mode": "available",
+                        "stock": "in",
+                        "stock_quantity": 12,
+                        "duration_minutes": None,
+                        "capacity": None,
+                        "variants": "Size 9, Size 10",
+                        "variant_data": [],
+                        "variant_matrix": [],
+                        "attribute_data": {"material": "Mesh", "style": "Running"},
+                        "images": [],
+                        "updated_at": "2026-04-12T00:00:00+00:00",
+                    },
+                    {
+                        "shop_id": "shoe-2",
+                        "product_id": "shoe-b1",
+                        "product_slug": "city-walker",
+                        "name": "City Walker Shoes",
+                        "overview": "Affordable walking shoes for everyday errands.",
+                        "price": "CAD 49.00",
+                        "price_amount": 49.0,
+                        "currency_code": "CAD",
+                        "offering_type": "product",
+                        "price_mode": "fixed",
+                        "availability_mode": "available",
+                        "stock": "in",
+                        "stock_quantity": 8,
+                        "duration_minutes": None,
+                        "capacity": None,
+                        "variants": "Size 8, Size 9",
+                        "variant_data": [],
+                        "variant_matrix": [],
+                        "attribute_data": {"material": "Canvas", "style": "Walking"},
+                        "images": [],
+                        "updated_at": "2026-04-11T00:00:00+00:00",
+                    },
                 ],
                 "profiles": [
                     {"id": "owner-1", "display_name": "Owner", "role": "customer"},
@@ -421,6 +560,31 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertIn("North Coast Travel", data["answer"])
         self.assertTrue(isinstance(data.get("offerings"), list))
 
+    def test_global_chat_returns_marketplace_summary_for_app_question(self):
+        response = self.client.get("/chat/global", params={"q": "What is this app?"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertEqual(data["assistant"], "Atlantica")
+        self.assertEqual(data["mode"], "global")
+        self.assertEqual(data["context"]["summary"]["business_count"], 3)
+        self.assertEqual(data["context"]["summary"]["offering_count"], 3)
+        self.assertIn("Atlantica", data["answer"])
+        self.assertIn("Atlantic Ordinate", data["answer"])
+
+    def test_global_chat_finds_cheapest_matching_shoes(self):
+        response = self.client.get("/chat/global", params={"q": "Find the cheapest shoes"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertEqual(data["assistant"], "Atlantica")
+        self.assertEqual(data["mode"], "global")
+        self.assertIn("City Walker Shoes", data["answer"])
+        self.assertIn("Budget Steps", data["answer"])
+        self.assertGreaterEqual(len(data["offerings"]), 1)
+        self.assertEqual(data["offerings"][0]["business_name"], "Budget Steps")
+        self.assertEqual(data["offerings"][0]["price"], "CAD 49.00")
+
     def test_build_chat_suggestions_returns_question_list_for_ranked_results(self):
         shop = server.normalize_shop_record(self.fake_supabase.tables["shops"][0])
         picked = [self.fake_supabase.tables["products"][0]]
@@ -537,6 +701,7 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
                         "category": "Education",
                         "business_type": "education",
                         "location_mode": "online",
+                        "phone": "+1 902 555 0400",
                         "country_code": "CA",
                         "country_name": "Canada",
                         "timezone_name": "America/Halifax",

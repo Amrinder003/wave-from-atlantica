@@ -4243,6 +4243,660 @@ def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
         "meta": {"llm_used": False, "reason": "catalog_list", "suggestions": suggestions},
     }
 
+MARKETPLACE_CHAT_STOPWORDS = {
+    "a", "an", "and", "are", "at", "best", "buy", "can", "compare", "cost", "do", "does",
+    "dollar", "dollars", "find", "for", "from", "have", "help", "i", "in", "is", "it", "like",
+    "list", "looking", "match", "matches", "me", "my", "need", "of", "on", "option", "options",
+    "or", "please", "price", "prices", "recommend", "search", "show", "something", "suggest",
+    "than", "that", "the", "their", "these", "this", "to", "under", "want", "what", "which",
+    "with", "you", "your",
+}
+
+MARKETPLACE_BOLD_TERMS = CHAT_GENERIC_BOLD_TERMS | {
+    "atlantica", "atlantic ordinate", "app", "map", "marketplace", "assistant", "guide",
+    "home page", "business page", "compare", "comparison", "recommendation", "recommendations",
+}
+
+ATLANTICA_SYSTEM = """You are Atlantica, the marketplace assistant for Atlantic Ordinate.
+Answer using ONLY the supplied marketplace and app context.
+You may compare public offerings across businesses and explain how the app works.
+Never invent businesses, offerings, prices, availability, hours, contact details, locations, policies, or app features.
+If the user asks for the cheapest option, compare only real prices from the supplied context.
+If the user asks what is available, rely only on offerings that are currently available in the supplied context.
+Keep the answer warm, concise, practical, and human.
+Do not overwhelm the user.
+Use simple markdown.
+Prefer a short direct answer first, then clean bullets only when they help.
+When listing offerings, include the business name plus price and availability when available.
+Do not say you are an AI, model, chatbot, or system unless the user directly asks.
+If information is missing, say that clearly and suggest a useful next question.
+"""
+
+def marketplace_app_notes() -> List[str]:
+    return [
+        "Atlantic Ordinate helps people browse registered businesses, compare public offerings, open the map, and visit each business page.",
+        "Each business page includes a focused assistant for that business only.",
+        "Atlantica is the marketplace-wide assistant on the home page and can compare public businesses and offerings across the app.",
+    ]
+
+def marketplace_summary(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    categories = sorted({str(shop.get("category", "")).strip() for shop in shops if str(shop.get("category", "")).strip()})
+    return {
+        "business_count": len(shops),
+        "offering_count": len(prod_rows),
+        "category_count": len(categories),
+        "open_now_count": sum(1 for shop in shops if shop_is_open_now(shop)),
+        "categories": categories[:12],
+    }
+
+def public_marketplace_snapshot(currency: str = "") -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    if supabase is None:
+        return [], {}, []
+    shop_rows = supabase.table("shops").select("*").order("created_at", desc=True).execute().data or []
+    shops: List[Dict[str, Any]] = []
+    shop_map: Dict[str, Dict[str, Any]] = {}
+    for row in shop_rows:
+        shop = ensure_shop_coordinates(normalize_shop_record(row or {}))
+        if not shop_matches_market_country(shop) or not shop_is_publicly_listable(shop):
+            continue
+        shops.append(shop)
+        shop_map[str(shop.get("shop_id", ""))] = shop
+
+    product_rows = supabase.table("products").select("*").order("updated_at", desc=True).execute().data or []
+    prod_rows: List[Dict[str, Any]] = []
+    for row in product_rows:
+        shop = shop_map.get(str(row.get("shop_id", "")))
+        if not shop:
+            continue
+        prod_rows.append({**row, **get_display_price_fields(row, shop, currency)})
+    return shops, shop_map, prod_rows
+
+def marketplace_focus_tokens(q: str) -> List[str]:
+    return [
+        token
+        for token in re.findall(r"[a-z0-9]+", norm_text(q))
+        if token and token not in MARKETPLACE_CHAT_STOPWORDS
+    ]
+
+def marketplace_shop_offering_counts(prod_rows: List[Dict[str, Any]]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for row in prod_rows:
+        shop_id = str(row.get("shop_id", ""))
+        if not shop_id:
+            continue
+        counts[shop_id] = counts.get(shop_id, 0) + 1
+    return counts
+
+def score_marketplace_shop(shop: Dict[str, Any], q: str) -> float:
+    qn = norm_text(q)
+    tokens = set(marketplace_focus_tokens(q))
+    hay = norm_text(" ".join([
+        str(shop.get("name", "")),
+        str(shop.get("category", "")),
+        str(shop.get("overview", "")),
+        str(shop.get("address", "")),
+        str(shop.get("service_area", "")),
+        str(shop.get("hours", "")),
+    ]))
+    hay_tokens = set(re.findall(r"[a-z0-9]+", hay))
+    score = 0.0
+    if not qn:
+        score = 1.0
+    else:
+        name_n = norm_text(shop.get("name", ""))
+        category_n = norm_text(shop.get("category", ""))
+        if name_n and name_n in qn:
+            score += 10
+        if qn and qn in hay:
+            score += 5
+        if category_n and category_n in qn:
+            score += 1.2
+        score += len(tokens & hay_tokens) * 1.55
+        if tokens and name_n:
+            score += sum(0.6 for token in tokens if token in name_n)
+        if shop_is_open_now(shop):
+            score += 0.2
+        if shop.get("overview"):
+            score += 0.15
+    return score
+
+def rank_marketplace_shops(shops: List[Dict[str, Any]], q: str) -> List[Dict[str, Any]]:
+    scored: List[Tuple[float, Dict[str, Any]]] = []
+    for shop in shops:
+        score = score_marketplace_shop(shop, q)
+        if score <= 0 and norm_text(q):
+            continue
+        scored.append((score, {**shop, "_market_score": score}))
+    scored.sort(key=lambda item: (item[0], item[1].get("name", "").lower()), reverse=True)
+    return [shop for _, shop in scored]
+
+def score_marketplace_product(row: Dict[str, Any], shop: Dict[str, Any], q: str) -> float:
+    qn = norm_text(q)
+    tokens = set(marketplace_focus_tokens(q))
+    business_type = shop.get("business_type", "")
+    category = shop.get("category", "")
+    offering_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
+    attr_text = product_attribute_text(row, category, offering_type, business_type)
+    hay = norm_text(" ".join([
+        str(row.get("name", "")),
+        str(row.get("overview", "")),
+        str(row.get("variants", "")),
+        attr_text,
+        str(shop.get("name", "")),
+        str(shop.get("category", "")),
+        str(shop.get("overview", "")),
+        str(shop.get("address", "")),
+        str(shop.get("service_area", "")),
+    ]))
+    hay_tokens = set(re.findall(r"[a-z0-9]+", hay))
+    score = 0.0
+    if not qn:
+        score = 1.0
+    else:
+        name_n = norm_text(row.get("name", ""))
+        shop_n = norm_text(shop.get("name", ""))
+        category_n = norm_text(shop.get("category", ""))
+        if name_n and name_n in qn:
+            score += 10
+        if shop_n and shop_n in qn:
+            score += 5.5
+        if qn and qn in hay:
+            score += 5
+        if category_n and category_n in qn:
+            score += 1.1
+        overlap = tokens & hay_tokens
+        score += len(overlap) * 1.6
+        if tokens and name_n:
+            score += sum(0.7 for token in tokens if token in name_n)
+        if qn and not tokens and row_is_available_for_chat(row, shop):
+            score += 1.0
+    if row_is_available_for_chat(row, shop):
+        score += 0.35
+    if normalize_image_list(row.get("shop_id", ""), row.get("images", [])):
+        score += 0.2
+    if row.get("overview"):
+        score += 0.15
+    return score
+
+def rank_marketplace_products(prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    scored: List[Tuple[float, Dict[str, Any]]] = []
+    for row in prod_rows:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        score = score_marketplace_product(row, shop, q)
+        if score <= 0 and norm_text(q):
+            continue
+        scored.append((score, {**row, "_market_score": score}))
+    scored.sort(
+        key=lambda item: (
+            item[0],
+            1 if row_is_available_for_chat(item[1], normalize_shop_record(shop_map.get(str(item[1].get("shop_id", "")), {}) or {})) else 0,
+            len(normalize_image_list(item[1].get("shop_id", ""), item[1].get("images", []))),
+            str(item[1].get("name", "")).lower(),
+        ),
+        reverse=True,
+    )
+    return [row for _, row in scored]
+
+def match_marketplace_products(prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], min_score: float = 1.05) -> List[Dict[str, Any]]:
+    ranked = rank_marketplace_products(prod_rows, q, shop_map)
+    if not norm_text(q):
+        return ranked
+    matched = [row for row in ranked if float(row.get("_market_score", 0) or 0) >= min_score]
+    if matched:
+        return matched
+    if not marketplace_focus_tokens(q):
+        return ranked[:20]
+    return []
+
+def serialize_marketplace_products(rows: List[Dict[str, Any]], shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> List[Dict[str, Any]]:
+    items = serialize_products_bulk(rows, None, shop_map, currency)
+    for item in items:
+        shop = normalize_shop_record(shop_map.get(str(item.get("shop_id", "")), {}) or {})
+        item["shop_name"] = shop.get("name", "")
+        item["shop_address"] = shop.get("address", "") or shop.get("service_area", "")
+        item["shop_category"] = shop.get("category", "")
+        item["business_name"] = item.get("shop_name", "")
+        item["business_address"] = item.get("shop_address", "")
+        item["business_category"] = item.get("shop_category", "")
+    return items
+
+def marketplace_chat_item_line(item: Dict[str, Any], shop: Dict[str, Any]) -> str:
+    summary = " | ".join(offering_summary_bits(item, shop)) or "Details available on request"
+    return f"- **{item.get('name', 'Offering')}** from **{shop.get('name', 'Business')}** - {summary}"
+
+def marketplace_response_style_instructions(q: str) -> str:
+    qn = norm_text(q)
+    if is_recommendation_query(qn) or any(token in qn for token in ["compare", "difference", "best", "popular"]):
+        return (
+            "Response format: start with one short direct sentence, then list up to 4 offering bullets. "
+            "Each bullet should include offering name, business name, price, availability, and a short reason."
+        )
+    if is_list_intent(qn) or any(token in qn for token in ["buy", "find", "looking", "need", "want"]):
+        return (
+            "Response format: start with one short summary sentence, then list the clearest matching offerings. "
+            "Each bullet should include offering name, business name, price, and availability."
+        )
+    if is_price_lookup_query(qn) or is_budget_query(qn) or is_cheapest_query(qn):
+        return "Response format: answer directly in 1 to 4 lines. Put the actual price result first."
+    if is_location_query(qn) or is_hours_query(qn) or is_contact_query(qn):
+        return "Response format: answer directly and briefly in 1 to 3 lines."
+    return "Response format: give a short direct answer first. Use bullets only if they clearly help."
+
+def marketplace_chat_max_tokens(q: str, picked: Optional[List[Dict[str, Any]]] = None) -> int:
+    base = chat_max_tokens_for_query(q, picked)
+    qn = norm_text(q)
+    if any(token in qn for token in ["compare", "difference", "which one", "help me choose"]):
+        return max(base, 1000)
+    if is_list_intent(qn) or is_recommendation_query(qn):
+        return max(base, 950)
+    return max(base, 780)
+
+def build_marketplace_chat_suggestions(q: str, picked: List[Dict[str, Any]], shops: List[Dict[str, Any]], shop_map: Dict[str, Dict[str, Any]]) -> List[str]:
+    suggestions: List[str] = []
+    if picked:
+        top = picked[0]
+        top_name = str(top.get("name", "")).strip()
+        top_shop = normalize_shop_record(shop_map.get(str(top.get("shop_id", "")), {}) or {})
+        if top_name:
+            suggestions.extend([
+                f"What is the price of {top_name}?",
+                f"Show me more like {top_name}",
+                f"Which business has the cheapest {top_name}?",
+            ])
+        if top_shop.get("name"):
+            suggestions.append(f"What else does {top_shop['name']} have?")
+    else:
+        suggestions.extend(["Show me shoes", "Find the cheapest option", "Which businesses are open now?", "What can I buy on this app?"])
+    return dedup(suggestions)[:4]
+
+def is_marketplace_app_query(q: str) -> bool:
+    qn = norm_text(q)
+    triggers = [
+        "who are you",
+        "what is atlantica",
+        "what is this app",
+        "tell me about this app",
+        "how does this app work",
+        "what can i do here",
+        "what can you do",
+        "what can i buy here",
+    ]
+    return any(trigger in qn for trigger in triggers)
+
+def answer_marketplace_app_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    summary = marketplace_summary(shops, prod_rows)
+    categories = ", ".join(summary["categories"][:6]) if summary["categories"] else "multiple categories"
+    return {
+        "answer": (
+            f"I'm **Atlantica**, the marketplace guide for Atlantic Ordinate.\n\n"
+            f"Right now I can help you browse **{summary['business_count']}** public businesses and **{summary['offering_count']}** public offerings across **{summary['category_count']}** categories.\n\n"
+            f"You can ask me to compare prices, find the cheapest option, show matching offerings, explain how the app works, or point you to a business page for details. Current categories include **{categories}**."
+        ),
+        "products": [],
+        "meta": {
+            "llm_used": False,
+            "reason": "app_info",
+            "suggestions": ["Show me shoes", "Find the cheapest option", "Which businesses are open now?", "How does the business chat work?"],
+        },
+    }
+
+def is_marketplace_business_list_query(q: str) -> bool:
+    qn = norm_text(q)
+    return (
+        any(token in qn for token in ["business", "businesses", "shop", "shops", "store", "stores"])
+        and (is_list_intent(qn) or any(trigger in qn for trigger in ["what businesses", "which businesses", "what shops", "which shops", "what stores", "which stores"]))
+    )
+
+def answer_marketplace_business_list_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str) -> Optional[Dict[str, Any]]:
+    if not is_marketplace_business_list_query(q):
+        return None
+    counts = marketplace_shop_offering_counts(prod_rows)
+    ranked = rank_marketplace_shops(shops, q)
+    focus = marketplace_focus_tokens(q)
+    if focus:
+        ranked = [shop for shop in ranked if float(shop.get("_market_score", 0) or 0) >= 1.05]
+    if not ranked:
+        return {
+            "answer": "I could not find a business match for that yet. Try a business name, category, or product type.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "business_list_empty", "suggestions": ["Show me shoes", "Which businesses are open now?", "What can I buy on this app?"]},
+        }
+    top = ranked[:8]
+    lines = [f"I found **{len(ranked)}** business{'es' if len(ranked) != 1 else ''} that fit that request:"]
+    for shop in top:
+        location = shop.get("address") or shop.get("service_area") or "Location coming soon"
+        offering_count = counts.get(str(shop.get("shop_id", "")), 0)
+        bits = [shop.get("category") or "Business", location, f"{offering_count} offerings"]
+        if shop_is_open_now(shop):
+            bits.append("Open now")
+        lines.append(f"- **{shop.get('name', 'Business')}** - {' | '.join(str(bit) for bit in bits if bit)}")
+    if len(ranked) > len(top):
+        lines.append(f"\nThere are **{len(ranked)}** matching businesses in total. Ask me to narrow it by product, price, or location.")
+    return {
+        "answer": "\n".join(lines),
+        "products": [],
+        "meta": {"llm_used": False, "reason": "business_list", "suggestions": ["Which businesses are open now?", "Show me shoes", "Find the cheapest option"]},
+    }
+
+def answer_marketplace_shop_info_query(shops: List[Dict[str, Any]], q: str) -> Optional[Dict[str, Any]]:
+    if not (is_location_query(q) or is_hours_query(q) or is_contact_query(q)):
+        return None
+    ranked = rank_marketplace_shops(shops, q)
+    top = ranked[0] if ranked else None
+    if not top or float(top.get("_market_score", 0) or 0) < 2.1:
+        return {
+            "answer": "Tell me the business name and I can share its location, hours, or public contact details.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "shop_info_missing_name", "suggestions": ["Which businesses are open now?", "Show me businesses", "What can I buy on this app?"]},
+        }
+    if is_location_query(q):
+        location_mode = normalize_location_mode(top.get("location_mode", ""), top.get("business_type", ""), top.get("category", ""))
+        if location_mode == "online":
+            answer = f"**{top.get('name', 'This business')}** operates online."
+        elif top.get("service_area"):
+            answer = f"**{top.get('name', 'This business')}** serves **{top.get('service_area')}**."
+        else:
+            answer = f"**{top.get('name', 'This business')}** is at **{top.get('address') or 'location not listed'}**."
+        return {
+            "answer": answer,
+            "products": [],
+            "meta": {"llm_used": False, "reason": "shop_location", "suggestions": [f"What does {top.get('name', 'this business')} offer?", f"What are {top.get('name', 'this business')} opening hours?", "Show me more businesses"]},
+        }
+    if is_hours_query(q):
+        hours = top.get("hours") or "Hours are not listed yet."
+        return {
+            "answer": f"**{top.get('name', 'This business')}** is listed as **{hours}**.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "shop_hours", "suggestions": [f"Where is {top.get('name', 'this business')} located?", f"What does {top.get('name', 'this business')} offer?", "Which businesses are open now?"]},
+        }
+    phone = public_shop_phone_value(top).strip()
+    whatsapp = str(top.get("whatsapp") or "").strip()
+    if phone or whatsapp:
+        parts = []
+        if phone:
+            parts.append(f"Phone: **{phone}**")
+        if whatsapp:
+            parts.append(f"WhatsApp: **{whatsapp}**")
+        return {
+            "answer": f"Here is the public contact info for **{top.get('name', 'this business')}**:\n" + "\n".join(f"- {part}" for part in parts),
+            "products": [],
+            "meta": {"llm_used": False, "reason": "shop_contact", "suggestions": [f"What does {top.get('name', 'this business')} offer?", f"Where is {top.get('name', 'this business')} located?", "Show me more businesses"]},
+        }
+    return {
+        "answer": f"I do not see a public phone or WhatsApp listing for **{top.get('name', 'this business')}** right now.",
+        "products": [],
+        "meta": {"llm_used": False, "reason": "shop_contact_missing", "suggestions": [f"What does {top.get('name', 'this business')} offer?", f"Where is {top.get('name', 'this business')} located?", "Which businesses are open now?"]},
+    }
+
+def answer_marketplace_open_now_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str) -> Optional[Dict[str, Any]]:
+    qn = norm_text(q)
+    if not is_hours_query(q) or not any(token in qn for token in ["business", "businesses", "shop", "shops", "store", "stores"]):
+        return None
+    counts = marketplace_shop_offering_counts(prod_rows)
+    open_shops = [shop for shop in shops if shop_is_open_now(shop)]
+    if not open_shops:
+        return {
+            "answer": "I do not see any businesses marked open right now.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "open_now_empty", "suggestions": ["Show me businesses", "Show me shoes", "What can I buy on this app?"]},
+        }
+    top = open_shops[:8]
+    lines = [f"These businesses are marked **open now**:"]
+    for shop in top:
+        location = shop.get("address") or shop.get("service_area") or "Location coming soon"
+        lines.append(f"- **{shop.get('name', 'Business')}** - {shop.get('category') or 'Business'} | {location} | {counts.get(str(shop.get('shop_id', '')), 0)} offerings")
+    if len(open_shops) > len(top):
+        lines.append(f"\nThere are **{len(open_shops)}** open businesses in total.")
+    return {
+        "answer": "\n".join(lines),
+        "products": [],
+        "meta": {"llm_used": False, "reason": "open_now_businesses", "suggestions": ["Show me shoes", "Find the cheapest option", "What can I buy on this app?"]},
+    }
+
+def answer_marketplace_price_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Optional[Dict[str, Any]]:
+    if not is_price_lookup_query(q):
+        return None
+    matches = match_marketplace_products(prod_rows, q, shop_map)
+    if not matches:
+        return None
+    top = matches[:4]
+    lines = []
+    for row in top:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        price = row.get("price") or "Price not listed"
+        status = offering_status_label(row, shop)
+        line = f"- **{row.get('name', 'Offering')}** from **{shop.get('name', 'Business')}** is listed at **{price}**"
+        if status:
+            line += f" and is currently **{status.lower()}**."
+        else:
+            line += "."
+        lines.append(line)
+    opener = "Here is the closest price match I found:" if len(lines) == 1 else "Here are the closest price matches I found:"
+    return {
+        "answer": "\n".join([opener, *lines]),
+        "products": serialize_marketplace_products(top, shop_map, currency),
+        "meta": {"llm_used": False, "reason": "market_price_lookup", "suggestions": build_marketplace_chat_suggestions(q, top, shops, shop_map)},
+    }
+
+def answer_marketplace_budget_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Optional[Dict[str, Any]]:
+    limit = extract_budget_limit(q)
+    if limit is None:
+        return None
+    ranked = match_marketplace_products(prod_rows, q, shop_map)
+    pool = ranked or rank_marketplace_products(prod_rows, "", shop_map)
+    matches: List[Dict[str, Any]] = []
+    for row in pool:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        value = parse_price_value(row.get("price", ""))
+        if value is None or value > limit:
+            continue
+        if not row_is_available_for_chat(row, shop):
+            continue
+        matches.append({**row, "_price_value": value})
+    matches.sort(key=lambda row: (row.get("_price_value", 0), str(row.get("name", "")).lower()))
+    if not matches:
+        return {
+            "answer": f"I could not find a public offering priced below **{limit:g}** right now.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "market_budget_empty", "suggestions": ["Find the cheapest option", "Show me businesses", "What can I buy on this app?"]},
+        }
+    top = matches[:12]
+    business_count = len({str(row.get("shop_id", "")) for row in matches})
+    lines = [f"I found **{len(matches)}** matching offering{'s' if len(matches) != 1 else ''} under **{limit:g}** across **{business_count}** business{'es' if business_count != 1 else ''}:"]
+    for row in top:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        lines.append(marketplace_chat_item_line(enrich_chat_row(row, shop), shop))
+    if len(matches) > len(top):
+        lines.append(f"\nI attached the first **{len(top)}** cards below. Ask me to narrow the list by type, brand, or business.")
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_marketplace_products(top, shop_map, currency),
+        "meta": {"llm_used": False, "reason": "market_budget", "suggestions": build_marketplace_chat_suggestions(q, top, shops, shop_map)},
+    }
+
+def answer_marketplace_cheapest_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Optional[Dict[str, Any]]:
+    if not is_cheapest_query(q):
+        return None
+    ranked = match_marketplace_products(prod_rows, q, shop_map)
+    pool = ranked or rank_marketplace_products(prod_rows, "", shop_map)
+    priced: List[Dict[str, Any]] = []
+    for row in pool:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        value = parse_price_value(row.get("price", ""))
+        if value is None:
+            continue
+        if not row_is_available_for_chat(row, shop):
+            continue
+        priced.append({**row, "_price_value": value})
+    priced.sort(key=lambda row: (row.get("_price_value", 0), str(row.get("name", "")).lower()))
+    if not priced:
+        return None
+    top = priced[:8]
+    lines = ["These are the lowest-priced matches I found right now:"]
+    for row in top:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        lines.append(marketplace_chat_item_line(enrich_chat_row(row, shop), shop))
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_marketplace_products(top, shop_map, currency),
+        "meta": {"llm_used": False, "reason": "market_cheapest", "suggestions": build_marketplace_chat_suggestions(q, top, shops, shop_map)},
+    }
+
+def answer_marketplace_stock_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Optional[Dict[str, Any]]:
+    if not is_stock_query(q):
+        return None
+    ranked = match_marketplace_products(prod_rows, q, shop_map)
+    pool = ranked or rank_marketplace_products(prod_rows, "", shop_map)
+    matches: List[Dict[str, Any]] = []
+    for row in pool:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        if row_is_available_for_chat(row, shop):
+            matches.append(row)
+    if not matches:
+        return {
+            "answer": "I do not see any public offerings available for that request right now.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "market_stock_empty", "suggestions": ["Show me businesses", "Find the cheapest option", "What can I buy on this app?"]},
+        }
+    top = matches[:12]
+    business_count = len({str(row.get("shop_id", "")) for row in matches})
+    lines = [f"I found **{len(matches)}** available match{'es' if len(matches) != 1 else ''} across **{business_count}** business{'es' if business_count != 1 else ''}:"]
+    for row in top:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        lines.append(marketplace_chat_item_line(enrich_chat_row(row, shop), shop))
+    if len(matches) > len(top):
+        lines.append(f"\nI attached the first **{len(top)}** cards below.")
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_marketplace_products(top, shop_map, currency),
+        "meta": {"llm_used": False, "reason": "market_stock", "suggestions": build_marketplace_chat_suggestions(q, top, shops, shop_map)},
+    }
+
+def answer_marketplace_catalog_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Dict[str, Any]:
+    ranked = match_marketplace_products(prod_rows, q, shop_map)
+    if norm_text(q) and not ranked:
+        return {
+            "answer": "I could not find a direct marketplace match for that yet. Try a product type, business name, price range, or category.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "market_catalog_empty", "suggestions": ["Show me businesses", "Find the cheapest option", "What can I buy on this app?"]},
+        }
+    pool = ranked or rank_marketplace_products(prod_rows, "", shop_map)
+    top = pool[:12]
+    business_count = len({str(row.get("shop_id", "")) for row in pool})
+    lines = [f"I found **{len(pool)}** matching offering{'s' if len(pool) != 1 else ''} across **{business_count}** business{'es' if business_count != 1 else ''}:"]
+    for row in top:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        lines.append(marketplace_chat_item_line(enrich_chat_row(row, shop), shop))
+    if len(pool) > len(top):
+        lines.append(f"\nI attached the first **{len(top)}** cards below. Ask me to narrow the list by budget, business, or product details.")
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_marketplace_products(top, shop_map, currency),
+        "meta": {"llm_used": False, "reason": "market_catalog", "suggestions": build_marketplace_chat_suggestions(q, top, shops, shop_map)},
+    }
+
+def answer_marketplace_recommendation_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Optional[Dict[str, Any]]:
+    if not is_recommendation_query(q):
+        return None
+    budget = extract_budget_limit(q)
+    ranked = match_marketplace_products(prod_rows, q, shop_map)
+    pool = ranked or rank_marketplace_products(prod_rows, "", shop_map)
+    candidates: List[Dict[str, Any]] = []
+    for row in pool:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        if not row_is_available_for_chat(row, shop):
+            continue
+        value = parse_price_value(row.get("price", ""))
+        if budget is not None and value is not None and value > budget:
+            continue
+        candidates.append(row)
+    if not candidates:
+        return {
+            "answer": "I could not find a strong public recommendation for that request right now.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "market_recommendation_empty", "suggestions": ["Find the cheapest option", "Show me businesses", "What can I buy on this app?"]},
+        }
+    top = candidates[:4]
+    opener = "Here are a few strong marketplace options:"
+    if budget is not None:
+        opener = f"Here are a few strong marketplace options under **{budget:g}**:"
+    lines = [opener]
+    for row in top:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        detail = marketplace_chat_item_line(enrich_chat_row(row, shop), shop)
+        overview = str(row.get("overview", "") or "").strip()
+        if overview:
+            detail += f"\n  {overview[:120]}"
+        lines.append(detail)
+    return {
+        "answer": "\n".join(lines),
+        "products": serialize_marketplace_products(top, shop_map, currency),
+        "meta": {"llm_used": False, "reason": "market_recommendation", "suggestions": build_marketplace_chat_suggestions(q, top, shops, shop_map)},
+    }
+
+def build_marketplace_context(shops: List[Dict[str, Any]], picked: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], shop_map: Dict[str, Dict[str, Any]]) -> str:
+    summary = marketplace_summary(shops, prod_rows)
+    lines = [
+        "Assistant: Atlantica",
+        "App: Atlantic Ordinate",
+        *[f"App note: {note}" for note in marketplace_app_notes()],
+        f"Public businesses: {summary['business_count']}",
+        f"Public offerings: {summary['offering_count']}",
+        f"Categories: {', '.join(summary['categories']) if summary['categories'] else 'Not listed'}",
+        f"Open now: {summary['open_now_count']}",
+    ]
+    if picked:
+        lines.append("\nRelevant marketplace offerings:")
+        for row in picked[:8]:
+            shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+            summary_bits = " | ".join(offering_summary_bits(row, shop)) or "Details available on request"
+            location = shop.get("address") or shop.get("service_area") or ""
+            row_type = normalize_offering_type(row.get("offering_type", ""), shop.get("business_type", ""), shop.get("category", ""))
+            attr_lines = format_attribute_lines(normalize_attribute_data(row.get("attribute_data"), shop.get("category", ""), row_type, shop.get("business_type", "")), shop.get("category", ""), row_type, shop.get("business_type", ""))
+            attr_part = f" | Details: {'; '.join(attr_lines[:3])}" if attr_lines else ""
+            location_part = f" | Location: {location}" if location else ""
+            lines.append(f"- {row.get('name', 'Offering')} | Business: {shop.get('name', 'Business')} | Category: {shop.get('category', 'Business')} | {summary_bits}{location_part}{attr_part}")
+    else:
+        lines.append("\nSample businesses:")
+        counts = marketplace_shop_offering_counts(prod_rows)
+        for shop in shops[:8]:
+            location = shop.get("address") or shop.get("service_area") or "Location coming soon"
+            lines.append(f"- {shop.get('name', 'Business')} | Category: {shop.get('category', 'Business')} | Location: {location} | Offerings: {counts.get(str(shop.get('shop_id', '')), 0)}")
+    return "\n".join(lines)
+
+def find_marketplace_out_of_scope_bold_terms(answer: str, shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]]) -> List[str]:
+    allowed = {norm_text("Atlantic Ordinate"), norm_text("Atlantica")}
+    allowed.update(norm_text(shop.get("name", "")) for shop in shops if shop.get("name"))
+    allowed.update(norm_text(shop.get("shop_id", "")) for shop in shops if shop.get("shop_id"))
+    allowed.update(norm_text(shop.get("shop_slug", "")) for shop in shops if shop.get("shop_slug"))
+    allowed.update(norm_text(row.get("name", "")) for row in prod_rows if row.get("name"))
+    flagged: List[str] = []
+    seen = set()
+    for term in extract_markdown_bold_terms(answer):
+        normalized = norm_text(term)
+        if not normalized or normalized in allowed or normalized in MARKETPLACE_BOLD_TERMS:
+            continue
+        price_like = normalized.replace("cad", "").replace("usd", "").replace("inr", "")
+        if re.fullmatch(r"[\d\s.,:$-]+", price_like):
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        flagged.append(term)
+    return flagged[:6]
+
+def fallback_marketplace_answer(shops: List[Dict[str, Any]], picked: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]]) -> str:
+    if is_greeting(q):
+        return (
+            f"Hi, I'm **Atlantica**. I can help you search across **{len(shops)}** businesses, compare prices, and point you to the right business page."
+        )
+    if picked:
+        top = picked[0]
+        shop = normalize_shop_record(shop_map.get(str(top.get("shop_id", "")), {}) or {})
+        summary_bits = " | ".join(offering_summary_bits(top, shop)) or "Details available on request"
+        return f"A strong marketplace match is **{top.get('name', 'Offering')}** from **{shop.get('name', 'Business')}** - {summary_bits}"
+    return "I could not find a clear marketplace match yet. Try a product type, business name, category, or budget."
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — System
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -4943,6 +5597,116 @@ def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Quer
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — Chat 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@app.get("/chat/global")
+@app.get("/atlantica/chat")
+def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = Query("")):
+    enforce_rate_limit(request, "global_chat", limit=40, window_seconds=300, key_suffix="marketplace")
+    q = (q or "").strip()
+    if not q:
+        raise HTTPException(400, "Missing q")
+
+    shops, shop_map, prod_rows = public_marketplace_snapshot(currency)
+    summary = marketplace_summary(shops, prod_rows)
+
+    def respond(payload: Dict[str, Any]) -> Dict[str, Any]:
+        return alias_catalog_response({
+            **(payload or {}),
+            "assistant": "Atlantica",
+            "mode": "global",
+            "context": {"summary": summary},
+        })
+
+    if is_marketplace_app_query(q):
+        return respond(answer_marketplace_app_query(shops, prod_rows))
+
+    shop_info_answer = answer_marketplace_shop_info_query(shops, q)
+    if shop_info_answer is not None:
+        return respond(shop_info_answer)
+
+    open_now_answer = answer_marketplace_open_now_query(shops, prod_rows, q)
+    if open_now_answer is not None:
+        return respond(open_now_answer)
+
+    business_list_answer = answer_marketplace_business_list_query(shops, prod_rows, q)
+    if business_list_answer is not None:
+        return respond(business_list_answer)
+
+    budget_answer = answer_marketplace_budget_query(shops, prod_rows, q, shop_map, currency)
+    if budget_answer is not None:
+        return respond(budget_answer)
+
+    cheapest_answer = answer_marketplace_cheapest_query(shops, prod_rows, q, shop_map, currency)
+    if cheapest_answer is not None:
+        return respond(cheapest_answer)
+
+    stock_answer = answer_marketplace_stock_query(shops, prod_rows, q, shop_map, currency)
+    if stock_answer is not None:
+        return respond(stock_answer)
+
+    price_answer = answer_marketplace_price_query(shops, prod_rows, q, shop_map, currency)
+    if price_answer is not None:
+        return respond(price_answer)
+
+    recommendation_answer = answer_marketplace_recommendation_query(shops, prod_rows, q, shop_map, currency)
+    if recommendation_answer is not None:
+        return respond(recommendation_answer)
+
+    ranked = match_marketplace_products(prod_rows, q, shop_map)
+    picked = ranked[:8] if ranked else rank_marketplace_products(prod_rows, q, shop_map)[:8]
+    suggestions = build_marketplace_chat_suggestions(q, picked, shops, shop_map)
+
+    if is_greeting(q):
+        return respond({
+            "answer": (
+                f"Hi, I'm **Atlantica**. I can help you search across **{summary['business_count']}** businesses and **{summary['offering_count']}** offerings, compare prices, and point you to the right business page."
+            ),
+            "products": [],
+            "meta": {"llm_used": False, "reason": "market_greeting", "suggestions": suggestions},
+        })
+
+    if is_list_intent(q) or any(token in norm_text(q) for token in ["buy", "find", "looking for", "need", "want"]):
+        return respond(answer_marketplace_catalog_query(shops, prod_rows, q, shop_map, currency))
+
+    try:
+        system_prompt = ATLANTICA_SYSTEM + "\n" + marketplace_response_style_instructions(q)
+        context_blob = f"MARKETPLACE CONTEXT:\n{build_marketplace_context(shops, picked, prod_rows, shop_map)}\n\nUSER: {q}"
+        llm_budget = marketplace_chat_max_tokens(q, picked)
+        llm_res = llm_chat(system_prompt, context_blob, max_tokens=llm_budget)
+        if should_retry_truncated_chat(llm_res):
+            retry_prompt = system_prompt + "\nThe previous draft was cut off. Retry with a complete answer. Keep it concise, but finish every sentence and list cleanly."
+            llm_res = llm_chat(retry_prompt, context_blob, max_tokens=max(llm_budget + 300, 1100))
+        flagged_terms = find_marketplace_out_of_scope_bold_terms(llm_res.get("content", ""), shops, prod_rows)
+        if flagged_terms:
+            print(f"[Atlantica Scope Guard] blocked out-of-scope terms: {flagged_terms}")
+            return respond({
+                "answer": fallback_marketplace_answer(shops, picked, q, shop_map),
+                "products": serialize_marketplace_products(picked[:8], shop_map, currency) if picked else [],
+                "meta": {"llm_used": False, "reason": "scope_guard", "suggestions": suggestions},
+            })
+        attached = picked
+        if wants_product_image(q):
+            attached = [row for row in picked if normalize_image_list(row.get("shop_id", ""), row.get("images", []))] or picked
+        return respond({
+            "answer": llm_res.get("content", "").strip() or fallback_marketplace_answer(shops, picked, q, shop_map),
+            "products": serialize_marketplace_products(attached[:8], shop_map, currency) if attached else [],
+            "meta": {
+                "llm_used": True,
+                "model": llm_res.get("model") or OPENROUTER_MODEL,
+                "finish_reason": llm_res.get("finish_reason") or "stop",
+                "suggestions": suggestions,
+            },
+        })
+    except Exception as e:
+        err_msg = str(e)
+        if hasattr(e, "response") and getattr(e, "response") is not None:
+            err_msg += f" | {e.response.text}"
+        print(f"[Atlantica LLM Exception] Fallback triggered: {err_msg}")
+        return respond({
+            "answer": fallback_marketplace_answer(shops, picked, q, shop_map),
+            "products": serialize_marketplace_products(picked[:8], shop_map, currency) if picked else [],
+            "meta": {"llm_used": False, "reason": "fallback_after_llm_error", "suggestions": suggestions},
+        })
+
 @app.get("/chat")
 def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str = Query(""), q: str = Query(...), currency: str = Query("")):
     shop_ref = business_id or shop_id
