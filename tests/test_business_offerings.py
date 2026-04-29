@@ -585,6 +585,21 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertEqual(data["offerings"][0]["business_name"], "Budget Steps")
         self.assertEqual(data["offerings"][0]["price"], "CAD 49.00")
 
+    def test_global_chat_about_specific_shop_returns_only_that_shop_and_highlight(self):
+        response = self.client.get("/chat/global", params={"q": "Tell me about Alpha Shoes"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertEqual(data["assistant"], "Atlantica")
+        self.assertEqual(data["mode"], "global")
+        self.assertIn("Alpha Shoes", data["answer"])
+        self.assertEqual(len(data.get("businesses", [])), 1)
+        self.assertEqual(data["businesses"][0]["name"], "Alpha Shoes")
+        self.assertEqual(data["businesses"][0]["stats"]["offering_count"], 1)
+        self.assertEqual(len(data.get("offerings", [])), 1)
+        self.assertEqual(data["offerings"][0]["business_name"], "Alpha Shoes")
+        self.assertEqual(data["offerings"][0]["name"], "Trail Runner Shoes")
+
     def test_build_chat_suggestions_returns_question_list_for_ranked_results(self):
         shop = server.normalize_shop_record(self.fake_supabase.tables["shops"][0])
         picked = [self.fake_supabase.tables["products"][0]]

@@ -1016,6 +1016,18 @@ a{color:inherit;text-decoration:none}
 @keyframes blink{0%,80%,100%{opacity:.2;transform:none}40%{opacity:1;transform:translateY(-2px)}}
 .inline-img{max-width:210px;border-radius:9px;margin-top:7px;border:1px solid var(--bd);cursor:pointer;display:block}
 .inline-pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-top:12px;width:100%;max-width:560px}
+.chat-biz-card{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:22px;background:rgba(255,250,242,.96);border:1px solid rgba(191,174,149,.34);box-shadow:0 10px 24px rgba(48,33,15,.08);cursor:pointer;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease}
+.chat-biz-card:hover{transform:translateY(-1px);border-color:rgba(162,76,46,.34);box-shadow:0 16px 30px rgba(48,33,15,.1)}
+.chat-biz-top{display:flex;align-items:center;gap:10px}
+.chat-biz-avatar{width:48px;height:48px;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,rgba(244,219,189,.92),rgba(238,202,160,.98));color:var(--A2);display:grid;place-items:center;flex-shrink:0}
+.chat-biz-avatar .biz-avatar-fallback{font-size:20px;color:var(--A2)}
+.chat-biz-meta{min-width:0}
+.chat-biz-name{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;line-height:1.2;color:var(--ink)}
+.chat-biz-sub{font-size:12px;color:var(--ink3);margin-top:3px}
+.chat-biz-loc{font-size:12px;color:var(--ink2);line-height:1.45}
+.chat-biz-copy{font-size:12px;color:var(--ink2);line-height:1.55}
+.chat-biz-chips{display:flex;gap:6px;flex-wrap:wrap}
+.chat-biz-chip{padding:5px 9px;border-radius:999px;background:rgba(247,241,232,.96);border:1px solid rgba(191,174,149,.3);font-size:11px;font-weight:700;color:var(--ink2)}
 .chat-composer{padding:12px 14px;background:var(--sf);border-top:1px solid var(--bd);flex-shrink:0}
 .chat-compose-shell{padding:10px;border-radius:22px;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(247,241,232,.92));border:1px solid rgba(191,174,149,.32);box-shadow:0 10px 24px rgba(48,33,15,.08)}
 .cqchips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
@@ -1056,6 +1068,7 @@ a{color:inherit;text-decoration:none}
   .inline-img{max-width:min(240px,78vw)}
   .inline-pgrid{display:flex;overflow-x:auto;scroll-snap-type:x proximity;max-width:none;padding-bottom:2px;margin-right:-2px}
   .inline-pgrid .pc{flex:0 0 182px;max-width:182px;scroll-snap-align:start}
+  .inline-pgrid .chat-biz-card{flex:0 0 216px;max-width:216px;scroll-snap-align:start}
   .chat-mobile-info-btn{display:inline-flex}
   .chat-side-scrim{position:fixed;inset:0;background:rgba(15,23,42,.38);backdrop-filter:blur(2px);z-index:454;opacity:0;pointer-events:none;transition:opacity .18s ease}
   .chat-side{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-height:min(80dvh,720px);padding:14px 14px calc(16px + env(safe-area-inset-bottom,0px));border-radius:30px 30px 20px 20px;z-index:455;transform:translateY(calc(100% + 22px));transition:transform .24s ease;box-shadow:0 24px 60px rgba(34,20,10,.28);overscroll-behavior:contain}
@@ -13752,6 +13765,47 @@ function chatEmptyStateHtml(){
 function businessOfferingCount(s={}){
   return Number(s?.stats?.offering_count ?? s?.stats?.offerings_count ?? s?.stats?.product_count ?? s?.offering_count ?? s?.offerings_count ?? s?.product_count ?? s?.products_count ?? 0)||0;
 }
+function makeBusinessCard(shop={}){
+  const ref=shop?.shop_slug||shop?.shop_id||shop?.business_slug||shop?.business_id||'';
+  const name=shop?.name||shop?.business_name||'Business';
+  const category=(shop?.category||shop?.business_category||'Business').trim()||'Business';
+  const location=compactText(shopDisplayAddress(shop)||shop?.service_area||'Location coming soon',72);
+  const overview=compactText(shop?.overview||'Open the business page to browse more details and offerings.',96);
+  const nouns=offeringNouns(shop);
+  const count=businessOfferingCount(shop);
+  const countLabel=`${count} ${count===1?(nouns?.singular||'offering'):(nouns?.plural||'offerings')}`;
+  const card=document.createElement('article');
+  card.className='chat-biz-card';
+  card.innerHTML=`
+    <div class="chat-biz-top">
+      <div class="chat-biz-avatar">${businessAvatarHtml(shop,name)}</div>
+      <div class="chat-biz-meta">
+        <div class="chat-biz-name">${esc(name)}</div>
+        <div class="chat-biz-sub">${esc(category)}</div>
+      </div>
+    </div>
+    <div class="chat-biz-loc">${esc(location)}</div>
+    <div class="chat-biz-copy">${esc(overview)}</div>
+    <div class="chat-biz-chips">
+      <span class="chat-biz-chip">${esc(countLabel)}</span>
+      ${shop?.is_open_now?'<span class="chat-biz-chip">Open now</span>':''}
+    </div>`;
+  if(ref){
+    card.addEventListener('click',()=>openShopPage(ref));
+  }else{
+    card.style.cursor='default';
+  }
+  return card;
+}
+function updateChatCardsHeading(products=[],businesses=[]){
+  const head=$('chatProductsHeading');
+  if(!head) return;
+  if(currentChatMode()!=='global'){ head.textContent='Suggested Products'; return; }
+  if((businesses?.length||0) && (products?.length||0)){ head.textContent='Matching Business & Offering'; return; }
+  if((businesses?.length||0)>1){ head.textContent='Matching Businesses'; return; }
+  if((businesses?.length||0)===1){ head.textContent='Matching Business'; return; }
+  head.textContent='Matching Offerings';
+}
 function buildAtlanticaSummaryFromShops(shops=[]){
   const categories=[...new Set((shops||[]).map(s=>(s.category||'').trim()).filter(Boolean))];
   return {
@@ -13859,7 +13913,7 @@ function buildAtlanticaWelcome(summaryInput={}){
 
 ${coverage}
 
-Ask about products, cheapest options, business hours, locations, or which business is the best fit.
+Ask about products, cheapest options, business hours, locations, or which business is the best fit. If you ask about one shop, I will stay focused on that shop.
 
 Good starters:
  - **What can I buy on this app?**
@@ -13904,7 +13958,7 @@ async function openChatFor(sid,sname,preset){
   if(switchingFromGlobal || !sameShop || !App.chatHistory?.length || $('chatMsgs')?.querySelector('.empty')) resetChatForShop(App.chatShopId,ctx.shop.name||sname||App.chatShopId,ctx.shop);
   if(preset){$('chatIn').value=preset;sendChatMsg();}
 }
-function addMsg(text,role='assistant',loading=false,products=[]){
+function addMsg(text,role='assistant',loading=false,products=[],businesses=[]){
   const msgs=$('chatMsgs');
   if(msgs.querySelector('.empty'))msgs.innerHTML='';
   const row=document.createElement('div');row.className=`msg ${role}`;
@@ -13925,9 +13979,10 @@ function addMsg(text,role='assistant',loading=false,products=[]){
     bub.innerHTML=renderTxt(text);
     bub.querySelectorAll('[data-lb]').forEach(img=>img.addEventListener('click',()=>openLbox(img.dataset.lb)));
     col.appendChild(bub);
-    if(products.length&&role==='assistant'){
+    if((businesses.length||products.length)&&role==='assistant'){
       const ig=document.createElement('div');
       ig.className='inline-pgrid';
+      businesses.forEach(shop=>ig.appendChild(makeBusinessCard(shop)));
       products.forEach(p=>ig.appendChild(makeCard(p,{mode:'chat',showShop:currentChatMode()==='global'})));
       col.appendChild(ig);
     }
@@ -13935,15 +13990,17 @@ function addMsg(text,role='assistant',loading=false,products=[]){
   }
   msgs.appendChild(row);msgs.scrollTop=msgs.scrollHeight;return row;
 }
-function renderChatSide(prods){
+function renderChatSide(prods=[],businesses=[]){
   const g=$('chatSideGrid');g.innerHTML='';
-  if(!prods||!prods.length){
+  updateChatCardsHeading(prods,businesses);
+  if((!prods||!prods.length) && (!businesses||!businesses.length)){
     const copy=currentChatMode()==='global'
-      ? 'Matching offerings appear here after you ask. Tap a business name to jump into that business page.'
+      ? 'Matching business cards and offerings appear here after you ask. Tap a business card to jump into that business page.'
       : 'Products and photos appear here after you ask. Tap a card to open the product.';
     g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Info</div><div class="et">${esc(copy)}</div></div>`;
     return;
   }
+  businesses.forEach(shop=>g.appendChild(makeBusinessCard(shop)));
   prods.forEach(p=>g.appendChild(makeCard(p,{mode:'chat',showShop:currentChatMode()==='global'})));
 }
 function setChatMobileSide(open){
@@ -13985,9 +14042,10 @@ async function sendChatMsg(){
     }
     lr.remove();
     const prods=d.products||[];
-    addMsg(d.answer||'No answer.','assistant',false,prods);
+    const businesses=d.businesses||[];
+    addMsg(d.answer||'No answer.','assistant',false,prods,businesses);
     App.chatHistory.push({q,a:d.answer});
-    renderChatSide(prods);
+    renderChatSide(prods,businesses);
     const m=d.meta||{};
     if(mode==='global') setChatMeta(m.llm_used?'Atlantica':'Marketplace Match',m.llm_used?'live':'quick');
     else setChatMeta(m.llm_used?'Business Assistant':'Quick Answer',m.llm_used?'live':'quick');

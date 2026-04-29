@@ -4264,6 +4264,7 @@ Never invent businesses, offerings, prices, availability, hours, contact details
 If the user asks for the cheapest option, compare only real prices from the supplied context.
 If the user asks what is available, rely only on offerings that are currently available in the supplied context.
 Keep the answer warm, concise, practical, and human.
+Sound like a helpful marketplace guide, not a script.
 Do not overwhelm the user.
 Use simple markdown.
 Prefer a short direct answer first, then clean bullets only when they help.
@@ -4326,6 +4327,156 @@ def marketplace_shop_offering_counts(prod_rows: List[Dict[str, Any]]) -> Dict[st
             continue
         counts[shop_id] = counts.get(shop_id, 0) + 1
     return counts
+
+def marketplace_rows_for_shop(prod_rows: List[Dict[str, Any]], shop_id: str) -> List[Dict[str, Any]]:
+    target = str(shop_id or "").strip()
+    if not target:
+        return []
+    return [row for row in prod_rows if str(row.get("shop_id", "")) == target]
+
+def marketplace_shop_card(shop: Dict[str, Any], prod_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    rows = marketplace_rows_for_shop(prod_rows, str(shop.get("shop_id", "")))
+    stats = {
+        "offering_count": len(rows),
+        "product_count": len(rows),
+        "offerings_count": len(rows),
+        "products_count": len(rows),
+        "products_with_images": sum(1 for row in rows if normalize_image_list(row.get("shop_id", ""), row.get("images", []))),
+        "offerings_with_images": sum(1 for row in rows if normalize_image_list(row.get("shop_id", ""), row.get("images", []))),
+        "avg_rating": float(shop.get("stats", {}).get("avg_rating", 0) or 0),
+    }
+    return public_shop_payload({**shop, "stats": stats, "is_open_now": shop_is_open_now(shop)})
+
+def serialize_marketplace_businesses(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [marketplace_shop_card(normalize_shop_record(shop or {}), prod_rows) for shop in shops if str((shop or {}).get("shop_id", "")).strip()]
+
+def marketplace_query_mentions_shop(shop: Dict[str, Any], q: str) -> bool:
+    qn = norm_text(q)
+    if not qn:
+        return False
+    name_n = norm_text(shop.get("name", ""))
+    slug_n = norm_text(re.sub(r"[-_]+", " ", str(shop.get("shop_slug", "") or "")))
+    shop_id_n = norm_text(re.sub(r"[-_]+", " ", str(shop.get("shop_id", "") or "")))
+    return any(label and label in qn for label in [name_n, slug_n, shop_id_n])
+
+def marketplace_named_shop_matches(shops: List[Dict[str, Any]], q: str) -> List[Dict[str, Any]]:
+    matches: List[Dict[str, Any]] = []
+    seen = set()
+    for shop in shops:
+        shop_id = str(shop.get("shop_id", "")).strip()
+        if not shop_id or shop_id in seen:
+            continue
+        if marketplace_query_mentions_shop(shop, q):
+            matches.append(shop)
+            seen.add(shop_id)
+    return matches
+
+def is_marketplace_compare_query(q: str) -> bool:
+    qn = norm_text(q)
+    return any(token in qn for token in ["compare", "comparison", "versus", "vs", "difference", "between"])
+
+def marketplace_shop_focus_intent(q: str) -> bool:
+    qn = norm_text(q)
+    return any(
+        token in qn
+        for token in [
+            "about",
+            "business",
+            "shop",
+            "store",
+            "what does",
+            "what do",
+            "tell me",
+            "who is",
+            "where is",
+            "hours",
+            "open",
+            "contact",
+            "phone",
+            "whatsapp",
+        ]
+    )
+
+def detect_marketplace_focus_shop(shops: List[Dict[str, Any]], q: str) -> Optional[Dict[str, Any]]:
+    qn = norm_text(q)
+    if not qn:
+        return None
+    named_matches = marketplace_named_shop_matches(shops, q)
+    if len(named_matches) == 1:
+        return normalize_shop_record(named_matches[0] or {})
+    if len(named_matches) > 1:
+        return None
+    if is_marketplace_compare_query(q) or not marketplace_shop_focus_intent(q):
+        return None
+    ranked = rank_marketplace_shops(shops, q)
+    if not ranked:
+        return None
+    top = normalize_shop_record(ranked[0] or {})
+    top_score = float(ranked[0].get("_market_score", 0) or 0)
+    second_score = float(ranked[1].get("_market_score", 0) or 0) if len(ranked) > 1 else 0.0
+    if top_score < 2.55:
+        return None
+    if second_score and top_score < second_score + 1.1:
+        return None
+    return top
+
+def score_marketplace_shop_highlight(row: Dict[str, Any], shop: Dict[str, Any], q: str) -> float:
+    score = score_marketplace_product(row, shop, q)
+    score += float(row.get("product_views", 0) or 0) * 0.04
+    score += float(row.get("review_count", 0) or 0) * 0.2
+    score += float(row.get("avg_rating", 0) or 0) * 0.18
+    if row_is_available_for_chat(row, shop):
+        score += 0.8
+    if parse_price_value(row.get("price", "")) is not None:
+        score += 0.14
+    if row.get("overview"):
+        score += 0.12
+    if normalize_image_list(row.get("shop_id", ""), row.get("images", [])):
+        score += 0.12
+    return score
+
+def pick_marketplace_shop_highlights(prod_rows: List[Dict[str, Any]], shop: Dict[str, Any], q: str, limit: int = 1) -> List[Dict[str, Any]]:
+    ranked = sorted(
+        prod_rows,
+        key=lambda row: (
+            score_marketplace_shop_highlight(row, shop, q),
+            str(row.get("updated_at", "") or ""),
+            str(row.get("name", "")).lower(),
+        ),
+        reverse=True,
+    )
+    return ranked[: max(1, limit)]
+
+def is_marketplace_shop_profile_query(q: str, focus_shop: Optional[Dict[str, Any]]) -> bool:
+    if not focus_shop:
+        return False
+    if any(
+        predicate(q)
+        for predicate in [is_price_lookup_query, is_stock_query, is_cheapest_query, is_budget_query, is_hours_query, is_contact_query, is_location_query, wants_product_image]
+    ):
+        return False
+    qn = norm_text(q)
+    if is_list_intent(qn) or is_marketplace_business_list_query(q) or is_marketplace_compare_query(q):
+        return False
+    aliases = {
+        norm_text(focus_shop.get("name", "")),
+        norm_text(re.sub(r"[-_]+", " ", str(focus_shop.get("shop_slug", "") or ""))),
+        norm_text(re.sub(r"[-_]+", " ", str(focus_shop.get("shop_id", "") or ""))),
+    }
+    if qn in {alias for alias in aliases if alias}:
+        return True
+    triggers = [
+        "tell me about",
+        "about",
+        "what does",
+        "what do",
+        "who is",
+        "what is",
+        "do they sell",
+        "do they have",
+        "what can i get from",
+    ]
+    return any(trigger in qn for trigger in triggers)
 
 def score_marketplace_shop(shop: Dict[str, Any], q: str) -> float:
     qn = norm_text(q)
@@ -4464,8 +4615,14 @@ def marketplace_chat_item_line(item: Dict[str, Any], shop: Dict[str, Any]) -> st
     summary = " | ".join(offering_summary_bits(item, shop)) or "Details available on request"
     return f"- **{item.get('name', 'Offering')}** from **{shop.get('name', 'Business')}** - {summary}"
 
-def marketplace_response_style_instructions(q: str) -> str:
+def marketplace_response_style_instructions(q: str, focus_shop: Optional[Dict[str, Any]] = None) -> str:
     qn = norm_text(q)
+    if focus_shop and focus_shop.get("name"):
+        return (
+            f"Stay focused on **{focus_shop.get('name')}** unless the user explicitly asks to compare other businesses. "
+            "Keep the tone natural and conversational. "
+            "For general business questions, give a short answer in 2 to 4 sentences and mention at most one standout offering unless the user asks for more."
+        )
     if is_recommendation_query(qn) or any(token in qn for token in ["compare", "difference", "best", "popular"]):
         return (
             "Response format: start with one short direct sentence, then list up to 4 offering bullets. "
@@ -4493,6 +4650,7 @@ def marketplace_chat_max_tokens(q: str, picked: Optional[List[Dict[str, Any]]] =
 
 def build_marketplace_chat_suggestions(q: str, picked: List[Dict[str, Any]], shops: List[Dict[str, Any]], shop_map: Dict[str, Dict[str, Any]]) -> List[str]:
     suggestions: List[str] = []
+    focus_shop = shops[0] if len(shops) == 1 else None
     if picked:
         top = picked[0]
         top_name = str(top.get("name", "")).strip()
@@ -4505,6 +4663,12 @@ def build_marketplace_chat_suggestions(q: str, picked: List[Dict[str, Any]], sho
             ])
         if top_shop.get("name"):
             suggestions.append(f"What else does {top_shop['name']} have?")
+    elif focus_shop and focus_shop.get("name"):
+        suggestions.extend([
+            f"What does {focus_shop['name']} have?",
+            f"What are {focus_shop['name']} hours?",
+            f"Where is {focus_shop['name']} located?",
+        ])
     else:
         suggestions.extend(["Show me shoes", "Find the cheapest option", "Which businesses are open now?", "What can I buy on this app?"])
     return dedup(suggestions)[:4]
@@ -4578,17 +4742,70 @@ def answer_marketplace_business_list_query(shops: List[Dict[str, Any]], prod_row
         "meta": {"llm_used": False, "reason": "business_list", "suggestions": ["Which businesses are open now?", "Show me shoes", "Find the cheapest option"]},
     }
 
-def answer_marketplace_shop_info_query(shops: List[Dict[str, Any]], q: str) -> Optional[Dict[str, Any]]:
+def answer_marketplace_shop_profile_query(shop: Dict[str, Any], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Dict[str, Any]:
+    shop_rows = marketplace_rows_for_shop(prod_rows, str(shop.get("shop_id", "")))
+    highlight_rows = pick_marketplace_shop_highlights(shop_rows, shop, q, limit=1)
+    name = shop.get("name", "This business")
+    category = (shop.get("category") or "business").strip()
+    location = (shop.get("address") or shop.get("service_area") or "").strip()
+    overview = str(shop.get("overview", "") or "").strip()
+    parts = []
+    opener = f"**{name}** is a {category.lower()} business"
+    if location:
+        opener += f" in **{location}**"
+    parts.append(opener + ".")
+    if overview:
+        parts.append(overview)
+    detail_bits = []
+    if shop_rows:
+        detail_bits.append(f"**{len(shop_rows)}** public offering{'s' if len(shop_rows) != 1 else ''} on Atlantica")
+    if shop_is_open_now(shop):
+        detail_bits.append("currently **open now**")
+    elif shop.get("hours"):
+        detail_bits.append(f"public hours are **{shop.get('hours')}**")
+    if detail_bits:
+        parts.append("Right now it has " + " and ".join(detail_bits) + ".")
+    if highlight_rows:
+        top = highlight_rows[0]
+        price = top.get("price") or "price on request"
+        parts.append(f"A good place to start is **{top.get('name', 'this offering')}** at **{price}**.")
+    return {
+        "answer": "\n\n".join(parts),
+        "businesses": serialize_marketplace_businesses([shop], prod_rows),
+        "products": serialize_marketplace_products(highlight_rows, shop_map, currency) if highlight_rows else [],
+        "meta": {
+            "llm_used": False,
+            "reason": "shop_profile",
+            "suggestions": dedup([
+                f"What does {name} have?",
+                f"What are {name} hours?",
+                f"Where is {name} located?",
+                f"Show me more from {name}",
+            ]),
+        },
+    }
+
+def answer_marketplace_shop_info_query(
+    shops: List[Dict[str, Any]],
+    prod_rows: List[Dict[str, Any]],
+    q: str,
+    shop_map: Dict[str, Dict[str, Any]],
+    currency: str = "",
+    focus_shop: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
     if not (is_location_query(q) or is_hours_query(q) or is_contact_query(q)):
         return None
-    ranked = rank_marketplace_shops(shops, q)
-    top = ranked[0] if ranked else None
-    if not top or float(top.get("_market_score", 0) or 0) < 2.1:
+    ranked = rank_marketplace_shops(shops, q) if not focus_shop else []
+    top = focus_shop or (ranked[0] if ranked else None)
+    if not top or (not focus_shop and float(top.get("_market_score", 0) or 0) < 2.1):
         return {
             "answer": "Tell me the business name and I can share its location, hours, or public contact details.",
             "products": [],
             "meta": {"llm_used": False, "reason": "shop_info_missing_name", "suggestions": ["Which businesses are open now?", "Show me businesses", "What can I buy on this app?"]},
         }
+    focus_rows = marketplace_rows_for_shop(prod_rows, str(top.get("shop_id", "")))
+    highlight_rows = pick_marketplace_shop_highlights(focus_rows, top, q, limit=1)
+    businesses = serialize_marketplace_businesses([top], prod_rows)
     if is_location_query(q):
         location_mode = normalize_location_mode(top.get("location_mode", ""), top.get("business_type", ""), top.get("category", ""))
         if location_mode == "online":
@@ -4596,17 +4813,19 @@ def answer_marketplace_shop_info_query(shops: List[Dict[str, Any]], q: str) -> O
         elif top.get("service_area"):
             answer = f"**{top.get('name', 'This business')}** serves **{top.get('service_area')}**."
         else:
-            answer = f"**{top.get('name', 'This business')}** is at **{top.get('address') or 'location not listed'}**."
+            answer = f"**{top.get('name', 'This business')}** is listed at **{top.get('address') or 'location not listed'}**."
         return {
             "answer": answer,
-            "products": [],
+            "businesses": businesses,
+            "products": serialize_marketplace_products(highlight_rows, shop_map, currency) if highlight_rows else [],
             "meta": {"llm_used": False, "reason": "shop_location", "suggestions": [f"What does {top.get('name', 'this business')} offer?", f"What are {top.get('name', 'this business')} opening hours?", "Show me more businesses"]},
         }
     if is_hours_query(q):
         hours = top.get("hours") or "Hours are not listed yet."
         return {
-            "answer": f"**{top.get('name', 'This business')}** is listed as **{hours}**.",
-            "products": [],
+            "answer": f"The public hours I found for **{top.get('name', 'this business')}** are **{hours}**.",
+            "businesses": businesses,
+            "products": serialize_marketplace_products(highlight_rows, shop_map, currency) if highlight_rows else [],
             "meta": {"llm_used": False, "reason": "shop_hours", "suggestions": [f"Where is {top.get('name', 'this business')} located?", f"What does {top.get('name', 'this business')} offer?", "Which businesses are open now?"]},
         }
     phone = public_shop_phone_value(top).strip()
@@ -4618,13 +4837,15 @@ def answer_marketplace_shop_info_query(shops: List[Dict[str, Any]], q: str) -> O
         if whatsapp:
             parts.append(f"WhatsApp: **{whatsapp}**")
         return {
-            "answer": f"Here is the public contact info for **{top.get('name', 'this business')}**:\n" + "\n".join(f"- {part}" for part in parts),
-            "products": [],
+            "answer": f"Here is the public contact info I found for **{top.get('name', 'this business')}**:\n" + "\n".join(f"- {part}" for part in parts),
+            "businesses": businesses,
+            "products": serialize_marketplace_products(highlight_rows, shop_map, currency) if highlight_rows else [],
             "meta": {"llm_used": False, "reason": "shop_contact", "suggestions": [f"What does {top.get('name', 'this business')} offer?", f"Where is {top.get('name', 'this business')} located?", "Show me more businesses"]},
         }
     return {
         "answer": f"I do not see a public phone or WhatsApp listing for **{top.get('name', 'this business')}** right now.",
-        "products": [],
+        "businesses": businesses,
+        "products": serialize_marketplace_products(highlight_rows, shop_map, currency) if highlight_rows else [],
         "meta": {"llm_used": False, "reason": "shop_contact_missing", "suggestions": [f"What does {top.get('name', 'this business')} offer?", f"Where is {top.get('name', 'this business')} located?", "Which businesses are open now?"]},
     }
 
@@ -4660,6 +4881,7 @@ def answer_marketplace_price_query(shops: List[Dict[str, Any]], prod_rows: List[
     if not matches:
         return None
     top = matches[:4]
+    focus_shop = shops[0] if len(shops) == 1 else None
     lines = []
     for row in top:
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
@@ -4671,7 +4893,10 @@ def answer_marketplace_price_query(shops: List[Dict[str, Any]], prod_rows: List[
         else:
             line += "."
         lines.append(line)
-    opener = "Here is the closest price match I found:" if len(lines) == 1 else "Here are the closest price matches I found:"
+    if focus_shop and focus_shop.get("name"):
+        opener = f"Here {'is' if len(lines) == 1 else 'are'} the closest price match{'es' if len(lines) != 1 else ''} I found at **{focus_shop.get('name')}**:"
+    else:
+        opener = "Here is the closest price match I found:" if len(lines) == 1 else "Here are the closest price matches I found:"
     return {
         "answer": "\n".join([opener, *lines]),
         "products": serialize_marketplace_products(top, shop_map, currency),
@@ -4701,8 +4926,12 @@ def answer_marketplace_budget_query(shops: List[Dict[str, Any]], prod_rows: List
             "meta": {"llm_used": False, "reason": "market_budget_empty", "suggestions": ["Find the cheapest option", "Show me businesses", "What can I buy on this app?"]},
         }
     top = matches[:12]
+    focus_shop = shops[0] if len(shops) == 1 else None
     business_count = len({str(row.get("shop_id", "")) for row in matches})
-    lines = [f"I found **{len(matches)}** matching offering{'s' if len(matches) != 1 else ''} under **{limit:g}** across **{business_count}** business{'es' if business_count != 1 else ''}:"]
+    if focus_shop and focus_shop.get("name"):
+        lines = [f"I found **{len(matches)}** matching offering{'s' if len(matches) != 1 else ''} under **{limit:g}** at **{focus_shop.get('name')}**:"]
+    else:
+        lines = [f"I found **{len(matches)}** matching offering{'s' if len(matches) != 1 else ''} under **{limit:g}** across **{business_count}** business{'es' if business_count != 1 else ''}:"]
     for row in top:
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
         lines.append(marketplace_chat_item_line(enrich_chat_row(row, shop), shop))
@@ -4732,7 +4961,8 @@ def answer_marketplace_cheapest_query(shops: List[Dict[str, Any]], prod_rows: Li
     if not priced:
         return None
     top = priced[:8]
-    lines = ["These are the lowest-priced matches I found right now:"]
+    focus_shop = shops[0] if len(shops) == 1 else None
+    lines = [f"These are the lowest-priced matches I found at **{focus_shop.get('name')}**:" if focus_shop and focus_shop.get("name") else "These are the lowest-priced matches I found right now:"]
     for row in top:
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
         lines.append(marketplace_chat_item_line(enrich_chat_row(row, shop), shop))
@@ -4759,8 +4989,12 @@ def answer_marketplace_stock_query(shops: List[Dict[str, Any]], prod_rows: List[
             "meta": {"llm_used": False, "reason": "market_stock_empty", "suggestions": ["Show me businesses", "Find the cheapest option", "What can I buy on this app?"]},
         }
     top = matches[:12]
+    focus_shop = shops[0] if len(shops) == 1 else None
     business_count = len({str(row.get("shop_id", "")) for row in matches})
-    lines = [f"I found **{len(matches)}** available match{'es' if len(matches) != 1 else ''} across **{business_count}** business{'es' if business_count != 1 else ''}:"]
+    if focus_shop and focus_shop.get("name"):
+        lines = [f"Here {'is' if len(matches) == 1 else 'are'} what **{focus_shop.get('name')}** currently has available:"]
+    else:
+        lines = [f"I found **{len(matches)}** available match{'es' if len(matches) != 1 else ''} across **{business_count}** business{'es' if business_count != 1 else ''}:"]
     for row in top:
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
         lines.append(marketplace_chat_item_line(enrich_chat_row(row, shop), shop))
@@ -4782,8 +5016,12 @@ def answer_marketplace_catalog_query(shops: List[Dict[str, Any]], prod_rows: Lis
         }
     pool = ranked or rank_marketplace_products(prod_rows, "", shop_map)
     top = pool[:12]
+    focus_shop = shops[0] if len(shops) == 1 else None
     business_count = len({str(row.get("shop_id", "")) for row in pool})
-    lines = [f"I found **{len(pool)}** matching offering{'s' if len(pool) != 1 else ''} across **{business_count}** business{'es' if business_count != 1 else ''}:"]
+    if focus_shop and focus_shop.get("name"):
+        lines = [f"Here {'is' if len(pool) == 1 else 'are'} the best match{'es' if len(pool) != 1 else ''} I found at **{focus_shop.get('name')}**:"]
+    else:
+        lines = [f"I found **{len(pool)}** matching offering{'s' if len(pool) != 1 else ''} across **{business_count}** business{'es' if business_count != 1 else ''}:"]
     for row in top:
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
         lines.append(marketplace_chat_item_line(enrich_chat_row(row, shop), shop))
@@ -4817,9 +5055,10 @@ def answer_marketplace_recommendation_query(shops: List[Dict[str, Any]], prod_ro
             "meta": {"llm_used": False, "reason": "market_recommendation_empty", "suggestions": ["Find the cheapest option", "Show me businesses", "What can I buy on this app?"]},
         }
     top = candidates[:4]
-    opener = "Here are a few strong marketplace options:"
+    focus_shop = shops[0] if len(shops) == 1 else None
+    opener = f"Here are a few strong picks from **{focus_shop.get('name')}**:" if focus_shop and focus_shop.get("name") else "Here are a few strong marketplace options:"
     if budget is not None:
-        opener = f"Here are a few strong marketplace options under **{budget:g}**:"
+        opener = f"Here are a few strong picks from **{focus_shop.get('name')}** under **{budget:g}**:" if focus_shop and focus_shop.get("name") else f"Here are a few strong marketplace options under **{budget:g}**:"
     lines = [opener]
     for row in top:
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
@@ -4834,7 +5073,7 @@ def answer_marketplace_recommendation_query(shops: List[Dict[str, Any]], prod_ro
         "meta": {"llm_used": False, "reason": "market_recommendation", "suggestions": build_marketplace_chat_suggestions(q, top, shops, shop_map)},
     }
 
-def build_marketplace_context(shops: List[Dict[str, Any]], picked: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], shop_map: Dict[str, Dict[str, Any]]) -> str:
+def build_marketplace_context(shops: List[Dict[str, Any]], picked: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], shop_map: Dict[str, Dict[str, Any]], focus_shop: Optional[Dict[str, Any]] = None) -> str:
     summary = marketplace_summary(shops, prod_rows)
     lines = [
         "Assistant: Atlantica",
@@ -4845,6 +5084,13 @@ def build_marketplace_context(shops: List[Dict[str, Any]], picked: List[Dict[str
         f"Categories: {', '.join(summary['categories']) if summary['categories'] else 'Not listed'}",
         f"Open now: {summary['open_now_count']}",
     ]
+    if focus_shop:
+        location = focus_shop.get("address") or focus_shop.get("service_area") or "Location not listed"
+        lines.append(
+            f"Focused business: {focus_shop.get('name', 'Business')} | Category: {focus_shop.get('category') or 'Business'} | Location: {location} | Hours: {focus_shop.get('hours') or 'Not listed'}"
+        )
+        if focus_shop.get("overview"):
+            lines.append(f"Focused business overview: {focus_shop.get('overview')}")
     if picked:
         lines.append("\nRelevant marketplace offerings:")
         for row in picked[:8]:
@@ -4885,11 +5131,22 @@ def find_marketplace_out_of_scope_bold_terms(answer: str, shops: List[Dict[str, 
         flagged.append(term)
     return flagged[:6]
 
-def fallback_marketplace_answer(shops: List[Dict[str, Any]], picked: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]]) -> str:
+def fallback_marketplace_answer(shops: List[Dict[str, Any]], picked: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], focus_shop: Optional[Dict[str, Any]] = None) -> str:
     if is_greeting(q):
         return (
             f"Hi, I'm **Atlantica**. I can help you search across **{len(shops)}** businesses, compare prices, and point you to the right business page."
         )
+    if focus_shop:
+        opener = f"**{focus_shop.get('name', 'This business')}** is listed on Atlantica as a {str(focus_shop.get('category') or 'business').lower()} business."
+        overview = str(focus_shop.get("overview", "") or "").strip()
+        if picked:
+            top = picked[0]
+            shop = normalize_shop_record(shop_map.get(str(top.get("shop_id", "")), {}) or focus_shop or {})
+            summary_bits = " | ".join(offering_summary_bits(top, shop)) or "Details available on request"
+            return f"{opener} {overview} A good place to start is **{top.get('name', 'this offering')}** - {summary_bits}".strip()
+        if overview:
+            return f"{opener} {overview}".strip()
+        return opener
     if picked:
         top = picked[0]
         shop = normalize_shop_record(shop_map.get(str(top.get("shop_id", "")), {}) or {})
@@ -5607,10 +5864,21 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
 
     shops, shop_map, prod_rows = public_marketplace_snapshot(currency)
     summary = marketplace_summary(shops, prod_rows)
+    focus_shop = detect_marketplace_focus_shop(shops, q)
+    scope_shops = [focus_shop] if focus_shop else shops
+    scope_shop_map = {str(focus_shop.get("shop_id", "")): focus_shop} if focus_shop else shop_map
+    scope_prod_rows = marketplace_rows_for_shop(prod_rows, str(focus_shop.get("shop_id", ""))) if focus_shop else prod_rows
+    focus_businesses = serialize_marketplace_businesses([focus_shop], prod_rows) if focus_shop else []
+    focus_highlight_rows = pick_marketplace_shop_highlights(scope_prod_rows, focus_shop, q, limit=1) if focus_shop and scope_prod_rows else []
 
-    def respond(payload: Dict[str, Any]) -> Dict[str, Any]:
+    def respond(payload: Dict[str, Any], force_focus_highlight: bool = False) -> Dict[str, Any]:
+        body = dict(payload or {})
+        if focus_shop:
+            body.setdefault("businesses", focus_businesses)
+            if force_focus_highlight:
+                body["products"] = serialize_marketplace_products(focus_highlight_rows, scope_shop_map, currency) if focus_highlight_rows else []
         return alias_catalog_response({
-            **(payload or {}),
+            **body,
             "assistant": "Atlantica",
             "mode": "global",
             "context": {"summary": summary},
@@ -5619,9 +5887,12 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
     if is_marketplace_app_query(q):
         return respond(answer_marketplace_app_query(shops, prod_rows))
 
-    shop_info_answer = answer_marketplace_shop_info_query(shops, q)
+    if is_marketplace_shop_profile_query(q, focus_shop):
+        return respond(answer_marketplace_shop_profile_query(focus_shop or {}, scope_prod_rows, q, scope_shop_map, currency), force_focus_highlight=True)
+
+    shop_info_answer = answer_marketplace_shop_info_query(shops, prod_rows, q, shop_map, currency, focus_shop=focus_shop)
     if shop_info_answer is not None:
-        return respond(shop_info_answer)
+        return respond(shop_info_answer, force_focus_highlight=True)
 
     open_now_answer = answer_marketplace_open_now_query(shops, prod_rows, q)
     if open_now_answer is not None:
@@ -5631,29 +5902,29 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
     if business_list_answer is not None:
         return respond(business_list_answer)
 
-    budget_answer = answer_marketplace_budget_query(shops, prod_rows, q, shop_map, currency)
+    budget_answer = answer_marketplace_budget_query(scope_shops, scope_prod_rows, q, scope_shop_map, currency)
     if budget_answer is not None:
         return respond(budget_answer)
 
-    cheapest_answer = answer_marketplace_cheapest_query(shops, prod_rows, q, shop_map, currency)
+    cheapest_answer = answer_marketplace_cheapest_query(scope_shops, scope_prod_rows, q, scope_shop_map, currency)
     if cheapest_answer is not None:
         return respond(cheapest_answer)
 
-    stock_answer = answer_marketplace_stock_query(shops, prod_rows, q, shop_map, currency)
+    stock_answer = answer_marketplace_stock_query(scope_shops, scope_prod_rows, q, scope_shop_map, currency)
     if stock_answer is not None:
         return respond(stock_answer)
 
-    price_answer = answer_marketplace_price_query(shops, prod_rows, q, shop_map, currency)
+    price_answer = answer_marketplace_price_query(scope_shops, scope_prod_rows, q, scope_shop_map, currency)
     if price_answer is not None:
         return respond(price_answer)
 
-    recommendation_answer = answer_marketplace_recommendation_query(shops, prod_rows, q, shop_map, currency)
+    recommendation_answer = answer_marketplace_recommendation_query(scope_shops, scope_prod_rows, q, scope_shop_map, currency)
     if recommendation_answer is not None:
         return respond(recommendation_answer)
 
-    ranked = match_marketplace_products(prod_rows, q, shop_map)
-    picked = ranked[:8] if ranked else rank_marketplace_products(prod_rows, q, shop_map)[:8]
-    suggestions = build_marketplace_chat_suggestions(q, picked, shops, shop_map)
+    ranked = match_marketplace_products(scope_prod_rows, q, scope_shop_map)
+    picked = ranked[:8] if ranked else rank_marketplace_products(scope_prod_rows, q, scope_shop_map)[:8]
+    suggestions = build_marketplace_chat_suggestions(q, picked, scope_shops, scope_shop_map)
 
     if is_greeting(q):
         return respond({
@@ -5662,50 +5933,50 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
             ),
             "products": [],
             "meta": {"llm_used": False, "reason": "market_greeting", "suggestions": suggestions},
-        })
+        }, force_focus_highlight=bool(focus_shop))
 
     if is_list_intent(q) or any(token in norm_text(q) for token in ["buy", "find", "looking for", "need", "want"]):
-        return respond(answer_marketplace_catalog_query(shops, prod_rows, q, shop_map, currency))
+        return respond(answer_marketplace_catalog_query(scope_shops, scope_prod_rows, q, scope_shop_map, currency))
 
     try:
-        system_prompt = ATLANTICA_SYSTEM + "\n" + marketplace_response_style_instructions(q)
-        context_blob = f"MARKETPLACE CONTEXT:\n{build_marketplace_context(shops, picked, prod_rows, shop_map)}\n\nUSER: {q}"
+        system_prompt = ATLANTICA_SYSTEM + "\n" + marketplace_response_style_instructions(q, focus_shop)
+        context_blob = f"MARKETPLACE CONTEXT:\n{build_marketplace_context(scope_shops, picked, scope_prod_rows, scope_shop_map, focus_shop=focus_shop)}\n\nUSER: {q}"
         llm_budget = marketplace_chat_max_tokens(q, picked)
         llm_res = llm_chat(system_prompt, context_blob, max_tokens=llm_budget)
         if should_retry_truncated_chat(llm_res):
             retry_prompt = system_prompt + "\nThe previous draft was cut off. Retry with a complete answer. Keep it concise, but finish every sentence and list cleanly."
             llm_res = llm_chat(retry_prompt, context_blob, max_tokens=max(llm_budget + 300, 1100))
-        flagged_terms = find_marketplace_out_of_scope_bold_terms(llm_res.get("content", ""), shops, prod_rows)
+        flagged_terms = find_marketplace_out_of_scope_bold_terms(llm_res.get("content", ""), scope_shops, scope_prod_rows)
         if flagged_terms:
             print(f"[Atlantica Scope Guard] blocked out-of-scope terms: {flagged_terms}")
             return respond({
-                "answer": fallback_marketplace_answer(shops, picked, q, shop_map),
-                "products": serialize_marketplace_products(picked[:8], shop_map, currency) if picked else [],
+                "answer": fallback_marketplace_answer(scope_shops, picked, q, scope_shop_map, focus_shop=focus_shop),
+                "products": serialize_marketplace_products(picked[:8], scope_shop_map, currency) if picked else [],
                 "meta": {"llm_used": False, "reason": "scope_guard", "suggestions": suggestions},
-            })
+            }, force_focus_highlight=bool(focus_shop))
         attached = picked
         if wants_product_image(q):
             attached = [row for row in picked if normalize_image_list(row.get("shop_id", ""), row.get("images", []))] or picked
         return respond({
-            "answer": llm_res.get("content", "").strip() or fallback_marketplace_answer(shops, picked, q, shop_map),
-            "products": serialize_marketplace_products(attached[:8], shop_map, currency) if attached else [],
+            "answer": llm_res.get("content", "").strip() or fallback_marketplace_answer(scope_shops, picked, q, scope_shop_map, focus_shop=focus_shop),
+            "products": serialize_marketplace_products(attached[:1] if focus_shop else attached[:8], scope_shop_map, currency) if attached else [],
             "meta": {
                 "llm_used": True,
                 "model": llm_res.get("model") or OPENROUTER_MODEL,
                 "finish_reason": llm_res.get("finish_reason") or "stop",
                 "suggestions": suggestions,
             },
-        })
+        }, force_focus_highlight=bool(focus_shop and not attached))
     except Exception as e:
         err_msg = str(e)
         if hasattr(e, "response") and getattr(e, "response") is not None:
             err_msg += f" | {e.response.text}"
         print(f"[Atlantica LLM Exception] Fallback triggered: {err_msg}")
         return respond({
-            "answer": fallback_marketplace_answer(shops, picked, q, shop_map),
-            "products": serialize_marketplace_products(picked[:8], shop_map, currency) if picked else [],
+            "answer": fallback_marketplace_answer(scope_shops, picked, q, scope_shop_map, focus_shop=focus_shop),
+            "products": serialize_marketplace_products(picked[:1] if focus_shop else picked[:8], scope_shop_map, currency) if picked else [],
             "meta": {"llm_used": False, "reason": "fallback_after_llm_error", "suggestions": suggestions},
-        })
+        }, force_focus_highlight=bool(focus_shop and not picked))
 
 @app.get("/chat")
 def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str = Query(""), q: str = Query(...), currency: str = Query("")):
