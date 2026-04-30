@@ -15,8 +15,9 @@ from difflib import SequenceMatcher
 import requests
 import smtplib
 from typing import Any, Dict, List, Optional, Tuple
-from io import StringIO
+from io import BytesIO, StringIO
 from email.message import EmailMessage
+import zipfile
 from supabase import create_client, Client
 try:
     from supabase.client import ClientOptions  # type: ignore
@@ -57,6 +58,7 @@ PAGE_SIZE         = 24
 ALLOWED_IMG_EXTS  = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".jif"}
 ALLOWED_IMG_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
 MAX_UPLOAD_BYTES  = int(os.environ.get("MAX_UPLOAD_BYTES", "8388608") or 8388608)
+MAX_CATALOG_PACKAGE_BYTES = int(os.environ.get("MAX_CATALOG_PACKAGE_BYTES", "262144000") or 262144000)
 IMAGE_BUCKET      = "product-images"
 BUSINESS_PROFILE_IMAGE_PREFIX = "business-profiles"
 AVATAR_IMAGE_PREFIX = "avatars"
@@ -209,7 +211,6 @@ CSRF_EXEMPT_PATHS = {
     "/auth/session",
     "/auth/refresh",
     "/auth/forgot-password",
-    "/auth/update-password",
 }
 SECURITY_CSP = "; ".join([
     "default-src 'self'",
@@ -1398,10 +1399,47 @@ def safe_ensure_profile_row(user: Any, prof: Optional[Dict[str, Any]] = None, pr
         print(f"[Profile Sync Warning] user={getattr(user, 'id', '')}: {e}")
         return profile_defaults_for_user(user, prof, preferred_display_name)
 
-def require_password_min_length(password: str, context: str = "password") -> str:
+PASSWORD_MIN_LENGTH = 10
+PASSWORD_SYMBOL_RE = re.compile(r"[^A-Za-z0-9]")
+COMMON_WEAK_PASSWORDS = {
+    "password", "password1", "password12", "password123", "password123!",
+    "qwerty123", "qwerty123!", "admin123", "admin123!", "welcome123",
+    "letmein123", "changeme123", "atlantica123", "wave12345",
+}
+
+def password_policy_errors(password: str, email: str = "", display_name: str = "") -> List[str]:
     value = str(password or "")
-    if len(value.strip()) < 8:
-        raise HTTPException(400, f"Use at least 8 characters for your {context}.")
+    errors: List[str] = []
+    if len(value) < PASSWORD_MIN_LENGTH:
+        errors.append(f"at least {PASSWORD_MIN_LENGTH} characters")
+    if re.search(r"\s", value):
+        errors.append("no spaces")
+    if not re.search(r"[A-Z]", value):
+        errors.append("one uppercase letter")
+    if not re.search(r"[a-z]", value):
+        errors.append("one lowercase letter")
+    if not re.search(r"\d", value):
+        errors.append("one number")
+    if not PASSWORD_SYMBOL_RE.search(value):
+        errors.append("one symbol")
+    lowered = value.lower()
+    compact = re.sub(r"[^a-z0-9]", "", lowered)
+    if lowered in COMMON_WEAK_PASSWORDS or compact in COMMON_WEAK_PASSWORDS:
+        errors.append("not a common password")
+    email_name = re.sub(r"[^a-z0-9]", "", clean_email(email).split("@", 1)[0].lower()) if email else ""
+    display_bits = [re.sub(r"[^a-z0-9]", "", part.lower()) for part in re.findall(r"[A-Za-z0-9]{3,}", display_name or "")]
+    blocked_parts = [part for part in [email_name, *display_bits] if len(part) >= 3]
+    if any(part and part in compact for part in blocked_parts):
+        errors.append("does not include your email or name")
+    if re.search(r"(.)\1{4,}", value):
+        errors.append("no long repeated character runs")
+    return dedup(errors)
+
+def require_strong_password(password: str, context: str = "password", email: str = "", display_name: str = "") -> str:
+    value = str(password or "")
+    errors = password_policy_errors(value, email, display_name)
+    if errors:
+        raise HTTPException(400, f"Your {context} must include: {', '.join(errors)}.")
     return value
 
 def auth_user_payload(user: Any, prof: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -1464,6 +1502,14 @@ def notifications_enabled() -> bool:
 
 def clean_email(value: str) -> str:
     return re.sub(r"\s+", "", str(value or "").strip()).lower()
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+def require_clean_email(value: str) -> str:
+    email = clean_email(value)
+    if not email or len(email) > 254 or not EMAIL_RE.match(email):
+        raise HTTPException(400, "Enter a valid email address.")
+    return email
 
 def load_auth_email_map(user_ids: List[str]) -> Dict[str, str]:
     admin_api = getattr(getattr(supabase, "auth", None), "admin", None)
@@ -1958,6 +2004,49 @@ def parse_image_ref_field(shop_id: str, raw: Any) -> List[str]:
     except Exception:
         pass
     return normalize_image_list(shop_id, [part.strip() for part in re.split(r"[|\n;]+", text) if part.strip()])
+
+def split_catalog_refs(raw: Any) -> List[str]:
+    if raw in (None, ""):
+        return []
+    if isinstance(raw, list):
+        out: List[str] = []
+        for item in raw:
+            out.extend(split_catalog_refs(item))
+        return out
+    text = str(raw or "").strip()
+    if not text:
+        return []
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, list):
+            return split_catalog_refs(parsed)
+    except Exception:
+        pass
+    return [part.strip() for part in re.split(r"[|\n;]+", text) if part.strip()]
+
+def normalize_catalog_asset_ref(value: str) -> str:
+    ref = str(value or "").strip().strip("\"'").replace("\\", "/")
+    ref = re.sub(r"^/+", "", ref)
+    while ref.startswith("./"):
+        ref = ref[2:]
+    return ref.lower()
+
+def save_image_bytes(shop_id: str, filename: str, data: bytes) -> str:
+    ext = norm_ext(os.path.splitext(str(filename or "").lower())[1])
+    if ext not in ALLOWED_IMG_EXTS:
+        raise HTTPException(400, f"Unsupported image type: {ext}")
+    if not data:
+        raise HTTPException(400, "Image is empty")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(400, f"Image {filename} exceeds the upload limit")
+    name = f"{uuid.uuid4().hex}{norm_ext(ext)}"
+    return upload_public_image(
+        IMAGE_BUCKET,
+        f"{shop_id}/{name}",
+        data,
+        image_content_type_for_ext(ext),
+        "Failed to upload image. Ensure the 'product-images' bucket is created and public in Supabase.",
+    )
 
 def save_images(shop_id: str, files: List[UploadFile]) -> List[str]:
     out = []
@@ -3486,6 +3575,281 @@ def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[st
         "images": dedup(product.images or []),
         "updated_at": "now()",
     }
+
+def product_strict_columns_for_data(data: Dict[str, Any]) -> List[str]:
+    strict_cols = ["variant_data", "variant_matrix"] if data.get("variant_data") or data.get("variant_matrix") else []
+    if data.get("offering_type") != "product":
+        strict_cols.append("offering_type")
+    if data.get("price_mode") != "fixed":
+        strict_cols.append("price_mode")
+    if data.get("availability_mode") not in {"", "in_stock"}:
+        strict_cols.append("availability_mode")
+    if data.get("duration_minutes") not in (None, ""):
+        strict_cols.append("duration_minutes")
+    if data.get("capacity") not in (None, ""):
+        strict_cols.append("capacity")
+    return strict_cols
+
+def normalize_catalog_header(value: str) -> str:
+    text = str(value or "").strip().lstrip("\ufeff").lower()
+    text = re.sub(r"[^a-z0-9]+", "_", text)
+    return text.strip("_")
+
+def catalog_value(row: Dict[str, str], *keys: str) -> str:
+    for key in keys:
+        normalized = normalize_catalog_header(key)
+        if normalized in row and str(row.get(normalized) or "").strip():
+            return str(row.get(normalized) or "").strip()
+    return ""
+
+def parse_catalog_int(value: Any) -> Optional[int]:
+    text = str(value if value is not None else "").strip()
+    if not text:
+        return None
+    try:
+        number = int(float(text))
+    except Exception:
+        raise ValueError("must be a whole number")
+    if number < 0:
+        raise ValueError("cannot be negative")
+    return number
+
+def parse_catalog_json(value: str, fallback: Any) -> Any:
+    text = str(value or "").strip()
+    if not text:
+        return fallback
+    return json.loads(text)
+
+def split_catalog_assignments(value: str) -> List[Tuple[str, str]]:
+    out: List[Tuple[str, str]] = []
+    for entry in split_catalog_refs(value):
+        if ">" not in entry:
+            continue
+        target, ref = entry.split(">", 1)
+        target = target.strip()
+        ref = ref.strip()
+        if target and ref:
+            out.append((target, ref))
+    return out
+
+def catalog_key(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip().lower())
+
+def catalog_pair_key(value: str) -> str:
+    text = str(value or "").strip()
+    m = re.match(r"^(.+?)(?:=|:)(.+)$", text)
+    if not m:
+        return catalog_key(text)
+    return f"{catalog_key(m.group(1))}={catalog_key(m.group(2))}"
+
+def catalog_combo_signature(selections: Dict[str, str]) -> str:
+    return "|".join(sorted(f"{catalog_key(group)}={catalog_key(label)}" for group, label in (selections or {}).items() if group and label))
+
+def catalog_combo_target_signature(target: str) -> str:
+    parts = [catalog_pair_key(part) for part in str(target or "").split("+") if "=" in catalog_pair_key(part)]
+    return "|".join(sorted(parts)) if parts else catalog_key(target)
+
+def parse_catalog_combo_target(target: str) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    for part in str(target or "").split("+"):
+        m = re.match(r"^(.+?)(?:=|:)(.+)$", part.strip())
+        if m:
+            group = re.sub(r"\s+", " ", m.group(1)).strip()[:40]
+            label = re.sub(r"\s+", " ", m.group(2)).strip()[:60]
+            if group and label:
+                out[group] = label
+    return out
+
+def parse_simple_variant_options(raw: str) -> List[Dict[str, Any]]:
+    text = str(raw or "").strip()
+    if not text:
+        return []
+    parts = [part.strip() for part in re.split(r"\s*;\s*", text) if part.strip()]
+    if len(parts) == 1:
+        parts = [part.strip() for part in re.split(r"\s+\|\s+(?=[^:=|]{1,40}\s*[:=])", text) if part.strip()]
+    out: List[Dict[str, Any]] = []
+    for part in parts:
+        m = re.match(r"^(.+?)(?:=|:)(.+)$", part)
+        if m:
+            group = re.sub(r"\s+", " ", m.group(1)).strip()[:40] or "Option"
+            values = [v.strip() for v in re.split(r"\s*(?:,|\|)\s*", m.group(2)) if v.strip()]
+        else:
+            group = "Option"
+            values = [v.strip() for v in re.split(r"\s*,\s*", part) if v.strip()]
+        for raw_label in values:
+            price_delta = 0.0
+            label = raw_label
+            dm = re.search(r"\(([+-]\s*\d+(?:\.\d+)?)\)\s*$", raw_label)
+            if dm:
+                try:
+                    price_delta = round(float(dm.group(1).replace(" ", "")), 2)
+                    label = raw_label[:dm.start()].strip()
+                except Exception:
+                    pass
+            if label:
+                out.append({"group": group, "label": label[:60], "price_delta": price_delta, "images": []})
+    return out
+
+def build_catalog_asset_map(data: bytes, filename: str) -> Tuple[str, Dict[str, Tuple[str, bytes]]]:
+    name = str(filename or "").lower()
+    if name.endswith(".csv"):
+        return data.decode("utf-8-sig"), {}
+    if not name.endswith(".zip"):
+        raise HTTPException(400, "Upload a .zip catalog package or a .csv file.")
+    try:
+        zf = zipfile.ZipFile(BytesIO(data))
+    except zipfile.BadZipFile:
+        raise HTTPException(400, "The catalog package is not a valid ZIP file.")
+    with zf:
+        files = [info for info in zf.infolist() if not info.is_dir()]
+        total_size = sum(max(0, info.file_size) for info in files)
+        if total_size > MAX_CATALOG_PACKAGE_BYTES * 3:
+            raise HTTPException(400, "The catalog package is too large after extraction.")
+        csv_candidates = [
+            info for info in files
+            if os.path.basename(info.filename).lower() in {"products.csv", "offerings.csv", "catalog.csv"}
+        ]
+        if not csv_candidates:
+            csv_candidates = [info for info in files if info.filename.lower().endswith(".csv")]
+        if not csv_candidates:
+            raise HTTPException(400, "Add a products.csv file to the ZIP package.")
+        csv_info = csv_candidates[0]
+        csv_text = zf.read(csv_info).decode("utf-8-sig")
+        assets: Dict[str, Tuple[str, bytes]] = {}
+        for info in files:
+            ext = norm_ext(os.path.splitext(info.filename.lower())[1])
+            if ext not in ALLOWED_IMG_EXTS:
+                continue
+            if info.file_size > MAX_UPLOAD_BYTES:
+                continue
+            blob = zf.read(info)
+            parts = [part for part in normalize_catalog_asset_ref(info.filename).split("/") if part]
+            keys = {"/".join(parts[i:]) for i in range(len(parts))}
+            keys.add(os.path.basename(info.filename).lower())
+            for key in keys:
+                if key and key not in assets:
+                    assets[key] = (info.filename, blob)
+        return csv_text, assets
+
+def catalog_upload_image_refs(shop_id: str, refs: Any, assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], row_number: int, errors: List[str], context: str) -> List[str]:
+    out: List[str] = []
+    for ref in split_catalog_refs(refs):
+        if re.match(r"^https?://", ref, re.I) or str(ref).startswith("/shops/"):
+            out.append(normalize_image_ref(shop_id, ref))
+            continue
+        key = normalize_catalog_asset_ref(ref)
+        asset = assets.get(key) or assets.get(os.path.basename(key))
+        if not asset:
+            errors.append(f"Row {row_number}: {context} image '{ref}' was not found in the ZIP images folder.")
+            continue
+        asset_name, blob = asset
+        cache_key = normalize_catalog_asset_ref(asset_name)
+        if cache_key not in uploaded:
+            uploaded[cache_key] = save_image_bytes(shop_id, asset_name, blob)
+        out.append(uploaded[cache_key])
+    return dedup(out)
+
+def catalog_apply_variant_images(shop_id: str, row: Dict[str, str], row_number: int, variant_data: List[Dict[str, Any]], assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], errors: List[str]) -> List[Dict[str, Any]]:
+    out = [{**item, "images": catalog_upload_image_refs(shop_id, item.get("images", []), assets, uploaded, row_number, errors, f"variant {item.get('label') or idx + 1}")} for idx, item in enumerate(variant_data or [])]
+    option_index: Dict[str, int] = {}
+    for idx, item in enumerate(out):
+        group = catalog_key(item.get("group") or "Option")
+        label = catalog_key(item.get("label") or "")
+        if label:
+            option_index[f"{group}={label}"] = idx
+            option_index[label] = idx
+    assignments = []
+    for key in ("variant_images", "variant_image_files", "variant_option_images", "variant_option_image_files", "option_images", "option_image_files"):
+        assignments.extend(split_catalog_assignments(catalog_value(row, key)))
+    for target, ref in assignments:
+        idx = option_index.get(catalog_pair_key(target))
+        if idx is None:
+            errors.append(f"Row {row_number}: variant image target '{target}' does not match the variant options.")
+            continue
+        out[idx]["images"] = dedup(list(out[idx].get("images") or []) + catalog_upload_image_refs(shop_id, [ref], assets, uploaded, row_number, errors, f"variant {target}"))
+    return out
+
+def catalog_apply_combo_images(shop_id: str, row: Dict[str, str], row_number: int, matrix: List[Dict[str, Any]], assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], errors: List[str]) -> List[Dict[str, Any]]:
+    out = [{**item, "images": catalog_upload_image_refs(shop_id, item.get("images", []), assets, uploaded, row_number, errors, f"combination {idx + 1}")} for idx, item in enumerate(matrix or [])]
+    combo_index: Dict[str, int] = {}
+    for idx, item in enumerate(out):
+        sig = catalog_combo_signature(item.get("selections") or {})
+        if sig:
+            combo_index[sig] = idx
+        if item.get("selection_key"):
+            combo_index[catalog_key(item.get("selection_key"))] = idx
+    assignments = []
+    for key in ("combination_images", "combination_image_files", "variant_combo_images", "variant_combo_image_files", "combo_images", "combo_image_files"):
+        assignments.extend(split_catalog_assignments(catalog_value(row, key)))
+    for target, ref in assignments:
+        sig = catalog_combo_target_signature(target)
+        idx = combo_index.get(sig)
+        if idx is None:
+            selections = parse_catalog_combo_target(target)
+            if len(selections) < 2:
+                errors.append(f"Row {row_number}: combination image target '{target}' must look like Size=Large+Color=Red.")
+                continue
+            out.append({"selections": selections, "price_delta": 0, "images": []})
+            idx = len(out) - 1
+            combo_index[catalog_combo_signature(selections)] = idx
+        out[idx]["images"] = dedup(list(out[idx].get("images") or []) + catalog_upload_image_refs(shop_id, [ref], assets, uploaded, row_number, errors, f"combination {target}"))
+    return out
+
+def build_product_from_catalog_row(shop_id: str, shop: Dict[str, Any], row: Dict[str, str], row_number: int, assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], errors: List[str]) -> Tuple[str, Product]:
+    name = catalog_value(row, "name", "product_name", "offering_name", "title")
+    if not name:
+        raise ValueError("name is required")
+    business_type = normalize_business_type(shop.get("business_type", ""), shop.get("category", ""))
+    offering_type = normalize_offering_type(catalog_value(row, "offering_type", "type"), business_type, shop.get("category", ""))
+    raw_pid = catalog_value(row, "product_id", "offering_id", "sku", "id")
+    pid = slug(raw_pid, 60) if raw_pid else gen_product_id(name)
+    price_raw = catalog_value(row, "price", "price_amount", "amount")
+    stock_qty = parse_catalog_int(catalog_value(row, "stock_quantity", "quantity", "qty", "inventory")) if catalog_value(row, "stock_quantity", "quantity", "qty", "inventory") else None
+    duration = parse_catalog_int(catalog_value(row, "duration_minutes", "duration")) if catalog_value(row, "duration_minutes", "duration") else None
+    capacity = parse_catalog_int(catalog_value(row, "capacity", "seats")) if catalog_value(row, "capacity", "seats") else None
+    attr_raw = parse_catalog_json(catalog_value(row, "attribute_data_json", "category_details_json"), {})
+    if not isinstance(attr_raw, dict):
+        raise ValueError("attribute_data_json must be a JSON object")
+    schema = offering_attribute_schema(business_type, shop.get("category", ""), offering_type)
+    for key, label in schema:
+        value = catalog_value(row, key, label)
+        if value:
+            attr_raw[key] = value
+    variant_data_raw = parse_catalog_json(catalog_value(row, "variant_data_json"), None)
+    if variant_data_raw is None:
+        variant_data_raw = parse_simple_variant_options(catalog_value(row, "variants", "variant_options", "options"))
+    if not isinstance(variant_data_raw, list):
+        raise ValueError("variant_data_json must be a JSON array")
+    variant_data = catalog_apply_variant_images(shop_id, row, row_number, variant_data_raw, assets, uploaded, errors)
+    matrix_raw = parse_catalog_json(catalog_value(row, "variant_matrix_json", "combination_data_json"), [])
+    if not isinstance(matrix_raw, list):
+        raise ValueError("variant_matrix_json must be a JSON array")
+    variant_matrix = catalog_apply_combo_images(shop_id, row, row_number, matrix_raw, assets, uploaded, errors)
+    product_images = []
+    for key in ("image_urls", "images", "image_files", "photos", "photo_files"):
+        product_images.extend(catalog_upload_image_refs(shop_id, catalog_value(row, key), assets, uploaded, row_number, errors, "product"))
+    product = Product(
+        product_id=pid,
+        offering_id=pid,
+        name=name,
+        overview=catalog_value(row, "overview", "description", "details"),
+        price=price_raw,
+        price_amount=parse_price_amount(price_raw),
+        currency_code=catalog_value(row, "currency_code", "currency") or shop.get("currency_code", ""),
+        offering_type=offering_type,
+        price_mode=catalog_value(row, "price_mode", "pricing") or ("inquiry" if not price_raw else "fixed"),
+        availability_mode=catalog_value(row, "availability_mode", "availability"),
+        stock=catalog_value(row, "stock", "stock_status") or "in",
+        stock_quantity=stock_qty,
+        duration_minutes=duration,
+        capacity=capacity,
+        variants=catalog_value(row, "variants", "variant_options", "options"),
+        variant_data=variant_data,
+        variant_matrix=variant_matrix,
+        attribute_data=attr_raw,
+        images=dedup(product_images),
+    )
+    return pid, product
 
 def extract_budget_limit(q: str) -> Optional[float]:
     qn = norm_text(q)
@@ -5603,16 +5967,14 @@ def serve_shop_image(shop_id: str, filename: str):
 @app.post("/auth/register")
 def register(body: RegisterReq, request: Request):
     enforce_rate_limit(request, "auth_register", limit=8, window_seconds=900, key_suffix=clean_email(body.email or "").lower())
-    email = clean_email(body.email or "")
+    email = require_clean_email(body.email or "")
     display_name = normalize_display_name(body.display_name, email)
-    require_password_min_length(body.password, "password")
-    if not email:
-        raise HTTPException(400, "Enter a valid email address.")
+    password = require_strong_password(body.password, "password", email=email, display_name=display_name)
     try:
         auth_client = require_supabase_auth()
         res = auth_client.auth.sign_up({
             "email": email,
-            "password": body.password,
+            "password": password,
             "options": {
                 "data": {"display_name": display_name},
                 "email_redirect_to": ui_redirect_url(),
@@ -5627,9 +5989,13 @@ def register(body: RegisterReq, request: Request):
 @app.post("/auth/login")
 def login(body: LoginReq, request: Request, response: Response):
     enforce_rate_limit(request, "auth_login", limit=12, window_seconds=900, key_suffix=clean_email(body.email or "").lower())
+    email = require_clean_email(body.email or "")
+    password = str(body.password or "")
+    if not password:
+        raise HTTPException(400, "Enter your password.")
     try:
         auth_client = require_supabase_auth()
-        res = auth_client.auth.sign_in_with_password({"email": body.email, "password": body.password})
+        res = auth_client.auth.sign_in_with_password({"email": email, "password": password})
         user = res.user
         prof = safe_ensure_profile_row(user)
         access_token = str(getattr(res.session, "access_token", "") or "").strip()
@@ -5699,14 +6065,14 @@ def auth_refresh(request: Request, response: Response):
     return auth_user_payload(user, prof)
 
 @app.get("/auth/me")
-def auth_me(authorization: Optional[str] = Header(None)):
-    user, prof = get_user(authorization)
+def auth_me(request: Request, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization, request)
     return auth_user_payload(user, prof)
 
 @app.post("/auth/logout")
-def logout(response: Response, authorization: Optional[str] = Header(None)):
+def logout(request: Request, response: Response, authorization: Optional[str] = Header(None)):
     try:
-        token = bearer(authorization)
+        token = bearer(authorization, request)
     except HTTPException:
         token = ""
     if token:
@@ -5736,21 +6102,23 @@ def resend_verification(authorization: Optional[str] = Header(None)):
 @app.post("/auth/forgot-password")
 def forgot_password(body: ForgotPasswordReq, request: Request):
     enforce_rate_limit(request, "auth_forgot_password", limit=6, window_seconds=900, key_suffix=clean_email(body.email or "").lower())
+    email = require_clean_email(body.email or "")
     try:
         supabase_auth_post("recover", {
-            "email": body.email.strip(),
+            "email": email,
             "redirect_to": password_reset_redirect_url(),
         })
-    except HTTPException:
-        raise
-    except Exception:
+    except Exception as e:
+        print(f"[Auth Warning] password reset request failed for {email}: {e}")
         raise HTTPException(400, "Could not send the reset link right now.")
     return {"ok": True, "message": "If that email exists, a reset link has been sent. Check your inbox, Spam, Junk, or Promotions."}
 
 @app.post("/auth/update-password")
-def update_password(body: ResetPasswordReq, authorization: Optional[str] = Header(None)):
-    token = bearer(authorization)
-    password = require_password_min_length(body.password, "new password").strip()
+def update_password(body: ResetPasswordReq, request: Request, authorization: Optional[str] = Header(None)):
+    enforce_rate_limit(request, "auth_update_password", limit=8, window_seconds=900)
+    token = bearer(authorization, request)
+    user, _ = get_user(f"Bearer {token}")
+    password = require_strong_password(body.password, "new password", email=str(getattr(user, "email", "") or "")).strip()
     url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/user"
     res = requests.put(url, headers=supabase_auth_headers(token), json={"password": password}, timeout=20)
     if res.status_code >= 400:
@@ -7282,6 +7650,81 @@ def admin_delete_product(shop_id: str, product_id: str, authorization: Optional[
     invalidate_shop_product_search_cache(shop_id)
     rebuild_kb(shop_id)
     return {"ok": True, "business_id": shop_id, "offering_id": product_id}
+
+@app.post("/admin/business/{shop_id}/offerings-import-package")
+@app.post("/admin/shop/{shop_id}/products-import-package")
+async def admin_import_offerings_package(
+    shop_id: str,
+    catalog_package: UploadFile = File(...),
+    authorization: Optional[str] = Header(None),
+):
+    user, prof = get_user(authorization)
+    check_shop_owner(user.id, shop_id)
+    shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
+    if not shop_rows:
+        raise HTTPException(404, "Business not found")
+    shop = normalize_shop_record(shop_rows[0])
+    raw = await catalog_package.read(MAX_CATALOG_PACKAGE_BYTES + 1)
+    if not raw:
+        raise HTTPException(400, "Upload a catalog ZIP package or CSV file.")
+    if len(raw) > MAX_CATALOG_PACKAGE_BYTES:
+        raise HTTPException(400, "Catalog package is too large.")
+    csv_text, assets = build_catalog_asset_map(raw, str(catalog_package.filename or ""))
+    try:
+        reader = csv.DictReader(StringIO(csv_text))
+    except Exception:
+        raise HTTPException(400, "Could not read products.csv.")
+    raw_rows = list(reader)
+    if not raw_rows:
+        raise HTTPException(400, "products.csv has no product rows.")
+
+    uploaded: Dict[str, str] = {}
+    imported = 0
+    failed = 0
+    errors: List[str] = []
+    for idx, raw_row in enumerate(raw_rows, start=2):
+        row = {normalize_catalog_header(key): str(value or "").strip() for key, value in (raw_row or {}).items() if key}
+        row_errors: List[str] = []
+        try:
+            pid, product = build_product_from_catalog_row(shop_id, shop, row, idx, assets, uploaded, row_errors)
+            if row_errors:
+                raise ValueError("; ".join(row_errors))
+            existing = supabase.table("products").select("images").eq("shop_id", shop_id).eq("product_id", pid).execute().data
+            if not existing and not catalog_value(row, "product_id", "offering_id", "sku", "id"):
+                for _ in range(5):
+                    dupe = supabase.table("products").select("product_id").eq("shop_id", shop_id).eq("product_id", pid).execute().data
+                    if not dupe:
+                        break
+                    pid = gen_product_id(product.name)
+                    product.product_id = pid
+                    product.offering_id = pid
+                else:
+                    raise ValueError("could not generate a unique product ID")
+            data = normalize_product_payload(product, shop)
+            if existing and not data.get("images"):
+                data["images"] = existing[0].get("images", [])
+            elif existing and data.get("images"):
+                data["images"] = dedup(normalize_image_list(shop_id, existing[0].get("images", [])) + data.get("images", []))
+            data["product_slug"] = unique_product_slug(shop_id, product.name, pid if existing else "")
+            data, unsupported_cols = product_write_payload_with_fallback(shop_id, pid, data, bool(existing), product_strict_columns_for_data(data))
+            if unsupported_cols:
+                print(f"[Product Schema Warning] {shop_id}/{pid}: saved without optional columns {unsupported_cols}")
+            imported += 1
+        except Exception as e:
+            failed += 1
+            label = catalog_value(row, "product_id", "sku", "name", "product_name") or f"row {idx}"
+            detail = str(getattr(e, "detail", None) or e)
+            errors.append(f"Row {idx} ({label}): {detail}")
+    if imported:
+        rebuild_kb(shop_id)
+    return {
+        "ok": failed == 0,
+        "business_id": shop_id,
+        "imported": imported,
+        "failed": failed,
+        "errors": errors[:200],
+        "error_count": len(errors),
+    }
 
 @app.post("/admin/business/{shop_id}/offering-with-images")
 @app.post("/admin/shop/{shop_id}/product-with-images")

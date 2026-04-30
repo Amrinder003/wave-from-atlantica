@@ -884,6 +884,12 @@ a{color:inherit;text-decoration:none}
 .auth-mini-link{font-size:12px;font-weight:700;color:var(--A2);text-align:center;cursor:pointer}
 .auth-mini-link:hover{text-decoration:underline}
 .auth-delivery-note{font-size:12px;line-height:1.55;color:var(--ink3);text-align:center}
+.password-rules{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:-4px;font-size:11px;line-height:1.35}
+.password-rule{display:flex;align-items:center;gap:6px;color:var(--ink4);font-weight:700}
+.password-rule::before{content:"";width:7px;height:7px;border-radius:999px;background:#c9b9a3;flex:0 0 auto}
+.password-rule.ok{color:#1f7a4b}
+.password-rule.ok::before{background:#1f7a4b}
+@media(max-width:520px){.password-rules{grid-template-columns:1fr}}
 .location-prompt-bg{z-index:490}
 .location-prompt-box{width:min(420px,100%)}
 .location-prompt-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--A2);margin-bottom:6px}
@@ -1273,6 +1279,8 @@ a{color:inherit;text-decoration:none}
 .csv-media-field{display:grid;gap:5px}
 .csv-media-field label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3)}
 .csv-file-count{font-size:11px;color:var(--ink4)}
+.csv-advanced{margin-top:10px;padding-top:10px;border-top:1px solid rgba(37,99,235,.14)}
+.csv-advanced summary{cursor:pointer;font-size:12px;font-weight:800;color:#1e40af}
 #csvImageFiles{min-height:44px;padding:6px 10px;border:1px dashed rgba(37,99,235,.24);border-radius:7px;font-size:12px;background:#fff;color:var(--ink)}
 #csvImageFiles::file-selector-button{margin-right:10px;border:1px solid rgba(37,99,235,.2);border-radius:999px;background:#fff;color:#1e40af;font-weight:800;padding:7px 12px;cursor:pointer}
 .csv-prog{display:none;margin-top:8px}
@@ -2456,14 +2464,14 @@ body{
 .fld-hint,.product-media-meta,.prev-empty,.shop-profile-preview-meta,.variant-row-eyebrow,.variant-media-kicker,.admin-pc-edit,.admin-pc-noprice,.toast-txt{
   color:rgba(255,224,174,.72);
 }
-.fld input:not([type=file]),.fld textarea,.fld select,.mini-search,.share-inp,.sort-sel,.shop-search-box input,.nav-search input,#csvFile,#csvImageFiles,select.btn{
+.fld input:not([type=file]),.fld textarea,.fld select,.mini-search,.share-inp,.sort-sel,.shop-search-box input,.nav-search input,#csvFile,#csvImageFiles,#catalogPackageFile,select.btn{
   background:rgba(255,238,211,.105);
   border-color:rgba(255,224,174,.28);
   color:#fff5e3;
   caret-color:#f5bd6c;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
 }
-.fld input:not([type=file]):hover,.fld textarea:hover,.fld select:hover,.mini-search:hover,.share-inp:hover,.sort-sel:hover,#csvFile:hover,#csvImageFiles:hover,select.btn:hover{
+.fld input:not([type=file]):hover,.fld textarea:hover,.fld select:hover,.mini-search:hover,.share-inp:hover,.sort-sel:hover,#csvFile:hover,#csvImageFiles:hover,#catalogPackageFile:hover,select.btn:hover{
   border-color:rgba(255,224,174,.42);
   background:rgba(255,238,211,.135);
 }
@@ -2503,12 +2511,12 @@ option,optgroup{
   background:#2d1a0f;
   color:#fff5e3;
 }
-.fld input[type=file],#csvFile,#csvImageFiles{
+.fld input[type=file],#csvFile,#csvImageFiles,#catalogPackageFile{
   min-height:44px;
   border-style:dashed;
   color:#ffe8bd;
 }
-.fld input[type=file]::file-selector-button,#csvFile::file-selector-button,#csvImageFiles::file-selector-button{
+.fld input[type=file]::file-selector-button,#csvFile::file-selector-button,#csvImageFiles::file-selector-button,#catalogPackageFile::file-selector-button{
   margin-right:10px;
   border:1px solid rgba(255,224,174,.34);
   border-radius:999px;
@@ -3225,7 +3233,7 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   color:var(--ink)!important;
 }
 .shop-toolbar{padding:12px!important}
-.shop-search-box,.chat-input-wrap,.chat-compose-shell,.share-inp,.sort-sel,.mini-search,.fld input:not([type=file]),.fld textarea,.fld select,select.btn,#csvFile,#csvImageFiles{
+.shop-search-box,.chat-input-wrap,.chat-compose-shell,.share-inp,.sort-sel,.mini-search,.fld input:not([type=file]),.fld textarea,.fld select,select.btn,#csvFile,#csvImageFiles,#catalogPackageFile{
   border-radius:8px!important;
   background:#fff!important;
   border:1px solid var(--bd)!important;
@@ -4191,6 +4199,7 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
 .sort-sel,
 #csvFile,
 #csvImageFiles,
+#catalogPackageFile,
 select.btn{
   caret-color:var(--A)!important;
 }
@@ -5710,8 +5719,8 @@ select.btn{
               <div class="account-note-copy">Sign in to manage your business pages, resend verification emails, and keep account access secure.</div>
             </div>
             <div id="adminAuthFields" class="fg2">
-              <div class="fld"><label>Email</label><input id="authEmail" type="email" placeholder="you@example.com"/></div>
-              <div class="fld"><label>Password</label><input id="authPass" type="password" placeholder="Min 8 characters"/></div>
+              <div class="fld"><label>Email</label><input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com"/></div>
+              <div class="fld"><label>Password</label><input id="authPass" type="password" autocomplete="current-password" placeholder="Your password"/></div>
             </div>
             <div id="adminGuestActions" class="btn-row">
               <button id="adminLoginBtn" class="btn btn-A btn-sm">Login</button>
@@ -5760,9 +5769,10 @@ select.btn{
                   <div class="account-section-copy">Change the password for this signed-in account on this browser session.</div>
                 </div>
                 <div class="fg2">
-                  <div class="fld"><label>New Password</label><input id="accountPass1" type="password" placeholder="Use at least 8 characters"/></div>
-                  <div class="fld"><label>Confirm New Password</label><input id="accountPass2" type="password" placeholder="Repeat the new password"/></div>
+                  <div class="fld"><label>New Password</label><input id="accountPass1" type="password" autocomplete="new-password" placeholder="10+ chars, upper, number, symbol"/></div>
+                  <div class="fld"><label>Confirm New Password</label><input id="accountPass2" type="password" autocomplete="new-password" placeholder="Repeat the new password"/></div>
                 </div>
+                <div id="accountPassRules" class="password-rules"></div>
                 <div class="btn-row">
                   <button id="accountChangePassBtn" class="btn btn-o btn-sm" type="button">Change Password</button>
                 </div>
@@ -5975,24 +5985,32 @@ select.btn{
             </div>
           </div>
           <div class="card">
-            <div class="card-head"><div class="card-title">Bulk CSV Import</div></div>
+            <div class="card-head"><div class="card-title">Catalog Import</div></div>
             <div class="card-body">
               <div class="csv-box">
-                <div class="csv-title">Import multiple offerings into this business</div>
-                <div class="csv-hint">Latest columns: <code>product_id, offering_type, name, price_mode, price, currency_code, availability_mode, stock, stock_quantity, duration_minutes, capacity, overview, image_urls, image_files, variant_image_files, variant_combo_image_files, variants, variant_data_json, variant_matrix_json, attribute_data_json</code>. <code>product_id</code> is optional and Atlantic Ordinate will generate it when blank.</div>
-                <div class="csv-note">For established shops, select the CSV and the image folder in one import. Use <code>image_files</code> for main product photos. Variant option and exact combination photos can be referenced inside <code>variant_data_json.images</code> and <code>variant_matrix_json.images</code>, or with the helper columns <code>variant_image_files</code> and <code>variant_combo_image_files</code>.</div>
+                <div class="csv-title">Import a whole shop catalog</div>
+                <div class="csv-hint">Simple owner flow: download the template, fill one row per product, put image filenames in the <code>images</code> column, then ZIP <code>products.csv</code> together with an <code>images</code> folder. Upload that one ZIP here.</div>
                 <div class="btn-row">
-                  <input id="csvFile" type="file" accept=".csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
-                  <button id="importCsvBtn" class="btn btn-o btn-sm">Import</button>
-                  <button id="csvTplBtn" class="btn btn-g btn-sm">⬇ Template</button>
+                  <input id="catalogPackageFile" type="file" accept=".zip,.csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
+                  <button id="importPackageBtn" class="btn btn-o btn-sm">Import Catalog ZIP</button>
+                  <button id="csvTplBtn" class="btn btn-g btn-sm">Download Template</button>
                 </div>
-                <div class="csv-media-grid">
-                  <div class="csv-media-field">
-                    <label for="csvImageFiles">Optional product image folder</label>
-                    <input id="csvImageFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple webkitdirectory/>
-                    <div id="csvImageFileCount" class="csv-file-count">No image folder selected. Hosted URLs in <code>image_urls</code> still work.</div>
+                <div class="csv-note">Example ZIP: <code>products.csv</code>, <code>images/front.jpg</code>, <code>images/back.jpg</code>. A product row can use <code>images</code> = <code>front.jpg|back.jpg</code>. Hosted URLs also work.</div>
+                <details class="csv-advanced">
+                  <summary>Advanced: import CSV and image folder separately</summary>
+                  <div class="csv-hint">Use this only if you do not want to make a ZIP. Latest columns: <code>product_id, name, price, stock_quantity, description, images, variants, variant_images, combination_images</code>. Advanced JSON columns are still supported for exact variant data.</div>
+                  <div class="btn-row">
+                    <input id="csvFile" type="file" accept=".csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
+                    <button id="importCsvBtn" class="btn btn-o btn-sm">Import CSV + Images</button>
                   </div>
-                </div>
+                  <div class="csv-media-grid">
+                    <div class="csv-media-field">
+                      <label for="csvImageFiles">Image folder</label>
+                      <input id="csvImageFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple webkitdirectory/>
+                      <div id="csvImageFileCount" class="csv-file-count">No image folder selected. Hosted URLs in <code>image_urls</code> still work.</div>
+                    </div>
+                  </div>
+                </details>
                 <div id="csvProg" class="csv-prog"><progress id="csvBar" max="100" value="0"></progress><div id="csvTxt" class="csv-pt"></div></div>
                 <div id="csvErrors" class="csv-errors">
                   <div class="btn-row" style="justify-content:space-between;align-items:center">
@@ -6484,22 +6502,24 @@ select.btn{
     </div>
     <div class="auth-form">
       <div id="atab-login" class="auth-panel on">
-        <div class="fld"><label>Email</label><input id="loginEmail" type="email" placeholder="you@example.com"/></div>
-        <div class="fld"><label>Password</label><input id="loginPass" type="password" placeholder="Your password"/></div>
+        <div class="fld"><label>Email</label><input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com"/></div>
+        <div class="fld"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="Your password"/></div>
         <button id="loginSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Sign In</button>
         <div id="forgotLinkBtn" class="auth-mini-link">Forgot Password?</div>
         <div id="loginStatus" class="stxt"></div>
       </div>
       <div id="atab-register" class="auth-panel">
-        <div class="fld"><label>Display Name</label><input id="regName" placeholder="Your name"/></div>
-        <div class="fld"><label>Email</label><input id="regEmail" type="email" placeholder="you@example.com"/></div>
-        <div class="fld"><label>Password</label><input id="regPass" type="password" placeholder="Min 8 characters"/></div>
+        <div class="fld"><label>Display Name</label><input id="regName" autocomplete="name" placeholder="Your name"/></div>
+        <div class="fld"><label>Email</label><input id="regEmail" type="email" autocomplete="email" placeholder="you@example.com"/></div>
+        <div class="fld"><label>Password</label><input id="regPass" type="password" autocomplete="new-password" placeholder="10+ chars, upper, number, symbol"/></div>
+        <div class="fld"><label>Confirm Password</label><input id="regPass2" type="password" autocomplete="new-password" placeholder="Repeat the password"/></div>
+        <div id="regPassRules" class="password-rules"></div>
         <button id="regSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Create Account</button>
         <div class="auth-delivery-note">Verification links can take a minute. If it is not in your inbox, check Spam, Junk, or Promotions.</div>
         <div id="regStatus" class="stxt"></div>
       </div>
       <div id="atab-forgot" class="auth-panel">
-        <div class="fld"><label>Email address</label><input id="forgotEmail" type="email" placeholder="you@example.com"/></div>
+        <div class="fld"><label>Email address</label><input id="forgotEmail" type="email" autocomplete="email" placeholder="you@example.com"/></div>
         <button id="forgotSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Send Reset Link</button>
         <div class="auth-delivery-note">Reset links sometimes land in Spam, Junk, or Promotions. Open the newest email only.</div>
         <button id="backToLoginBtn" class="btn btn-g btn-sm" style="width:100%;justify-content:center">Back to Sign In</button>
@@ -6507,8 +6527,9 @@ select.btn{
       </div>
       <div id="atab-reset" class="auth-panel">
         <div class="verify-notice"><strong>Reset your password</strong>Enter a new password for your account. This screen opens from the email reset link.</div>
-        <div class="fld"><label>New password</label><input id="resetPass" type="password" placeholder="Use at least 8 characters"/></div>
-        <div class="fld"><label>Confirm password</label><input id="resetPass2" type="password" placeholder="Repeat the new password"/></div>
+        <div class="fld"><label>New password</label><input id="resetPass" type="password" autocomplete="new-password" placeholder="10+ chars, upper, number, symbol"/></div>
+        <div class="fld"><label>Confirm password</label><input id="resetPass2" type="password" autocomplete="new-password" placeholder="Repeat the new password"/></div>
+        <div id="resetPassRules" class="password-rules"></div>
         <button id="resetSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Update Password</button>
         <div id="resetStatus" class="stxt"></div>
       </div>
@@ -6548,7 +6569,6 @@ select.btn{
     <div class="profile-menu">
       <button class="pm-btn" onclick="closeProfile();showPage('favs');loadFavourites()">My Favourites</button>
       <button class="pm-btn" onclick="closeProfile();showPage('admin');switchAdminSub('shops')">Businesses</button>
-      <button class="pm-btn" id="profileTrackRequestBtn">Track Request</button>
       <button class="pm-btn" onclick="closeProfile();showPage('admin');switchAdminSub('account')">Account Settings</button>
       <hr class="pm-sep"/>
       <button class="pm-btn danger" id="profileLogoutBtn">Sign Out</button>
@@ -10750,6 +10770,7 @@ function buildCsvRowMediaPlan(obj,rowNumber,variantData=[],variantMatrix=[],imag
     }
   });
   [
+    obj.variant_images,
     obj.variant_image_files,
     obj.variant_option_image_files,
     obj.option_image_files
@@ -10781,6 +10802,7 @@ function buildCsvRowMediaPlan(obj,rowNumber,variantData=[],variantMatrix=[],imag
     if(item.selection_key) comboIndex.set(normalizeCsvKey(item.selection_key),idx);
   });
   [
+    obj.combination_images,
     obj.variant_combo_image_files,
     obj.combo_image_files,
     obj.combination_image_files
@@ -11352,6 +11374,7 @@ function switchAuthTab(tab){
   $('authBg').querySelector('.auth-tabs').style.display=tab==='reset'?'none':'flex';
   $('authBg').querySelectorAll('.auth-tab').forEach(b=>b.classList.toggle('on',b.dataset.atab===tab));
   $('authBg').querySelectorAll('.auth-panel').forEach(p=>p.classList.toggle('on',p.id===`atab-${tab}`));
+  syncPasswordRuleViews();
 }
 $('authBg').querySelectorAll('.auth-tab').forEach(b=>b.addEventListener('click',()=>switchAuthTab(b.dataset.atab)));
 $('authClose').addEventListener('click',closeAuthModal);
@@ -11520,6 +11543,7 @@ function renderAdminAccountState(user=App.user){
     }
     if($('accountPass1')) $('accountPass1').value='';
     if($('accountPass2')) $('accountPass2').value='';
+    syncPasswordRuleViews();
     if(photoBtn) photoBtn.disabled=true;
     if(warnTitle) warnTitle.textContent='Email verification pending';
     if(warnText) warnText.textContent='Verify your email to keep reviews, business tools, and recovery links working cleanly.';
@@ -11553,6 +11577,7 @@ function renderAdminAccountState(user=App.user){
   if(note) note.style.display=verified?'none':'';
   if(warnTitle) warnTitle.textContent=verified?'Email verified':'Email verification pending';
   if(warnText) warnText.textContent=verified?'Your account email is verified.':'Verify your email to keep reviews, business tools, and recovery links working cleanly.';
+  syncPasswordRuleViews();
 }
 function openInternalReviewWorkspace(){
   if(!isReviewerAccount()) return;
@@ -11671,9 +11696,9 @@ async function updateSignedInPassword(){
   if(!App.user) return handleSessionExpired('Sign in again to change your password.');
   const pass1=$('accountPass1');
   const pass2=$('accountPass2');
-  const nextPassword=String(pass1?.value||'').trim();
-  const confirmPassword=String(pass2?.value||'').trim();
-  if(!authPasswordValid(nextPassword)) return setS('accountPasswordStatus','Use at least 8 characters for the new password.','err');
+  const nextPassword=String(pass1?.value||'');
+  const confirmPassword=String(pass2?.value||'');
+  if(!authPasswordValid(nextPassword,App.user?.email||'',App.user?.display_name||'')) return setS('accountPasswordStatus',authPasswordHelp(nextPassword,App.user?.email||'',App.user?.display_name||''),'err');
   if(nextPassword!==confirmPassword) return setS('accountPasswordStatus','Passwords do not match.','err');
   if(pass1) pass1.disabled=true;
   if(pass2) pass2.disabled=true;
@@ -11683,6 +11708,7 @@ async function updateSignedInPassword(){
     await api('/auth/update-password',{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({password:nextPassword})});
     if(pass1) pass1.value='';
     if(pass2) pass2.value='';
+    syncPasswordRuleViews();
     setS('accountPasswordStatus','Password updated.','ok');
     toast('Password updated');
   }catch(e){
@@ -11698,7 +11724,7 @@ $('accountChangePassBtn')?.addEventListener('click',updateSignedInPassword);
 
 const AUTH_SCOPE_META={
   login:{panelId:'atab-login',fieldIds:['loginEmail','loginPass'],buttonIds:['loginSubmitBtn']},
-  register:{panelId:'atab-register',fieldIds:['regName','regEmail','regPass'],buttonIds:['regSubmitBtn']},
+  register:{panelId:'atab-register',fieldIds:['regName','regEmail','regPass','regPass2'],buttonIds:['regSubmitBtn']},
   forgot:{panelId:'atab-forgot',fieldIds:['forgotEmail'],buttonIds:['forgotSubmitBtn','backToLoginBtn']},
   reset:{panelId:'atab-reset',fieldIds:['resetPass','resetPass2'],buttonIds:['resetSubmitBtn']},
   admin:{panelId:'adminAuthFields',fieldIds:['authEmail','authPass'],buttonIds:['adminLoginBtn','adminRegisterBtn','adminForgotBtn']},
@@ -11728,8 +11754,50 @@ async function runAuthAction(scope,activeButtonId,label,task){
     authBusyScopes.delete(scope);
   }
 }
-function authPasswordValid(password=''){
-  return String(password||'').trim().length>=8;
+const COMMON_WEAK_PASSWORDS=['password','password1','password12','password123','password123!','qwerty123','qwerty123!','admin123','admin123!','welcome123','letmein123','changeme123','atlantica123','wave12345'];
+function compactPassword(value=''){
+  return String(value||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+const PASSWORD_RULES=[
+  ['length','10+ characters',value=>String(value||'').length>=10],
+  ['upper','Uppercase letter',value=>/[A-Z]/.test(String(value||''))],
+  ['lower','Lowercase letter',value=>/[a-z]/.test(String(value||''))],
+  ['number','Number',value=>/\d/.test(String(value||''))],
+  ['symbol','Symbol',value=>/[^A-Za-z0-9]/.test(String(value||''))],
+  ['spaces','No spaces',value=>!/\s/.test(String(value||''))],
+  ['personal','Not your email/name',(value,email='',displayName='')=>{
+    const compact=compactPassword(value);
+    const emailName=compactPassword(String(email||'').split('@')[0]||'');
+    const nameParts=String(displayName||'').toLowerCase().match(/[a-z0-9]{3,}/g)||[];
+    return !((emailName.length>=3&&compact.includes(emailName)) || nameParts.some(part=>compact.includes(part)));
+  }],
+  ['repeat','No repeated runs',value=>!/(.)\1{4,}/.test(String(value||''))],
+  ['common','Not common',value=>!COMMON_WEAK_PASSWORDS.includes(compactPassword(value))]
+];
+function passwordPolicyIssues(password='',email='',displayName=''){
+  const value=String(password||'');
+  return [...new Set(PASSWORD_RULES.filter(([,label,test])=>!test(value,email,displayName)).map(([,label])=>label.toLowerCase()))];
+}
+function authPasswordValid(password='',email='',displayName=''){
+  return passwordPolicyIssues(password,email,displayName).length===0;
+}
+function authPasswordHelp(password='',email='',displayName=''){
+  const issues=passwordPolicyIssues(password,email,displayName);
+  return issues.length ? `Use a stronger password: ${issues.join(', ')}.` : '';
+}
+function renderPasswordRules(targetId,password='',email='',displayName=''){
+  const wrap=$(targetId);
+  if(!wrap) return;
+  const value=String(password||'');
+  wrap.innerHTML=PASSWORD_RULES.map(([,label,test])=>`<div class="password-rule ${test(value,email,displayName)?'ok':''}">${esc(label)}</div>`).join('');
+}
+function syncPasswordRuleViews(){
+  renderPasswordRules('regPassRules',$('regPass')?.value||'',$('regEmail')?.value||'',$('regName')?.value||'');
+  renderPasswordRules('resetPassRules',$('resetPass')?.value||'',App.user?.email||'',App.user?.display_name||'');
+  renderPasswordRules('accountPassRules',$('accountPass1')?.value||'',App.user?.email||'',App.user?.display_name||'');
+}
+function authEmailValid(email=''){
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email||'').trim());
 }
 function authRedirectTarget(recovery=false){
   const base=`${window.location.origin}${location.pathname}`;
@@ -11759,7 +11827,9 @@ function prefillRegisterFromAdmin(){
   const password=$('authPass')?.value||'';
   if($('regEmail')) $('regEmail').value=email;
   if($('regPass')) $('regPass').value=password;
+  if($('regPass2')) $('regPass2').value=password;
   if($('regName') && !$('regName').value.trim() && email.includes('@')) $('regName').value=email.split('@')[0];
+  syncPasswordRuleViews();
 }
 async function completeAuthSessionFromRedirect(payload={},recovery=false){
   const d=await api('/auth/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
@@ -11777,8 +11847,9 @@ async function completeAuthSessionFromRedirect(payload={},recovery=false){
 }
 
 async function doLogin(){
-  const email=$('loginEmail').value.trim(),pw=$('loginPass').value.trim();
+  const email=$('loginEmail').value.trim(),pw=$('loginPass').value;
   if(!email) return setS('loginStatus','Enter your email address.','err');
+  if(!authEmailValid(email)) return setS('loginStatus','Enter a valid email address.','err');
   if(!pw) return setS('loginStatus','Enter your password.','err');
   await runAuthAction('login','loginSubmitBtn','Signing in...',async()=>{
     try{
@@ -11795,9 +11866,11 @@ async function doLogin(){
   });
 }
 async function doRegister(){
-  const email=$('regEmail').value.trim(),pw=$('regPass').value.trim(),name=$('regName').value.trim();
+  const email=$('regEmail').value.trim(),pw=$('regPass').value,pw2=$('regPass2').value,name=$('regName').value.trim();
   if(!email) return setS('regStatus','Enter your email address.','err');
-  if(!authPasswordValid(pw)) return setS('regStatus','Use at least 8 characters for your password.','err');
+  if(!authEmailValid(email)) return setS('regStatus','Enter a valid email address.','err');
+  if(!authPasswordValid(pw,email,name)) return setS('regStatus',authPasswordHelp(pw,email,name),'err');
+  if(pw!==pw2) return setS('regStatus','Passwords do not match.','err');
   await runAuthAction('register','regSubmitBtn','Creating account...',async()=>{
     try{
       setS('regStatus','Creating account...');
@@ -11813,6 +11886,7 @@ async function doRegister(){
 async function doForgot(){
   const email=$('forgotEmail').value.trim();
   if(!email) return setS('forgotStatus','Enter your email address.','err');
+  if(!authEmailValid(email)) return setS('forgotStatus','Enter a valid email address.','err');
   await runAuthAction('forgot','forgotSubmitBtn','Sending...',async()=>{
     try{
       setS('forgotStatus','Sending...');
@@ -11824,9 +11898,9 @@ async function doForgot(){
   });
 }
 async function doResetPassword(){
-  const pw=$('resetPass').value.trim(),pw2=$('resetPass2').value.trim();
+  const pw=$('resetPass').value,pw2=$('resetPass2').value;
   if(!App.recoveryToken) return setS('resetStatus','This reset link is no longer active. Request a new one.','err');
-  if(!authPasswordValid(pw)) return setS('resetStatus','Use at least 8 characters for the new password.','err');
+  if(!authPasswordValid(pw,App.user?.email||'',App.user?.display_name||'')) return setS('resetStatus',authPasswordHelp(pw,App.user?.email||'',App.user?.display_name||''),'err');
   if(pw!==pw2) return setS('resetStatus','Passwords do not match.','err');
   await runAuthAction('reset','resetSubmitBtn','Updating password...',async()=>{
     try{
@@ -11834,6 +11908,7 @@ async function doResetPassword(){
       await api('/auth/update-password',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${App.recoveryToken}`},body:JSON.stringify({password:pw})});
       App.recoveryToken='';
       $('resetPass').value='';$('resetPass2').value='';
+      syncPasswordRuleViews();
       switchAuthTab('login');
       setS('loginStatus','Password updated. You can sign in now.','ok');
       toast('Password updated','Sign in with your new password.');
@@ -11858,8 +11933,9 @@ $('forgotLinkBtn').addEventListener('click',()=>{
 $('backToLoginBtn').addEventListener('click',()=>switchAuthTab('login'));
 $('resetSubmitBtn').addEventListener('click',doResetPassword);
 $('adminLoginBtn').addEventListener('click',async()=>{
-  const email=$('authEmail').value.trim(),pw=$('authPass').value.trim();
+  const email=$('authEmail').value.trim(),pw=$('authPass').value;
   if(!email) return setS('authStatus','Enter your email address.','err');
+  if(!authEmailValid(email)) return setS('authStatus','Enter a valid email address.','err');
   if(!pw) return setS('authStatus','Enter your password.','err');
   await runAuthAction('admin','adminLoginBtn','Signing in...',async()=>{
     try{
@@ -11900,12 +11976,16 @@ function bindEnterSubmit(ids,handler){
   }));
 }
 bindEnterSubmit(['loginEmail','loginPass'],doLogin);
-bindEnterSubmit(['regName','regEmail','regPass'],doRegister);
+bindEnterSubmit(['regName','regEmail','regPass','regPass2'],doRegister);
 bindEnterSubmit(['forgotEmail'],doForgot);
 bindEnterSubmit(['resetPass','resetPass2'],doResetPassword);
 bindEnterSubmit(['authEmail','authPass'],()=>$('adminLoginBtn')?.click());
 bindEnterSubmit(['accountDisplayName'],saveAccountProfile);
 bindEnterSubmit(['accountPass1','accountPass2'],updateSignedInPassword);
+['regName','regEmail','regPass','regPass2','resetPass','resetPass2','accountPass1','accountPass2'].forEach(id=>{
+  $(id)?.addEventListener('input',syncPasswordRuleViews);
+});
+syncPasswordRuleViews();
 function updateCartBadge(){
   if(!CART_UI_ENABLED){$('cartBadge')?.classList.add('off');return;}
   const n=App.cart.reduce((s,i)=>s+i.qty,0);$('cartBadge').textContent=n;$('cartBadge').classList.toggle('off',n===0);
@@ -12293,7 +12373,6 @@ $('orderClose')?.addEventListener('click',closeOrderModal);
 $('orderBg')?.addEventListener('click',e=>{if(e.target===$('orderBg'))closeOrderModal();});
 $('orderFulfillment')?.addEventListener('change',()=>{$('orderDeliveryWrap').style.display=$('orderFulfillment').value==='delivery'?'block':'none';});
 $('submitOrderBtn')?.addEventListener('click',submitOrderRequest);
-$('profileTrackRequestBtn')?.addEventListener('click',()=>{closeProfile();openTrackRequestModal();});
 $('trackReqClose')?.addEventListener('click',closeTrackRequestModal);
 $('trackReqBg')?.addEventListener('click',e=>{if(e.target===$('trackReqBg'))closeTrackRequestModal();});
 $('trackReqSubmitBtn')?.addEventListener('click',lookupRequestStatus);
@@ -16062,24 +16141,60 @@ $('anDays').addEventListener('change',loadAnalytics);
 
 /* ── CSV ── */
 function downloadOfferingsCsvTemplate(){
-  const headers=['product_id','offering_type','name','price_mode','price','currency_code','availability_mode','stock','stock_quantity','duration_minutes','capacity','overview','image_urls','image_files','variant_image_files','variant_combo_image_files','variants','variant_data_json','variant_matrix_json','attribute_data_json'];
-  const variantData=JSON.stringify([
-    {group:'Size',label:'Small',price_delta:0,stock_quantity:6},
-    {group:'Size',label:'Large',price_delta:2,stock_quantity:4},
-    {group:'Color',label:'Red',price_delta:0,images:['products/classic-tee/red-option.jpg']},
-    {group:'Color',label:'Blue',price_delta:0,images:['products/classic-tee/blue-option.jpg']}
-  ]);
-  const variantMatrix=JSON.stringify([
-    {selections:{Color:'Red',Size:'Large'},price_delta:1.5,stock_quantity:2,images:['products/classic-tee/red-large.jpg']},
-    {selections:{Color:'Blue',Size:'Small'},price_delta:0,stock_quantity:3}
-  ]);
+  const category=App.adminShopData?.shop?.category||activeShopCategory();
+  const businessType=App.adminShopData?.shop?.business_type||currentShopBusinessType();
+  const type=defaultVisibleOfferingTypeForBusiness(businessType,category);
+  const inventory=tracksInventory(type,businessType,category);
+  const schema=offeringSchema(category,businessType,type).map(([key])=>key).filter(key=>!['details'].includes(key));
+  const base=inventory
+    ? ['product_id','name','price','stock_quantity','description','images','variants','variant_images','combination_images']
+    : ['product_id','name','price','duration_minutes','description','images'];
+  const headers=[...base,...schema.filter(key=>!base.includes(key))];
+  const row1=inventory
+    ? ['p001','Classic Tee','19.99','10','Cotton shirt with size and color variants','classic-tee-front.jpg|classic-tee-back.jpg','Size: Small, Large; Color: Red, Blue','Color=Red>classic-tee-red.jpg; Color=Blue>classic-tee-blue.jpg','Size=Large+Color=Red>classic-tee-red-large.jpg']
+    : ['s001','Discovery Call','','30','Short intro call to understand the client needs','discovery-call.jpg'];
+  const row2=inventory
+    ? ['p002','Everyday Mug','12.50','24','Ceramic mug for daily use','mug-front.jpg|mug-side.jpg','','','']
+    : ['s002','In-store Consultation','49.00','45','One-on-one appointment','consultation.jpg'];
+  while(row1.length<base.length) row1.push('');
+  while(row2.length<base.length) row2.push('');
+  schema.forEach(key=>{
+    row1.push(key==='brand'?'Wave Goods':key==='material'?'Cotton':key==='sizes'?'Small, Large':key==='colors'?'Red, Blue':'');
+    row2.push(key==='brand'?'Wave Goods':key==='material'?'Ceramic':'');
+  });
   downloadCsvRows('offerings_template.csv',[
     headers,
-    ['p001','product','Classic Tee','fixed','19.99','','in_stock','in','10','','','Cotton shirt with size and color variants','','products/classic-tee/front.jpg|products/classic-tee/back.jpg','Color=Red>products/classic-tee/red-alt.jpg','Color=Red+Size=Large>products/classic-tee/red-large-alt.jpg','Size: Small, Large (+2.00) | Color: Red, Blue',variantData,variantMatrix,JSON.stringify({brand:'Wave Goods',material:'Cotton',sizes:'Small, Large',colors:'Red, Blue'})],
-    ['s001','service','Discovery Call','inquiry','','','available','','','30','','Short intro call to understand the client needs','','','','','','','',JSON.stringify({service_mode:'Online',provider:'Wave Team'})]
+    row1,
+    row2
   ]);
 }
 $('csvTplBtn').addEventListener('click',downloadOfferingsCsvTemplate);
+async function importCatalogPackage(){
+  const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a business first','','err');if(!tok())return toast('Login required','','err');
+  const file=$('catalogPackageFile')?.files?.[0];if(!file)return toast('Select a catalog ZIP or CSV','','err');
+  showCsvErrors([]);
+  const prog=$('csvProg'),bar=$('csvBar'),txt=$('csvTxt');
+  if(prog){prog.style.display='block';bar.value=5;txt.textContent='Uploading catalog package...';}
+  setBtnBusy('importPackageBtn',true,'Importing...');
+  try{
+    const form=new FormData();
+    form.append('catalog_package',file);
+    const res=await api(`/admin/business/${encodeURIComponent(shopId)}/offerings-import-package`,{method:'POST',auth:true,body:form});
+    if(bar) bar.value=100;
+    if(txt) txt.textContent=`Import complete: ${res.imported||0} imported, ${res.failed||0} failed.`;
+    showCsvErrors(res.errors||[]);
+    toast('Catalog import complete',`${res.imported||0} imported, ${res.failed||0} failed`,res.failed?'err':'ok');
+    await loadAdminShop(shopId);
+    setTimeout(()=>{if(prog) prog.style.display='none';},3500);
+  }catch(e){
+    showCsvErrors([e.message]);
+    toast('Import failed',e.message,'err');
+    if(txt) txt.textContent=e.message;
+  }finally{
+    setBtnBusy('importPackageBtn',false);
+  }
+}
+$('importPackageBtn')?.addEventListener('click',importCatalogPackage);
 $('csvImageFiles')?.addEventListener('change',()=>{
   const files=Array.from($('csvImageFiles')?.files||[]);
   const count=$('csvImageFileCount');
