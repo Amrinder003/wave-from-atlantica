@@ -6482,6 +6482,26 @@ select.btn{
             <div id="reviewNotifyStatus" class="stxt"></div>
           </div>
         </div>
+        <div id="adminAccountDeleteCard" class="card" style="display:none">
+          <div class="card-head">
+            <div class="card-title">Account Deletion Processor</div>
+          </div>
+          <div class="card-body">
+            <div class="fld-hint" style="margin-bottom:10px">Use only after reviewing a deletion request. Preview first. Permanent deletion removes the Supabase auth user and app database rows.</div>
+            <div class="fg2">
+              <div class="fld"><label>User ID</label><input id="adminDeleteUserId" placeholder="Supabase user UUID"/></div>
+              <div class="fld"><label>Account Email</label><input id="adminDeleteEmail" type="email" placeholder="user@example.com"/></div>
+            </div>
+            <div class="fld"><label>Confirmation phrase</label><input id="adminDeleteConfirmPhrase" autocomplete="off" placeholder="DELETE user@example.com"/></div>
+            <label class="owner-check"><input id="adminDeleteOwnedBusinesses" type="checkbox"/><span><strong>Delete owned businesses too</strong><br/><span class="fld-hint">Also removes their offerings, images, analytics, reviews, favourites, and business requests.</span></span></label>
+            <div class="btn-row">
+              <button id="adminPreviewAccountDeleteBtn" class="btn btn-o btn-sm" type="button">Preview Impact</button>
+              <button id="adminExecuteAccountDeleteBtn" class="btn btn-r btn-sm" type="button">Permanently Delete Account</button>
+            </div>
+            <div id="adminAccountDeleteSummary" class="tp-list"></div>
+            <div id="adminAccountDeleteStatus" class="stxt"></div>
+          </div>
+        </div>
         <div id="adminReviewQueueCard" class="card" style="display:none">
           <div class="card-head">
             <div class="card-title">Business Review Queue</div>
@@ -11476,7 +11496,9 @@ function syncReviewNavBadge(){
 }
 function syncReviewerUi(user=App.user){
   const reviewerAccess=$('adminReviewerAccess');
+  const accountDeleteCard=$('adminAccountDeleteCard');
   if(reviewerAccess) reviewerAccess.style.display=isReviewerAccount(user)?'flex':'none';
+  if(accountDeleteCard) accountDeleteCard.style.display=isReviewerAccount(user)?'':'none';
   if(!isReviewerAccount(user) && document.querySelector('.asub.on')?.id==='sub-review'){
     switchAdminSub(user?'shops':'account',{refreshShops:false});
   }
@@ -15267,6 +15289,96 @@ async function sendReviewNotificationTest(){
     setBtnBusy('sendReviewNotifyTestBtn',false);
   }
 }
+function adminAccountDeletionRequestBody(dryRun=true){
+  const userId=String($('adminDeleteUserId')?.value||'').trim();
+  const email=String($('adminDeleteEmail')?.value||'').trim();
+  const confirmText=String($('adminDeleteConfirmPhrase')?.value||'').trim();
+  const deleteOwned=!!$('adminDeleteOwnedBusinesses')?.checked;
+  if(!userId) throw new Error('Enter the Supabase user ID from the deletion request.');
+  if(!email) throw new Error('Enter the account email from the deletion request.');
+  return {
+    userId,
+    body:{
+      confirm_email:email,
+      confirm_text:confirmText,
+      delete_owned_businesses:deleteOwned,
+      dry_run:dryRun
+    }
+  };
+}
+function renderAdminAccountDeletionSummary(data={}){
+  const host=$('adminAccountDeleteSummary');
+  if(!host) return;
+  const snap=data.snapshot||data;
+  if(!snap || !snap.user_id){
+    host.innerHTML='';
+    return;
+  }
+  const counts=snap.counts||{};
+  const owned=Array.isArray(snap.owned_businesses)?snap.owned_businesses:[];
+  const rows=[
+    ['User ID',snap.user_id||''],
+    ['Email',snap.email||''],
+    ['Role',snap.role||'customer'],
+    ['Profile rows',counts.profile_rows??0],
+    ['Owned businesses',counts.owned_businesses??owned.length],
+    ['Owned offerings',counts.owned_products??0],
+    ['Owned business requests',counts.owned_business_order_requests??0],
+    ['Owned business reviews',counts.owned_business_reviews??0],
+    ['Saved favourites',counts.saved_favourites??0],
+    ['Authored reviews',counts.authored_reviews??0],
+    ['Customer requests by email',counts.customer_order_requests??0]
+  ];
+  const businessHtml=owned.length
+    ? `<div class="tp-row"><div>Businesses</div><b>${owned.map(row=>esc(row.name||row.shop_id||'Untitled')).join('<br/>')}</b></div>`
+    : '';
+  host.innerHTML=rows.map(([label,value])=>`<div class="tp-row"><div>${esc(label)}</div><b>${esc(String(value))}</b></div>`).join('')+businessHtml;
+}
+async function previewAdminAccountDeletion(){
+  if(!isReviewerAccount()) return;
+  try{
+    const {userId,body}=adminAccountDeletionRequestBody(true);
+    setBtnBusy('adminPreviewAccountDeleteBtn',true,'Previewing...');
+    setFieldHint('adminAccountDeleteStatus','Loading deletion impact...');
+    const d=await api(`/admin/account-deletion/${encodeURIComponent(userId)}/process`,{
+      method:'POST',
+      auth:true,
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    renderAdminAccountDeletionSummary(d);
+    setFieldHint('adminAccountDeleteStatus','Preview loaded. Nothing has been deleted.','ok');
+  }catch(e){
+    setFieldHint('adminAccountDeleteStatus',e.message,'err');
+  }finally{
+    setBtnBusy('adminPreviewAccountDeleteBtn',false);
+  }
+}
+async function executeAdminAccountDeletion(){
+  if(!isReviewerAccount()) return;
+  try{
+    const {userId,body}=adminAccountDeletionRequestBody(false);
+    const expected=`DELETE ${body.confirm_email}`;
+    if(body.confirm_text!==expected) return setFieldHint('adminAccountDeleteStatus',`Type the exact phrase: ${expected}`,'err');
+    if(!window.confirm(`Permanently delete ${body.confirm_email} from Supabase auth and app database? This cannot be undone.`)) return;
+    setBtnBusy('adminExecuteAccountDeleteBtn',true,'Deleting...');
+    setFieldHint('adminAccountDeleteStatus','Deleting account from Supabase...');
+    const d=await api(`/admin/account-deletion/${encodeURIComponent(userId)}/process`,{
+      method:'POST',
+      auth:true,
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    renderAdminAccountDeletionSummary(d);
+    setFieldHint('adminAccountDeleteStatus',d.message||'Account deleted.','ok');
+    toast('Account deleted',body.confirm_email);
+  }catch(e){
+    setFieldHint('adminAccountDeleteStatus',e.message,'err');
+    toast('Deletion failed',e.message,'err');
+  }finally{
+    setBtnBusy('adminExecuteAccountDeleteBtn',false);
+  }
+}
 function renderAdminReviewQueue(){
   const card=$('adminReviewQueueCard');
   const list=$('adminReviewQueueList');
@@ -15820,6 +15932,8 @@ $('claimSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.prev
 $('refreshReviewCenterBtn')?.addEventListener('click',()=>{loadAdminReviewQueue();loadAdminClaimReviewQueue();});
 $('refreshReviewNotifyBtn')?.addEventListener('click',loadReviewNotificationStatus);
 $('sendReviewNotifyTestBtn')?.addEventListener('click',sendReviewNotificationTest);
+$('adminPreviewAccountDeleteBtn')?.addEventListener('click',previewAdminAccountDeletion);
+$('adminExecuteAccountDeleteBtn')?.addEventListener('click',executeAdminAccountDeletion);
 $('deleteShopBtn').addEventListener('click',deleteShop);
 $('rebuildKbBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a business first','','err');

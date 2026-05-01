@@ -667,6 +667,12 @@ class AccountDeletionRequestReq(BaseModel):
     confirm_text: str = ""
     reason: str = ""
 
+class AdminAccountDeletionProcessReq(BaseModel):
+    confirm_email: str = ""
+    confirm_text: str = ""
+    delete_owned_businesses: bool = False
+    dry_run: bool = True
+
 class UpdateProfileReq(BaseModel):
     display_name: str = ""
 
@@ -1538,6 +1544,68 @@ def load_auth_email_map(user_ids: List[str]) -> Dict[str, str]:
         except Exception as e:
             print(f"[Auth Lookup Warning] {user_id}: {e}")
     return out
+
+def auth_admin_api():
+    auth_client = require_supabase_auth()
+    return getattr(getattr(auth_client, "auth", None), "admin", None)
+
+def auth_user_email(user_obj: Any) -> str:
+    if isinstance(user_obj, dict):
+        return clean_email(user_obj.get("email", ""))
+    return clean_email(getattr(user_obj, "email", "") if user_obj is not None else "")
+
+def auth_user_payload_dict(user_obj: Any) -> Dict[str, Any]:
+    if isinstance(user_obj, dict):
+        return dict(user_obj)
+    return {
+        "id": str(getattr(user_obj, "id", "") or ""),
+        "email": auth_user_email(user_obj),
+        "email_confirmed_at": getattr(user_obj, "email_confirmed_at", None),
+    }
+
+def load_auth_user_by_id(user_id: str) -> Dict[str, Any]:
+    uid = str(user_id or "").strip()
+    if not uid:
+        raise HTTPException(400, "User ID is required.")
+    admin_api = auth_admin_api()
+    if admin_api and hasattr(admin_api, "get_user_by_id"):
+        try:
+            res = admin_api.get_user_by_id(uid)
+            user_obj = getattr(res, "user", None)
+            if user_obj is None and isinstance(res, dict):
+                user_obj = res.get("user") or res
+            payload = auth_user_payload_dict(user_obj)
+            if payload.get("id") or payload.get("email"):
+                payload["id"] = payload.get("id") or uid
+                return payload
+        except Exception as e:
+            print(f"[Auth Lookup Warning] admin.get_user_by_id failed for {uid}: {e}")
+    res = requests.get(f"{SUPABASE_URL.rstrip('/')}/auth/v1/admin/users/{uid}", headers=supabase_auth_headers(SUPABASE_KEY), timeout=20)
+    if res.status_code >= 400:
+        raise HTTPException(404, "Auth user not found.")
+    data = res.json() or {}
+    payload = auth_user_payload_dict(data.get("user") or data)
+    payload["id"] = payload.get("id") or uid
+    return payload
+
+def delete_supabase_auth_user(user_id: str) -> None:
+    uid = str(user_id or "").strip()
+    if not uid:
+        raise HTTPException(400, "User ID is required.")
+    admin_api = auth_admin_api()
+    if admin_api and hasattr(admin_api, "delete_user"):
+        try:
+            admin_api.delete_user(uid)
+            return
+        except Exception as e:
+            print(f"[Auth Delete Warning] admin.delete_user failed for {uid}: {e}")
+    res = requests.delete(f"{SUPABASE_URL.rstrip('/')}/auth/v1/admin/users/{uid}", headers=supabase_auth_headers(SUPABASE_KEY), timeout=20)
+    if res.status_code >= 400 and res.status_code != 404:
+        try:
+            detail = res.json().get("msg") or res.json().get("error_description") or res.json().get("message")
+        except Exception:
+            detail = res.text or "Could not delete auth user."
+        raise HTTPException(400, detail)
 
 def send_email_message(to_email: str, subject: str, text_body: str) -> bool:
     recipient = clean_email(to_email)
@@ -7605,42 +7673,180 @@ def public_order_request_status(request: Request, request_id: str = Query(...), 
         }
     }
 
+def delete_business_data(shop_id: str) -> Dict[str, Any]:
+    sid = str(shop_id or "").strip()
+    if not sid:
+        raise HTTPException(400, "Business ID is required.")
+    sb = require_supabase()
+    image_names: List[str] = []
+    profile_image_url = ""
+    try:
+        shop_rows = sb.table("shops").select("profile_image_url").eq("shop_id", sid).limit(1).execute().data or []
+        profile_image_url = normalize_shop_record(shop_rows[0]).get("profile_image_url", "") if shop_rows else ""
+    except Exception as e:
+        print(f"[Business Delete Warning] could not load business profile image for {sid}: {e}")
+    try:
+        product_rows = sb.table("products").select("images").eq("shop_id", sid).execute().data or []
+        for row in product_rows:
+            for image_url in normalize_image_list(sid, row.get("images", [])):
+                img_name = os.path.basename(str(image_url or "").rstrip("/"))
+                if img_name and img_name not in image_names:
+                    image_names.append(img_name)
+    except Exception as e:
+        print(f"[Business Delete Warning] could not enumerate product images for {sid}: {e}")
+    for table_name in ("favourites", "reviews", "analytics", "order_requests", "products"):
+        try:
+            sb.table(table_name).delete().eq("shop_id", sid).execute()
+        except Exception as e:
+            print(f"[Business Delete Warning] could not delete {table_name} rows for {sid}: {e}")
+    if image_names:
+        try:
+            sb.storage.from_(IMAGE_BUCKET).remove([f"{sid}/{img_name}" for img_name in image_names])
+        except Exception as e:
+            print(f"[Business Delete Warning] could not remove storage images for {sid}: {e}")
+    if profile_image_url:
+        remove_public_image(IMAGE_BUCKET, profile_image_url)
+    sb.table("shops").delete().eq("shop_id", sid).execute()
+    invalidate_shop_product_search_cache(sid)
+    shutil.rmtree(os.path.join(SHOPS_DIR, sid), ignore_errors=True)
+    return {"business_id": sid, "removed_product_images": len(image_names), "removed_profile_image": bool(profile_image_url)}
+
+def safe_table_count_eq(table_name: str, column_name: str, value: Any) -> Optional[int]:
+    try:
+        res = require_supabase().table(table_name).select("*", count="exact", head=True).eq(column_name, value).execute()
+        return int(getattr(res, "count", 0) or 0)
+    except Exception as e:
+        print(f"[Account Delete Preview Warning] could not count {table_name}.{column_name}: {e}")
+        return None
+
+def safe_table_count_in(table_name: str, column_name: str, values: List[Any]) -> Optional[int]:
+    vals = [v for v in values if str(v or "").strip()]
+    if not vals:
+        return 0
+    try:
+        res = require_supabase().table(table_name).select("*", count="exact", head=True).in_(column_name, vals).execute()
+        return int(getattr(res, "count", 0) or 0)
+    except Exception as e:
+        print(f"[Account Delete Preview Warning] could not count {table_name}.{column_name}: {e}")
+        return None
+
+def account_deletion_snapshot(target_user_id: str, target_email: str = "") -> Dict[str, Any]:
+    sb = require_supabase()
+    uid = str(target_user_id or "").strip()
+    email = clean_email(target_email)
+    profile_rows = sb.table("profiles").select("*").eq("id", uid).limit(1).execute().data or []
+    profile = profile_rows[0] if profile_rows else {}
+    owned_businesses = sb.table("shops").select("shop_id, name, profile_image_url").eq("owner_user_id", uid).execute().data or []
+    business_ids = [row.get("shop_id") for row in owned_businesses if row.get("shop_id")]
+    counts = {
+        "profile_rows": len(profile_rows),
+        "owned_businesses": len(owned_businesses),
+        "owned_products": safe_table_count_in("products", "shop_id", business_ids),
+        "owned_business_reviews": safe_table_count_in("reviews", "shop_id", business_ids),
+        "owned_business_favourites": safe_table_count_in("favourites", "shop_id", business_ids),
+        "owned_business_analytics": safe_table_count_in("analytics", "shop_id", business_ids),
+        "owned_business_order_requests": safe_table_count_in("order_requests", "shop_id", business_ids),
+        "authored_reviews": safe_table_count_eq("reviews", "user_id", uid),
+        "saved_favourites": safe_table_count_eq("favourites", "user_id", uid),
+        "customer_order_requests": safe_table_count_eq("order_requests", "customer_email", email) if email else 0,
+    }
+    return {
+        "user_id": uid,
+        "email": email,
+        "display_name": profile.get("display_name", ""),
+        "role": profile.get("role", "customer") or "customer",
+        "avatar_url": profile.get("avatar_url", ""),
+        "owned_businesses": [{"shop_id": row.get("shop_id", ""), "name": row.get("name", "")} for row in owned_businesses],
+        "counts": counts,
+    }
+
+def execute_account_deletion(target_user_id: str, target_email: str, delete_owned_businesses: bool) -> Dict[str, Any]:
+    sb = require_supabase()
+    uid = str(target_user_id or "").strip()
+    email = clean_email(target_email)
+    snapshot = account_deletion_snapshot(uid, email)
+    if snapshot["owned_businesses"] and not delete_owned_businesses:
+        raise HTTPException(400, "This user owns businesses. Check 'delete owned businesses' or transfer them before deleting the account.")
+    removed_businesses = []
+    for row in snapshot["owned_businesses"]:
+        removed_businesses.append(delete_business_data(row.get("shop_id", "")))
+    if snapshot.get("avatar_url"):
+        remove_public_image(IMAGE_BUCKET, snapshot.get("avatar_url", ""))
+    if email:
+        try:
+            sb.table("order_requests").update({
+                "customer_name": "Deleted user",
+                "customer_email": "",
+                "phone": "",
+                "delivery_address": "",
+                "note": "",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("customer_email", email).execute()
+        except Exception as e:
+            print(f"[Account Delete Warning] could not anonymize order requests for {email}: {e}")
+    for table_name in ("favourites", "reviews"):
+        try:
+            sb.table(table_name).delete().eq("user_id", uid).execute()
+        except Exception as e:
+            print(f"[Account Delete Warning] could not delete {table_name} rows for {uid}: {e}")
+    try:
+        sb.table("profiles").delete().eq("id", uid).execute()
+    except Exception as e:
+        print(f"[Account Delete Warning] could not delete profile row for {uid}: {e}")
+    delete_supabase_auth_user(uid)
+    return {"snapshot": snapshot, "removed_businesses": removed_businesses}
+
+@app.post("/admin/account-deletion/{target_user_id}/process")
+@app.post("/admin/user/{target_user_id}/delete-account")
+def admin_process_account_deletion(target_user_id: str, body: AdminAccountDeletionProcessReq, authorization: Optional[str] = Header(None)):
+    admin_user, admin_prof = get_user(authorization)
+    admin_prof = safe_ensure_profile_row(admin_user, admin_prof)
+    require_admin_role(admin_prof)
+    uid = str(target_user_id or "").strip()
+    if not uid:
+        raise HTTPException(400, "User ID is required.")
+    if uid == str(admin_user.id):
+        raise HTTPException(400, "Use another superadmin account to delete the account you are currently signed in with.")
+    target_auth_user = load_auth_user_by_id(uid)
+    target_email = auth_user_email(target_auth_user)
+    if not target_email:
+        raise HTTPException(400, "This auth user does not have an email address to confirm against.")
+    supplied_email = clean_email(body.confirm_email)
+    if supplied_email and supplied_email != target_email:
+        raise HTTPException(400, "The confirmation email does not match this auth user.")
+    snapshot = account_deletion_snapshot(uid, target_email)
+    target_role = str(snapshot.get("role", "") or "").strip().lower()
+    admin_role = str((admin_prof or {}).get("role", "") or "").strip().lower()
+    if target_role in {"admin", "superadmin"} and admin_role != "superadmin":
+        raise HTTPException(403, "Only a superadmin can delete another admin account.")
+    if body.dry_run:
+        return {"ok": True, "dry_run": True, "snapshot": snapshot}
+    expected_phrase = f"DELETE {target_email}"
+    if not target_email or supplied_email != target_email or str(body.confirm_text or "").strip() != expected_phrase:
+        raise HTTPException(400, f"Type the exact confirmation phrase: {expected_phrase}")
+    result = execute_account_deletion(uid, target_email, bool(body.delete_owned_businesses))
+    try:
+        send_review_notification_report(
+            "Account deleted",
+            [
+                "An admin processed an account deletion in Atlantic Ordinate.",
+                f"Deleted user ID: {uid}",
+                f"Deleted email: {target_email}",
+                f"Admin user ID: {admin_user.id}",
+                f"Admin email: {clean_email(getattr(admin_user, 'email', '') or '')}",
+                f"Owned businesses deleted: {len(result.get('removed_businesses') or [])}",
+            ],
+        )
+    except Exception as e:
+        print(f"[Account Delete Warning] deletion notification failed for {uid}: {e}")
+    return {"ok": True, "dry_run": False, "message": "Account deleted from Supabase auth and app database.", **result}
+
 @app.delete("/admin/business/{shop_id}")
 @app.delete("/admin/shop/{shop_id}")
 def admin_delete_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     check_shop_owner(user.id, shop_id)
-    image_names: List[str] = []
-    profile_image_url = ""
-    try:
-        shop_rows = supabase.table("shops").select("profile_image_url").eq("shop_id", shop_id).limit(1).execute().data or []
-        profile_image_url = normalize_shop_record(shop_rows[0]).get("profile_image_url", "") if shop_rows else ""
-    except Exception as e:
-        print(f"[Business Delete Warning] could not load business profile image for {shop_id}: {e}")
-    try:
-        product_rows = supabase.table("products").select("images").eq("shop_id", shop_id).execute().data or []
-        for row in product_rows:
-            for image_url in normalize_image_list(shop_id, row.get("images", [])):
-                img_name = os.path.basename(str(image_url or "").rstrip("/"))
-                if img_name and img_name not in image_names:
-                    image_names.append(img_name)
-    except Exception as e:
-        print(f"[Business Delete Warning] could not enumerate product images for {shop_id}: {e}")
-    for table_name in ("favourites", "reviews", "analytics", "order_requests", "products"):
-        try:
-            supabase.table(table_name).delete().eq("shop_id", shop_id).execute()
-        except Exception as e:
-            print(f"[Business Delete Warning] could not delete {table_name} rows for {shop_id}: {e}")
-    if image_names:
-        try:
-            supabase.storage.from_(IMAGE_BUCKET).remove([f"{shop_id}/{img_name}" for img_name in image_names])
-        except Exception as e:
-            print(f"[Business Delete Warning] could not remove storage images for {shop_id}: {e}")
-    if profile_image_url:
-        remove_public_image(IMAGE_BUCKET, profile_image_url)
-    supabase.table("shops").delete().eq("shop_id", shop_id).execute()
-    shutil.rmtree(os.path.join(SHOPS_DIR, shop_id), ignore_errors=True)
-    return {"ok": True, "business_id": shop_id}
+    return {"ok": True, **delete_business_data(shop_id)}
 
 @app.post("/admin/business/{shop_id}/offering")
 @app.post("/admin/shop/{shop_id}/product")
