@@ -663,6 +663,10 @@ class ForgotPasswordReq(BaseModel):
 class ResetPasswordReq(BaseModel):
     password: str
 
+class AccountDeletionRequestReq(BaseModel):
+    confirm_text: str = ""
+    reason: str = ""
+
 class UpdateProfileReq(BaseModel):
     display_name: str = ""
 
@@ -6128,6 +6132,46 @@ def update_password(body: ResetPasswordReq, request: Request, authorization: Opt
             detail = res.text or "Could not update password."
         raise HTTPException(400, detail)
     return {"ok": True, "message": "Password updated successfully."}
+
+@app.post("/auth/account-deletion-request")
+def request_account_deletion(body: AccountDeletionRequestReq, request: Request, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization, request)
+    enforce_rate_limit(request, "auth_delete_account_request", limit=3, window_seconds=86400, key_suffix=str(user.id))
+    email = clean_email(getattr(user, "email", "") or "")
+    confirm = str(body.confirm_text or "").strip()
+    if confirm.upper() != "DELETE" and clean_email(confirm) != email:
+        raise HTTPException(400, "Type DELETE or your account email to confirm this request.")
+    reason = re.sub(r"\s+", " ", str(body.reason or "").strip())[:1200]
+    sb = require_supabase()
+    owned_businesses = sb.table("shops").select("shop_id, name").eq("owner_user_id", user.id).limit(20).execute().data or []
+    requested_at = datetime.now(timezone.utc).isoformat()
+    business_lines = [
+        f"- {row.get('name') or 'Untitled Business'} ({row.get('shop_id') or 'no id'})"
+        for row in owned_businesses
+    ]
+    report = send_review_notification_report(
+        "Account deletion request",
+        [
+            "A signed-in user requested account deletion.",
+            f"Requested at: {requested_at}",
+            f"User ID: {user.id}",
+            f"Email: {email}",
+            f"Display name: {prof.get('display_name', '') or getattr(user, 'email', '')}",
+            f"Email verified: {bool(getattr(user, 'email_confirmed_at', None))}",
+            f"Owned businesses: {len(owned_businesses)}",
+            *(business_lines or ["- None"]),
+            f"Reason: {reason or 'Not provided'}",
+            "",
+            "Do not delete this user until business ownership, reviews, orders, favourites, and uploaded images have been reviewed.",
+        ],
+    )
+    if int(report.get("sent_count") or 0) <= 0:
+        raise HTTPException(503, "Account deletion requests are not configured yet. Contact support directly.")
+    return {
+        "ok": True,
+        "message": "Account deletion request sent. We will review it before making irreversible changes.",
+        "owned_business_count": len(owned_businesses),
+    }
 
 @app.put("/auth/profile")
 def update_profile(body: UpdateProfileReq, authorization: Optional[str] = Header(None)):

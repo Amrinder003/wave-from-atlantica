@@ -958,9 +958,11 @@ a{color:inherit;text-decoration:none}
 .account-inline-note-copy{font-size:13px;color:var(--ink2);line-height:1.6;margin-top:4px}
 .account-manage{display:grid;gap:14px}
 .account-section{display:grid;gap:12px;padding:15px 16px;border-radius:22px;background:#fff;border:1px solid var(--bd);box-shadow:0 16px 30px rgba(71,42,22,.05)}
+.account-section.danger-zone{border-color:rgba(225,29,72,.22);background:linear-gradient(180deg,rgba(255,246,247,.96),#fff)}
 .account-section-head{display:grid;gap:4px}
 .account-section-title{font-family:'Sora',sans-serif;font-size:15px;font-weight:800;color:var(--ink)}
 .account-section-copy{font-size:12px;line-height:1.6;color:var(--ink3)}
+.account-delete-note{padding:11px 12px;border-radius:16px;background:var(--Rp);border:1px solid rgba(225,29,72,.15);color:var(--R);font-size:12px;line-height:1.55;font-weight:700}
 #adminAccountManage input[readonly]{background:var(--sf2);color:var(--ink3);cursor:default}
 @media(max-width:640px){
   .account-summary-top{align-items:flex-start;flex-wrap:wrap}
@@ -5777,6 +5779,21 @@ select.btn{
                   <button id="accountChangePassBtn" class="btn btn-o btn-sm" type="button">Change Password</button>
                 </div>
                 <div id="accountPasswordStatus" class="stxt"></div>
+              </div>
+              <div class="account-section danger-zone">
+                <div class="account-section-head">
+                  <div class="account-section-title">Delete Account</div>
+                  <div class="account-section-copy">Request account deletion. We review this before any irreversible change, especially if you own business listings.</div>
+                </div>
+                <div class="account-delete-note">This does not instantly delete your account. It sends a deletion request to the app team so business ownership, reviews, orders, favourites, and uploaded images can be handled safely.</div>
+                <div class="fg2">
+                  <div class="fld"><label>Confirm</label><input id="accountDeleteConfirm" autocomplete="off" placeholder="Type DELETE or your email"/></div>
+                  <div class="fld"><label>Reason (optional)</label><input id="accountDeleteReason" maxlength="300" placeholder="Tell us why you want to delete it"/></div>
+                </div>
+                <div class="btn-row">
+                  <button id="accountDeleteRequestBtn" class="btn btn-r btn-sm" type="button">Request Account Deletion</button>
+                </div>
+                <div id="accountDeleteStatus" class="stxt"></div>
               </div>
             </div>
             <div id="adminUserActions" class="btn-row" style="display:none">
@@ -11543,12 +11560,15 @@ function renderAdminAccountState(user=App.user){
     }
     if($('accountPass1')) $('accountPass1').value='';
     if($('accountPass2')) $('accountPass2').value='';
+    if($('accountDeleteConfirm')) $('accountDeleteConfirm').value='';
+    if($('accountDeleteReason')) $('accountDeleteReason').value='';
     syncPasswordRuleViews();
     if(photoBtn) photoBtn.disabled=true;
     if(warnTitle) warnTitle.textContent='Email verification pending';
     if(warnText) warnText.textContent='Verify your email to keep reviews, business tools, and recovery links working cleanly.';
     setS('accountProfileStatus','');
     setS('accountPasswordStatus','');
+    setS('accountDeleteStatus','');
     return;
   }
   const safeEmail=String(user.email||'').trim();
@@ -11721,6 +11741,43 @@ async function updateSignedInPassword(){
 }
 $('accountSaveProfileBtn')?.addEventListener('click',saveAccountProfile);
 $('accountChangePassBtn')?.addEventListener('click',updateSignedInPassword);
+
+async function requestAccountDeletion(){
+  if(!App.user) return handleSessionExpired('Sign in again to request account deletion.');
+  const confirmInput=$('accountDeleteConfirm');
+  const reasonInput=$('accountDeleteReason');
+  const confirmText=String(confirmInput?.value||'').trim();
+  const email=String(App.user?.email||'').trim();
+  if(confirmText.toUpperCase()!=='DELETE' && confirmText.toLowerCase()!==email.toLowerCase()){
+    return setS('accountDeleteStatus','Type DELETE or your account email to confirm this request.','err');
+  }
+  if(!window.confirm('Send an account deletion request? This does not instantly delete your account, but the app team will review it.')) return;
+  if(confirmInput) confirmInput.disabled=true;
+  if(reasonInput) reasonInput.disabled=true;
+  setBtnBusy('accountDeleteRequestBtn',true,'Sending...');
+  try{
+    setS('accountDeleteStatus','Sending deletion request...');
+    const d=await api('/auth/account-deletion-request',{
+      method:'POST',
+      auth:true,
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({confirm_text:confirmText,reason:String(reasonInput?.value||'').trim()})
+    });
+    if(confirmInput) confirmInput.value='';
+    if(reasonInput) reasonInput.value='';
+    const ownerNote=d.owned_business_count ? ` You own ${d.owned_business_count} business listing${d.owned_business_count===1?'':'s'}, so ownership must be reviewed before deletion.` : '';
+    setS('accountDeleteStatus',`${d.message || 'Account deletion request sent.'}${ownerNote}`,'ok');
+    toast('Deletion request sent',ownerNote.trim()||'We will review it before making changes.');
+  }catch(e){
+    setS('accountDeleteStatus',e.message,'err');
+    toast('Request failed',e.message,'err');
+  }finally{
+    if(confirmInput) confirmInput.disabled=false;
+    if(reasonInput) reasonInput.disabled=false;
+    setBtnBusy('accountDeleteRequestBtn',false,'Sending...');
+  }
+}
+$('accountDeleteRequestBtn')?.addEventListener('click',requestAccountDeletion);
 
 const AUTH_SCOPE_META={
   login:{panelId:'atab-login',fieldIds:['loginEmail','loginPass'],buttonIds:['loginSubmitBtn']},
@@ -11982,6 +12039,7 @@ bindEnterSubmit(['resetPass','resetPass2'],doResetPassword);
 bindEnterSubmit(['authEmail','authPass'],()=>$('adminLoginBtn')?.click());
 bindEnterSubmit(['accountDisplayName'],saveAccountProfile);
 bindEnterSubmit(['accountPass1','accountPass2'],updateSignedInPassword);
+bindEnterSubmit(['accountDeleteConfirm','accountDeleteReason'],requestAccountDeletion);
 ['regName','regEmail','regPass','regPass2','resetPass','resetPass2','accountPass1','accountPass2'].forEach(id=>{
   $(id)?.addEventListener('input',syncPasswordRuleViews);
 });
