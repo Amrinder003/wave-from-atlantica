@@ -1395,13 +1395,35 @@ a{color:inherit;text-decoration:none}
 .bulk-edit-bar.on{display:grid}
 .bulk-edit-note{font-size:12px;color:var(--ink3);align-self:center}
 @media(max-width:980px){.bulk-edit-bar,.bulk-edit-bar.on{grid-template-columns:1fr 1fr}}
-@media(max-width:680px){.bulk-edit-bar,.bulk-edit-bar.on{grid-template-columns:1fr}}
+@media(max-width:760px){.shop-wizard-card{position:static}.shop-wizard-track{grid-template-columns:1fr 1fr}.shop-step-chip{padding:9px 10px}}
+@media(max-width:680px){.bulk-edit-bar,.bulk-edit-bar.on{grid-template-columns:1fr}.shop-wizard-track{grid-template-columns:1fr}.shop-wizard-progress{min-width:100%}}
 .setup-form{display:grid;gap:16px}
 .setup-section{padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(255,252,247,.98),rgba(248,241,231,.92));border:1px solid rgba(191,174,149,.32)}
 .setup-section-head{display:grid;gap:4px;margin-bottom:14px}
 .setup-section-kicker{font-size:10px;font-weight:800;color:var(--A2);text-transform:uppercase;letter-spacing:.08em}
 .setup-section-title{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;line-height:1.15}
 .setup-section-copy{font-size:13px;color:var(--ink3);line-height:1.65;max-width:720px}
+.shop-wizard-card{position:sticky;top:calc(var(--nh) + 8px);z-index:12}
+.shop-wizard{display:grid;gap:12px}
+.shop-wizard-track{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.shop-step-chip{display:flex;align-items:center;gap:8px;min-width:0;padding:10px 11px;border-radius:18px;background:#fff;border:1px solid var(--bd);color:var(--ink3);font-size:12px;font-weight:800;text-align:left;cursor:pointer;transition:.14s}
+.shop-step-chip:hover{border-color:rgba(15,118,110,.32);color:var(--A2);transform:translateY(-1px)}
+.shop-step-chip-num{width:22px;height:22px;border-radius:999px;display:grid;place-items:center;flex:0 0 auto;background:#f2f7f4;color:var(--A2);font-size:11px}
+.shop-step-chip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shop-step-chip.on{background:linear-gradient(180deg,#0f766e,#0b5f59);border-color:#0f766e;color:#fff;box-shadow:0 14px 26px rgba(15,118,110,.18)}
+.shop-step-chip.on .shop-step-chip-num{background:rgba(255,255,255,.2);color:#fff}
+.shop-step-chip.done{border-color:#a7e8c3;color:var(--G);background:#ecfdf3}
+.shop-step-chip.done .shop-step-chip-num{background:#d1fae5;color:var(--G)}
+.shop-wizard-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.shop-wizard-status{font-size:13px;color:var(--ink3);line-height:1.55}
+.shop-wizard-progress{height:8px;border-radius:999px;background:#edf4f1;overflow:hidden;flex:1;min-width:160px}
+.shop-wizard-progress span{display:block;height:100%;width:20%;border-radius:inherit;background:linear-gradient(90deg,#0f766e,#f0b05b);transition:width .18s ease}
+#shopFormView .setup-section[data-shop-step]{display:none}
+#shopFormView .setup-section[data-shop-step].on{display:block;animation:shopStepIn .18s ease}
+@keyframes shopStepIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.req-star{color:var(--R);font-weight:900;margin-left:3px}
+.fld.field-invalid input:not([type=file]),.fld.field-invalid textarea,.fld.field-invalid select,.field-invalid .currency-pill,.owner-check.field-invalid,.setup-section.field-invalid{border-color:#fb7185!important;background:#fff1f2!important;box-shadow:0 0 0 3px rgba(225,29,72,.1)!important}
+.field-error{font-size:12px;line-height:1.45;color:var(--R);font-weight:800;margin-top:6px}
 .form-floating-wrap{padding-bottom:0}
 .floating-form-actions{position:static;width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:24px;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.94));border:1px solid rgba(191,174,149,.36);box-shadow:0 12px 28px rgba(48,33,15,.08);margin-top:14px}
 .floating-form-copy{display:grid;gap:3px;min-width:0}
@@ -4851,6 +4873,7 @@ select.btn{
 #shopFormView .card,
 #shopFormView .card-body,
 #shopFormView .workspace-hero,
+#shopFormView .shop-wizard-card,
 #shopFormView .setup-section,
 #shopFormView .setup-callout,
 #shopFormView .product-upload-card,
@@ -4881,6 +4904,7 @@ select.btn{
 }
 #shopFormView .workspace-desc,
 #shopFormView .setup-section-copy,
+#shopFormView .shop-wizard-status,
 #shopFormView .setup-callout-copy,
 #shopFormView .floating-form-note,
 #shopFormView .fld-hint,
@@ -4963,11 +4987,26 @@ select.btn{
 }
 #shopFormView .currency-pill,
 #shopFormView #shopIdRef,
-#shopFormView #shopCurrencyBadge{
+#shopFormView #shopCurrencyBadge,
+#shopFormView .shop-step-chip{
   background:#f2f7f4!important;
   border:1px solid var(--bd)!important;
   color:var(--ink)!important;
   box-shadow:none!important;
+}
+#shopFormView .shop-step-chip.on{
+  background:var(--A)!important;
+  border-color:var(--A)!important;
+  color:#fff!important;
+  box-shadow:0 10px 22px rgba(15,118,110,.18)!important;
+}
+#shopFormView .shop-step-chip.done{
+  background:var(--Gp)!important;
+  border-color:#a7e8c3!important;
+  color:var(--G)!important;
+}
+#shopFormView .shop-wizard-progress{
+  background:#edf4f1!important;
 }
 #shopFormView .shop-profile-preview-avatar{
   background:#f2f7f4!important;
@@ -5033,6 +5072,19 @@ select.btn{
   background:#fff!important;
   border:1px solid var(--bd)!important;
   box-shadow:var(--s2)!important;
+}
+#shopFormView .fld.field-invalid input:not([type=file]),
+#shopFormView .fld.field-invalid textarea,
+#shopFormView .fld.field-invalid select,
+#shopFormView .field-invalid .currency-pill,
+#shopFormView .owner-check.field-invalid,
+#shopFormView .setup-section.field-invalid{
+  background:#fff1f2!important;
+  border-color:#fb7185!important;
+  box-shadow:0 0 0 3px rgba(225,29,72,.1)!important;
+}
+#shopFormView .field-error{
+  color:var(--R)!important;
 }
 #shopFormView #shopStatus:not(:empty){
   background:#f8faf8!important;
@@ -6047,7 +6099,7 @@ select.btn{
               <div class="workspace-copy">
                 <div class="workspace-kicker">Business Setup</div>
                 <div id="shopFormTitle" class="workspace-title">Create your business</div>
-                <div class="workspace-desc">Add the public details customers will see on your business page and in chat.</div>
+                <div class="workspace-desc">Complete one focused step at a time. Required fields are marked with a star, and you can go back before saving.</div>
               </div>
               <div class="workspace-actions">
                 <button id="shopFormBackBtn" class="btn btn-g btn-sm">← Back</button>
@@ -6056,9 +6108,18 @@ select.btn{
               </div>
             </div>
           </div>
+          <div class="card shop-wizard-card">
+            <div class="card-body shop-wizard">
+              <div id="shopWizardTrack" class="shop-wizard-track" aria-label="Business setup steps"></div>
+              <div class="shop-wizard-meta">
+                <div id="shopWizardStatus" class="shop-wizard-status">Step 1 of 5</div>
+                <div class="shop-wizard-progress" aria-hidden="true"><span id="shopWizardProgress"></span></div>
+              </div>
+            </div>
+          </div>
           <div class="card">
             <div class="card-body setup-form">
-              <div class="setup-section">
+              <div class="setup-section" data-shop-step="0">
                 <div class="setup-section-head">
                   <div class="setup-section-kicker">Step 1</div>
                   <div class="setup-section-title">Core business identity</div>
@@ -6104,7 +6165,7 @@ select.btn{
                   </div>
                 </div>
               </div>
-              <div class="setup-section">
+              <div class="setup-section" data-shop-step="1">
                 <div class="setup-section-head">
                   <div class="setup-section-kicker">Step 2</div>
                   <div class="setup-section-title">Location and contact</div>
@@ -6162,7 +6223,7 @@ select.btn{
                   </div>
                 </div>
               </div>
-              <div class="setup-section">
+              <div class="setup-section" data-shop-step="2">
                 <div class="setup-section-head">
                   <div class="setup-section-kicker">Step 3</div>
                   <div class="setup-section-title">Fulfillment options</div>
@@ -6179,7 +6240,7 @@ select.btn{
                 </div>
                 <div class="fld" style="margin-top:14px"><label>Pickup / buying notes</label><textarea id="shopPickupNotes"></textarea><div class="fld-hint">Shown to customers when they place a pickup or delivery request.</div></div>
               </div>
-              <div class="setup-section">
+              <div class="setup-section" data-shop-step="3">
                 <div class="setup-section-head">
                   <div class="setup-section-kicker">Step 4</div>
                   <div class="setup-section-title">Story and voice</div>
@@ -6187,7 +6248,7 @@ select.btn{
                 </div>
                 <div class="fld"><label>About This Business</label><textarea id="shopOverview"></textarea><div class="fld-hint">A stronger overview improves both the public page and the assistant's answers.</div></div>
               </div>
-              <div class="setup-section">
+              <div class="setup-section" data-shop-step="4">
                 <div class="setup-section-head">
                   <div class="setup-section-kicker">Step 5</div>
                   <div class="setup-section-title">Verification and launch</div>
@@ -6225,7 +6286,9 @@ select.btn{
               <div id="shopFloatingNote" class="floating-form-note">Create the business to open its workspace and start adding offerings.</div>
             </div>
             <div class="btn-row">
-              <button id="shopFloatingBackBtn" class="btn btn-g btn-sm">Back</button>
+              <button id="shopFloatingBackBtn" class="btn btn-g btn-sm">Exit</button>
+              <button id="shopWizardPrevBtn" class="btn btn-o btn-sm" type="button">Previous Step</button>
+              <button id="shopWizardNextBtn" class="btn btn-A btn-sm" type="button">Next Step</button>
               <button id="shopFloatingSubmitBtn" class="btn btn-A btn-sm">Create Business</button>
             </div>
           </div>
@@ -14714,15 +14777,205 @@ function setFieldHint(id,msg,type=''){
 App.shopFormDirty=false;
 App.productFormDirty=false;
 let suspendFormDirty=false;
+App.shopWizardStep=0;
+const SHOP_WIZARD_STEPS=[
+  {title:'Identity',copy:'Name, category, and profile image'},
+  {title:'Location',copy:'Address, hours, and contact'},
+  {title:'Access',copy:'Pickup, delivery, or walk-in'},
+  {title:'Story',copy:'Business overview'},
+  {title:'Launch',copy:'Verification and review'}
+];
+const SHOP_REQUIRED_FIELD_IDS=[
+  'shopName','shopBusinessType','shopCat','shopLocationMode','shopServiceArea','shopCountry','shopTimezone',
+  'shopRegion','shopCity','shopPostal','shopStreet1','shopPhone','shopDeliveryRadius','shopOverview',
+  'shopOwnerContactName','shopVerificationMethod','shopVerificationEvidence'
+];
+function shopStepIndex(){
+  return Math.max(0,Math.min(SHOP_WIZARD_STEPS.length-1,Number(App.shopWizardStep||0)));
+}
+function shopFieldContainer(id=''){
+  const el=$(id);
+  if(!el) return null;
+  if(id==='hoursGrid') return el.closest('.setup-section');
+  if(['shopSupportsPickup','shopSupportsDelivery','shopSupportsWalkIn'].includes(id)) return el.closest('.fg3')||el.closest('.owner-check');
+  return el.closest('.fld')||el.closest('.owner-check')||el.parentElement;
+}
+function clearShopFieldError(id=''){
+  const box=shopFieldContainer(id);
+  if(!box) return;
+  box.classList.remove('field-invalid');
+  box.querySelectorAll(':scope > .field-error').forEach(el=>el.remove());
+}
+function clearShopValidation(){
+  document.querySelectorAll('#shopFormView .field-invalid').forEach(el=>el.classList.remove('field-invalid'));
+  document.querySelectorAll('#shopFormView .field-error').forEach(el=>el.remove());
+}
+function setShopFieldError(id='',message=''){
+  const box=shopFieldContainer(id);
+  if(!box) return;
+  box.classList.add('field-invalid');
+  let err=Array.from(box.children).find(el=>el.classList?.contains('field-error'));
+  if(!err){
+    err=document.createElement('div');
+    err.className='field-error';
+    box.appendChild(err);
+  }
+  err.textContent=message;
+}
+function focusShopField(id=''){
+  const el=$(id);
+  if(id==='hoursGrid'){
+    document.querySelector('#hoursGrid select:not(:disabled)')?.focus();
+    return;
+  }
+  if(el?.focus) el.focus({preventScroll:true});
+}
+function addShopRequiredStars(){
+  SHOP_REQUIRED_FIELD_IDS.forEach(id=>{
+    const box=shopFieldContainer(id);
+    if(!box || box.dataset.requiredMarked==='1') return;
+    const label=Array.from(box.children).find(el=>String(el.tagName||'').toLowerCase()==='label');
+    if(!label || label.querySelector('.req-star')) return;
+    label.insertAdjacentHTML('beforeend',' <span class="req-star" aria-hidden="true">*</span>');
+    box.dataset.requiredMarked='1';
+  });
+}
+function shopStepErrors(step=shopStepIndex()){
+  normalizeShopDeliveryInputs();
+  const errors=[];
+  const add=(id,message)=>errors.push({id,message});
+  if(step===0){
+    if(!$('shopName')?.value.trim()) add('shopName','Enter a business name customers will recognize.');
+    if(!$('shopBusinessType')?.value.trim()) add('shopBusinessType','Choose the business type.');
+    if(!$('shopCat')?.value.trim()) add('shopCat','Select the category that best matches this business.');
+  }else if(step===1){
+    const addr=buildShopAddressPayload();
+    const mode=addr.location_mode;
+    if(!mode) add('shopLocationMode','Choose how this business operates.');
+    if(!addr.country_code) add('shopCountry','Select the business country.');
+    if(!$('shopTimezone')?.value) add('shopTimezone','Select the business timezone.');
+    if(mode==='storefront' || mode==='hybrid'){
+      if(!addr.region) add('shopRegion','Enter the business province or state.');
+      if(!addr.city) add('shopCity','Enter the business city.');
+      if(!addr.postal_code) add('shopPostal','Enter the business postal code.');
+      if(!addr.street_line1) add('shopStreet1','Enter the business street address.');
+    }else if(mode==='service_area'){
+      if(!addr.service_area) add('shopServiceArea','Describe the service area this business covers.');
+    }
+    const hours=getHoursStructured();
+    const openSlots=hours.filter(h=>!h.closed);
+    if(!openSlots.length) add('hoursGrid','Mark at least one working day as open.');
+    else if(openSlots.some(h=>!h.start||!h.end||h.start>=h.end)) add('hoursGrid','Each open day needs a valid start and end time.');
+    if(!$('shopPhone')?.value.trim()) add('shopPhone','Enter a business phone number for Atlantic Ordinate review use.');
+  }else if(step===2){
+    if(!($('shopSupportsPickup')?.checked || $('shopSupportsDelivery')?.checked || $('shopSupportsWalkIn')?.checked)){
+      add('shopSupportsPickup','Enable at least one customer access option.');
+    }
+    if($('shopSupportsDelivery')?.checked){
+      const radiusRaw=$('shopDeliveryRadius')?.value.trim()||'';
+      const radius=Number(radiusRaw);
+      const feeRaw=$('shopDeliveryFee')?.value.trim()||'';
+      const fee=Number(feeRaw);
+      if(radiusRaw==='' || !Number.isFinite(radius) || radius<=0) add('shopDeliveryRadius','Set a valid travel or delivery radius.');
+      if(feeRaw!=='' && (!Number.isFinite(fee) || fee<0)) add('shopDeliveryFee','Delivery fee cannot be negative.');
+    }
+  }else if(step===3){
+    const overview=$('shopOverview')?.value.trim()||'';
+    if(overview.length<24) add('shopOverview','Write at least 24 characters about this business.');
+  }else if(step===4){
+    if(!$('shopOwnerContactName')?.value.trim()) add('shopOwnerContactName','Enter the owner or primary contact name.');
+    if(!$('shopVerificationMethod')?.value.trim()) add('shopVerificationMethod','Choose a verification path.');
+    if(($('shopVerificationEvidence')?.value.trim()||'').length<8) add('shopVerificationEvidence','Add a short verification note or proof reference.');
+  }
+  return errors;
+}
+function validateShopWizardStep(step=shopStepIndex(),{decorate=true}={}){
+  if(decorate) clearShopValidation();
+  const errors=shopStepErrors(step);
+  if(decorate){
+    errors.forEach(err=>setShopFieldError(err.id,err.message));
+    if(errors[0]){
+      setFieldHint('shopStatus',errors[0].message,'err');
+      focusShopField(errors[0].id);
+    }
+  }
+  return errors[0]?.message || '';
+}
+function syncShopWizard(){
+  const idx=shopStepIndex();
+  document.querySelectorAll('#shopFormView [data-shop-step]').forEach(section=>{
+    section.classList.toggle('on',Number(section.dataset.shopStep)===idx);
+  });
+  document.querySelectorAll('#shopWizardTrack [data-shop-step-target]').forEach(btn=>{
+    const target=Number(btn.dataset.shopStepTarget);
+    btn.classList.toggle('on',target===idx);
+    btn.classList.toggle('done',target<idx);
+    btn.setAttribute('aria-current',target===idx?'step':'false');
+  });
+  const meta=SHOP_WIZARD_STEPS[idx]||SHOP_WIZARD_STEPS[0];
+  if($('shopWizardStatus')) $('shopWizardStatus').textContent=`Step ${idx+1} of ${SHOP_WIZARD_STEPS.length}: ${meta.title}. ${meta.copy}.`;
+  if($('shopWizardProgress')) $('shopWizardProgress').style.width=`${((idx+1)/SHOP_WIZARD_STEPS.length)*100}%`;
+  const last=idx===SHOP_WIZARD_STEPS.length-1;
+  if($('shopWizardPrevBtn')) $('shopWizardPrevBtn').disabled=idx===0;
+  if($('shopWizardNextBtn')) $('shopWizardNextBtn').style.display=last?'none':'';
+  if($('shopFloatingSubmitBtn')) $('shopFloatingSubmitBtn').style.display=last?'':'none';
+  if($('shopFloatingNote') && !App.shopFormDirty){
+    $('shopFloatingNote').textContent=last
+      ? (($('shopFloatingSubmitBtn')?.dataset.mode==='edit') ? 'Review the details, then save the business.' : 'Review the details, then create the business.')
+      : 'Complete this step, then continue. You can return to earlier steps before saving.';
+  }
+}
+function setShopWizardStep(next,{validate=true,scroll=true}={}){
+  const current=shopStepIndex();
+  const target=Math.max(0,Math.min(SHOP_WIZARD_STEPS.length-1,Number(next||0)));
+  if(validate && target>current){
+    for(let step=current;step<target;step++){
+      const message=validateShopWizardStep(step,{decorate:true});
+      if(message){
+        App.shopWizardStep=step;
+        syncShopWizard();
+        toast('Complete this step',message,'err');
+        return false;
+      }
+    }
+  }else if(target<current){
+    clearShopValidation();
+  }
+  App.shopWizardStep=target;
+  syncShopWizard();
+  if(scroll) $('shopFormView')?.scrollIntoView({behavior:'smooth',block:'start'});
+  return true;
+}
+function initShopWizard(){
+  const track=$('shopWizardTrack');
+  if(track && !track.dataset.bound){
+    track.innerHTML=SHOP_WIZARD_STEPS.map((step,idx)=>`<button class="shop-step-chip" type="button" data-shop-step-target="${idx}"><span class="shop-step-chip-num">${idx+1}</span><span class="shop-step-chip-label">${esc(step.title)}</span></button>`).join('');
+    track.querySelectorAll('[data-shop-step-target]').forEach(btn=>btn.addEventListener('click',()=>setShopWizardStep(Number(btn.dataset.shopStepTarget),{validate:true})));
+    track.dataset.bound='1';
+  }
+  addShopRequiredStars();
+  document.querySelectorAll('#shopFormView input,#shopFormView textarea,#shopFormView select').forEach(el=>{
+    if(el.dataset.validationClearBound==='1') return;
+    const clear=()=>clearShopFieldError(el.id);
+    el.addEventListener('input',clear);
+    el.addEventListener('change',clear);
+    el.dataset.validationClearBound='1';
+  });
+  setShopWizardStep(App.shopWizardStep||0,{validate:false,scroll:false});
+}
 
 function updateShopDraftState(dirty){
   App.shopFormDirty=!!dirty;
   if($('shopFloatingNote')){
-    $('shopFloatingNote').textContent=dirty
-      ? 'Unsaved changes. Save the business before leaving this form.'
-      : (($('shopFloatingSubmitBtn')?.dataset.mode==='edit')
-          ? 'Save your changes to update the live business page and assistant context.'
-          : 'Create the business to open its workspace and start adding offerings.');
+    if(dirty){
+      $('shopFloatingNote').textContent='Unsaved changes. Save the business before leaving this form.';
+    }else if($('shopWizardTrack')?.dataset.bound==='1'){
+      syncShopWizard();
+    }else{
+      $('shopFloatingNote').textContent=($('shopFloatingSubmitBtn')?.dataset.mode==='edit')
+        ? 'Save your changes to update the live business page and assistant context.'
+        : 'Create the business to open its workspace and start adding offerings.';
+    }
   }
 }
 function updateProductDraftState(dirty){
@@ -14782,42 +15035,19 @@ function syncShopFormActions(mode='create'){
   if($('saveShopBtn')) $('saveShopBtn').textContent='Save Business';
   if($('shopIdRef')) $('shopIdRef').textContent=isEdit?($('shopId')?.value.trim()||'Saved business'):'Generated after creation';
   updateShopDraftState(false);
+  syncShopWizard();
 }
 
 function validateShopForm(){
-  normalizeShopDeliveryInputs();
-  const name=$('shopName').value.trim();
-  const addr=buildShopAddressPayload();
-  const category=$('shopCat').value.trim();
-  const reviewPhone=$('shopPhone')?.value.trim()||'';
-  const locationMode=addr.location_mode;
-  if(!name) return 'Enter a business name customers will recognize.';
-  if(!addr.country_code) return 'Select the country where the business operates.';
-  if(locationMode==='storefront' || locationMode==='hybrid'){
-    if(!addr.region) return 'Enter the business province or state.';
-    if(!addr.city) return 'Enter the business city.';
-    if(!addr.postal_code) return 'Enter the business postal code.';
-    if(!addr.street_line1) return 'Enter the business street address.';
-    if(!addr.formatted_address) return 'Enter the real customer-facing business address.';
-  }else if(locationMode==='service_area'){
-    if(!addr.service_area) return 'Describe the service area this business covers.';
+  for(let step=0;step<SHOP_WIZARD_STEPS.length;step++){
+    const message=validateShopWizardStep(step,{decorate:false});
+    if(message){
+      setShopWizardStep(step,{validate:false,scroll:true});
+      validateShopWizardStep(step,{decorate:true});
+      return message;
+    }
   }
-  const hours=getHoursStructured();
-  const openSlots=hours.filter(h=>!h.closed);
-  if(!openSlots.length) return 'Mark at least one working day as open.';
-  if(openSlots.some(h=>!h.start||!h.end||h.start>=h.end)) return 'Each open day needs a valid start and end time.';
-  if(!$('shopTimezone')?.value) return 'Select the business timezone.';
-  if(!category) return 'Select the category that best matches this business.';
-  if(!reviewPhone) return 'Enter a business phone number for Atlantic Ordinate review use.';
-  if(!($('shopSupportsPickup')?.checked || $('shopSupportsDelivery')?.checked || $('shopSupportsWalkIn')?.checked)) return 'Enable at least one customer access option.';
-  if($('shopSupportsDelivery')?.checked){
-    const radiusRaw=$('shopDeliveryRadius')?.value.trim()||'';
-    const radius=Number(radiusRaw);
-    const feeRaw=$('shopDeliveryFee')?.value.trim()||'';
-    const fee=Number(feeRaw);
-    if(radiusRaw==='' || !Number.isFinite(radius) || radius<=0) return 'Set a valid travel or delivery radius.';
-    if(feeRaw!=='' && (!Number.isFinite(fee) || fee<0)) return 'Delivery fee cannot be negative.';
-  }
+  clearShopValidation();
   return '';
 }
 
@@ -14948,6 +15178,8 @@ function resetShopForm(){
   syncShopLocationModeUi();
   buildShopAddressPayload();
   populateHoursEditor(DAY_ROWS.map(([day])=>({day,closed:day==='sun',start:'09:00',end:'17:00'})));
+  App.shopWizardStep=0;
+  initShopWizard();
   $('shopAddressSuggest').innerHTML='';
   $('shopAddressSuggest').style.display='none';
   $('shopStats').style.display='none';
@@ -15922,6 +16154,8 @@ $('detailOpenLiveShopBtnSide').addEventListener('click',openAdminLiveBusiness);
 $('shopFormBackBtn').addEventListener('click',()=>showShopManagerView(App.adminShopId?'detail':'landing'));
 $('productFormBackBtn').addEventListener('click',()=>showShopManagerView('detail'));
 $('shopFloatingBackBtn').addEventListener('click',()=>showShopManagerView(App.adminShopId?'detail':'landing'));
+$('shopWizardPrevBtn')?.addEventListener('click',()=>setShopWizardStep(shopStepIndex()-1,{validate:false}));
+$('shopWizardNextBtn')?.addEventListener('click',()=>setShopWizardStep(shopStepIndex()+1,{validate:true}));
 $('productFloatingBackBtn').addEventListener('click',()=>showShopManagerView('detail'));
 $('shopFloatingSubmitBtn').addEventListener('click',()=>($('shopFloatingSubmitBtn').dataset.mode==='edit'?saveShop():createShop()));
 $('productFloatingSubmitBtn').addEventListener('click',saveProd);
@@ -15935,6 +16169,7 @@ $('sendReviewNotifyTestBtn')?.addEventListener('click',sendReviewNotificationTes
 $('adminPreviewAccountDeleteBtn')?.addEventListener('click',previewAdminAccountDeletion);
 $('adminExecuteAccountDeleteBtn')?.addEventListener('click',executeAdminAccountDeletion);
 $('deleteShopBtn').addEventListener('click',deleteShop);
+initShopWizard();
 $('rebuildKbBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a business first','','err');
   try{
