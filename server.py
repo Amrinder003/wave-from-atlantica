@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from io import BytesIO, StringIO
 from email.message import EmailMessage
 import zipfile
+import xml.etree.ElementTree as ET
 from supabase import create_client, Client
 try:
     from supabase.client import ClientOptions  # type: ignore
@@ -3762,12 +3763,97 @@ def parse_simple_variant_options(raw: str) -> List[Dict[str, Any]]:
                 out.append({"group": group, "label": label[:60], "price_delta": price_delta, "images": []})
     return out
 
+def xlsx_col_index(cell_ref: str) -> int:
+    letters = "".join(ch for ch in str(cell_ref or "") if ch.isalpha()).upper()
+    if not letters:
+        return 0
+    idx = 0
+    for ch in letters:
+        idx = idx * 26 + (ord(ch) - 64)
+    return max(0, idx - 1)
+
+def xlsx_node_text(node: Optional[ET.Element]) -> str:
+    if node is None:
+        return ""
+    return "".join(node.itertext())
+
+def xlsx_shared_strings(zf: zipfile.ZipFile) -> List[str]:
+    try:
+        root = ET.fromstring(zf.read("xl/sharedStrings.xml"))
+    except KeyError:
+        return []
+    except Exception:
+        raise HTTPException(400, "Could not read shared strings from the Excel file.")
+    out: List[str] = []
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    for item in root.findall(f".//{ns}si"):
+        out.append(xlsx_node_text(item))
+    return out
+
+def xlsx_first_sheet_path(zf: zipfile.ZipFile) -> str:
+    names = set(zf.namelist())
+    if "xl/worksheets/sheet1.xml" in names:
+        return "xl/worksheets/sheet1.xml"
+    sheets = sorted(name for name in names if name.startswith("xl/worksheets/") and name.endswith(".xml"))
+    if not sheets:
+        raise HTTPException(400, "The Excel file does not contain a worksheet.")
+    return sheets[0]
+
+def xlsx_bytes_to_csv_text(data: bytes) -> str:
+    try:
+        zf = zipfile.ZipFile(BytesIO(data))
+    except zipfile.BadZipFile:
+        raise HTTPException(400, "The Excel file is not a valid .xlsx workbook.")
+    with zf:
+        shared = xlsx_shared_strings(zf)
+        sheet_path = xlsx_first_sheet_path(zf)
+        try:
+            root = ET.fromstring(zf.read(sheet_path))
+        except Exception:
+            raise HTTPException(400, "Could not read the first worksheet from the Excel file.")
+        ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+        rows: List[List[str]] = []
+        max_width = 0
+        for row_node in root.findall(f".//{ns}sheetData/{ns}row"):
+            values: Dict[int, str] = {}
+            next_idx = 0
+            for cell in row_node.findall(f"{ns}c"):
+                idx = xlsx_col_index(cell.attrib.get("r", "")) if cell.attrib.get("r") else next_idx
+                next_idx = idx + 1
+                cell_type = cell.attrib.get("t", "")
+                value = ""
+                if cell_type == "s":
+                    raw = xlsx_node_text(cell.find(f"{ns}v")).strip()
+                    if raw:
+                        try:
+                            value = shared[int(raw)]
+                        except Exception:
+                            value = raw
+                elif cell_type == "inlineStr":
+                    value = xlsx_node_text(cell.find(f"{ns}is"))
+                else:
+                    value = xlsx_node_text(cell.find(f"{ns}v"))
+                values[idx] = value
+            if values:
+                width = max(values.keys()) + 1
+                max_width = max(max_width, width)
+                rows.append([values.get(i, "") for i in range(width)])
+        if not rows:
+            raise HTTPException(400, "The Excel worksheet has no rows.")
+        buffer = StringIO()
+        writer = csv.writer(buffer)
+        for row in rows:
+            writer.writerow(row + [""] * max(0, max_width - len(row)))
+        return buffer.getvalue()
+
 def build_catalog_asset_map(data: bytes, filename: str) -> Tuple[str, Dict[str, Tuple[str, bytes]]]:
     name = str(filename or "").lower()
     if name.endswith(".csv"):
         return data.decode("utf-8-sig"), {}
+    if name.endswith(".xlsx"):
+        return xlsx_bytes_to_csv_text(data), {}
     if not name.endswith(".zip"):
-        raise HTTPException(400, "Upload a .zip catalog package or a .csv file.")
+        raise HTTPException(400, "Upload a .zip catalog package, .csv file, or .xlsx file.")
     try:
         zf = zipfile.ZipFile(BytesIO(data))
     except zipfile.BadZipFile:
@@ -3777,16 +3863,17 @@ def build_catalog_asset_map(data: bytes, filename: str) -> Tuple[str, Dict[str, 
         total_size = sum(max(0, info.file_size) for info in files)
         if total_size > MAX_CATALOG_PACKAGE_BYTES * 3:
             raise HTTPException(400, "The catalog package is too large after extraction.")
-        csv_candidates = [
+        tabular_candidates = [
             info for info in files
-            if os.path.basename(info.filename).lower() in {"products.csv", "offerings.csv", "catalog.csv"}
+            if os.path.basename(info.filename).lower() in {"products.csv", "offerings.csv", "catalog.csv", "products.xlsx", "offerings.xlsx", "catalog.xlsx"}
         ]
-        if not csv_candidates:
-            csv_candidates = [info for info in files if info.filename.lower().endswith(".csv")]
-        if not csv_candidates:
-            raise HTTPException(400, "Add a products.csv file to the ZIP package.")
-        csv_info = csv_candidates[0]
-        csv_text = zf.read(csv_info).decode("utf-8-sig")
+        if not tabular_candidates:
+            tabular_candidates = [info for info in files if info.filename.lower().endswith((".csv", ".xlsx"))]
+        if not tabular_candidates:
+            raise HTTPException(400, "Add a products.csv or products.xlsx file to the ZIP package.")
+        tabular_info = tabular_candidates[0]
+        tabular_blob = zf.read(tabular_info)
+        csv_text = xlsx_bytes_to_csv_text(tabular_blob) if tabular_info.filename.lower().endswith(".xlsx") else tabular_blob.decode("utf-8-sig")
         assets: Dict[str, Tuple[str, bytes]] = {}
         for info in files:
             ext = norm_ext(os.path.splitext(info.filename.lower())[1])
@@ -3803,7 +3890,7 @@ def build_catalog_asset_map(data: bytes, filename: str) -> Tuple[str, Dict[str, 
                     assets[key] = (info.filename, blob)
         return csv_text, assets
 
-def catalog_upload_image_refs(shop_id: str, refs: Any, assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], row_number: int, errors: List[str], context: str) -> List[str]:
+def catalog_upload_image_refs(shop_id: str, refs: Any, assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], row_number: int, errors: List[str], context: str, save_assets: bool = True) -> List[str]:
     out: List[str] = []
     for ref in split_catalog_refs(refs):
         if re.match(r"^https?://", ref, re.I) or str(ref).startswith("/shops/"):
@@ -3817,12 +3904,12 @@ def catalog_upload_image_refs(shop_id: str, refs: Any, assets: Dict[str, Tuple[s
         asset_name, blob = asset
         cache_key = normalize_catalog_asset_ref(asset_name)
         if cache_key not in uploaded:
-            uploaded[cache_key] = save_image_bytes(shop_id, asset_name, blob)
+            uploaded[cache_key] = save_image_bytes(shop_id, asset_name, blob) if save_assets else f"local:{asset_name}"
         out.append(uploaded[cache_key])
     return dedup(out)
 
-def catalog_apply_variant_images(shop_id: str, row: Dict[str, str], row_number: int, variant_data: List[Dict[str, Any]], assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], errors: List[str]) -> List[Dict[str, Any]]:
-    out = [{**item, "images": catalog_upload_image_refs(shop_id, item.get("images", []), assets, uploaded, row_number, errors, f"variant {item.get('label') or idx + 1}")} for idx, item in enumerate(variant_data or [])]
+def catalog_apply_variant_images(shop_id: str, row: Dict[str, str], row_number: int, variant_data: List[Dict[str, Any]], assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], errors: List[str], save_assets: bool = True) -> List[Dict[str, Any]]:
+    out = [{**item, "images": catalog_upload_image_refs(shop_id, item.get("images", []), assets, uploaded, row_number, errors, f"variant {item.get('label') or idx + 1}", save_assets)} for idx, item in enumerate(variant_data or [])]
     option_index: Dict[str, int] = {}
     for idx, item in enumerate(out):
         group = catalog_key(item.get("group") or "Option")
@@ -3838,11 +3925,11 @@ def catalog_apply_variant_images(shop_id: str, row: Dict[str, str], row_number: 
         if idx is None:
             errors.append(f"Row {row_number}: variant image target '{target}' does not match the variant options.")
             continue
-        out[idx]["images"] = dedup(list(out[idx].get("images") or []) + catalog_upload_image_refs(shop_id, [ref], assets, uploaded, row_number, errors, f"variant {target}"))
+        out[idx]["images"] = dedup(list(out[idx].get("images") or []) + catalog_upload_image_refs(shop_id, [ref], assets, uploaded, row_number, errors, f"variant {target}", save_assets))
     return out
 
-def catalog_apply_combo_images(shop_id: str, row: Dict[str, str], row_number: int, matrix: List[Dict[str, Any]], assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], errors: List[str]) -> List[Dict[str, Any]]:
-    out = [{**item, "images": catalog_upload_image_refs(shop_id, item.get("images", []), assets, uploaded, row_number, errors, f"combination {idx + 1}")} for idx, item in enumerate(matrix or [])]
+def catalog_apply_combo_images(shop_id: str, row: Dict[str, str], row_number: int, matrix: List[Dict[str, Any]], assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], errors: List[str], save_assets: bool = True) -> List[Dict[str, Any]]:
+    out = [{**item, "images": catalog_upload_image_refs(shop_id, item.get("images", []), assets, uploaded, row_number, errors, f"combination {idx + 1}", save_assets)} for idx, item in enumerate(matrix or [])]
     combo_index: Dict[str, int] = {}
     for idx, item in enumerate(out):
         sig = catalog_combo_signature(item.get("selections") or {})
@@ -3864,10 +3951,10 @@ def catalog_apply_combo_images(shop_id: str, row: Dict[str, str], row_number: in
             out.append({"selections": selections, "price_delta": 0, "images": []})
             idx = len(out) - 1
             combo_index[catalog_combo_signature(selections)] = idx
-        out[idx]["images"] = dedup(list(out[idx].get("images") or []) + catalog_upload_image_refs(shop_id, [ref], assets, uploaded, row_number, errors, f"combination {target}"))
+        out[idx]["images"] = dedup(list(out[idx].get("images") or []) + catalog_upload_image_refs(shop_id, [ref], assets, uploaded, row_number, errors, f"combination {target}", save_assets))
     return out
 
-def build_product_from_catalog_row(shop_id: str, shop: Dict[str, Any], row: Dict[str, str], row_number: int, assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], errors: List[str]) -> Tuple[str, Product]:
+def build_product_from_catalog_row(shop_id: str, shop: Dict[str, Any], row: Dict[str, str], row_number: int, assets: Dict[str, Tuple[str, bytes]], uploaded: Dict[str, str], errors: List[str], save_assets: bool = True) -> Tuple[str, Product]:
     name = catalog_value(row, "name", "product_name", "offering_name", "title")
     if not name:
         raise ValueError("name is required")
@@ -3892,14 +3979,14 @@ def build_product_from_catalog_row(shop_id: str, shop: Dict[str, Any], row: Dict
         variant_data_raw = parse_simple_variant_options(catalog_value(row, "variants", "variant_options", "options"))
     if not isinstance(variant_data_raw, list):
         raise ValueError("variant_data_json must be a JSON array")
-    variant_data = catalog_apply_variant_images(shop_id, row, row_number, variant_data_raw, assets, uploaded, errors)
+    variant_data = catalog_apply_variant_images(shop_id, row, row_number, variant_data_raw, assets, uploaded, errors, save_assets)
     matrix_raw = parse_catalog_json(catalog_value(row, "variant_matrix_json", "combination_data_json"), [])
     if not isinstance(matrix_raw, list):
         raise ValueError("variant_matrix_json must be a JSON array")
-    variant_matrix = catalog_apply_combo_images(shop_id, row, row_number, matrix_raw, assets, uploaded, errors)
+    variant_matrix = catalog_apply_combo_images(shop_id, row, row_number, matrix_raw, assets, uploaded, errors, save_assets)
     product_images = []
     for key in ("image_urls", "images", "image_files", "photos", "photo_files"):
-        product_images.extend(catalog_upload_image_refs(shop_id, catalog_value(row, key), assets, uploaded, row_number, errors, "product"))
+        product_images.extend(catalog_upload_image_refs(shop_id, catalog_value(row, key), assets, uploaded, row_number, errors, "product", save_assets))
     product = Product(
         product_id=pid,
         offering_id=pid,
@@ -7466,17 +7553,84 @@ def admin_reject_business(shop_id: str, body: ReviewDecisionReq, authorization: 
 @app.get("/admin/business-claim/candidates")
 @app.get("/admin/business-claims/candidates")
 def admin_business_claim_candidates(q: str = Query(""), limit: int = Query(BUSINESS_CLAIM_SEARCH_LIMIT, ge=1, le=20), authorization: Optional[str] = Header(None)):
-    raise HTTPException(410, "Business claim flow is disabled.")
+    user, prof = get_user(authorization)
+    safe_ensure_profile_row(user, prof)
+    rows = search_claimable_businesses(q, viewer_user_id=user.id, limit=limit)
+    shop_ids = [row.get("shop_id") for row in rows if row.get("shop_id")]
+    pending_by_shop: Dict[str, List[Dict[str, Any]]] = {}
+    if shop_ids:
+        try:
+            pending_rows = supabase.table("business_claims").select("*").in_("shop_id", shop_ids).eq("status", CLAIM_STATUS_PENDING).execute().data or []
+        except Exception as e:
+            raise HTTPException(500, "Business claim database table is not ready. Run migrations/20260428_business_claims.sql.") from e
+        for claim in pending_rows:
+            pending_by_shop.setdefault(str(claim.get("shop_id", "")), []).append(claim)
+    out = []
+    for row in rows:
+        shop = normalize_shop_record(row)
+        pending = pending_by_shop.get(str(shop.get("shop_id", "")), [])
+        shop["has_pending_claim"] = bool(pending)
+        shop["has_my_pending_claim"] = any(str(claim.get("claimant_user_id", "")) == str(user.id) for claim in pending)
+        out.append(shop)
+    return {"ok": True, "businesses": out, "shops": out}
 
 @app.post("/admin/business/{shop_id}/claim")
 @app.post("/admin/shop/{shop_id}/claim")
 def admin_create_business_claim(shop_id: str, body: BusinessClaimReq, authorization: Optional[str] = Header(None)):
-    raise HTTPException(410, "Business claim flow is disabled.")
+    user, prof = get_user(authorization)
+    require_verified(user)
+    prof = safe_ensure_profile_row(user, prof)
+    shop_rows = supabase.table("shops").select(CLAIMABLE_SHOP_FIELDS).eq("shop_id", shop_id).limit(1).execute().data or []
+    if not shop_rows:
+        raise HTTPException(404, "Business not found")
+    shop = normalize_shop_record(shop_rows[0])
+    if str(shop.get("owner_user_id", "")) == str(user.id):
+        raise HTTPException(400, "This business is already in your account.")
+    if shop.get("listing_status") not in PUBLIC_LISTING_STATUSES:
+        raise HTTPException(400, "Only live business pages can be claimed.")
+    note = normalize_business_claim_note(body.note)
+    if len(note) < BUSINESS_CLAIM_NOTE_MIN_LEN:
+        raise HTTPException(400, "Add a short ownership note before requesting access.")
+    try:
+        existing_pending = supabase.table("business_claims").select("*").eq("shop_id", shop_id).eq("claimant_user_id", user.id).eq("status", CLAIM_STATUS_PENDING).limit(1).execute().data or []
+        if existing_pending:
+            claim = attach_business_claim_shops(existing_pending)[0]
+            return {"ok": True, "claim": claim, "already_pending": True}
+        any_pending = supabase.table("business_claims").select("claim_id").eq("shop_id", shop_id).eq("status", CLAIM_STATUS_PENDING).limit(1).execute().data or []
+        if any_pending:
+            raise HTTPException(409, "This business already has a pending ownership claim. Staff must review it first.")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        payload = {
+            "claim_id": gen_business_claim_id(shop_id),
+            "shop_id": shop_id,
+            "claimant_user_id": user.id,
+            "claimant_display_name": normalize_display_name(prof.get("display_name", ""), getattr(user, "email", "")),
+            "claimant_email": clean_email(getattr(user, "email", "") or ""),
+            "note": note,
+            "status": CLAIM_STATUS_PENDING,
+            "review_note": "",
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        }
+        supabase.table("business_claims").insert(payload).execute()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, "Could not create the claim request. Confirm the business_claims migration has run.") from e
+    claim = attach_business_claim_shops([payload])[0]
+    return {"ok": True, "claim": claim}
 
 @app.get("/admin/my-business-claims")
 @app.get("/admin/my-shop-claims")
 def admin_my_business_claims(authorization: Optional[str] = Header(None)):
-    return {"ok": True, "claims": []}
+    user, prof = get_user(authorization)
+    safe_ensure_profile_row(user, prof)
+    try:
+        rows = supabase.table("business_claims").select("*").eq("claimant_user_id", user.id).order("created_at", desc=True).execute().data or []
+    except Exception as e:
+        raise HTTPException(500, "Business claim database table is not ready. Run migrations/20260428_business_claims.sql.") from e
+    claims = attach_business_claim_shops(rows)
+    return {"ok": True, "claims": claims}
 
 @app.get("/admin/review/business-claims")
 @app.get("/admin/review/shop-claims")
@@ -7484,17 +7638,77 @@ def admin_review_business_claims(status: str = Query(CLAIM_STATUS_PENDING), auth
     user, prof = get_user(authorization)
     prof = safe_ensure_profile_row(user, prof)
     require_admin_role(prof)
-    return {"ok": True, "claims": []}
+    status_key = normalize_claim_status(status, default=CLAIM_STATUS_PENDING)
+    try:
+        rows = supabase.table("business_claims").select("*").eq("status", status_key).order("created_at", desc=False).execute().data or []
+    except Exception as e:
+        raise HTTPException(500, "Business claim database table is not ready. Run migrations/20260428_business_claims.sql.") from e
+    claims = attach_business_claim_shops(rows)
+    return {"ok": True, "claims": claims}
 
 @app.post("/admin/review/business-claim/{claim_id}/approve")
 @app.post("/admin/review/shop-claim/{claim_id}/approve")
 def admin_approve_business_claim(claim_id: str, authorization: Optional[str] = Header(None)):
-    raise HTTPException(410, "Business claim flow is disabled.")
+    user, prof = get_user(authorization)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    try:
+        rows = supabase.table("business_claims").select("*").eq("claim_id", claim_id).limit(1).execute().data or []
+    except Exception as e:
+        raise HTTPException(500, "Business claim database table is not ready. Run migrations/20260428_business_claims.sql.") from e
+    if not rows:
+        raise HTTPException(404, "Claim not found")
+    claim = normalize_business_claim_record(rows[0])
+    if claim.get("status") != CLAIM_STATUS_PENDING:
+        raise HTTPException(400, "Only pending claims can be approved.")
+    shop_id = claim.get("shop_id", "")
+    shop_rows = supabase.table("shops").select("shop_id, owner_user_id, name").eq("shop_id", shop_id).limit(1).execute().data or []
+    if not shop_rows:
+        raise HTTPException(404, "Business not found")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    supabase.table("shops").update({"owner_user_id": claim.get("claimant_user_id")}).eq("shop_id", shop_id).execute()
+    review_note = f"Approved by {clean_email(getattr(user, 'email', '') or '') or 'reviewer'}."
+    supabase.table("business_claims").update({
+        "status": CLAIM_STATUS_APPROVED,
+        "review_note": review_note,
+        "updated_at": now_iso,
+    }).eq("claim_id", claim_id).execute()
+    other_pending = supabase.table("business_claims").select("claim_id").eq("shop_id", shop_id).eq("status", CLAIM_STATUS_PENDING).execute().data or []
+    for other in other_pending:
+        other_id = str(other.get("claim_id", "") or "")
+        if other_id and other_id != claim_id:
+            supabase.table("business_claims").update({
+                "status": CLAIM_STATUS_REJECTED,
+                "review_note": "Another ownership claim for this business was approved.",
+                "updated_at": now_iso,
+            }).eq("claim_id", other_id).execute()
+    return {"ok": True, "business_id": shop_id, "shop_id": shop_id, "claim_id": claim_id, "owner_user_id": claim.get("claimant_user_id")}
 
 @app.post("/admin/review/business-claim/{claim_id}/reject")
 @app.post("/admin/review/shop-claim/{claim_id}/reject")
 def admin_reject_business_claim(claim_id: str, body: ReviewDecisionReq, authorization: Optional[str] = Header(None)):
-    raise HTTPException(410, "Business claim flow is disabled.")
+    user, prof = get_user(authorization)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    reason = normalize_business_claim_note(body.reason)
+    if len(reason) < 5:
+        raise HTTPException(400, "Add a short reason before rejecting the claim.")
+    try:
+        rows = supabase.table("business_claims").select("*").eq("claim_id", claim_id).limit(1).execute().data or []
+    except Exception as e:
+        raise HTTPException(500, "Business claim database table is not ready. Run migrations/20260428_business_claims.sql.") from e
+    if not rows:
+        raise HTTPException(404, "Claim not found")
+    claim = normalize_business_claim_record(rows[0])
+    if claim.get("status") != CLAIM_STATUS_PENDING:
+        raise HTTPException(400, "Only pending claims can be rejected.")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    supabase.table("business_claims").update({
+        "status": CLAIM_STATUS_REJECTED,
+        "review_note": reason,
+        "updated_at": now_iso,
+    }).eq("claim_id", claim_id).execute()
+    return {"ok": True, "claim_id": claim_id, "status": CLAIM_STATUS_REJECTED, "reason": reason}
 
 @app.post("/admin/business/{shop_id}/profile-image")
 @app.post("/admin/shop/{shop_id}/profile-image")
@@ -7901,6 +8115,103 @@ def admin_delete_product(shop_id: str, product_id: str, authorization: Optional[
     rebuild_kb(shop_id)
     return {"ok": True, "business_id": shop_id, "offering_id": product_id}
 
+def catalog_product_image_count(product: Product) -> int:
+    count = len(product.images or [])
+    count += sum(len(item.get("images") or []) for item in (product.variant_data or []) if isinstance(item, dict))
+    count += sum(len(item.get("images") or []) for item in (product.variant_matrix or []) if isinstance(item, dict))
+    return count
+
+def read_catalog_upload(data: bytes, filename: str) -> Tuple[List[Dict[str, str]], Dict[str, Tuple[str, bytes]], List[str]]:
+    csv_text, assets = build_catalog_asset_map(data, filename)
+    try:
+        reader = csv.DictReader(StringIO(csv_text))
+        raw_rows = list(reader)
+    except Exception:
+        raise HTTPException(400, "Could not read the catalog spreadsheet.")
+    if not raw_rows:
+        raise HTTPException(400, "The catalog spreadsheet has no offering rows.")
+    headers = [normalize_catalog_header(field or "") for field in (reader.fieldnames or []) if field]
+    if "name" not in headers and "product_name" not in headers and "offering_name" not in headers and "title" not in headers:
+        raise HTTPException(400, "The catalog spreadsheet needs a name column.")
+    rows = [
+        {normalize_catalog_header(key): str(value or "").strip() for key, value in (raw_row or {}).items() if key}
+        for raw_row in raw_rows
+    ]
+    return rows, assets, headers
+
+@app.post("/admin/business/{shop_id}/offerings-import-preview")
+@app.post("/admin/shop/{shop_id}/products-import-preview")
+async def admin_preview_offerings_package(
+    shop_id: str,
+    catalog_package: UploadFile = File(...),
+    authorization: Optional[str] = Header(None),
+):
+    user, prof = get_user(authorization)
+    check_shop_owner(user.id, shop_id)
+    shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data
+    if not shop_rows:
+        raise HTTPException(404, "Business not found")
+    shop = normalize_shop_record(shop_rows[0])
+    raw = await catalog_package.read(MAX_CATALOG_PACKAGE_BYTES + 1)
+    if not raw:
+        raise HTTPException(400, "Upload a catalog ZIP package, CSV file, or Excel file.")
+    if len(raw) > MAX_CATALOG_PACKAGE_BYTES:
+        raise HTTPException(400, "Catalog package is too large.")
+    rows, assets, headers = read_catalog_upload(raw, str(catalog_package.filename or ""))
+    existing_ids = {
+        str(row.get("product_id") or "")
+        for row in (supabase.table("products").select("product_id").eq("shop_id", shop_id).execute().data or [])
+        if row.get("product_id")
+    }
+    uploaded: Dict[str, str] = {}
+    errors: List[str] = []
+    preview_rows: List[Dict[str, Any]] = []
+    seen_ids: Dict[str, int] = {}
+    valid = 0
+    failed = 0
+    for idx, row in enumerate(rows, start=2):
+        row_errors: List[str] = []
+        try:
+            pid, product = build_product_from_catalog_row(shop_id, shop, row, idx, assets, uploaded, row_errors, save_assets=False)
+            if row_errors:
+                raise ValueError("; ".join(row_errors))
+            if pid in seen_ids:
+                raise ValueError(f"duplicate SKU/product_id also appears on row {seen_ids[pid]}")
+            seen_ids[pid] = idx
+            data = normalize_product_payload(product, shop)
+            image_count = catalog_product_image_count(product)
+            valid += 1
+            preview_rows.append({
+                "row": idx,
+                "product_id": pid,
+                "offering_id": pid,
+                "name": product.name,
+                "offering_type": data.get("offering_type", ""),
+                "action": "update" if pid in existing_ids else "create",
+                "price": data.get("price", ""),
+                "stock_quantity": data.get("stock_quantity"),
+                "image_count": image_count,
+                "variant_count": len(product.variant_data or []),
+                "combination_count": len(product.variant_matrix or []),
+            })
+        except Exception as e:
+            failed += 1
+            label = catalog_value(row, "product_id", "offering_id", "sku", "name", "product_name") or f"row {idx}"
+            detail = str(getattr(e, "detail", None) or e)
+            errors.append(f"Row {idx} ({label}): {detail}")
+    return {
+        "ok": failed == 0,
+        "business_id": shop_id,
+        "total": len(rows),
+        "valid": valid,
+        "failed": failed,
+        "asset_count": len(assets),
+        "headers": headers,
+        "rows": preview_rows[:80],
+        "errors": errors[:200],
+        "error_count": len(errors),
+    }
+
 @app.post("/admin/business/{shop_id}/offerings-import-package")
 @app.post("/admin/shop/{shop_id}/products-import-package")
 async def admin_import_offerings_package(
@@ -7919,21 +8230,13 @@ async def admin_import_offerings_package(
         raise HTTPException(400, "Upload a catalog ZIP package or CSV file.")
     if len(raw) > MAX_CATALOG_PACKAGE_BYTES:
         raise HTTPException(400, "Catalog package is too large.")
-    csv_text, assets = build_catalog_asset_map(raw, str(catalog_package.filename or ""))
-    try:
-        reader = csv.DictReader(StringIO(csv_text))
-    except Exception:
-        raise HTTPException(400, "Could not read products.csv.")
-    raw_rows = list(reader)
-    if not raw_rows:
-        raise HTTPException(400, "products.csv has no product rows.")
+    raw_rows, assets, _headers = read_catalog_upload(raw, str(catalog_package.filename or ""))
 
     uploaded: Dict[str, str] = {}
     imported = 0
     failed = 0
     errors: List[str] = []
-    for idx, raw_row in enumerate(raw_rows, start=2):
-        row = {normalize_catalog_header(key): str(value or "").strip() for key, value in (raw_row or {}).items() if key}
+    for idx, row in enumerate(raw_rows, start=2):
         row_errors: List[str] = []
         try:
             pid, product = build_product_from_catalog_row(shop_id, shop, row, idx, assets, uploaded, row_errors)

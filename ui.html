@@ -1277,6 +1277,29 @@ a{color:inherit;text-decoration:none}
 .csv-title{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#1e40af;margin-bottom:5px}
 .csv-hint{font-size:12px;color:#3b5bdb;opacity:.8;margin-bottom:10px;line-height:1.55}
 .csv-note{font-size:12px;color:var(--ink3);line-height:1.6;margin:8px 0 10px}
+.import-wizard{display:grid;gap:12px}
+.import-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.import-step{padding:12px;border-radius:18px;background:#fff;border:1px solid rgba(37,99,235,.14);display:grid;gap:6px}
+.import-step.on{border-color:#1d4ed8;box-shadow:0 10px 22px rgba(37,99,235,.12)}
+.import-step.done{border-color:#a7e8c3;background:#ecfdf3}
+.import-step-num{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:900}
+.import-step-title{font-size:12px;font-weight:900;color:#1e40af}
+.import-step-copy{font-size:11px;color:var(--ink3);line-height:1.55}
+.import-drop{display:grid;gap:10px;padding:14px;border-radius:20px;background:#fff;border:1px dashed rgba(37,99,235,.28)}
+.import-actions{display:flex;gap:8px;flex-wrap:wrap}
+.import-summary{display:none;gap:10px;margin-top:4px}
+.import-summary.on{display:grid}
+.import-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.import-stat{padding:10px 12px;border-radius:16px;background:#fff;border:1px solid rgba(37,99,235,.14)}
+.import-stat-k{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#1e40af}
+.import-stat-v{font-family:'Sora',sans-serif;font-size:20px;font-weight:900;color:var(--ink);margin-top:3px}
+.import-preview-list{display:grid;gap:7px;max-height:240px;overflow:auto}
+.import-preview-row{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border-radius:14px;background:#fff;border:1px solid rgba(37,99,235,.12)}
+.import-preview-main{min-width:0}
+.import-preview-name{font-size:12px;font-weight:900;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.import-preview-meta{font-size:11px;color:var(--ink3);line-height:1.45}
+.import-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+.import-pill.update{background:#fff7ed;border-color:#fed7aa;color:#c2410c}
 .csv-media-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:10px 0}
 .csv-media-field{display:grid;gap:5px}
 .csv-media-field label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3)}
@@ -1292,6 +1315,8 @@ a{color:inherit;text-decoration:none}
 .csv-errors.on{display:block}
 .csv-errors-title{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
 .csv-errors-list{display:grid;gap:6px;margin-top:8px;font-size:12px;line-height:1.6}
+@media(max-width:860px){.import-steps{grid-template-columns:1fr 1fr}.import-preview-row{grid-template-columns:44px minmax(0,1fr)}.import-preview-row .import-pill{grid-column:2}}
+@media(max-width:560px){.import-steps{grid-template-columns:1fr}}
 .workspace-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:22px 22px;background:linear-gradient(135deg,rgba(255,247,236,.98),rgba(247,224,205,.94) 54%,rgba(241,234,223,.92));border-bottom:1px solid rgba(191,174,149,.34);position:relative;overflow:hidden}
 .workspace-hero::after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:999px;background:radial-gradient(circle,rgba(178,87,53,.16),rgba(178,87,53,0));pointer-events:none}
 .workspace-copy{display:grid;gap:6px}
@@ -1360,6 +1385,11 @@ a{color:inherit;text-decoration:none}
 .claim-result-meta{font-size:12px;line-height:1.55;color:var(--ink3)}
 .claim-result-note{font-size:12px;line-height:1.6;color:var(--ink2)}
 .claim-result-note strong{color:var(--ink)}
+.claim-help-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 14px}
+.claim-help-card{padding:12px;border-radius:18px;background:#f8faf8;border:1px solid var(--bd);display:grid;gap:5px}
+.claim-help-k{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:var(--A2)}
+.claim-help-v{font-size:12px;line-height:1.55;color:var(--ink3)}
+.claim-card-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 @media(max-width:900px){
   .workspace-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .workspace-actions .btn{width:100%;justify-content:center}
@@ -1367,6 +1397,7 @@ a{color:inherit;text-decoration:none}
   .owner-filter-bar .btn-row{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
   .owner-filter-bar .btn-row .btn{width:100%;justify-content:center}
 }
+@media(max-width:760px){.claim-help-grid{grid-template-columns:1fr}}
 @media(max-width:680px){.owner-filter-bar{grid-template-columns:1fr}.claim-search-row{grid-template-columns:1fr}}
 .owner-detail-card{overflow:hidden;background:linear-gradient(135deg,rgba(255,250,244,.98),rgba(250,242,232,.92));position:relative}
 .owner-detail-card::after{content:"";position:absolute;right:-40px;top:-26px;width:180px;height:180px;border-radius:999px;background:radial-gradient(circle,rgba(2,132,199,.1),rgba(2,132,199,0));pointer-events:none}
@@ -1395,8 +1426,11 @@ a{color:inherit;text-decoration:none}
 .bulk-edit-bar.on{display:grid}
 .bulk-edit-note{font-size:12px;color:var(--ink3);align-self:center}
 @media(max-width:980px){.bulk-edit-bar,.bulk-edit-bar.on{grid-template-columns:1fr 1fr}}
-@media(max-width:760px){.shop-wizard-card{position:static}.shop-wizard-track{grid-template-columns:1fr 1fr}.shop-step-chip{padding:9px 10px}}
-@media(max-width:680px){.bulk-edit-bar,.bulk-edit-bar.on{grid-template-columns:1fr}.shop-wizard-track{grid-template-columns:1fr}.shop-wizard-progress{min-width:100%}}
+#productWizardTrack{grid-template-columns:repeat(var(--product-step-count,4),minmax(0,1fr))}
+#productFormView .setup-section[data-product-step]{display:none}
+#productFormView .setup-section[data-product-step].on{display:block;animation:shopStepIn .18s ease}
+@media(max-width:760px){.shop-wizard-card{position:static}.shop-wizard-track,#productWizardTrack{grid-template-columns:1fr 1fr}.shop-step-chip{padding:9px 10px}}
+@media(max-width:680px){.bulk-edit-bar,.bulk-edit-bar.on{grid-template-columns:1fr}.shop-wizard-track,#productWizardTrack{grid-template-columns:1fr}.shop-wizard-progress{min-width:100%}}
 .setup-form{display:grid;gap:16px}
 .setup-section{padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(255,252,247,.98),rgba(248,241,231,.92));border:1px solid rgba(191,174,149,.32)}
 .setup-section-head{display:grid;gap:4px;margin-bottom:14px}
@@ -3582,7 +3616,8 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
 #pg-admin .variant-empty,#pg-admin .variant-media-card,#pg-admin .owner-detail-card,
 #pg-admin .owner-side-card,#pg-admin .owner-check,#pg-admin .workspace-stat,
 #pg-admin .sbox,#pg-admin .an-panel,#pg-admin .csv-box,#pg-admin .req-banner,
-#pg-admin .tp-row,#pg-admin .hours-row,#pg-admin .suggest-item{
+#pg-admin .tp-row,#pg-admin .hours-row,#pg-admin .suggest-item,
+#pg-admin .import-step,#pg-admin .import-drop,#pg-admin .import-stat,#pg-admin .import-preview-row{
   background:#fff!important;
   border:1px solid var(--bd)!important;
   color:var(--ink)!important;
@@ -3593,11 +3628,20 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   border-color:var(--bd)!important;
   color:var(--ink)!important;
 }
+#pg-admin .import-step.on{
+  border-color:var(--A)!important;
+  box-shadow:0 10px 22px rgba(15,118,110,.12)!important;
+}
+#pg-admin .import-step.done{
+  background:#ecfdf3!important;
+  border-color:#a7e8c3!important;
+}
 #pg-admin .workspace-title,#pg-admin .setup-section-title,#pg-admin .card-title,
 #pg-admin .account-note-title,#pg-admin .owner-detail-name,#pg-admin .owner-side-title,
 #pg-admin .variant-stage-title,#pg-admin .variant-row-title,#pg-admin .variant-empty-title,
 #pg-admin .variant-media-title,#pg-admin .an-panel-title,#pg-admin .csv-title,
 #pg-admin .tp-name,#pg-admin .sbox-v,#pg-admin .workspace-stat-value,#pg-admin .hours-day,
+#pg-admin .import-preview-name,#pg-admin .import-stat-v,
 #authBg .auth-title,#profileBg .profile-name{
   color:var(--ink)!important;
 }
@@ -3608,6 +3652,7 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
 #pg-admin .variant-row-summary,#pg-admin .variant-empty-copy,#pg-admin .variant-media-copy,
 #pg-admin .variant-img-empty,#pg-admin .product-media-meta,#pg-admin .shop-profile-preview-meta,
 #pg-admin .price-note,#pg-admin .csv-hint,#pg-admin .csv-pt,#pg-admin .an-panel-copy,
+#pg-admin .import-step-copy,#pg-admin .import-preview-meta,
 #pg-admin .tp-views,#pg-admin .req-banner-text,#pg-admin .floating-form-note,
 #authBg .auth-sub,#authBg .auth-delivery-note,#profileBg .profile-email{
   color:var(--ink3)!important;
@@ -3616,7 +3661,7 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
 #pg-admin .product-media-label,#pg-admin .shop-profile-preview-title,#pg-admin .variant-stage-kicker,
 #pg-admin .variant-guidance-title,#pg-admin .variant-media-kicker,#pg-admin .variant-row-eyebrow,
 #pg-admin .owner-side-label,#pg-admin .owner-products-topline,#pg-admin .an-panel-kicker,
-#pg-admin .setup-callout-title,#pg-admin .csv-errors-title,#pg-admin .fld label,
+#pg-admin .setup-callout-title,#pg-admin .csv-errors-title,#pg-admin .import-step-title,#pg-admin .import-stat-k,#pg-admin .fld label,
 #authBg .fld label,#orderBg .fld label,#trackReqBg .fld label{
   color:var(--A2)!important;
   font-weight:800!important;
@@ -5108,6 +5153,7 @@ select.btn{
 #productFormView .card,
 #productFormView .card-body,
 #productFormView .workspace-hero,
+#productFormView .shop-wizard,
 #productFormView .setup-section,
 #productFormView .product-upload-card,
 #productFormView .product-preview-card,
@@ -5288,6 +5334,35 @@ select.btn{
 #productFormView select optgroup{
   background:#fff!important;
   color:var(--ink)!important;
+}
+#productFormView .fld.field-invalid input:not([type=file]),
+#productFormView .fld.field-invalid textarea,
+#productFormView .fld.field-invalid select,
+#productFormView .field-invalid .currency-pill,
+#productFormView .variant-stage.field-invalid,
+#productFormView .product-upload-card.field-invalid{
+  border-color:#fb7185!important;
+  background:#fff1f2!important;
+  box-shadow:0 0 0 3px rgba(225,29,72,.1)!important;
+}
+#productFormView .shop-step-chip{
+  background:#fff!important;
+  border-color:var(--bd)!important;
+  color:var(--ink3)!important;
+}
+#productFormView .shop-step-chip:hover{
+  border-color:#b9d6cd!important;
+  color:var(--A2)!important;
+}
+#productFormView .shop-step-chip.on{
+  background:linear-gradient(180deg,#0f766e,#0b5f59)!important;
+  border-color:#0f766e!important;
+  color:#fff!important;
+}
+#productFormView .shop-step-chip.done{
+  background:#ecfdf3!important;
+  border-color:#a7e8c3!important;
+  color:var(--G)!important;
 }
 #productFormView #productStatus:not(:empty){
   background:#f8faf8!important;
@@ -5866,6 +5941,7 @@ select.btn{
               </div>
               <div class="workspace-actions">
                 <button id="ownerCreateShopBtn" class="btn btn-A btn-sm">+ Create Business</button>
+                <button id="ownerClaimBusinessBtn" class="btn btn-o btn-sm">Claim Existing Business</button>
                 <button id="ownerGeocodeShopsBtn" class="btn btn-o btn-sm">Refresh Map Data</button>
                 <button id="refreshMyShops" class="btn btn-o btn-sm">Refresh</button>
               </div>
@@ -5905,10 +5981,21 @@ select.btn{
           </div>
           <div id="businessClaimCard" class="card" style="display:none">
             <div class="card-head">
-              <div class="card-title">Claim Existing Business</div>
+              <div>
+                <div class="owner-products-topline">Ownership Transfer</div>
+                <div class="card-title">Claim an Existing Business Page</div>
+              </div>
+              <div class="claim-card-actions">
+                <button id="closeClaimWorkspaceBtn" class="btn btn-g btn-sm" type="button">Hide</button>
+              </div>
             </div>
             <div class="card-body">
-              <div class="fld-hint" style="margin-bottom:12px">If a business already has a live page, claim it instead of creating a second listing for the same real-world business.</div>
+              <div class="fld-hint" style="margin-bottom:10px">Use this when your business is already listed on Atlantic Ordinate and you need access to manage it. Staff review the proof before transferring the page to your account.</div>
+              <div class="claim-help-grid">
+                <div class="claim-help-card"><div class="claim-help-k">1. Find Page</div><div class="claim-help-v">Search by business name, phone, city, or address.</div></div>
+                <div class="claim-help-card"><div class="claim-help-k">2. Add Proof</div><div class="claim-help-v">Explain your role and add a website, registry, phone, or licence reference.</div></div>
+                <div class="claim-help-card"><div class="claim-help-k">3. Review</div><div class="claim-help-v">If approved, the existing page moves into your business workspace.</div></div>
+              </div>
               <div class="claim-search-shell">
                 <div class="claim-search-row">
                   <input id="claimSearchInput" class="claim-search-input" placeholder="Search by business name, phone, city, or address"/>
@@ -6057,16 +6144,34 @@ select.btn{
             <div class="card-head"><div class="card-title">Catalog Import</div></div>
             <div class="card-body">
               <div class="csv-box">
-                <div class="csv-title">Import a whole shop catalog</div>
-                <div class="csv-hint">Simple owner flow: download the template, fill one row per product, put image filenames in the <code>images</code> column, then ZIP <code>products.csv</code> together with an <code>images</code> folder. Upload that one ZIP here.</div>
-                <div class="btn-row">
-                  <input id="catalogPackageFile" type="file" accept=".zip,.csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
-                  <button id="importPackageBtn" class="btn btn-o btn-sm">Import Catalog ZIP</button>
-                  <button id="csvTplBtn" class="btn btn-g btn-sm">Download Template</button>
+                <div class="import-wizard">
+                  <div>
+                    <div class="csv-title">Bulk Import Wizard</div>
+                    <div class="csv-hint">For established shops: fill the template once, put product images in the same ZIP package, preview the result, then import all offerings together.</div>
+                  </div>
+                  <div id="catalogImportSteps" class="import-steps" aria-label="Bulk import steps">
+                    <div class="import-step on" data-import-step="1"><div class="import-step-num">1</div><div class="import-step-title">Template</div><div class="import-step-copy">Download and fill in Excel, Google Sheets, or Numbers.</div></div>
+                    <div class="import-step" data-import-step="2"><div class="import-step-num">2</div><div class="import-step-title">Package</div><div class="import-step-copy">Upload one ZIP, CSV, or XLSX. ZIP can include images.</div></div>
+                    <div class="import-step" data-import-step="3"><div class="import-step-num">3</div><div class="import-step-title">Preview</div><div class="import-step-copy">Check row errors and image matches before saving.</div></div>
+                    <div class="import-step" data-import-step="4"><div class="import-step-num">4</div><div class="import-step-title">Import</div><div class="import-step-copy">Create or update offerings and upload matched images.</div></div>
+                  </div>
+                  <div class="import-drop">
+                    <div class="csv-note">Best format: ZIP containing <code>products.csv</code> or <code>products.xlsx</code> plus an <code>images</code> folder. In the sheet, use <code>images</code> like <code>front.jpg|back.jpg</code>, <code>variant_images</code> like <code>Color=Red&gt;red.jpg</code>, and <code>combination_images</code> like <code>Size=Large+Color=Red&gt;large-red.jpg</code>.</div>
+                    <div class="import-actions">
+                      <button id="csvTplBtn" class="btn btn-g btn-sm">Download Excel/CSV Template</button>
+                      <input id="catalogPackageFile" type="file" accept=".zip,.csv,.xlsx" style="flex:1;min-width:220px;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
+                      <button id="previewPackageBtn" class="btn btn-o btn-sm">Preview Import</button>
+                      <button id="importPackageBtn" class="btn btn-A btn-sm" disabled>Import Ready Rows</button>
+                    </div>
+                    <div id="catalogPackageHelp" class="csv-note">No file selected yet. Standalone CSV/XLSX works for hosted image URLs; use ZIP when image files must upload with the products.</div>
+                  </div>
+                  <div id="catalogPreviewSummary" class="import-summary">
+                    <div id="catalogPreviewStats" class="import-summary-grid"></div>
+                    <div id="catalogPreviewRows" class="import-preview-list"></div>
+                  </div>
                 </div>
-                <div class="csv-note">Example ZIP: <code>products.csv</code>, <code>images/front.jpg</code>, <code>images/back.jpg</code>. A product row can use <code>images</code> = <code>front.jpg|back.jpg</code>. Hosted URLs also work.</div>
                 <details class="csv-advanced">
-                  <summary>Advanced: import CSV and image folder separately</summary>
+                  <summary>Advanced fallback: CSV and image folder separately</summary>
                   <div class="csv-hint">Use this only if you do not want to make a ZIP. Latest columns: <code>product_id, name, price, stock_quantity, description, images, variants, variant_images, combination_images</code>. Advanced JSON columns are still supported for exact variant data.</div>
                   <div class="btn-row">
                     <input id="csvFile" type="file" accept=".csv" style="flex:1;padding:6px 10px;border:1px solid rgba(37,99,235,.2);border-radius:7px;font-size:12px;background:#fff;"/>
@@ -6305,7 +6410,7 @@ select.btn{
                   <span id="productFormTypeBadge" class="badge">Product</span>
                   <span id="productFormShopBadge" class="badge">No business loaded</span>
                 </div>
-                <div class="workspace-desc">Add what this business offers, upload images, and keep the public page and assistant ready for customers.</div>
+                <div class="workspace-desc">Add one section at a time, then save the offering details and images together when everything is ready.</div>
               </div>
               <div class="workspace-actions">
                 <button id="productFormBackBtn" class="btn btn-g btn-sm">← Back to Business</button>
@@ -6315,9 +6420,18 @@ select.btn{
               </div>
             </div>
           </div>
+          <div class="card shop-wizard-card product-wizard-card">
+            <div class="card-body shop-wizard">
+              <div id="productWizardTrack" class="shop-wizard-track" aria-label="Offering setup steps"></div>
+              <div class="shop-wizard-meta">
+                <div id="productWizardStatus" class="shop-wizard-status">Step 1: Offering basics.</div>
+                <div class="shop-wizard-progress" aria-hidden="true"><span id="productWizardProgress"></span></div>
+              </div>
+            </div>
+          </div>
           <div class="card">
             <div class="card-body setup-form">
-              <div class="setup-section">
+              <div class="setup-section" data-product-step="0">
                 <div class="setup-section-head">
                   <div class="setup-section-kicker">Step 1</div>
                   <div id="prodBasicsTitle" class="setup-section-title">Offering basics</div>
@@ -6332,7 +6446,7 @@ select.btn{
                   <div id="prodPriceWrap" class="fld"><label id="prodPriceLabel">Base Price</label><div class="price-field"><div id="prodCurrencyBadge" class="currency-pill">USD</div><input id="prodPrice" type="text" inputmode="decimal"/></div><div id="prodPriceNote" class="fld-hint">Enter only the numeric amount. USD is applied automatically from the business country.</div></div>
                 </div>
               </div>
-              <div class="setup-section">
+              <div class="setup-section" data-product-step="1">
                 <div class="setup-section-head">
                   <div class="setup-section-kicker">Step 2</div>
                   <div id="prodDetailsTitle" class="setup-section-title">Details that improve recommendations</div>
@@ -6391,7 +6505,7 @@ select.btn{
                   </div>
                 </div>
               </div>
-              <div id="prodAttrSection" class="setup-section">
+              <div id="prodAttrSection" class="setup-section" data-product-step="2">
                 <div class="setup-section-head">
                   <div id="prodAttrStepKicker" class="setup-section-kicker">Step 3</div>
                   <div id="prodAttrTitle" class="setup-section-title">Offering details</div>
@@ -6402,7 +6516,7 @@ select.btn{
                   <div id="prodAttrGrid" class="attr-grid"></div>
                 </div>
               </div>
-              <div class="setup-section">
+              <div class="setup-section" data-product-step="3">
                 <div class="setup-section-head">
                   <div id="prodMediaStepKicker" class="setup-section-kicker">Step 4</div>
                   <div class="setup-section-title">Photos and presentation</div>
@@ -6424,6 +6538,8 @@ select.btn{
             </div>
             <div class="btn-row">
               <button id="productFloatingBackBtn" class="btn btn-g btn-sm">Back to Business</button>
+              <button id="productWizardPrevBtn" class="btn btn-o btn-sm" type="button">Previous Step</button>
+              <button id="productWizardNextBtn" class="btn btn-A btn-sm" type="button">Next Step</button>
               <button id="productFloatingSubmitBtn" class="btn btn-A btn-sm">Create Offering</button>
             </div>
           </div>
@@ -10081,6 +10197,7 @@ function syncProductOfferingUi(){
       : `Enter only the numeric amount. ${$('prodCurrencyBadge')?.textContent?.trim()||'USD'} is applied automatically from the business country.`;
   renderAvailabilityOptions(normalizeAvailabilityMode($('prodAvailability')?.value||'',offeringType,businessType,category));
   renderProductAttributeFields(collectProductAttributeData());
+  syncProductWizard();
 }
 function renderBulkFieldOptions(){
   const sel=$('bulkField');
@@ -11548,11 +11665,12 @@ function syncReviewNavBadge(){
     return;
   }
   const businessCount=Array.isArray(App.adminReviewShops)?App.adminReviewShops.length:0;
-  const total=businessCount;
+  const claimCount=Array.isArray(App.adminReviewClaims)?App.adminReviewClaims.length:0;
+  const total=businessCount+claimCount;
   badge.textContent=String(total);
   badge.style.display=total>0?'inline-flex':'none';
   const label=total>0
-    ? `Review Center, ${total} pending business review${total===1?'':'s'}`
+    ? `Review Center, ${businessCount} business review${businessCount===1?'':'s'} and ${claimCount} ownership claim${claimCount===1?'':'s'} pending`
     : 'Review Center';
   btn.title=label;
   btn.setAttribute('aria-label',label);
@@ -14778,6 +14896,7 @@ App.shopFormDirty=false;
 App.productFormDirty=false;
 let suspendFormDirty=false;
 App.shopWizardStep=0;
+App.productWizardStep=0;
 const SHOP_WIZARD_STEPS=[
   {title:'Identity',copy:'Name, category, and profile image'},
   {title:'Location',copy:'Address, hours, and contact'},
@@ -14964,6 +15083,239 @@ function initShopWizard(){
   setShopWizardStep(App.shopWizardStep||0,{validate:false,scroll:false});
 }
 
+function productAttributeStepVisible(){
+  return showStructuredOfferingDetails(currentOfferingType(),currentShopBusinessType(),activeShopCategory());
+}
+function productWizardSteps(){
+  const meta=currentOfferingMeta();
+  const steps=[
+    {section:0,title:'Basics',copy:'Name, type, and public price'},
+    {section:1,title:'Details',copy:'Stock, availability, and options'}
+  ];
+  if(productAttributeStepVisible()){
+    steps.push({section:2,title:'Attributes',copy:`Extra ${meta.singular} details`});
+  }
+  steps.push({section:3,title:'Photos',copy:'Images, preview, and saved media'});
+  return steps;
+}
+function productStepIndex(){
+  const steps=productWizardSteps();
+  return Math.max(0,Math.min(steps.length-1,Number(App.productWizardStep||0)));
+}
+function productFieldContainer(id=''){
+  const el=$(id);
+  if(id==='variantBuilder') return $('variantBuilder')?.closest('.variant-stage')||null;
+  if(id==='variantMatrixBuilder') return $('variantMatrixBuilder')?.closest('.variant-stage')||null;
+  if(!el) return null;
+  return el.closest('.fld')||el.closest('.variant-stage')||el.closest('.product-upload-card')||el.parentElement;
+}
+function clearProductFieldError(id=''){
+  const box=productFieldContainer(id);
+  if(!box) return;
+  box.classList.remove('field-invalid');
+  box.querySelectorAll(':scope > .field-error').forEach(el=>el.remove());
+}
+function clearProductValidation(){
+  document.querySelectorAll('#productFormView .field-invalid').forEach(el=>el.classList.remove('field-invalid'));
+  document.querySelectorAll('#productFormView .field-error').forEach(el=>el.remove());
+}
+function setProductFieldError(id='',message=''){
+  const box=productFieldContainer(id);
+  if(!box) return;
+  box.classList.add('field-invalid');
+  let err=Array.from(box.children).find(el=>el.classList?.contains('field-error'));
+  if(!err){
+    err=document.createElement('div');
+    err.className='field-error';
+    box.appendChild(err);
+  }
+  err.textContent=message;
+}
+function focusProductField(id=''){
+  const el=$(id);
+  if(id==='variantBuilder'){
+    document.querySelector('#variantBuilder input,#variantBuilder select,#variantBuilder button')?.focus({preventScroll:true});
+    return;
+  }
+  if(id==='variantMatrixBuilder'){
+    document.querySelector('#variantMatrixBuilder input,#variantMatrixBuilder select,#variantMatrixBuilder button')?.focus({preventScroll:true});
+    return;
+  }
+  if(el?.focus) el.focus({preventScroll:true});
+}
+function productRequiredFieldIds(){
+  const businessType=currentShopBusinessType();
+  const category=activeShopCategory();
+  const offeringType=currentOfferingType();
+  const priceMode=normalizePriceMode($('prodPriceMode')?.value||'fixed');
+  const inventory=tracksInventory(offeringType,businessType,category);
+  const ids=['prodName','prodType','prodPriceMode'];
+  if(['fixed','starting_at'].includes(priceMode)) ids.push('prodPrice');
+  if(inventory){
+    ids.push('prodStock','prodQty');
+  }else{
+    ids.push('prodAvailability');
+  }
+  if(supportsDuration(offeringType,businessType,category)) ids.push('prodDuration');
+  return ids;
+}
+function addProductRequiredStars(){
+  document.querySelectorAll('#productFormView .req-star[data-product-required-star]').forEach(el=>el.remove());
+  document.querySelectorAll('#productFormView [data-product-required-marked]').forEach(el=>delete el.dataset.productRequiredMarked);
+  productRequiredFieldIds().forEach(id=>{
+    const box=productFieldContainer(id);
+    if(!box || box.dataset.productRequiredMarked==='1') return;
+    const label=Array.from(box.children).find(el=>String(el.tagName||'').toLowerCase()==='label');
+    if(!label) return;
+    label.insertAdjacentHTML('beforeend',' <span class="req-star" data-product-required-star="1" aria-hidden="true">*</span>');
+    box.dataset.productRequiredMarked='1';
+  });
+}
+function productStepErrors(step=productStepIndex()){
+  const steps=productWizardSteps();
+  const section=steps[step]?.section ?? 0;
+  const errors=[];
+  const add=(id,message)=>errors.push({id,message});
+  const businessType=currentShopBusinessType();
+  const category=activeShopCategory();
+  const offeringType=currentOfferingType();
+  const meta=offeringMeta(offeringType,businessType,category);
+  const priceMode=normalizePriceMode($('prodPriceMode')?.value||'fixed');
+  const inventory=tracksInventory(offeringType,businessType,category);
+  if(section===0){
+    const name=$('prodName')?.value.trim()||'';
+    const priceRaw=$('prodPrice')?.value.trim()||'';
+    const price=Number(priceRaw);
+    if(!name) add('prodName',`Enter a ${meta.singular} name customers can search for.`);
+    if(!$('prodType')?.value.trim()) add('prodType','Choose what kind of offering this is.');
+    if(!$('prodPriceMode')?.value.trim()) add('prodPriceMode','Choose how pricing should appear.');
+    if(['fixed','starting_at'].includes(priceMode)){
+      if(!priceRaw || !Number.isFinite(price)) add('prodPrice',`Enter a valid numeric ${meta.singular} price.`);
+      else if(price<0) add('prodPrice','Price cannot be negative.');
+    }
+  }else if(section===1){
+    const qtyRaw=$('prodQty')?.value.trim()||'';
+    const qty=qtyRaw===''?null:Number(qtyRaw);
+    const durationRaw=$('prodDuration')?.value.trim()||'';
+    const duration=durationRaw===''?null:Number(durationRaw);
+    const capacityRaw=$('prodCapacity')?.value.trim()||'';
+    const capacity=capacityRaw===''?null:Number(capacityRaw);
+    if(inventory){
+      if(!$('prodStock')?.value.trim()) add('prodStock','Choose a stock status.');
+      if(qty===null || !Number.isInteger(qty) || qty<0) add('prodQty','Enter a valid stock quantity.');
+    }else{
+      if(!$('prodAvailability')?.value.trim()) add('prodAvailability','Choose the availability status.');
+      if(qty!==null && (!Number.isInteger(qty) || qty<0)) add('prodQty','Quantity must be a whole number.');
+    }
+    if(supportsDuration(offeringType,businessType,category)){
+      if(duration===null || !Number.isInteger(duration) || duration<=0) add('prodDuration',`Enter a valid duration for this ${meta.singular}.`);
+    }else if(duration!==null && (!Number.isInteger(duration) || duration<0)){
+      add('prodDuration','Duration must be a whole number.');
+    }
+    if(capacity!==null && (!Number.isInteger(capacity) || capacity<0)) add('prodCapacity','Capacity must be a whole number.');
+    if(usesVariants(offeringType,businessType,category)){
+      const badVariant=(collectVariantData()||[]).find(item=>item.stock_quantity!==null && (!Number.isInteger(Number(item.stock_quantity)) || Number(item.stock_quantity)<0));
+      if(badVariant) add('variantBuilder',`Enter a valid stock quantity for ${badVariant.label}.`);
+      const badCombo=(collectVariantMatrixData()||[]).find(item=>item.stock_quantity!==null && (!Number.isInteger(Number(item.stock_quantity)) || Number(item.stock_quantity)<0));
+      if(badCombo) add('variantMatrixBuilder',`Enter a valid stock quantity for ${badCombo.selection_key}.`);
+    }
+  }
+  return errors;
+}
+function validateProductWizardStep(step=productStepIndex(),{decorate=true}={}){
+  if(decorate) clearProductValidation();
+  const errors=productStepErrors(step);
+  if(decorate){
+    errors.forEach(err=>setProductFieldError(err.id,err.message));
+    if(errors[0]){
+      setFieldHint('productStatus',errors[0].message,'err');
+      focusProductField(errors[0].id);
+    }
+  }
+  return errors[0]?.message || '';
+}
+function syncProductWizard(){
+  const steps=productWizardSteps();
+  const idx=productStepIndex();
+  App.productWizardStep=idx;
+  const track=$('productWizardTrack');
+  if(track){
+    const signature=steps.map(step=>`${step.section}:${step.title}`).join('|');
+    track.style.setProperty('--product-step-count',String(steps.length));
+    if(track.dataset.signature!==signature){
+      track.innerHTML=steps.map((step,stepIdx)=>`<button class="shop-step-chip" type="button" data-product-step-target="${stepIdx}"><span class="shop-step-chip-num">${stepIdx+1}</span><span class="shop-step-chip-label">${esc(step.title)}</span></button>`).join('');
+      track.querySelectorAll('[data-product-step-target]').forEach(btn=>btn.addEventListener('click',()=>setProductWizardStep(Number(btn.dataset.productStepTarget),{validate:true})));
+      track.dataset.signature=signature;
+      track.dataset.bound='1';
+    }
+  }
+  const current=steps[idx]||steps[0];
+  document.querySelectorAll('#productFormView [data-product-step]').forEach(section=>{
+    section.classList.toggle('on',Number(section.dataset.productStep)===current.section);
+  });
+  document.querySelectorAll('#productWizardTrack [data-product-step-target]').forEach(btn=>{
+    const target=Number(btn.dataset.productStepTarget);
+    btn.classList.toggle('on',target===idx);
+    btn.classList.toggle('done',target<idx);
+    btn.setAttribute('aria-current',target===idx?'step':'false');
+  });
+  const attrStep=steps.findIndex(step=>step.section===2);
+  const mediaStep=steps.findIndex(step=>step.section===3);
+  if($('prodAttrStepKicker')) $('prodAttrStepKicker').textContent=attrStep>=0?`Step ${attrStep+1}`:'Step 3';
+  if($('prodMediaStepKicker')) $('prodMediaStepKicker').textContent=`Step ${mediaStep+1}`;
+  if($('productWizardStatus')) $('productWizardStatus').textContent=`Step ${idx+1} of ${steps.length}: ${current.title}. ${current.copy}.`;
+  if($('productWizardProgress')) $('productWizardProgress').style.width=`${((idx+1)/steps.length)*100}%`;
+  const last=idx===steps.length-1;
+  if($('productWizardPrevBtn')) $('productWizardPrevBtn').disabled=idx===0;
+  if($('productWizardNextBtn')) $('productWizardNextBtn').style.display=last?'none':'';
+  if($('productFloatingSubmitBtn')) $('productFloatingSubmitBtn').style.display=last?'':'none';
+  addProductRequiredStars();
+  if($('productFloatingNote') && !App.productFormDirty){
+    const isEdit=$('productFloatingSubmitBtn')?.textContent?.includes('Save');
+    $('productFloatingNote').textContent=last
+      ? (isEdit ? 'Save the details and selected images together.' : 'Create the offering. Selected images upload with this save.')
+      : 'Complete this section, then continue. You can go back before saving.';
+  }
+}
+function setProductWizardStep(next,{validate=true,scroll=true}={}){
+  const steps=productWizardSteps();
+  const current=productStepIndex();
+  const target=Math.max(0,Math.min(steps.length-1,Number(next||0)));
+  if(validate && target>current){
+    for(let step=current;step<target;step++){
+      const message=validateProductWizardStep(step,{decorate:true});
+      if(message){
+        App.productWizardStep=step;
+        syncProductWizard();
+        toast('Complete this step',message,'err');
+        return false;
+      }
+    }
+  }else if(target<current){
+    clearProductValidation();
+  }
+  App.productWizardStep=target;
+  syncProductWizard();
+  if(scroll) $('productFormView')?.scrollIntoView({behavior:'smooth',block:'start'});
+  return true;
+}
+function initProductWizard(){
+  const form=$('productFormView');
+  if(form && !form.dataset.productValidationClearBound){
+    const clear=e=>{
+      const target=e.target;
+      if(!target?.closest) return;
+      if(target.closest('#variantBuilder')) clearProductFieldError('variantBuilder');
+      if(target.closest('#variantMatrixBuilder')) clearProductFieldError('variantMatrixBuilder');
+      if(target.id) clearProductFieldError(target.id);
+    };
+    form.addEventListener('input',clear);
+    form.addEventListener('change',clear);
+    form.dataset.productValidationClearBound='1';
+  }
+  setProductWizardStep(App.productWizardStep||0,{validate:false,scroll:false});
+}
+
 function updateShopDraftState(dirty){
   App.shopFormDirty=!!dirty;
   if($('shopFloatingNote')){
@@ -14983,11 +15335,15 @@ function updateProductDraftState(dirty){
   const isEdit=$('productFloatingSubmitBtn')?.textContent?.includes('Save');
   const meta=currentOfferingMeta();
   if($('productFloatingNote')){
-    $('productFloatingNote').textContent=dirty
-      ? `Unsaved changes. Save the ${meta.singular} before leaving this form.`
-      : (isEdit
-          ? `Save your changes to update the live ${meta.singular} card and chat answers.`
-          : `Create the ${meta.singular} to make it appear in the business page and chat.`);
+    if(dirty){
+      $('productFloatingNote').textContent=`Unsaved changes. Save the ${meta.singular} before leaving this form.`;
+    }else if($('productWizardTrack')?.dataset.bound==='1'){
+      syncProductWizard();
+    }else{
+      $('productFloatingNote').textContent=isEdit
+        ? `Save your changes to update the live ${meta.singular} card and chat answers.`
+        : `Create the ${meta.singular} to make it appear in the business page and chat.`;
+    }
   }
 }
 function markShopFormDirty(){ if(!suspendFormDirty) updateShopDraftState(true); }
@@ -15052,40 +15408,16 @@ function validateShopForm(){
 }
 
 function validateProductForm(){
-  const name=$('prodName').value.trim();
-  const businessType=currentShopBusinessType();
-  const category=activeShopCategory();
-  const offeringType=currentOfferingType();
-  const meta=offeringMeta(offeringType,businessType,category);
-  const priceMode=normalizePriceMode($('prodPriceMode')?.value||'fixed');
-  const priceRaw=$('prodPrice')?.value.trim()||'';
-  const price=Number(priceRaw);
-  const qtyRaw=$('prodQty').value.trim();
-  const qty=qtyRaw===''?null:Number(qtyRaw);
-  const durationRaw=$('prodDuration')?.value.trim()||'';
-  const duration=durationRaw===''?null:Number(durationRaw);
-  const capacityRaw=$('prodCapacity')?.value.trim()||'';
-  const capacity=capacityRaw===''?null:Number(capacityRaw);
-  const inventory=tracksInventory(offeringType,businessType,category);
-  if(!name) return `Enter a ${meta.singular} name customers can search for.`;
-  if(['fixed','starting_at'].includes(priceMode)){
-    if(!priceRaw || !Number.isFinite(price)) return `Enter a valid numeric ${meta.singular} price.`;
-    if(price<0) return 'Price cannot be negative.';
+  const steps=productWizardSteps();
+  for(let step=0;step<steps.length;step++){
+    const message=validateProductWizardStep(step,{decorate:false});
+    if(message){
+      setProductWizardStep(step,{validate:false,scroll:true});
+      validateProductWizardStep(step,{decorate:true});
+      return message;
+    }
   }
-  if(inventory && (qty===null || !Number.isInteger(qty) || qty<0)) return 'Enter a valid stock quantity.';
-  if(!inventory && qty!==null && (!Number.isInteger(qty) || qty<0)) return 'Quantity must be a whole number.';
-  if(supportsDuration(offeringType,businessType,category)){
-    if(duration===null || !Number.isInteger(duration) || duration<=0) return `Enter a valid duration for this ${meta.singular}.`;
-  }else if(duration!==null && (!Number.isInteger(duration) || duration<0)){
-    return 'Duration must be a whole number.';
-  }
-  if(capacity!==null && (!Number.isInteger(capacity) || capacity<0)) return 'Capacity must be a whole number.';
-  if(usesVariants(offeringType,businessType,category)){
-    const badVariant=(collectVariantData()||[]).find(item=>item.stock_quantity!==null && (!Number.isInteger(Number(item.stock_quantity)) || Number(item.stock_quantity)<0));
-    if(badVariant) return `Enter a valid stock quantity for ${badVariant.label}.`;
-    const badCombo=(collectVariantMatrixData()||[]).find(item=>item.stock_quantity!==null && (!Number.isInteger(Number(item.stock_quantity)) || Number(item.stock_quantity)<0));
-    if(badCombo) return `Enter a valid stock quantity for ${badCombo.selection_key}.`;
-  }
+  clearProductValidation();
   return '';
 }
 
@@ -15292,6 +15624,9 @@ async function loadMyShops(){
     App.ownerBusinessClaims=[];
     App.claimSearchResults=[];
     renderAdminReviewQueue();
+    renderOwnerBusinessClaims();
+    renderClaimSearchResults();
+    if($('businessClaimCard')) $('businessClaimCard').style.display='none';
     setFieldHint('myShopsStatus','Sign in to create or manage businesses.','');
     return;
   }
@@ -15313,6 +15648,7 @@ async function loadMyShops(){
       return true;
     });
     App.adminShops=shops;
+    await loadOwnerBusinessClaims();
     const grid=$('ownerShopGrid');grid.innerHTML='';
     if(!shops.length){
       grid.innerHTML=`<div class="card"><div class="card-body"><div class="empty"><div class="ei">Business</div><div class="et">No businesses yet. Create your first one, then start adding offerings under it.</div><button class="btn btn-A btn-sm empty-action" id="createFirstShopBtn">+ Create Business</button></div></div></div>`;
@@ -15854,6 +16190,12 @@ function buildClaimSearchSeed(){
   return [name,street,city,region].filter(Boolean).join(' ').trim();
 }
 function openClaimWorkspace({seed=''}={}){
+  if(!tok()){
+    switchAdminSub('account');
+    setS('authStatus','Sign in or create an account to claim an existing business page.','');
+    toast('Sign in to claim a business','','err');
+    return false;
+  }
   const activeSub=document.querySelector('.asub.on')?.id||'';
   if(activeSub!=='sub-shops'){
     switchAdminSub('shops',{refreshShops:false});
@@ -15864,8 +16206,10 @@ function openClaimWorkspace({seed=''}={}){
   if(document.querySelector('.asub.on')?.id!=='sub-shops') return false;
   if((document.querySelector('[data-shop-view].on')?.dataset.shopView||'')!=='landing') return false;
   const card=$('businessClaimCard');
+  if(card) card.style.display='';
   const query=String(seed||buildClaimSearchSeed()||'').trim();
   if($('claimSearchInput')) $('claimSearchInput').value=query;
+  loadOwnerBusinessClaims();
   card?.scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(()=>{$('claimSearchInput')?.focus();},80);
   if(query.length>=2) searchClaimableBusinesses(query);
@@ -16136,6 +16480,9 @@ function openAdminLiveBusiness(){
 }
 $('ownerCreateShopBtn').addEventListener('click',openCreateShopView);
 $('ownerClaimBusinessBtn')?.addEventListener('click',()=>openClaimWorkspace());
+$('closeClaimWorkspaceBtn')?.addEventListener('click',()=>{
+  if($('businessClaimCard')) $('businessClaimCard').style.display='none';
+});
 $('detailBackBtn').addEventListener('click',()=>showShopManagerView('landing'));
 $('detailEditShopBtn').addEventListener('click',openEditShopView);
 $('detailAddProductBtn').addEventListener('click',()=>openProductForm());
@@ -16157,6 +16504,8 @@ $('shopFloatingBackBtn').addEventListener('click',()=>showShopManagerView(App.ad
 $('shopWizardPrevBtn')?.addEventListener('click',()=>setShopWizardStep(shopStepIndex()-1,{validate:false}));
 $('shopWizardNextBtn')?.addEventListener('click',()=>setShopWizardStep(shopStepIndex()+1,{validate:true}));
 $('productFloatingBackBtn').addEventListener('click',()=>showShopManagerView('detail'));
+$('productWizardPrevBtn')?.addEventListener('click',()=>setProductWizardStep(productStepIndex()-1,{validate:false}));
+$('productWizardNextBtn')?.addEventListener('click',()=>setProductWizardStep(productStepIndex()+1,{validate:true}));
 $('shopFloatingSubmitBtn').addEventListener('click',()=>($('shopFloatingSubmitBtn').dataset.mode==='edit'?saveShop():createShop()));
 $('productFloatingSubmitBtn').addEventListener('click',saveProd);
 $('createShopBtn').addEventListener('click',createShop);
@@ -16170,6 +16519,7 @@ $('adminPreviewAccountDeleteBtn')?.addEventListener('click',previewAdminAccountD
 $('adminExecuteAccountDeleteBtn')?.addEventListener('click',executeAdminAccountDeletion);
 $('deleteShopBtn').addEventListener('click',deleteShop);
 initShopWizard();
+initProductWizard();
 $('rebuildKbBtn').addEventListener('click',async()=>{
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a business first','','err');
   try{
@@ -16189,6 +16539,7 @@ $('rebuildKbBtn').addEventListener('click',async()=>{
 /* ── Product editor ── */
 function loadProdIntoEditor(p,{skipView=false}={}){ 
   suspendFormDirty=true;
+  App.productWizardStep=0;
   $('prodId').value=p.product_id||'';
   $('prodName').value=p.name||'';
   $('prodType').value=normalizeOfferingType(p.offering_type||'',currentShopBusinessType(),activeShopCategory());
@@ -16207,6 +16558,7 @@ function loadProdIntoEditor(p,{skipView=false}={}){
   renderVariantBuilder(p.variant_data||[]);
   renderVariantMatrixBuilder(p.variant_matrix||[],p.variant_data||[]);
   renderProductAttributeFields(p.attribute_data||{});
+  initProductWizard();
   const imgs=(p.images||[]).map(absUrl).filter(Boolean);
   const mgr=$('existImgsMgr'),wrap=$('existImgsWrap');mgr.innerHTML='';
   if(imgs.length){wrap.style.display='block';imgs.forEach(url=>{const item=document.createElement('div');item.className='img-mg-item';item.innerHTML=`<img src="${esc(url)}" alt=""/><button class="img-mg-del">✕</button>`;item.querySelector('.img-mg-del').addEventListener('click',async()=>{const sid=$('shopId').value.trim(),pid=$('prodId').value.trim();if(!sid||!pid)return;try{await api(`/admin/business/${encodeURIComponent(sid)}/offering/${encodeURIComponent(pid)}/image?image_path=${encodeURIComponent(url)}`,{method:'DELETE',auth:true});item.remove();if(!mgr.children.length) wrap.style.display='none';toast('Image removed ✓');}catch(e){toast('Remove failed',e.message,'err');}});mgr.appendChild(item);});}
@@ -16218,6 +16570,7 @@ function loadProdIntoEditor(p,{skipView=false}={}){
 }
 function clearProdForm(){
   suspendFormDirty=true;
+  App.productWizardStep=0;
   ['prodId','prodName','prodPrice','prodQty','prodOverview','prodDuration','prodCapacity'].forEach(id=>$(id).value='');
   if($('prodIdRef')) $('prodIdRef').textContent='Generated when you save';
   if($('prodType')) $('prodType').value=defaultVisibleOfferingTypeForBusiness(currentShopBusinessType(),activeShopCategory());
@@ -16233,6 +16586,7 @@ function clearProdForm(){
   renderVariantBuilder([]);
   renderVariantMatrixBuilder([],[]);
   renderProductAttributeFields({});
+  initProductWizard();
   setS('productStatus','');
   suspendFormDirty=false;
   updateProductDraftState(false);
@@ -16470,10 +16824,12 @@ $('shopDeliveryFee')?.addEventListener('blur',()=>{normalizeDecimalInputElement(
   $(id)?.addEventListener('change',markProductFormDirty);
 });
 $('prodType')?.addEventListener('change',()=>{
+  clearProductValidation();
   syncProductOfferingUi();
   markProductFormDirty();
 });
 $('prodPriceMode')?.addEventListener('change',()=>{
+  clearProductValidation();
   syncProductOfferingUi();
   markProductFormDirty();
 });
@@ -16547,6 +16903,93 @@ $('refreshAnBtn').addEventListener('click',loadAnalytics);
 $('anDays').addEventListener('change',loadAnalytics);
 
 /* ── CSV ── */
+function catalogPackageFingerprint(file=null){
+  return file?`${file.name}:${file.size}:${file.lastModified}`:'';
+}
+function setCatalogImportStep(step=1){
+  const current=Math.max(1,Math.min(4,Number(step||1)));
+  document.querySelectorAll('#catalogImportSteps [data-import-step]').forEach(el=>{
+    const idx=Number(el.dataset.importStep);
+    el.classList.toggle('on',idx===current);
+    el.classList.toggle('done',idx<current);
+  });
+}
+function resetCatalogPreview({keepErrors=false}={}){
+  App.catalogImportPreview=null;
+  App.catalogImportFingerprint='';
+  if($('catalogPreviewSummary')) $('catalogPreviewSummary').classList.remove('on');
+  if($('catalogPreviewStats')) $('catalogPreviewStats').innerHTML='';
+  if($('catalogPreviewRows')) $('catalogPreviewRows').innerHTML='';
+  if($('importPackageBtn')) $('importPackageBtn').disabled=true;
+  if(!keepErrors) showCsvErrors([]);
+}
+function renderCatalogPreview(data=null,file=null){
+  App.catalogImportPreview=data||null;
+  App.catalogImportFingerprint=catalogPackageFingerprint(file);
+  const summary=$('catalogPreviewSummary'), stats=$('catalogPreviewStats'), rows=$('catalogPreviewRows');
+  if(!summary||!stats||!rows||!data) return;
+  summary.classList.add('on');
+  const failed=Number(data.failed||0);
+  const valid=Number(data.valid||0);
+  const total=Number(data.total||0);
+  const assets=Number(data.asset_count||0);
+  stats.innerHTML=[
+    ['Rows',total],
+    ['Ready',valid],
+    ['Need Fixes',failed],
+    ['Images Found',assets]
+  ].map(([label,value])=>`<div class="import-stat"><div class="import-stat-k">${esc(label)}</div><div class="import-stat-v">${esc(value)}</div></div>`).join('');
+  const previewRows=(data.rows||[]).slice(0,30);
+  rows.innerHTML=previewRows.length
+    ? previewRows.map(row=>{
+        const action=String(row.action||'create');
+        const imgCount=Number(row.image_count||0);
+        const variantText=[row.variant_count?`${row.variant_count} options`:'',row.combination_count?`${row.combination_count} combinations`:'' ].filter(Boolean).join(' - ');
+        return `<div class="import-preview-row"><span class="import-pill ${action==='update'?'update':''}">${esc(action)}</span><div class="import-preview-main"><div class="import-preview-name">${esc(row.name||row.product_id||`Row ${row.row}`)}</div><div class="import-preview-meta">Row ${esc(row.row)} - ${esc(row.product_id||'new ID')} - ${esc(row.offering_type||'offering')} - ${imgCount} image${imgCount===1?'':'s'}${variantText?` - ${esc(variantText)}`:''}</div></div><span class="import-pill">${imgCount ? 'Images OK' : 'No Images'}</span></div>`;
+      }).join('')
+    : '<div class="csv-note">No valid rows to preview yet.</div>';
+  if($('importPackageBtn')) $('importPackageBtn').disabled=failed>0||valid<1;
+  setCatalogImportStep(failed?3:4);
+}
+function setCatalogPackageHelp(file=null){
+  if(!$('catalogPackageHelp')) return;
+  if(!file){
+    $('catalogPackageHelp').textContent='No file selected yet. Standalone CSV/XLSX works for hosted image URLs; use ZIP when image files must upload with the products.';
+    return;
+  }
+  const lower=String(file.name||'').toLowerCase();
+  const type=lower.endsWith('.zip')?'ZIP package':(lower.endsWith('.xlsx')?'Excel workbook':'CSV sheet');
+  $('catalogPackageHelp').textContent=`Selected ${type}: ${file.name}. Preview it before importing so row and image issues are caught first.`;
+}
+async function previewCatalogPackage(){
+  const shopId=$('shopId').value.trim();if(!shopId){toast('Load a business first','','err');return false;}if(!tok()){toast('Login required','','err');return false;}
+  const file=$('catalogPackageFile')?.files?.[0];if(!file){toast('Select a ZIP, CSV, or XLSX file','','err');return false;}
+  showCsvErrors([]);
+  resetCatalogPreview({keepErrors:true});
+  const prog=$('csvProg'),bar=$('csvBar'),txt=$('csvTxt');
+  if(prog){prog.style.display='block';bar.value=10;txt.textContent='Checking catalog rows and image references...';}
+  setCatalogImportStep(3);
+  setBtnBusy('previewPackageBtn',true,'Previewing...');
+  try{
+    const form=new FormData();
+    form.append('catalog_package',file);
+    const res=await api(`/admin/business/${encodeURIComponent(shopId)}/offerings-import-preview`,{method:'POST',auth:true,body:form});
+    if(bar) bar.value=100;
+    if(txt) txt.textContent=res.failed?`Preview found ${res.failed} issue${res.failed===1?'':'s'} to fix.`:`Preview ready: ${res.valid||0} offering${res.valid===1?'':'s'} can import.`;
+    renderCatalogPreview(res,file);
+    showCsvErrors(res.errors||[]);
+    toast(res.failed?'Import needs fixes':'Import preview ready',res.failed?`${res.failed} issue${res.failed===1?'':'s'} found`:`${res.valid||0} ready`,res.failed?'err':'ok');
+    return !res.failed && Number(res.valid||0)>0;
+  }catch(e){
+    showCsvErrors([e.message]);
+    if(txt) txt.textContent=e.message;
+    setCatalogImportStep(2);
+    toast('Preview failed',e.message,'err');
+    return false;
+  }finally{
+    setBtnBusy('previewPackageBtn',false);
+  }
+}
 function downloadOfferingsCsvTemplate(){
   const category=App.adminShopData?.shop?.category||activeShopCategory();
   const businessType=App.adminShopData?.shop?.business_type||currentShopBusinessType();
@@ -16554,34 +16997,41 @@ function downloadOfferingsCsvTemplate(){
   const inventory=tracksInventory(type,businessType,category);
   const schema=offeringSchema(category,businessType,type).map(([key])=>key).filter(key=>!['details'].includes(key));
   const base=inventory
-    ? ['product_id','name','price','stock_quantity','description','images','variants','variant_images','combination_images']
-    : ['product_id','name','price','duration_minutes','description','images'];
+    ? ['sku','name','offering_type','price_mode','price','stock_quantity','description','images','variants','variant_images','combination_images']
+    : ['sku','name','offering_type','price_mode','price','duration_minutes','description','images'];
   const headers=[...base,...schema.filter(key=>!base.includes(key))];
   const row1=inventory
-    ? ['p001','Classic Tee','19.99','10','Cotton shirt with size and color variants','classic-tee-front.jpg|classic-tee-back.jpg','Size: Small, Large; Color: Red, Blue','Color=Red>classic-tee-red.jpg; Color=Blue>classic-tee-blue.jpg','Size=Large+Color=Red>classic-tee-red-large.jpg']
-    : ['s001','Discovery Call','','30','Short intro call to understand the client needs','discovery-call.jpg'];
+    ? ['p001','Classic Tee','product','fixed','19.99','10','Cotton shirt with size and color variants','classic-tee-front.jpg|classic-tee-back.jpg','Size: Small, Large; Color: Red, Blue','Color=Red>classic-tee-red.jpg; Color=Blue>classic-tee-blue.jpg','Size=Large+Color=Red>classic-tee-red-large.jpg']
+    : ['s001','Discovery Call','service','inquiry','','30','Short intro call to understand the client needs','discovery-call.jpg'];
   const row2=inventory
-    ? ['p002','Everyday Mug','12.50','24','Ceramic mug for daily use','mug-front.jpg|mug-side.jpg','','','']
-    : ['s002','In-store Consultation','49.00','45','One-on-one appointment','consultation.jpg'];
+    ? ['p002','Everyday Mug','product','fixed','12.50','24','Ceramic mug for daily use','mug-front.jpg|mug-side.jpg','','','']
+    : ['s002','In-store Consultation','service','fixed','49.00','45','One-on-one appointment','consultation.jpg'];
   while(row1.length<base.length) row1.push('');
   while(row2.length<base.length) row2.push('');
   schema.forEach(key=>{
     row1.push(key==='brand'?'Wave Goods':key==='material'?'Cotton':key==='sizes'?'Small, Large':key==='colors'?'Red, Blue':'');
     row2.push(key==='brand'?'Wave Goods':key==='material'?'Ceramic':'');
   });
-  downloadCsvRows('offerings_template.csv',[
+  downloadCsvRows('offerings_import_template.csv',[
     headers,
     row1,
     row2
   ]);
+  setCatalogImportStep(2);
 }
 $('csvTplBtn').addEventListener('click',downloadOfferingsCsvTemplate);
 async function importCatalogPackage(){
   const shopId=$('shopId').value.trim();if(!shopId)return toast('Load a business first','','err');if(!tok())return toast('Login required','','err');
-  const file=$('catalogPackageFile')?.files?.[0];if(!file)return toast('Select a catalog ZIP or CSV','','err');
+  const file=$('catalogPackageFile')?.files?.[0];if(!file)return toast('Select a ZIP, CSV, or XLSX file','','err');
+  const fingerprint=catalogPackageFingerprint(file);
+  if(App.catalogImportFingerprint!==fingerprint || !App.catalogImportPreview || Number(App.catalogImportPreview.failed||0)>0){
+    const ready=await previewCatalogPackage();
+    if(!ready) return;
+  }
   showCsvErrors([]);
   const prog=$('csvProg'),bar=$('csvBar'),txt=$('csvTxt');
-  if(prog){prog.style.display='block';bar.value=5;txt.textContent='Uploading catalog package...';}
+  if(prog){prog.style.display='block';bar.value=5;txt.textContent='Uploading catalog package and matched images...';}
+  setCatalogImportStep(4);
   setBtnBusy('importPackageBtn',true,'Importing...');
   try{
     const form=new FormData();
@@ -16592,6 +17042,8 @@ async function importCatalogPackage(){
     showCsvErrors(res.errors||[]);
     toast('Catalog import complete',`${res.imported||0} imported, ${res.failed||0} failed`,res.failed?'err':'ok');
     await loadAdminShop(shopId);
+    resetCatalogPreview({keepErrors:true});
+    setCatalogImportStep(res.failed?3:4);
     setTimeout(()=>{if(prog) prog.style.display='none';},3500);
   }catch(e){
     showCsvErrors([e.message]);
@@ -16599,9 +17051,17 @@ async function importCatalogPackage(){
     if(txt) txt.textContent=e.message;
   }finally{
     setBtnBusy('importPackageBtn',false);
+    if($('importPackageBtn') && (!App.catalogImportPreview || Number(App.catalogImportPreview.failed||0)>0)) $('importPackageBtn').disabled=true;
   }
 }
+$('previewPackageBtn')?.addEventListener('click',previewCatalogPackage);
 $('importPackageBtn')?.addEventListener('click',importCatalogPackage);
+$('catalogPackageFile')?.addEventListener('change',()=>{
+  const file=$('catalogPackageFile')?.files?.[0]||null;
+  resetCatalogPreview();
+  setCatalogPackageHelp(file);
+  setCatalogImportStep(file?2:1);
+});
 $('csvImageFiles')?.addEventListener('change',()=>{
   const files=Array.from($('csvImageFiles')?.files||[]);
   const count=$('csvImageFileCount');
@@ -16639,7 +17099,8 @@ $('importCsvBtn').addEventListener('click',async()=>{
     const obj=row.obj;
     try{
       const currencyCode=(obj.currency_code||$('prodCurrencyBadge')?.textContent?.trim()||$('shopCurrencyBadge')?.textContent?.trim()||'USD').toUpperCase();
-      const payload={product_id:obj.product_id||'',offering_id:obj.offering_id||obj.product_id||'',name:obj.name||'Unnamed',price:row.priceRaw||'',price_amount:row.numeric,currency_code:currencyCode,overview:obj.overview||'',offering_type:row.offeringType,price_mode:row.priceMode,availability_mode:row.availabilityMode,stock:obj.stock||'in',stock_quantity:row.qty,duration_minutes:row.durationMinutes,capacity:row.capacity,variants:obj.variants||variantSummary(row.media.variantData),variant_data:row.media.variantData,variant_matrix:row.media.variantMatrix,attribute_data:row.attr||{},images:row.media.productImageUrls||[]};
+      const rowId=obj.product_id||obj.offering_id||obj.sku||obj.id||'';
+      const payload={product_id:rowId,offering_id:obj.offering_id||rowId,name:obj.name||'Unnamed',price:row.priceRaw||'',price_amount:row.numeric,currency_code:currencyCode,overview:obj.overview||obj.description||obj.details||'',offering_type:row.offeringType,price_mode:row.priceMode,availability_mode:row.availabilityMode,stock:obj.stock||'in',stock_quantity:row.qty,duration_minutes:row.durationMinutes,capacity:row.capacity,variants:obj.variants||variantSummary(row.media.variantData),variant_data:row.media.variantData,variant_matrix:row.media.variantMatrix,attribute_data:row.attr||{},images:row.media.productImageUrls||[]};
       const hasLocalFiles=row.media.productFiles.length||row.media.variantFileMap.size||row.media.comboFileMap.size;
       if(hasLocalFiles){
         const form=new FormData();
