@@ -6771,6 +6771,16 @@ select.btn{
             <div id="adminClaimQueueStatus" class="stxt"></div>
           </div>
         </div>
+        <div id="adminManagedBusinessesCard" class="card" style="display:none">
+          <div class="card-head">
+            <div class="card-title">Platform-Managed Listings</div>
+          </div>
+          <div class="card-body">
+            <div class="fld-hint" style="margin-bottom:10px">These imported listings are managed by Atlantic Ordinate until an ownership claim is approved.</div>
+            <div id="adminManagedBusinessesList" class="review-queue"><div class="review-queue-empty">No platform-managed listings.</div></div>
+            <div id="adminManagedBusinessesStatus" class="stxt"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -7249,6 +7259,7 @@ const App = {
   adminProducts: [],
   adminReviewShops: [],
   adminReviewClaims: [],
+  adminManagedShops: [],
   adminReviewNotifyStatus: null,
   ownerBusinessClaims: [],
   claimSearchResults: [],
@@ -7531,6 +7542,10 @@ function normalizeBusinessRecord(row={}){
   out.listing_status=normalizeBusinessListingStatus(out.listing_status||'');
   out.owner_contact_name=(out.owner_contact_name||'').trim();
   out.owner_email=(out.owner_email||'').trim();
+  out.listing_source=String(out.listing_source||'').trim();
+  out.ownership_status=String(out.ownership_status||'').trim();
+  out.is_platform_managed=out.is_platform_managed===true || out.ownership_status==='platform_managed' || out.listing_source==='platform_import' || out.owner_contact_name.toLowerCase()==='platform imported listing';
+  out.is_claimed=out.is_claimed===true || (!out.is_platform_managed && (out.ownership_status==='' || out.ownership_status==='claimed'));
   out.phone=(out.phone||'').trim();
   out.website=normalizeWebsiteUrl(out.website||'');
   out.whatsapp=(out.whatsapp||'').trim();
@@ -11774,6 +11789,7 @@ function syncReviewerUi(user=App.user){
       : '<strong>How review works</strong> Atlantic Ordinate reviews submitted businesses before they go live. No registry or licence is required if you add a clear note and a review phone number.';
   }
   renderReviewNotificationStatus();
+  renderAdminManagedBusinesses();
   syncReviewNavBadge();
 }
 function profileInitial(user=App.user){
@@ -14952,6 +14968,8 @@ function switchAdminSub(sub,{refreshShops=true}={}){
   if(sub==='shops'&&refreshShops&&tok()) loadMyShops();
   if(sub==='review'&&tok()){
     loadAdminReviewQueue();
+    loadAdminClaimReviewQueue();
+    loadAdminManagedBusinesses();
   }
 }
 document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.addEventListener('click',()=>{
@@ -15716,9 +15734,11 @@ async function loadMyShops(){
     $('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Login</div><div class="et">Sign in first to manage your businesses.</div></div>`;
     App.adminReviewShops=[];
     App.adminReviewClaims=[];
+    App.adminManagedShops=[];
     App.ownerBusinessClaims=[];
     App.claimSearchResults=[];
     renderAdminReviewQueue();
+    renderAdminManagedBusinesses();
     renderOwnerBusinessClaims();
     renderClaimSearchResults();
     if($('businessClaimCard')) $('businessClaimCard').style.display='none';
@@ -15750,7 +15770,7 @@ async function loadMyShops(){
       setFieldHint('myShopsStatus','You do not have a business yet.','');
       $('createFirstShopBtn')?.addEventListener('click',openCreateShopView);
       renderAdminReviewQueue();
-      if(isAdmin) await loadAdminReviewQueue();
+      if(isAdmin) await Promise.all([loadAdminReviewQueue(),loadAdminClaimReviewQueue(),loadAdminManagedBusinesses()]);
       return;
     }
     shops.forEach(s=>{
@@ -15766,7 +15786,7 @@ async function loadMyShops(){
       grid.appendChild(card);
     });
     renderAdminReviewQueue();
-    if(isAdmin) await loadAdminReviewQueue();
+    if(isAdmin) await Promise.all([loadAdminReviewQueue(),loadAdminClaimReviewQueue(),loadAdminManagedBusinesses()]);
     setFieldHint('myShopsStatus',`${shops.length} business${shops.length===1?'':'es'} ready to manage.`,'ok');
   }catch(e){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Error</div><div class="et">${esc(e.message)}</div></div>`;setFieldHint('myShopsStatus','Could not load your businesses.','err');}
 }
@@ -16253,12 +16273,63 @@ async function loadAdminClaimReviewQueue(){
     syncReviewNavBadge();
   }
 }
+function renderAdminManagedBusinesses(){
+  const card=$('adminManagedBusinessesCard');
+  const list=$('adminManagedBusinessesList');
+  if(!card || !list) return;
+  const isAdmin=['admin','superadmin'].includes(String(App.user?.role||'').trim().toLowerCase());
+  if(!isAdmin){
+    card.style.display='none';
+    list.innerHTML='<div class="review-queue-empty">No platform-managed listings.</div>';
+    return;
+  }
+  card.style.display='';
+  const shops=(Array.isArray(App.adminManagedShops)?App.adminManagedShops:[]).map(normalizeBusinessRecord);
+  if(!shops.length){
+    list.innerHTML='<div class="review-queue-empty">No platform-managed listings.</div>';
+    return;
+  }
+  list.innerHTML='';
+  shops.forEach(shop=>{
+    const meta=businessListingMeta(shop);
+    const pendingCount=Number(shop.pending_claim_count||0);
+    const item=document.createElement('div');
+    item.className='review-queue-item';
+    item.innerHTML=`<div class="claim-result-head"><div class="claim-result-ident"><div class="claim-result-avatar">${businessAvatarHtml(shop,shop.name||'Business')}</div><div><div class="claim-result-title">${esc(shop.name||'Untitled Business')}</div><div class="claim-result-meta">${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}${shop.category?` - ${esc(shop.category)}`:''}</div><div class="claim-result-meta">${pendingCount?`${pendingCount} pending ownership claim${pendingCount===1?'':'s'}`:'No pending ownership claims'}</div></div></div>${businessListingPillHtml(shop,meta.label)}</div><div class="review-queue-actions"><button class="btn btn-A btn-sm" type="button" data-managed-open="${esc(shop.shop_id||'')}">Manage Listing</button><button class="btn btn-g btn-sm" type="button" data-managed-live="${esc(shop.shop_slug||shop.shop_id||'')}">Open Live Page</button></div>`;
+    item.querySelector('[data-managed-open]')?.addEventListener('click',()=>openManagedBusiness(shop.shop_id||''));
+    item.querySelector('[data-managed-live]')?.addEventListener('click',()=>openShopPage(shop.shop_slug||shop.shop_id||''));
+    list.appendChild(item);
+  });
+}
+async function loadAdminManagedBusinesses(){
+  const isAdmin=['admin','superadmin'].includes(String(App.user?.role||'').trim().toLowerCase());
+  if(!isAdmin){
+    App.adminManagedShops=[];
+    renderAdminManagedBusinesses();
+    return;
+  }
+  try{
+    const d=normalizeCatalogPayload(await api('/admin/managed-businesses',{auth:true}));
+    App.adminManagedShops=d.businesses||[];
+    renderAdminManagedBusinesses();
+    setFieldHint('adminManagedBusinessesStatus',`${App.adminManagedShops.length} platform-managed listing${App.adminManagedShops.length===1?'':'s'} available to edit.`,App.adminManagedShops.length?'ok':'');
+  }catch(e){
+    App.adminManagedShops=[];
+    renderAdminManagedBusinesses();
+    setFieldHint('adminManagedBusinessesStatus',e.message,'err');
+  }
+}
+async function openManagedBusiness(shopId=''){
+  if(!shopId) return;
+  setFieldHint('adminManagedBusinessesStatus','Opening listing workspace...');
+  await loadAdminShop(shopId,{refreshOwnerList:false});
+}
 async function approveBusinessClaim(claimId=''){
   if(!claimId) return;
   try{
     setFieldHint('adminClaimQueueStatus','Approving ownership claim...');
     await api(`/admin/review/business-claim/${encodeURIComponent(claimId)}/approve`,{method:'POST',auth:true});
-    await Promise.all([loadMyShops(),loadAdminClaimReviewQueue()]);
+    await Promise.all([loadMyShops(),loadAdminClaimReviewQueue(),loadAdminManagedBusinesses()]);
     toast('Claim approved','Business ownership transferred.');
   }catch(e){
     setFieldHint('adminClaimQueueStatus',e.message,'err');
@@ -16272,7 +16343,7 @@ async function rejectBusinessClaim(claimId=''){
   try{
     setFieldHint('adminClaimQueueStatus','Updating ownership claim...');
     await api(`/admin/review/business-claim/${encodeURIComponent(claimId)}/reject`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({reason})});
-    await Promise.all([loadMyShops(),loadAdminClaimReviewQueue()]);
+    await Promise.all([loadMyShops(),loadAdminClaimReviewQueue(),loadAdminManagedBusinesses()]);
     toast('Claim rejected','The requester can submit new proof later.');
   }catch(e){
     setFieldHint('adminClaimQueueStatus',e.message,'err');
@@ -16609,7 +16680,7 @@ $('createShopBtn').addEventListener('click',createShop);
 $('saveShopBtn').addEventListener('click',saveShop);
 $('claimSearchBtn')?.addEventListener('click',()=>searchClaimableBusinesses());
 $('claimSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchClaimableBusinesses();}});
-$('refreshReviewCenterBtn')?.addEventListener('click',()=>{loadAdminReviewQueue();loadAdminClaimReviewQueue();});
+$('refreshReviewCenterBtn')?.addEventListener('click',()=>{loadAdminReviewQueue();loadAdminClaimReviewQueue();loadAdminManagedBusinesses();});
 $('refreshReviewNotifyBtn')?.addEventListener('click',loadReviewNotificationStatus);
 $('sendReviewNotifyTestBtn')?.addEventListener('click',sendReviewNotificationTest);
 $('adminPreviewAccountDeleteBtn')?.addEventListener('click',previewAdminAccountDeletion);

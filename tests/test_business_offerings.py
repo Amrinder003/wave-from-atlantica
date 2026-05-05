@@ -437,7 +437,9 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
                 "profiles": [
                     {"id": "owner-1", "display_name": "Owner", "role": "customer"},
                     {"id": "user-1", "display_name": "Verified User", "role": "customer"},
+                    {"id": "admin-1", "display_name": "Admin User", "role": "admin"},
                 ],
+                "business_claims": [],
                 "favourites": [],
                 "reviews": [
                     {
@@ -474,6 +476,7 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         )
         self.user = SimpleNamespace(id="user-1", email_confirmed_at="2026-04-13T00:00:00Z")
         self.owner = SimpleNamespace(id="owner-1", email_confirmed_at="2026-04-13T00:00:00Z")
+        self.admin = SimpleNamespace(id="admin-1", email="admin@example.com", email_confirmed_at="2026-04-13T00:00:00Z")
         self.patchers = [
             patch.object(server, "supabase", self.fake_supabase),
             patch.object(server, "rebuild_kb", lambda shop_id: None),
@@ -498,8 +501,17 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
     def _user_headers(self):
         return {"Authorization": "Bearer user-token"}
 
+    def _admin_headers(self):
+        return {"Authorization": "Bearer admin-token"}
+
+    def _profile_for_user(self, user):
+        for row in self.fake_supabase.tables["profiles"]:
+            if row.get("id") == getattr(user, "id", ""):
+                return copy.deepcopy(row)
+        return {"display_name": getattr(user, "id", "user")}
+
     def _patch_get_user(self, user):
-        return patch.object(server, "get_user", lambda auth, request=None, user=user: (user, {"display_name": getattr(user, "id", "user")}))
+        return patch.object(server, "get_user", lambda auth, request=None, user=user: (user, self._profile_for_user(user)))
 
     def _add_alpha_shoe_products(self, count=8):
         base = next(row for row in self.fake_supabase.tables["products"] if row["product_id"] == "shoe-a1")
@@ -513,6 +525,25 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
             row["price_amount"] = float(70 + idx)
             row["updated_at"] = f"2026-04-{10 + idx:02d}T00:00:00+00:00"
             self.fake_supabase.tables["products"].append(row)
+
+    def _add_platform_managed_shop(self):
+        shop = copy.deepcopy(self.fake_supabase.tables["shops"][0])
+        shop.update(
+            {
+                "shop_id": "import-1",
+                "shop_slug": "imported-tech",
+                "owner_user_id": "imports-1",
+                "owner_contact_name": "Platform imported listing",
+                "listing_source": "platform_import",
+                "ownership_status": "platform_managed",
+                "name": "Imported Tech",
+                "category": "Professional Services",
+                "overview": "Imported computer support listing managed by Atlantic Ordinate until claimed.",
+            }
+        )
+        self.fake_supabase.tables["shops"].append(shop)
+        self.fake_supabase.tables["profiles"].append({"id": "imports-1", "display_name": "Atlantic Ordinate Imports", "role": "shopkeeper"})
+        return shop
 
     def test_alias_catalog_response_populates_business_and_offering_aliases(self):
         payload = server.alias_catalog_response(
@@ -829,6 +860,54 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
 
         owner_profile = next(row for row in self.fake_supabase.tables["profiles"] if row["id"] == "owner-1")
         self.assertEqual(owner_profile["role"], "shopkeeper")
+
+    def test_admin_can_manage_platform_import_until_claimed(self):
+        self._add_platform_managed_shop()
+
+        with self._patch_get_user(self.admin):
+            list_response = self.client.get("/admin/managed-businesses", headers=self._admin_headers())
+            detail_response = self.client.get("/admin/business/import-1", headers=self._admin_headers())
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual([row["business_id"] for row in list_response.json()["businesses"]], ["import-1"])
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(detail_response.json()["data"]["business"]["name"], "Imported Tech")
+
+    def test_non_admin_cannot_manage_platform_import(self):
+        self._add_platform_managed_shop()
+
+        with self._patch_get_user(self.user):
+            response = self.client.get("/admin/business/import-1", headers=self._user_headers())
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_claim_approval_transfers_platform_import_out_of_managed_queue(self):
+        self._add_platform_managed_shop()
+        self.fake_supabase.tables["business_claims"].append(
+            {
+                "claim_id": "claim-1",
+                "shop_id": "import-1",
+                "claimant_user_id": "user-1",
+                "claimant_display_name": "Verified User",
+                "claimant_email": "verified@example.com",
+                "note": "I own this business.",
+                "status": "pending",
+                "review_note": "",
+            }
+        )
+
+        with self._patch_get_user(self.admin):
+            response = self.client.post("/admin/review/business-claim/claim-1/approve", headers=self._admin_headers())
+            detail_response = self.client.get("/admin/business/import-1", headers=self._admin_headers())
+            list_response = self.client.get("/admin/managed-businesses", headers=self._admin_headers())
+
+        self.assertEqual(response.status_code, 200)
+        shop = next(row for row in self.fake_supabase.tables["shops"] if row["shop_id"] == "import-1")
+        self.assertEqual(shop["owner_user_id"], "user-1")
+        self.assertEqual(shop["ownership_status"], "claimed")
+        self.assertEqual(shop["owner_contact_name"], "Verified User")
+        self.assertEqual(detail_response.status_code, 404)
+        self.assertEqual(list_response.json()["businesses"], [])
 
     def test_delete_business_cleans_related_rows(self):
         self.fake_supabase.tables["favourites"].append(

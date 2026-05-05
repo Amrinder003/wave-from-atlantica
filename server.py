@@ -91,6 +91,19 @@ ALLOWED_CLAIM_STATUSES = {
     CLAIM_STATUS_APPROVED,
     CLAIM_STATUS_REJECTED,
 }
+LISTING_SOURCE_OWNER_CREATED = "owner_created"
+LISTING_SOURCE_PLATFORM_IMPORT = "platform_import"
+ALLOWED_LISTING_SOURCES = {
+    LISTING_SOURCE_OWNER_CREATED,
+    LISTING_SOURCE_PLATFORM_IMPORT,
+}
+OWNERSHIP_STATUS_CLAIMED = "claimed"
+OWNERSHIP_STATUS_PLATFORM_MANAGED = "platform_managed"
+ALLOWED_OWNERSHIP_STATUSES = {
+    OWNERSHIP_STATUS_CLAIMED,
+    OWNERSHIP_STATUS_PLATFORM_MANAGED,
+}
+PLATFORM_MANAGED_OWNER_CONTACT = "Platform imported listing"
 PUBLIC_LISTING_STATUSES = {LISTING_STATUS_VERIFIED}
 ALLOWED_VERIFICATION_METHODS = {
     "manual",
@@ -821,9 +834,34 @@ def require_admin_role(prof: Optional[Dict[str, Any]] = None):
     if role not in {"admin", "superadmin"}:
         raise HTTPException(403, "Admin access required")
 
+def is_admin_profile(prof: Optional[Dict[str, Any]] = None) -> bool:
+    role = str((prof or {}).get("role", "") or "").strip().lower()
+    return role in {"admin", "superadmin"}
+
 def normalize_listing_status(value: Any, *, default: str = LISTING_STATUS_DRAFT) -> str:
     status = str(value or "").strip().lower()
     return status if status in ALLOWED_LISTING_STATUSES else default
+
+def normalize_listing_source(value: Any) -> str:
+    source = str(value or "").strip().lower()
+    return source if source in ALLOWED_LISTING_SOURCES else ""
+
+def normalize_ownership_status(value: Any, *, listing_source: str = "", owner_contact_name: str = "") -> str:
+    status = str(value or "").strip().lower()
+    if status in ALLOWED_OWNERSHIP_STATUSES:
+        return status
+    source = normalize_listing_source(listing_source)
+    contact = re.sub(r"\s+", " ", str(owner_contact_name or "")).strip().lower()
+    if source == LISTING_SOURCE_PLATFORM_IMPORT or contact == PLATFORM_MANAGED_OWNER_CONTACT.lower():
+        return OWNERSHIP_STATUS_PLATFORM_MANAGED
+    return OWNERSHIP_STATUS_CLAIMED
+
+def shop_is_platform_managed(row: Dict[str, Any]) -> bool:
+    return normalize_ownership_status(
+        (row or {}).get("ownership_status"),
+        listing_source=(row or {}).get("listing_source", ""),
+        owner_contact_name=(row or {}).get("owner_contact_name", ""),
+    ) == OWNERSHIP_STATUS_PLATFORM_MANAGED
 
 def normalize_verification_method(value: Any) -> str:
     method = str(value or "").strip().lower()
@@ -1932,7 +1970,11 @@ def unique_product_slug(shop_id: str, name: str, ignore_product_id: str = "") ->
         candidate = f"{base[:max(1, 50-len(suffix))]}{suffix}"
     return f"{base[:40]}-{uuid.uuid4().hex[:6]}"
 
-SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area", "profile_image_url", "phone_public", "website", *SHOP_REVIEW_WRITE_COLUMNS, *SHOP_TRUST_WRITE_COLUMNS]
+SHOP_OWNERSHIP_WRITE_COLUMNS = ["listing_source", "ownership_status", "claimed_at"]
+SHOP_OPTIONAL_WRITE_COLUMNS = [
+    "business_type", "location_mode", "service_area", "profile_image_url", "phone_public", "website",
+    *SHOP_REVIEW_WRITE_COLUMNS, *SHOP_TRUST_WRITE_COLUMNS, *SHOP_OWNERSHIP_WRITE_COLUMNS,
+]
 PRODUCT_OPTIONAL_WRITE_COLUMNS = [
     "price_amount", "stock_quantity", "product_slug", "variant_data", "variant_matrix",
     "attribute_data", "currency_code", "offering_type", "price_mode", "availability_mode",
@@ -2888,6 +2930,15 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     status_default = LISTING_STATUS_VERIFIED if "listing_status" not in out else LISTING_STATUS_DRAFT
     out["listing_status"] = normalize_listing_status(out.get("listing_status"), default=status_default)
     out["owner_contact_name"] = normalize_owner_contact_name(out.get("owner_contact_name", ""))
+    out["listing_source"] = normalize_listing_source(out.get("listing_source", ""))
+    out["ownership_status"] = normalize_ownership_status(
+        out.get("ownership_status", ""),
+        listing_source=out.get("listing_source", ""),
+        owner_contact_name=out.get("owner_contact_name", ""),
+    )
+    out["claimed_at"] = out.get("claimed_at") or None
+    out["is_platform_managed"] = out["ownership_status"] == OWNERSHIP_STATUS_PLATFORM_MANAGED
+    out["is_claimed"] = out["ownership_status"] == OWNERSHIP_STATUS_CLAIMED
     out["verification_method"] = normalize_verification_method(out.get("verification_method", ""))
     out["verification_evidence"] = normalize_verification_evidence(out.get("verification_evidence", ""))
     out["verification_submitted_at"] = out.get("verification_submitted_at") or None
@@ -7251,8 +7302,15 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
 # ROUTES — Admin 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 def check_shop_owner(user_id: str, shop_id: str):
-    res = supabase.table("shops").select("shop_id").eq("shop_id", shop_id).eq("owner_user_id", user_id).execute()
-    if not res.data: raise HTTPException(404, "Not found or not yours")
+    rows = supabase.table("shops").select("*").eq("shop_id", shop_id).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Not found or not yours")
+    shop = normalize_shop_record(rows[0])
+    if str(shop.get("owner_user_id", "")) == str(user_id or ""):
+        return
+    if shop.get("is_platform_managed") and is_admin_profile(load_profile(user_id)):
+        return
+    raise HTTPException(404, "Not found or not yours")
 
 @app.post("/admin/create-business")
 @app.post("/admin/create-shop")
@@ -7277,10 +7335,14 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     else:
         raise HTTPException(500, "Could not generate a unique shop ID")
 
+    now_iso = datetime.now(timezone.utc).isoformat()
     payload = {
         "shop_slug": shop_slug,
         "owner_user_id": user.id,
         "listing_status": LISTING_STATUS_DRAFT,
+        "listing_source": LISTING_SOURCE_OWNER_CREATED,
+        "ownership_status": OWNERSHIP_STATUS_CLAIMED,
+        "claimed_at": now_iso,
         "name": shop["name"].strip(),
         "profile_image_url": shop.get("profile_image_url", ""),
         "address": shop["address"],
@@ -7656,6 +7718,42 @@ def admin_move_shop_to_draft(shop_id: str, authorization: Optional[str] = Header
         print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
     return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_DRAFT}
 
+@app.get("/admin/managed-businesses")
+@app.get("/admin/managed-shops")
+def admin_managed_businesses(authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    rows = supabase.table("shops").select("*").order("created_at", desc=True).execute().data or []
+    managed_rows = [normalize_shop_record(row) for row in rows if shop_is_platform_managed(row)]
+    owner_email_map = load_auth_email_map([row.get("owner_user_id", "") for row in managed_rows])
+    pending_counts: Dict[str, int] = {}
+    shop_ids = [row.get("shop_id") for row in managed_rows if row.get("shop_id")]
+    if shop_ids:
+        try:
+            pending_claims = supabase.table("business_claims").select("shop_id").in_("shop_id", shop_ids).eq("status", CLAIM_STATUS_PENDING).execute().data or []
+            for claim in pending_claims:
+                sid = str(claim.get("shop_id", "") or "")
+                if sid:
+                    pending_counts[sid] = pending_counts.get(sid, 0) + 1
+        except Exception:
+            pending_counts = {}
+    owner_rows, all_rows = load_shop_trust_rows("")
+    for row in managed_rows:
+        row["owner_email"] = owner_email_map.get(str(row.get("owner_user_id", "")).strip(), "")
+        stats = shop_stats(row["shop_id"])
+        row["stats"] = stats
+        trust_snapshot = build_shop_trust_snapshot(row, user, owner_rows, all_rows, ignore_shop_id=row.get("shop_id", ""))
+        row["trust_flags"] = trust_snapshot["trust_flags"]
+        row["risk_score"] = trust_snapshot["risk_score"]
+        row["risk_level"] = trust_snapshot["risk_level"]
+        row["quality_flags"] = [*shop_completeness_flags(row, stats), *row["trust_flags"]]
+        row["review_requirements"] = shop_review_requirements(row, stats)
+        row["review_ready"] = not row["review_requirements"]
+        row["is_publicly_listed"] = shop_is_publicly_listable(row)
+        row["pending_claim_count"] = pending_counts.get(str(row.get("shop_id", "")), 0)
+    return alias_catalog_response({"ok": True, "shops": managed_rows})
+
 @app.get("/admin/review/businesses")
 @app.get("/admin/review/shops")
 def admin_review_businesses(status: str = Query(LISTING_STATUS_PENDING_REVIEW), authorization: Optional[str] = Header(None)):
@@ -7871,11 +7969,21 @@ def admin_approve_business_claim(claim_id: str, authorization: Optional[str] = H
     if claim.get("status") != CLAIM_STATUS_PENDING:
         raise HTTPException(400, "Only pending claims can be approved.")
     shop_id = claim.get("shop_id", "")
-    shop_rows = supabase.table("shops").select("shop_id, owner_user_id, name").eq("shop_id", shop_id).limit(1).execute().data or []
+    shop_rows = supabase.table("shops").select("*").eq("shop_id", shop_id).limit(1).execute().data or []
     if not shop_rows:
         raise HTTPException(404, "Business not found")
+    shop = normalize_shop_record(shop_rows[0])
     now_iso = datetime.now(timezone.utc).isoformat()
-    supabase.table("shops").update({"owner_user_id": claim.get("claimant_user_id")}).eq("shop_id", shop_id).execute()
+    shop_payload = {
+        "owner_user_id": claim.get("claimant_user_id"),
+        "ownership_status": OWNERSHIP_STATUS_CLAIMED,
+        "claimed_at": now_iso,
+    }
+    if shop_is_platform_managed(shop) and str(shop.get("owner_contact_name", "")).strip().lower() == PLATFORM_MANAGED_OWNER_CONTACT.lower():
+        shop_payload["owner_contact_name"] = claim.get("claimant_display_name") or claim.get("claimant_email") or ""
+    shop_payload, unsupported_cols = shop_write_payload_with_fallback(shop_id, shop_payload, True, [])
+    if unsupported_cols:
+        print(f"[Shop Schema Warning] {shop_id}: claim transfer saved without optional columns {unsupported_cols}")
     review_note = f"Approved by {clean_email(getattr(user, 'email', '') or '') or 'reviewer'}."
     supabase.table("business_claims").update({
         "status": CLAIM_STATUS_APPROVED,
