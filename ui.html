@@ -3604,6 +3604,75 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   .compose-row{grid-template-columns:minmax(0,1fr) auto!important}
 }
 
+.pc.pc-service{
+  display:grid!important;
+  grid-template-columns:92px minmax(0,1fr)!important;
+  align-items:stretch!important;
+  min-height:148px!important;
+}
+.pc.pc-service .pc-photo-wrap{
+  aspect-ratio:auto!important;
+  height:100%!important;
+  min-height:100%!important;
+  border-right:1px solid rgba(191,174,149,.22)!important;
+  background:linear-gradient(180deg,#fff8ef,#ead6bb)!important;
+}
+.pc.pc-service .pc-nophoto{
+  width:54px;
+  height:54px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  padding:0 8px;
+  background:rgba(255,250,242,.92);
+  border:1px solid rgba(162,76,46,.18);
+  box-shadow:0 10px 20px rgba(92,47,24,.1);
+  color:var(--A2);
+  font-size:11px;
+  font-weight:900;
+  line-height:1.1;
+  text-align:center;
+  text-transform:uppercase;
+}
+.pc.pc-service .pc-body{
+  min-width:0!important;
+  padding:14px 14px 13px!important;
+}
+.pc.pc-service .pc-name{
+  -webkit-line-clamp:2;
+  overflow-wrap:anywhere;
+}
+.pc.pc-service .pc-price,
+.pc.pc-service .pc-noprice{
+  font-size:13px!important;
+  line-height:1.3;
+  overflow-wrap:anywhere;
+}
+.pc.pc-service .pc-overview{
+  -webkit-line-clamp:3;
+}
+.pc.pc-service .pc-attr{
+  -webkit-line-clamp:2;
+}
+.pc.pc-service .pc-fav{
+  opacity:1;
+}
+@media(max-width:420px){
+  .pc.pc-service,
+  .shop-pgrid .pc.pc-service{
+    display:grid!important;
+    grid-template-columns:82px minmax(0,1fr)!important;
+    min-height:136px!important;
+  }
+  .pc.pc-service .pc-photo-wrap,
+  .shop-pgrid .pc.pc-service .pc-photo-wrap{
+    height:100%!important;
+    min-height:100%!important;
+    border-right:1px solid rgba(191,174,149,.22)!important;
+  }
+  .pc.pc-service .pc-body{padding:12px!important}
+}
+
 /* 2026 admin readability repair */
 #pg-admin,#pg-admin .admin-wrap,#pg-admin .admin-main,#pg-admin .asub,#pg-admin .shop-admin-view,
 #authBg .auth-box,#profileBg .profile-panel,#orderBg .auth-box,#trackReqBg .auth-box{
@@ -12804,7 +12873,9 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
     return art;
   }
 
-  const art=document.createElement('article');art.className='pc';
+  const serviceCard=!ctx.inventory;
+  const serviceCardLabel=ctx.meta?.label || 'Service';
+  const art=document.createElement('article');art.className=serviceCard?'pc pc-service':'pc';
   art.__waveCardProduct=p;
   art.__waveCardOpts={mode,showShop,sid, sname};
   if(accentColor){ art.classList.add('has-color'); art.style.setProperty('--variant-accent',accentColor); }
@@ -12830,7 +12901,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
     </div>`;
 
   const noPhoto=art.querySelector('.pc-nophoto');
-  if(noPhoto) noPhoto.textContent='No photo';
+  if(noPhoto) noPhoto.textContent=serviceCard?serviceCardLabel:'No photo';
   const photoCount=art.querySelector('.pc-n');
   if(photoCount && n>1) photoCount.textContent=`${n} photos`;
   const shopLine=art.querySelector('.pc-shop');
