@@ -6312,6 +6312,7 @@ select.btn{
                   <div id="hoursGrid" class="hours-grid"></div>
                 </div>
                 <div class="fg2" style="margin-top:14px">
+                  <div class="fld"><label>Business Website (optional)</label><input id="shopWebsite" inputmode="url" placeholder="https://example.com"/><div class="fld-hint">Public link for the business website, booking page, or other official platform customers should visit.</div></div>
                   <div class="fld"><label>WhatsApp (optional)</label><input id="shopWhatsapp"/><div class="fld-hint">Optional public contact channel for customers. Leave blank if the business does not use WhatsApp.</div></div>
                   <div class="fld">
                     <label>Business Phone for Review</label>
@@ -7462,6 +7463,7 @@ function normalizeBusinessRecord(row={}){
   out.owner_contact_name=(out.owner_contact_name||'').trim();
   out.owner_email=(out.owner_email||'').trim();
   out.phone=(out.phone||'').trim();
+  out.website=normalizeWebsiteUrl(out.website||'');
   out.whatsapp=(out.whatsapp||'').trim();
   out.phone_public=out.phone_public===true || ['1','true','yes','on'].includes(String(out.phone_public||'').trim().toLowerCase());
   out.verification_method=(out.verification_method||'').trim();
@@ -7710,6 +7712,19 @@ function absUrl(p){
   const m=String(p).match(/^\/shops\/([^/]+)\/images\/([^/?#]+)/i);
   if(m) return `${App.srv}/shops/${encodeURIComponent(m[1])}/images/${encodeURIComponent(m[2])}`;
   return `${App.srv}${p.startsWith('/')?'':'/'}${p}`;
+}
+function normalizeWebsiteUrl(value=''){
+  let text=String(value||'').trim().replace(/\s+/g,'');
+  if(!text) return '';
+  if(text.startsWith('//')) text=`https:${text}`;
+  if(!/^https?:\/\//i.test(text)) text=`https://${text}`;
+  try{
+    const url=new URL(text);
+    if(!['http:','https:'].includes(url.protocol) || !url.hostname.includes('.')) return '';
+    return url.href;
+  }catch{
+    return '';
+  }
 }
 function renderBusinessProfileVisual(imageId,fallbackId,imageUrl='',name=''){
   const img=$(imageId),fallback=$(fallbackId);
@@ -14000,6 +14015,14 @@ function buildShopActionControls(shop={},inventoryMode='',options={}){
       onClick:()=>openMapSheet('shop',shopRef)
     });
   }
+  const websiteHref=normalizeWebsiteUrl(shop?.website||'');
+  if(websiteHref){
+    actions.push({
+      label:'Website',
+      className:mobile?'btn btn-o':'btn btn-o btn-sm',
+      href:websiteHref
+    });
+  }
   if(CART_UI_ENABLED && inventoryMode){
     if(mobile){
       if(shop?.supports_delivery){
@@ -15488,7 +15511,7 @@ async function syncShopProfileImage(shopId){
 
 function resetShopForm(){
   suspendFormDirty=true;
-  ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopLat','shopLng','shopDeliveryRadius','shopDeliveryFee','shopPickupNotes','shopServiceArea','shopProfileImageFile','shopOwnerContactName','shopVerificationEvidence'].forEach(id=>$(id).value='');
+  ['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWebsite','shopWhatsapp','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopLat','shopLng','shopDeliveryRadius','shopDeliveryFee','shopPickupNotes','shopServiceArea','shopProfileImageFile','shopOwnerContactName','shopVerificationEvidence'].forEach(id=>$(id).value='');
   if($('shopPhonePublic')) $('shopPhonePublic').checked=false;
   if($('shopIdRef')) $('shopIdRef').textContent='Generated after creation';
   if($('shopBusinessType')) $('shopBusinessType').value='retail';
@@ -15549,6 +15572,7 @@ function populateShopForm(shop=null){
   $('shopLng').value=shop.longitude??'';
   $('shopOverview').value=shop.overview||'';
   $('shopPhone').value=shop.phone||'';
+  $('shopWebsite').value=shop.website||'';
   if($('shopPhonePublic')) $('shopPhonePublic').checked=!!shop.phone_public;
   $('shopWhatsapp').value=shop.whatsapp||'';
   if($('shopOwnerContactName')) $('shopOwnerContactName').value=shop.owner_contact_name||'';
@@ -15780,6 +15804,7 @@ function currentShopListingSnapshot(){
   const verificationEvidence=$('shopVerificationEvidence')?.value.trim() || App.adminShopData?.shop?.verification_evidence || '';
   const phone=$('shopPhone')?.value.trim() || App.adminShopData?.shop?.phone || '';
   const phonePublic=!!($('shopPhonePublic')?.checked ?? App.adminShopData?.shop?.phone_public);
+  const website=normalizeWebsiteUrl($('shopWebsite')?.value.trim() || App.adminShopData?.shop?.website || '');
   const whatsapp=$('shopWhatsapp')?.value.trim() || App.adminShopData?.shop?.whatsapp || '';
   const requirements=[];
   if(!phone) requirements.push('Add a business phone number for private review use.');
@@ -15795,6 +15820,7 @@ function currentShopListingSnapshot(){
     verification_evidence:verificationEvidence,
     phone,
     phone_public:phonePublic,
+    website,
     whatsapp,
     review_requirements:requirements,
     trust_flags:App.adminShopData?.shop?.trust_flags||[],
@@ -16344,7 +16370,7 @@ async function createShop(){
   if(formErr){setS('shopStatus',formErr,'err');return toast('Business details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
   const hoursData=updateHoursSummary();
-    const payload={shop:{name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),phone_public:Boolean($('shopPhonePublic')?.checked),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()}}; 
+    const payload={shop:{name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),phone_public:Boolean($('shopPhonePublic')?.checked),website:normalizeWebsiteUrl($('shopWebsite').value.trim()),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()}}; 
   try{
     setBtnBusy('createShopBtn',true,'Creating...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Creating...');
@@ -16384,7 +16410,7 @@ async function saveShop(){
   if(formErr){setS('shopStatus',formErr,'err');return toast('Business details missing',formErr,'err');}
   const addr=buildShopAddressPayload();
   const hoursData=updateHoursSummary();
-  const payload={name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),phone_public:Boolean($('shopPhonePublic')?.checked),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()};
+  const payload={name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),phone_public:Boolean($('shopPhonePublic')?.checked),website:normalizeWebsiteUrl($('shopWebsite').value.trim()),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()};
   try{
     setBtnBusy('saveShopBtn',true,'Saving...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Saving...');
@@ -16753,7 +16779,7 @@ if($('bulkAction')) $('bulkAction').addEventListener('change',syncBulkEditBar);
 if($('csvErrorsDownloadBtn')) $('csvErrorsDownloadBtn').addEventListener('click',downloadCsvErrors);
 
 /* ── Analytics ── */
-['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopOwnerContactName','shopVerificationEvidence'].forEach(id=>{
+['shopId','shopName','shopAddress','shopOverview','shopPhone','shopHours','shopWebsite','shopWhatsapp','shopCountry','shopTimezone','shopRegion','shopCity','shopPostal','shopStreet1','shopStreet2','shopOwnerContactName','shopVerificationEvidence'].forEach(id=>{
   $(id)?.addEventListener('input',()=>{markShopFormDirty();renderBusinessListingUi(currentShopListingSnapshot());});
 });
 $('shopPhonePublic')?.addEventListener('change',()=>{markShopFormDirty();renderBusinessListingUi(currentShopListingSnapshot());});

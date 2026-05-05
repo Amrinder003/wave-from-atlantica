@@ -44,6 +44,7 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
         shop_name = shop.get("name", "")
         address = shop.get("address", "")
         overview = shop.get("overview", "")
+        website = shop.get("website", "")
         phone = shop.get("phone", "")
         hours = shop.get("hours", "")
         category = shop.get("category", "")
@@ -55,6 +56,7 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
             f"Category: {category}\n"
             f"Address: {address}\n"
             f"Overview: {overview}\n"
+            f"Website: {website}\n"
             f"Phone: {phone}\n"
             f"Hours: {hours}\n"
             f"WhatsApp: {whatsapp}\n"
@@ -102,6 +104,7 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
     shop_name = shop_obj.get("shop_name", shop_obj.get("name", ""))
     address = shop_obj.get("address", "")
     overview = shop_obj.get("overview", "")
+    website = shop_obj.get("website", "")
     phone = shop_obj.get("phone", "")
     hours = shop_obj.get("hours", "")
     category = shop_obj.get("category", "")
@@ -114,6 +117,7 @@ def chunk_shop(shop_obj: dict, shop_id: str) -> List[Dict[str, Any]]:
         f"Category: {category}\n"
         f"Address: {address}\n"
         f"Overview: {overview}\n"
+        f"Website: {website}\n"
         f"Phone: {phone}\n"
         f"Hours: {hours}\n"
         f"WhatsApp: {whatsapp}\n"

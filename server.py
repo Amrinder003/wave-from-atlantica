@@ -17,6 +17,7 @@ import smtplib
 from typing import Any, Dict, List, Optional, Tuple
 from io import BytesIO, StringIO
 from email.message import EmailMessage
+from urllib.parse import urlparse
 import zipfile
 import xml.etree.ElementTree as ET
 from supabase import create_client, Client
@@ -67,7 +68,7 @@ RATE_LIMIT_STATE: Dict[str, List[float]] = {}
 CURRENT_REQUEST: ContextVar[Optional[Request]] = ContextVar("current_request", default=None)
 PUBLIC_SHOP_FIELDS = (
     "shop_id", "shop_slug", "name", "profile_image_url", "address", "formatted_address", "overview", "phone", "phone_public", "hours",
-    "hours_structured", "category", "business_type", "location_mode", "service_area", "whatsapp", "country_code", "country_name", "timezone_name",
+    "hours_structured", "category", "business_type", "location_mode", "service_area", "website", "whatsapp", "country_code", "country_name", "timezone_name",
     "region", "city", "postal_code", "street_line1", "street_line2", "currency_code", "latitude",
     "longitude", "supports_pickup", "supports_delivery", "supports_walk_in", "delivery_radius_km",
     "delivery_fee", "pickup_notes",
@@ -138,6 +139,7 @@ CLAIMABLE_SHOP_FIELDS = ",".join([
     "location_mode",
     "category",
     "phone",
+    "website",
     "whatsapp",
     "country_code",
     "country_name",
@@ -693,6 +695,7 @@ class ShopInfo(BaseModel):
     overview: str = ""
     phone: str = ""
     phone_public: bool = False
+    website: str = ""
     hours: str = ""
     hours_structured: List[Dict[str, Any]] = []
     category: str = ""
@@ -835,6 +838,22 @@ def normalize_bool_flag(value: Any, default: bool = False) -> bool:
 
 def normalize_owner_contact_name(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()[:120]
+
+def normalize_public_url(value: Any) -> str:
+    text = re.sub(r"\s+", "", str(value or "")).strip()[:300]
+    if not text:
+        return ""
+    if text.startswith("//"):
+        text = f"https:{text}"
+    if not re.match(r"^https?://", text, re.I):
+        text = f"https://{text}"
+    try:
+        parsed = urlparse(text)
+    except Exception:
+        return ""
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc or "." not in parsed.netloc:
+        return ""
+    return text
 
 def normalize_verification_evidence(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()[:500]
@@ -1913,7 +1932,7 @@ def unique_product_slug(shop_id: str, name: str, ignore_product_id: str = "") ->
         candidate = f"{base[:max(1, 50-len(suffix))]}{suffix}"
     return f"{base[:40]}-{uuid.uuid4().hex[:6]}"
 
-SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area", "profile_image_url", "phone_public", *SHOP_REVIEW_WRITE_COLUMNS, *SHOP_TRUST_WRITE_COLUMNS]
+SHOP_OPTIONAL_WRITE_COLUMNS = ["business_type", "location_mode", "service_area", "profile_image_url", "phone_public", "website", *SHOP_REVIEW_WRITE_COLUMNS, *SHOP_TRUST_WRITE_COLUMNS]
 PRODUCT_OPTIONAL_WRITE_COLUMNS = [
     "price_amount", "stock_quantity", "product_slug", "variant_data", "variant_matrix",
     "attribute_data", "currency_code", "offering_type", "price_mode", "availability_mode",
@@ -2460,7 +2479,7 @@ def rebuild_kb(shop_id: str):
             "images": imgs
         })
     
-    obj = {"shop": {k: shop_row.get(k, "") for k in ("name","profile_image_url","address","overview","hours","hours_structured","category","business_type","location_mode","service_area","country_code","country_name","timezone_name","region","city","postal_code","street_line1","street_line2","currency_code")},
+    obj = {"shop": {k: shop_row.get(k, "") for k in ("name","profile_image_url","address","overview","website","hours","hours_structured","category","business_type","location_mode","service_area","country_code","country_name","timezone_name","region","city","postal_code","street_line1","street_line2","currency_code")},
            "products": p_serialized}
     obj["shop"]["phone"] = public_shop_phone_value(shop_row)
            
@@ -2743,6 +2762,7 @@ def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out["address"] = out["formatted_address"] or (out.get("address") or "").strip()
     out["phone"] = re.sub(r"\s+", " ", str(out.get("phone") or "")).strip()[:40]
     out["phone_public"] = normalize_bool_flag(out.get("phone_public"), default=False)
+    out["website"] = normalize_public_url(out.get("website", ""))
     out["whatsapp"] = re.sub(r"\s+", " ", str(out.get("whatsapp") or "")).strip()[:40]
     out["supports_pickup"] = bool(out.get("supports_pickup", True))
     out["supports_delivery"] = bool(out.get("supports_delivery", False))
@@ -4280,9 +4300,12 @@ def answer_shop_info_query(shop: dict, q: str) -> Optional[Dict[str, Any]]:
     if is_contact_query(q):
         parts = []
         phone = public_shop_phone_value(shop).strip()
+        website = normalize_public_url(shop.get("website", ""))
         whatsapp = (shop.get("whatsapp") or "").strip()
         if phone:
             parts.append(f"Phone: **{phone}**")
+        if website:
+            parts.append(f"Website: **{website}**")
         if whatsapp:
             parts.append(f"WhatsApp: **{whatsapp}**")
         if parts:
@@ -4627,6 +4650,7 @@ def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Op
     if shop.get("service_area"): lines.append(f"Service area: {shop.get('service_area','')}")
     public_phone = public_shop_phone_value(shop)
     if public_phone: lines.append(f"Phone: {public_phone}")
+    if shop.get("website"): lines.append(f"Website: {shop.get('website')}")
     if shop.get("hours"): lines.append(f"Hours: {shop['hours']}")
     if shop.get("category"): lines.append(f"Category: {shop['category']}")
     if shop.get("location_mode"): lines.append(f"Location mode: {shop['location_mode']}")
@@ -5507,6 +5531,8 @@ def answer_marketplace_shop_profile_query(shop: Dict[str, Any], prod_rows: List[
     parts.append(opener + ".")
     if overview:
         parts.append(overview)
+    if shop.get("website"):
+        parts.append(f"Official website: {shop.get('website')}")
     detail_bits = []
     if shop_rows:
         detail_bits.append(f"**{len(shop_rows)}** public offering{'s' if len(shop_rows) != 1 else ''} on Atlantica")
@@ -5580,11 +5606,14 @@ def answer_marketplace_shop_info_query(
             "meta": {"llm_used": False, "reason": "shop_hours", "suggestions": [f"Where is {top.get('name', 'this business')} located?", f"What does {top.get('name', 'this business')} offer?", "Which businesses are open now?"]},
         }
     phone = public_shop_phone_value(top).strip()
+    website = normalize_public_url(top.get("website", ""))
     whatsapp = str(top.get("whatsapp") or "").strip()
-    if phone or whatsapp:
+    if phone or website or whatsapp:
         parts = []
         if phone:
             parts.append(f"Phone: **{phone}**")
+        if website:
+            parts.append(f"Website: **{website}**")
         if whatsapp:
             parts.append(f"WhatsApp: **{whatsapp}**")
         return {
@@ -5970,6 +5999,8 @@ def build_marketplace_context(shops: List[Dict[str, Any]], picked: List[Dict[str
         lines.append(
             f"Focused business: {focus_shop.get('name', 'Business')} | Category: {focus_shop.get('category') or 'Business'} | Location: {location} | Hours: {focus_shop.get('hours') or 'Not listed'}"
         )
+        if focus_shop.get("website"):
+            lines.append(f"Focused business website: {focus_shop.get('website')}")
         if focus_shop.get("overview"):
             lines.append(f"Focused business overview: {focus_shop.get('overview')}")
     if picked:
@@ -5991,7 +6022,8 @@ def build_marketplace_context(shops: List[Dict[str, Any]], picked: List[Dict[str
         counts = marketplace_shop_offering_counts(prod_rows)
         for shop in shops[:8]:
             location = shop.get("address") or shop.get("service_area") or "Location coming soon"
-            lines.append(f"- {shop.get('name', 'Business')} | Category: {shop.get('category', 'Business')} | Location: {location} | Offerings: {counts.get(str(shop.get('shop_id', '')), 0)}")
+            website_part = f" | Website: {shop.get('website')}" if shop.get("website") else ""
+            lines.append(f"- {shop.get('name', 'Business')} | Category: {shop.get('category', 'Business')} | Location: {location} | Offerings: {counts.get(str(shop.get('shop_id', '')), 0)}{website_part}")
     return "\n".join(lines)
 
 def find_marketplace_out_of_scope_bold_terms(answer: str, shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]]) -> List[str]:
@@ -7095,6 +7127,7 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         "overview": shop["overview"],
         "phone": shop["phone"],
         "phone_public": shop.get("phone_public", False),
+        "website": shop.get("website", ""),
         "hours": shop["hours"],
         "hours_structured": shop["hours_structured"],
         "category": shop["category"],
@@ -7178,7 +7211,7 @@ def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
     writer = csv.writer(buffer)
     writer.writerow([
         "shop_id", "name", "business_type", "location_mode", "service_area", "category", "country_code", "country_name", "region", "city", "postal_code",
-        "formatted_address", "profile_image_url", "timezone_name", "currency_code", "hours", "phone", "phone_public", "whatsapp",
+        "formatted_address", "profile_image_url", "timezone_name", "currency_code", "hours", "phone", "phone_public", "website", "whatsapp",
         "supports_pickup", "supports_delivery", "supports_walk_in", "delivery_radius_km", "delivery_fee", "pickup_notes", "overview"
     ])
     for row in rows:
@@ -7186,7 +7219,7 @@ def admin_export_shops_csv(authorization: Optional[str] = Header(None)):
             row.get("shop_id", ""), row.get("name", ""), row.get("business_type", ""), row.get("location_mode", ""), row.get("service_area", ""), row.get("category", ""), row.get("country_code", ""),
             row.get("country_name", ""), row.get("region", ""), row.get("city", ""), row.get("postal_code", ""),
             row.get("formatted_address", "") or row.get("address", ""), row.get("profile_image_url", ""), row.get("timezone_name", ""),
-            row.get("currency_code", ""), row.get("hours", ""), row.get("phone", ""), row.get("phone_public", False), row.get("whatsapp", ""),
+            row.get("currency_code", ""), row.get("hours", ""), row.get("phone", ""), row.get("phone_public", False), row.get("website", ""), row.get("whatsapp", ""),
             row.get("supports_pickup", True), row.get("supports_delivery", False), row.get("supports_walk_in", True),
             row.get("delivery_radius_km", ""), row.get("delivery_fee", ""), row.get("pickup_notes", ""), row.get("overview", ""),
         ])
@@ -7345,6 +7378,7 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
         "overview": shop["overview"],
         "phone": shop["phone"],
         "phone_public": shop.get("phone_public", False),
+        "website": shop.get("website", ""),
         "hours": shop["hours"],
         "hours_structured": shop["hours_structured"],
         "category": shop["category"],
