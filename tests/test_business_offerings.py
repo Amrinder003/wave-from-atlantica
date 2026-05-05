@@ -501,6 +501,19 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
     def _patch_get_user(self, user):
         return patch.object(server, "get_user", lambda auth, request=None, user=user: (user, {"display_name": getattr(user, "id", "user")}))
 
+    def _add_alpha_shoe_products(self, count=8):
+        base = next(row for row in self.fake_supabase.tables["products"] if row["product_id"] == "shoe-a1")
+        for idx in range(2, count + 2):
+            row = copy.deepcopy(base)
+            row["product_id"] = f"shoe-a{idx}"
+            row["product_slug"] = f"alpha-shoe-{idx}"
+            row["name"] = f"Alpha Shoe {idx}"
+            row["overview"] = f"Alpha shoe option {idx} for everyday wear."
+            row["price"] = f"CAD {70 + idx}.00"
+            row["price_amount"] = float(70 + idx)
+            row["updated_at"] = f"2026-04-{10 + idx:02d}T00:00:00+00:00"
+            self.fake_supabase.tables["products"].append(row)
+
     def test_alias_catalog_response_populates_business_and_offering_aliases(self):
         payload = server.alias_catalog_response(
             {
@@ -578,6 +591,25 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertIn("North Coast Travel", data["answer"])
         self.assertTrue(isinstance(data.get("offerings"), list))
 
+    def test_business_chat_greeting_does_not_attach_product_cards(self):
+        response = self.client.get("/chat", params={"business_id": "svc-1", "q": "hello"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertIn("North Coast Travel", data["answer"])
+        self.assertEqual(data.get("offerings"), [])
+
+    def test_business_chat_shop_profile_caps_product_cards_for_large_catalog(self):
+        self._add_alpha_shoe_products(8)
+        response = self.client.get("/chat", params={"business_id": "alpha-shoes", "q": "Tell me about this shop"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertIn("Alpha Shoes", data["answer"])
+        self.assertIn("popular", data["answer"])
+        self.assertEqual(len(data.get("offerings", [])), 4)
+        self.assertTrue(all(item["business_id"] == "shoe-1" for item in data["offerings"]))
+
     def test_global_chat_returns_marketplace_summary_for_app_question(self):
         response = self.client.get("/chat/global", params={"q": "What is this app?"})
         self.assertEqual(response.status_code, 200)
@@ -617,6 +649,26 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertEqual(len(data.get("offerings", [])), 1)
         self.assertEqual(data["offerings"][0]["business_name"], "Alpha Shoes")
         self.assertEqual(data["offerings"][0]["name"], "Trail Runner Shoes")
+
+    def test_global_chat_shop_profile_caps_product_cards_for_large_catalog(self):
+        self._add_alpha_shoe_products(8)
+        response = self.client.get("/chat/global", params={"q": "Tell me about Alpha Shoes"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertEqual(len(data.get("businesses", [])), 1)
+        self.assertEqual(data["businesses"][0]["name"], "Alpha Shoes")
+        self.assertEqual(len(data.get("offerings", [])), 4)
+        self.assertTrue(all(item["business_name"] == "Alpha Shoes" for item in data["offerings"]))
+
+    def test_global_chat_shop_hours_does_not_attach_product_cards(self):
+        response = self.client.get("/chat/global", params={"q": "What are Alpha Shoes hours?"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertIn("Alpha Shoes", data["answer"])
+        self.assertEqual(len(data.get("businesses", [])), 1)
+        self.assertEqual(data.get("offerings"), [])
 
     def test_global_chat_finds_five_star_products_across_shops(self):
         response = self.client.get("/chat/global", params={"q": "Show me products with five star ratings"})

@@ -2541,6 +2541,124 @@ def wants_product_image(q: str) -> bool:
     qn = norm_text(q)
     return any(v in qn for v in ["image", "images", "photo", "photos", "picture", "pictures", "pic"]) and not wants_all_images(q)
 
+CHAT_CARD_FULL_THRESHOLD = 5
+CHAT_CARD_MAX_RESULTS = 4
+
+def chat_card_limit(total: int, max_cards: int = CHAT_CARD_MAX_RESULTS) -> int:
+    total = max(0, int(total or 0))
+    if total <= CHAT_CARD_FULL_THRESHOLD:
+        return total
+    return min(total, max_cards)
+
+def take_chat_card_rows(rows: List[Dict[str, Any]], max_cards: int = CHAT_CARD_MAX_RESULTS) -> List[Dict[str, Any]]:
+    return list(rows or [])[:chat_card_limit(len(rows or []), max_cards)]
+
+def product_display_score(row: Dict[str, Any], shop: Optional[Dict[str, Any]] = None) -> Tuple[float, str, str]:
+    shop = shop or {}
+    score = 0.0
+    if row_is_available_for_chat(row, shop):
+        score += 2.0
+    try:
+        score += min(float(row.get("avg_rating") or 0), 5.0) * 0.45
+    except Exception:
+        pass
+    try:
+        score += min(float(row.get("review_count") or 0), 25.0) * 0.12
+    except Exception:
+        pass
+    try:
+        score += min(float(row.get("product_views") or 0), 200.0) * 0.025
+    except Exception:
+        pass
+    if normalize_image_list(row.get("shop_id", shop.get("shop_id", "")), row.get("images", [])):
+        score += 0.35
+    if str(row.get("overview", "") or "").strip():
+        score += 0.25
+    if parse_price_value(row.get("price", "")) is not None or parse_price_amount(row.get("price_amount")) is not None:
+        score += 0.2
+    return (score, str(row.get("updated_at", "") or ""), str(row.get("name", "") or "").lower())
+
+def ranked_display_products(rows: List[Dict[str, Any]], shop: Optional[Dict[str, Any]] = None, prefer_images: bool = False) -> List[Dict[str, Any]]:
+    pool = list(rows or [])
+    if prefer_images:
+        with_images = [row for row in pool if normalize_image_list(row.get("shop_id", (shop or {}).get("shop_id", "")), row.get("images", []))]
+        if with_images:
+            pool = with_images
+    return sorted(pool, key=lambda row: product_display_score(row, shop), reverse=True)
+
+def select_chat_product_cards(rows: List[Dict[str, Any]], shop: Optional[Dict[str, Any]] = None, prefer_images: bool = False, max_cards: int = CHAT_CARD_MAX_RESULTS) -> List[Dict[str, Any]]:
+    ranked = ranked_display_products(rows, shop, prefer_images=prefer_images)
+    return ranked[:chat_card_limit(len(ranked), max_cards)]
+
+def is_shop_profile_query(q: str, shop: Optional[Dict[str, Any]] = None) -> bool:
+    if is_location_query(q) or is_hours_query(q) or is_contact_query(q):
+        return False
+    qn = norm_text(q)
+    if not qn:
+        return False
+    shop_name = norm_text((shop or {}).get("name", ""))
+    has_shop_name = bool(shop_name and shop_name in qn)
+    triggers = [
+        "tell me about this shop",
+        "tell me about this business",
+        "tell me about your shop",
+        "tell me about your business",
+        "tell me about the shop",
+        "tell me about the business",
+        "tell me about you",
+        "about this shop",
+        "about this business",
+        "about your shop",
+        "about your business",
+        "what is this shop",
+        "what is this business",
+        "what kind of shop",
+        "what kind of business",
+        "who are you",
+        "what do you do",
+    ]
+    if any(trigger in qn for trigger in triggers):
+        return True
+    return has_shop_name and any(trigger in qn for trigger in ["tell me about", "about", "who is", "what is"])
+
+def product_card_query_intent(q: str, answer_text: str = "", matches: Optional[List[Dict[str, Any]]] = None, shop: Optional[Dict[str, Any]] = None) -> bool:
+    if is_greeting(q) or is_location_query(q) or is_hours_query(q) or is_contact_query(q):
+        return False
+    if is_shop_profile_query(q, shop):
+        return True
+    if any(predicate(q) for predicate in [wants_all_images, wants_product_image, is_list_intent, is_stock_query, is_cheapest_query, is_budget_query, is_price_lookup_query, is_recommendation_query, is_rating_query]):
+        return True
+    qn = norm_text(q)
+    product_terms = [
+        "product",
+        "products",
+        "item",
+        "items",
+        "offering",
+        "offerings",
+        "service",
+        "services",
+        "buy",
+        "sell",
+        "available",
+        "availability",
+        "in stock",
+        "do you have",
+        "do they have",
+        "looking for",
+        "show me",
+        "recommend",
+    ]
+    if any(term in qn for term in product_terms):
+        return True
+    if matches:
+        answer_n = norm_text(answer_text or "")
+        for row in matches[:4]:
+            name_n = norm_text(row.get("name", ""))
+            if name_n and (name_n in qn or name_n in answer_n):
+                return True
+    return False
+
 def parse_price_value(price: str) -> Optional[float]:
     raw = str(price or "").strip().lower()
     if not raw:
@@ -4251,7 +4369,7 @@ def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[D
             "meta": {"llm_used": False, "reason": "budget_filter", "suggestions": suggestions},
         }
 
-    top = matches[:6]
+    top = take_chat_card_rows(matches)
     lines = [f"Here {'is' if len(top)==1 else 'are'} the {plural} I found at {shop_label(shop)} under **{limit:g}**:"]
     for item in top:
         lines.append(chat_item_line(item, shop))
@@ -4261,7 +4379,7 @@ def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[D
         lines.append(f"\nThere are **{len(matches)}** matching {plural} in total.")
     return {
         "answer": "\n".join(lines),
-        "products": serialize_products_bulk(top),
+        "products": serialize_products_bulk(top, None, {shop.get("shop_id", ""): shop}),
         "meta": {"llm_used": False, "reason": "budget_filter", "suggestions": suggestions},
     }
 
@@ -4339,7 +4457,7 @@ def answer_stock_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Di
             "meta": {"llm_used": False, "reason": "stock_filter", "suggestions": dedup([default_catalog_question(shop, prod_rows), "Do you have anything else available?"])},
         }
 
-    top = matches[:6]
+    top = take_chat_card_rows(matches)
     intro = f"Here {'is' if len(top)==1 else 'are'} what {shop_label(shop)} currently has in stock:" if inventory_mode else f"Here {'is' if len(top)==1 else 'are'} the {plural} currently available from {shop_label(shop)}:"
     lines = [intro]
     for item in top:
@@ -4348,7 +4466,7 @@ def answer_stock_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Di
         lines.append(f"\nThere are **{len(matches)}** matching {plural} in total.")
     return {
         "answer": "\n".join(lines),
-        "products": serialize_products_bulk(top),
+        "products": serialize_products_bulk(top, None, {shop.get("shop_id", ""): shop}),
         "meta": {"llm_used": False, "reason": "stock_filter", "suggestions": dedup([default_catalog_question(shop, prod_rows), "What are your prices?", "Do you have anything cheaper?"])},
     }
 
@@ -4371,13 +4489,13 @@ def answer_cheapest_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional
         return None
 
     ranked.sort(key=lambda item: (item["_price_value"], item["name"].lower()))
-    top = ranked[:6]
+    top = take_chat_card_rows(ranked)
     lines = [f"These are the lowest-priced {plural} I found at {shop_label(shop)}:"]
     for item in top:
         lines.append(chat_item_line(item, shop))
     return {
         "answer": "\n".join(lines),
-        "products": serialize_products_bulk(top),
+        "products": serialize_products_bulk(top, None, {shop.get("shop_id", ""): shop}),
         "meta": {"llm_used": False, "reason": "cheapest_filter", "suggestions": [f"Do you have anything below 5 dollars?", default_availability_question(shop, prod_rows), default_catalog_question(shop, prod_rows)]},
     }
 
@@ -4472,7 +4590,7 @@ def answer_product_image_query(shop: dict, prod_rows: List[Dict], q: str) -> Opt
         lines.append(f"\nI also found **{len(matches)-1}** more matching listing card{'s' if len(matches)-1 != 1 else ''} below.")
     return {
         "answer": "\n".join(lines),
-        "products": serialize_products_bulk(matches),
+        "products": serialize_products_bulk(take_chat_card_rows(matches), None, {shop.get("shop_id", ""): shop}),
         "meta": {"llm_used": False, "reason": "product_image", "suggestions": [f"What is the price of {top['name']}?", "Show all images", "Do you have more like this?"]},
     }
 
@@ -4531,7 +4649,7 @@ def answer_attribute_query(shop: dict, prod_rows: List[Dict], q: str) -> Optiona
     if top_value and len(matches) == 1:
         return {
             "answer": f"For **{top['name']}**, the **{asked_label.lower()}** is **{top_value}**.",
-            "products": serialize_products_bulk(matches[:1]),
+            "products": serialize_products_bulk(matches[:1], None, {shop.get("shop_id", ""): shop}),
             "meta": {"llm_used": False, "reason": "attribute_lookup", "suggestions": [f"Show me photos of {top['name']}", f"What is the price of {top['name']}?", default_catalog_question(shop, prod_rows)]},
         }
 
@@ -4549,7 +4667,7 @@ def answer_attribute_query(shop: dict, prod_rows: List[Dict], q: str) -> Optiona
         lines.append(f"- **{item['name']}** - {' | '.join(picked_lines)}")
     return {
         "answer": "\n".join(lines),
-        "products": serialize_products_bulk(matches),
+        "products": serialize_products_bulk(take_chat_card_rows(matches), None, {shop.get("shop_id", ""): shop}),
         "meta": {"llm_used": False, "reason": "attribute_lookup", "suggestions": [default_catalog_question(shop, prod_rows), default_availability_question(shop, prod_rows), "What do you recommend?"]},
     }
 
@@ -4580,7 +4698,7 @@ def answer_recommendation_query(shop: dict, prod_rows: List[Dict], q: str) -> Op
     if not ranked:
         ranked = rank_products(candidates, "", shop.get("category", ""), shop.get("business_type", "")) or [enrich_chat_row(row, shop) for row in candidates]
 
-    top = ranked[:4]
+    top = take_chat_card_rows(ranked)
     opener = f"Here are a few good {plural} from {shop_label(shop)}:"
     if budget is not None:
         opener = f"Here are a few good {plural} from {shop_label(shop)} under **{budget:g}**:"
@@ -4593,7 +4711,7 @@ def answer_recommendation_query(shop: dict, prod_rows: List[Dict], q: str) -> Op
         lines.append(line)
     return {
         "answer": "\n".join(lines),
-        "products": serialize_products_bulk(top),
+        "products": serialize_products_bulk(top, None, {shop.get("shop_id", ""): shop}),
         "meta": {"llm_used": False, "reason": "recommendation", "suggestions": build_chat_suggestions(q, shop, top)},
     }
 
@@ -4973,6 +5091,38 @@ def fallback_answer(shop: dict, picked: List[Dict], q: str) -> str:
         return s
     return f"I couldn't find a direct match. Try asking '{default_catalog_question(shop, picked).lower()}' to see everything available."
 
+def answer_business_shop_profile_query(shop: dict, prod_rows: List[Dict], q: str, currency: str = "") -> Optional[Dict[str, Any]]:
+    if not is_shop_profile_query(q, shop):
+        return None
+    nouns = offering_nouns(shop, prod_rows)
+    plural = nouns["plural"]
+    location = (shop.get("address") or shop.get("service_area") or "").strip()
+    overview = str(shop.get("overview", "") or "").strip()
+    card_rows = select_chat_product_cards(prod_rows, shop)
+    lines = [f"{shop_label(shop)} is listed here with **{len(prod_rows)}** public {plural}."]
+    if overview:
+        lines.append(overview)
+    if location:
+        lines.append(f"Location or service area: **{location}**.")
+    if shop_is_open_now(shop):
+        lines.append("It is marked **open now**.")
+    elif shop.get("hours"):
+        lines.append(f"Public hours: **{shop.get('hours')}**.")
+    if card_rows:
+        if len(prod_rows) <= CHAT_CARD_FULL_THRESHOLD:
+            lines.append(f"I attached the available {plural} below.")
+        else:
+            lines.append(f"I attached **{len(card_rows)}** popular {plural} to start with, so the chat stays easy to scan.")
+    return {
+        "answer": "\n\n".join(lines),
+        "products": serialize_products_bulk(card_rows, None, {shop.get("shop_id", ""): shop}, currency),
+        "meta": {
+            "llm_used": False,
+            "reason": "shop_profile",
+            "suggestions": build_chat_suggestions(q, shop, card_rows or prod_rows),
+        },
+    }
+
 def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
     nouns = offering_nouns(shop, prod_rows)
     plural = nouns["plural"]
@@ -4984,7 +5134,7 @@ def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
             "meta": {"llm_used": False, "reason": "catalog_empty", "suggestions": suggestions},
         }
 
-    top = prod_rows[:10]
+    top = select_chat_product_cards(prod_rows, shop)
     category = (shop.get("category") or "").strip()
     intro = f"Here is what you can browse at {shop_label(shop)}:"
     if category:
@@ -4997,10 +5147,10 @@ def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
             detail += f"\n  {overview[:120]}"
         lines.append(detail)
     if len(prod_rows) > len(top):
-        lines.append(f"\nThere are **{len(prod_rows)}** {plural} in total. Ask if you want something specific.")
+        lines.append(f"\nThere are **{len(prod_rows)}** {plural} in total. I attached the strongest **{len(top)}** cards so you can narrow from there.")
     return {
         "answer": "\n".join(lines),
-        "products": serialize_products_bulk(top[:8]),
+        "products": serialize_products_bulk(top, None, {shop.get("shop_id", ""): shop}),
         "meta": {"llm_used": False, "reason": "catalog_list", "suggestions": suggestions},
     }
 
@@ -5519,7 +5669,7 @@ def answer_marketplace_business_list_query(shops: List[Dict[str, Any]], prod_row
 
 def answer_marketplace_shop_profile_query(shop: Dict[str, Any], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Dict[str, Any]:
     shop_rows = marketplace_rows_for_shop(prod_rows, str(shop.get("shop_id", "")))
-    highlight_rows = pick_marketplace_shop_highlights(shop_rows, shop, q, limit=1)
+    highlight_rows = take_chat_card_rows(pick_marketplace_shop_highlights(shop_rows, shop, q, limit=len(shop_rows) or CHAT_CARD_MAX_RESULTS))
     name = shop.get("name", "This business")
     category = (shop.get("category") or "business").strip()
     location = (shop.get("address") or shop.get("service_area") or "").strip()
@@ -5545,7 +5695,10 @@ def answer_marketplace_shop_profile_query(shop: Dict[str, Any], prod_rows: List[
     if highlight_rows:
         top = highlight_rows[0]
         price = top.get("price") or "price on request"
-        parts.append(f"A good place to start is **{top.get('name', 'this offering')}** at **{price}**.")
+        if len(shop_rows) <= CHAT_CARD_FULL_THRESHOLD:
+            parts.append("I attached the available offerings below.")
+        else:
+            parts.append(f"A good place to start is **{top.get('name', 'this offering')}** at **{price}**. I attached **{len(highlight_rows)}** popular cards so the chat stays easy to scan.")
     return {
         "answer": "\n\n".join(parts),
         "businesses": serialize_marketplace_businesses([shop], prod_rows),
@@ -5580,8 +5733,6 @@ def answer_marketplace_shop_info_query(
             "products": [],
             "meta": {"llm_used": False, "reason": "shop_info_missing_name", "suggestions": ["Which businesses are open now?", "Show me businesses", "What can I buy on this app?"]},
         }
-    focus_rows = marketplace_rows_for_shop(prod_rows, str(top.get("shop_id", "")))
-    highlight_rows = pick_marketplace_shop_highlights(focus_rows, top, q, limit=1)
     businesses = serialize_marketplace_businesses([top], prod_rows)
     if is_location_query(q):
         location_mode = normalize_location_mode(top.get("location_mode", ""), top.get("business_type", ""), top.get("category", ""))
@@ -5594,7 +5745,7 @@ def answer_marketplace_shop_info_query(
         return {
             "answer": answer,
             "businesses": businesses,
-            "products": serialize_marketplace_products(highlight_rows, shop_map, currency) if highlight_rows else [],
+            "products": [],
             "meta": {"llm_used": False, "reason": "shop_location", "suggestions": [f"What does {top.get('name', 'this business')} offer?", f"What are {top.get('name', 'this business')} opening hours?", "Show me more businesses"]},
         }
     if is_hours_query(q):
@@ -5602,7 +5753,7 @@ def answer_marketplace_shop_info_query(
         return {
             "answer": f"The public hours I found for **{top.get('name', 'this business')}** are **{hours}**.",
             "businesses": businesses,
-            "products": serialize_marketplace_products(highlight_rows, shop_map, currency) if highlight_rows else [],
+            "products": [],
             "meta": {"llm_used": False, "reason": "shop_hours", "suggestions": [f"Where is {top.get('name', 'this business')} located?", f"What does {top.get('name', 'this business')} offer?", "Which businesses are open now?"]},
         }
     phone = public_shop_phone_value(top).strip()
@@ -5619,13 +5770,13 @@ def answer_marketplace_shop_info_query(
         return {
             "answer": f"Here is the public contact info I found for **{top.get('name', 'this business')}**:\n" + "\n".join(f"- {part}" for part in parts),
             "businesses": businesses,
-            "products": serialize_marketplace_products(highlight_rows, shop_map, currency) if highlight_rows else [],
+            "products": [],
             "meta": {"llm_used": False, "reason": "shop_contact", "suggestions": [f"What does {top.get('name', 'this business')} offer?", f"Where is {top.get('name', 'this business')} located?", "Show me more businesses"]},
         }
     return {
         "answer": f"I do not see a public phone or WhatsApp listing for **{top.get('name', 'this business')}** right now.",
         "businesses": businesses,
-        "products": serialize_marketplace_products(highlight_rows, shop_map, currency) if highlight_rows else [],
+        "products": [],
         "meta": {"llm_used": False, "reason": "shop_contact_missing", "suggestions": [f"What does {top.get('name', 'this business')} offer?", f"Where is {top.get('name', 'this business')} located?", "Which businesses are open now?"]},
     }
 
@@ -5743,7 +5894,7 @@ def answer_marketplace_rating_query(shops: List[Dict[str, Any]], prod_rows: List
             reverse=True,
         )
 
-    top = matches[:8]
+    top = take_chat_card_rows(matches)
     if target_rating is not None and mode == "exact" and round(target_rating, 1) == 5.0:
         rating_phrase = "**5-star**"
     elif target_rating is not None and mode == "min":
@@ -5772,7 +5923,7 @@ def answer_marketplace_rating_query(shops: List[Dict[str, Any]], prod_rows: List
         line = f"- **{row.get('name', 'Offering')}** from **{shop.get('name', 'Business')}** - {' | '.join(bit for bit in summary_bits if bit)}"
         lines.append(line)
     if len(matches) > len(top):
-        lines.append(f"\nI attached the first **{len(top)}** cards below. Ask me to narrow it by product type, shop, or budget.")
+        lines.append(f"\nI attached **{len(top)}** cards below. Ask me to narrow it by product type, shop, or budget.")
 
     return {
         "answer": "\n".join(lines),
@@ -5835,7 +5986,7 @@ def answer_marketplace_budget_query(shops: List[Dict[str, Any]], prod_rows: List
             "products": [],
             "meta": {"llm_used": False, "reason": "market_budget_empty", "suggestions": ["Find the cheapest option", "Show me businesses", "What can I buy on this app?"]},
         }
-    top = matches[:12]
+    top = take_chat_card_rows(matches)
     focus_shop = shops[0] if len(shops) == 1 else None
     business_count = len({str(row.get("shop_id", "")) for row in matches})
     if focus_shop and focus_shop.get("name"):
@@ -5846,7 +5997,7 @@ def answer_marketplace_budget_query(shops: List[Dict[str, Any]], prod_rows: List
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
         lines.append(marketplace_chat_item_line(enrich_chat_row(row, shop), shop))
     if len(matches) > len(top):
-        lines.append(f"\nI attached the first **{len(top)}** cards below. Ask me to narrow the list by type, brand, or business.")
+        lines.append(f"\nI attached **{len(top)}** cards below. Ask me to narrow the list by type, brand, or business.")
     return {
         "answer": "\n".join(lines),
         "products": serialize_marketplace_products(top, shop_map, currency),
@@ -5870,7 +6021,7 @@ def answer_marketplace_cheapest_query(shops: List[Dict[str, Any]], prod_rows: Li
     priced.sort(key=lambda row: (row.get("_price_value", 0), str(row.get("name", "")).lower()))
     if not priced:
         return None
-    top = priced[:8]
+    top = take_chat_card_rows(priced)
     focus_shop = shops[0] if len(shops) == 1 else None
     lines = [f"These are the lowest-priced matches I found at **{focus_shop.get('name')}**:" if focus_shop and focus_shop.get("name") else "These are the lowest-priced matches I found right now:"]
     for row in top:
@@ -5898,7 +6049,7 @@ def answer_marketplace_stock_query(shops: List[Dict[str, Any]], prod_rows: List[
             "products": [],
             "meta": {"llm_used": False, "reason": "market_stock_empty", "suggestions": ["Show me businesses", "Find the cheapest option", "What can I buy on this app?"]},
         }
-    top = matches[:12]
+    top = take_chat_card_rows(matches)
     focus_shop = shops[0] if len(shops) == 1 else None
     business_count = len({str(row.get("shop_id", "")) for row in matches})
     if focus_shop and focus_shop.get("name"):
@@ -5909,7 +6060,7 @@ def answer_marketplace_stock_query(shops: List[Dict[str, Any]], prod_rows: List[
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
         lines.append(marketplace_chat_item_line(enrich_chat_row(row, shop), shop))
     if len(matches) > len(top):
-        lines.append(f"\nI attached the first **{len(top)}** cards below.")
+        lines.append(f"\nI attached **{len(top)}** cards below.")
     return {
         "answer": "\n".join(lines),
         "products": serialize_marketplace_products(top, shop_map, currency),
@@ -5925,7 +6076,7 @@ def answer_marketplace_catalog_query(shops: List[Dict[str, Any]], prod_rows: Lis
             "meta": {"llm_used": False, "reason": "market_catalog_empty", "suggestions": ["Show me businesses", "Find the cheapest option", "What can I buy on this app?"]},
         }
     pool = ranked or rank_marketplace_products(prod_rows, "", shop_map)
-    top = pool[:12]
+    top = take_chat_card_rows(pool)
     focus_shop = shops[0] if len(shops) == 1 else None
     business_count = len({str(row.get("shop_id", "")) for row in pool})
     if focus_shop and focus_shop.get("name"):
@@ -5936,7 +6087,7 @@ def answer_marketplace_catalog_query(shops: List[Dict[str, Any]], prod_rows: Lis
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
         lines.append(marketplace_chat_item_line(enrich_chat_row(row, shop), shop))
     if len(pool) > len(top):
-        lines.append(f"\nI attached the first **{len(top)}** cards below. Ask me to narrow the list by budget, business, or product details.")
+        lines.append(f"\nI attached **{len(top)}** cards below. Ask me to narrow the list by budget, business, or product details.")
     return {
         "answer": "\n".join(lines),
         "products": serialize_marketplace_products(top, shop_map, currency),
@@ -5964,7 +6115,7 @@ def answer_marketplace_recommendation_query(shops: List[Dict[str, Any]], prod_ro
             "products": [],
             "meta": {"llm_used": False, "reason": "market_recommendation_empty", "suggestions": ["Find the cheapest option", "Show me businesses", "What can I buy on this app?"]},
         }
-    top = candidates[:4]
+    top = take_chat_card_rows(candidates)
     focus_shop = shops[0] if len(shops) == 1 else None
     opener = f"Here are a few strong picks from **{focus_shop.get('name')}**:" if focus_shop and focus_shop.get("name") else "Here are a few strong marketplace options:"
     if budget is not None:
@@ -6830,7 +6981,7 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
     scope_shop_map = {str(focus_shop.get("shop_id", "")): focus_shop} if focus_shop else shop_map
     scope_prod_rows = marketplace_rows_for_shop(prod_rows, str(focus_shop.get("shop_id", ""))) if focus_shop else prod_rows
     focus_businesses = serialize_marketplace_businesses([focus_shop], prod_rows) if focus_shop else []
-    focus_highlight_rows = pick_marketplace_shop_highlights(scope_prod_rows, focus_shop, q, limit=1) if focus_shop and scope_prod_rows else []
+    focus_highlight_rows = []
 
     def respond(payload: Dict[str, Any], force_focus_highlight: bool = False) -> Dict[str, Any]:
         body = dict(payload or {})
@@ -6849,11 +7000,11 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
         return respond(answer_marketplace_app_query(shops, prod_rows))
 
     if is_marketplace_shop_profile_query(q, focus_shop):
-        return respond(answer_marketplace_shop_profile_query(focus_shop or {}, scope_prod_rows, q, scope_shop_map, currency), force_focus_highlight=True)
+        return respond(answer_marketplace_shop_profile_query(focus_shop or {}, scope_prod_rows, q, scope_shop_map, currency))
 
     shop_info_answer = answer_marketplace_shop_info_query(shops, prod_rows, q, shop_map, currency, focus_shop=focus_shop)
     if shop_info_answer is not None:
-        return respond(shop_info_answer, force_focus_highlight=True)
+        return respond(shop_info_answer)
 
     open_now_answer = answer_marketplace_open_now_query(shops, prod_rows, q)
     if open_now_answer is not None:
@@ -6898,7 +7049,7 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
             ),
             "products": [],
             "meta": {"llm_used": False, "reason": "market_greeting", "suggestions": suggestions},
-        }, force_focus_highlight=bool(focus_shop))
+        })
 
     if is_list_intent(q) or any(token in norm_text(q) for token in ["buy", "find", "looking for", "need", "want"]):
         return respond(answer_marketplace_catalog_query(scope_shops, scope_prod_rows, q, scope_shop_map, currency))
@@ -6914,34 +7065,39 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
         flagged_terms = find_marketplace_out_of_scope_bold_terms(llm_res.get("content", ""), scope_shops, scope_prod_rows)
         if flagged_terms:
             print(f"[Atlantica Scope Guard] blocked out-of-scope terms: {flagged_terms}")
+            card_rows = take_chat_card_rows(picked) if product_card_query_intent(q, "", picked, focus_shop) else []
             return respond({
                 "answer": fallback_marketplace_answer(scope_shops, picked, q, scope_shop_map, focus_shop=focus_shop),
-                "products": serialize_marketplace_products(picked[:8], scope_shop_map, currency) if picked else [],
+                "products": serialize_marketplace_products(card_rows, scope_shop_map, currency) if card_rows else [],
                 "meta": {"llm_used": False, "reason": "scope_guard", "suggestions": suggestions},
-            }, force_focus_highlight=bool(focus_shop))
-        attached = picked
-        if wants_product_image(q):
-            attached = [row for row in picked if normalize_image_list(row.get("shop_id", ""), row.get("images", []))] or picked
+            })
+        attached: List[Dict[str, Any]] = []
+        if product_card_query_intent(q, llm_res.get("content", ""), picked, focus_shop):
+            attached = picked
+            if wants_product_image(q):
+                attached = [row for row in picked if normalize_image_list(row.get("shop_id", ""), row.get("images", []))] or picked
+            attached = take_chat_card_rows(attached)
         return respond({
             "answer": llm_res.get("content", "").strip() or fallback_marketplace_answer(scope_shops, picked, q, scope_shop_map, focus_shop=focus_shop),
-            "products": serialize_marketplace_products(attached[:1] if focus_shop else attached[:8], scope_shop_map, currency) if attached else [],
+            "products": serialize_marketplace_products(attached, scope_shop_map, currency) if attached else [],
             "meta": {
                 "llm_used": True,
                 "model": llm_res.get("model") or OPENROUTER_MODEL,
                 "finish_reason": llm_res.get("finish_reason") or "stop",
                 "suggestions": suggestions,
             },
-        }, force_focus_highlight=bool(focus_shop and not attached))
+        })
     except Exception as e:
         err_msg = str(e)
         if hasattr(e, "response") and getattr(e, "response") is not None:
             err_msg += f" | {e.response.text}"
         print(f"[Atlantica LLM Exception] Fallback triggered: {err_msg}")
+        card_rows = take_chat_card_rows(picked) if product_card_query_intent(q, "", picked, focus_shop) else []
         return respond({
             "answer": fallback_marketplace_answer(scope_shops, picked, q, scope_shop_map, focus_shop=focus_shop),
-            "products": serialize_marketplace_products(picked[:1] if focus_shop else picked[:8], scope_shop_map, currency) if picked else [],
+            "products": serialize_marketplace_products(card_rows, scope_shop_map, currency) if card_rows else [],
             "meta": {"llm_used": False, "reason": "fallback_after_llm_error", "suggestions": suggestions},
-        }, force_focus_highlight=bool(focus_shop and not picked))
+        })
 
 @app.get("/chat")
 def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str = Query(""), q: str = Query(...), currency: str = Query("")):
@@ -6959,14 +7115,27 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
         })
     track(shop_id, "chat")
     
-    raw_prod_rows = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
+    raw_prod_rows = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data or []
+    review_map, view_map = load_product_metric_maps(raw_prod_rows)
     prod_rows = []
     for row in raw_prod_rows:
-        prod_rows.append({**row, **get_display_price_fields(row, shop, currency)})
+        key = (str(row.get("shop_id", "")), str(row.get("product_id", "")))
+        ratings = review_map.get(key, [])
+        prod_rows.append({
+            **row,
+            **get_display_price_fields(row, shop, currency),
+            "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else 0,
+            "review_count": len(ratings),
+            "product_views": view_map.get(key, 0),
+        })
 
     info_answer = answer_shop_info_query(shop, q)
     if info_answer is not None:
         return respond(info_answer)
+
+    profile_answer = answer_business_shop_profile_query(shop, prod_rows, q, currency)
+    if profile_answer is not None:
+        return respond(profile_answer)
 
     budget_answer = answer_budget_query(shop, prod_rows, q)
     if budget_answer is not None:
@@ -6989,7 +7158,7 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
         return respond(attribute_answer)
 
     picked = rank_products(prod_rows, q, shop.get("category", ""), shop.get("business_type", ""))
-    abs_picked = serialize_products_bulk(picked[:4], None, {shop_id: shop}, currency)
+    response_cards: List[Dict[str, Any]] = []
     rag = {"chunks": [], "matches": []}
     if HAS_RAG and not is_greeting(q):
         try:
@@ -7007,12 +7176,13 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
             ans = f"Here are all photos from **{shop['name']}**:\n" + "\n".join(f"![Image]({url})" for url in gallery[:40])
         else:
             ans = "This business hasn't uploaded any listing photos yet."
-        return respond({"answer": ans, "products": abs_picked, "meta": {"llm_used": False, "suggestions": suggestions}})
+        gallery_cards = select_chat_product_cards(prod_rows, shop, prefer_images=True)
+        return respond({"answer": ans, "products": serialize_products_bulk(gallery_cards, None, {shop_id: shop}, currency), "meta": {"llm_used": False, "suggestions": suggestions}})
 
     # 2. Shortcut: Greeting
     if is_greeting(q):
         nouns = offering_nouns(shop, prod_rows)
-        return respond({"answer": f"Hi! Welcome to **{shop['name']}**! Ask me about {nouns['plural']}, prices, availability, opening hours, or say '{default_catalog_question(shop, prod_rows).lower()}'.", "products": abs_picked, "meta": {"llm_used": False, "suggestions": suggestions}})
+        return respond({"answer": f"Hi! Welcome to **{shop['name']}**! Ask me about {nouns['plural']}, prices, availability, opening hours, or say '{default_catalog_question(shop, prod_rows).lower()}'.", "products": [], "meta": {"llm_used": False, "suggestions": suggestions}})
 
     # 3. Handle Full Catalog Requests safely
     if is_list_intent(q):
@@ -7039,9 +7209,11 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
         flagged_terms = find_out_of_scope_bold_terms(llm_res["content"], shop, prod_rows)
         if flagged_terms:
             print(f"[Chat Scope Guard] shop={shop_id} blocked out-of-scope terms: {flagged_terms}")
+            if product_card_query_intent(q, "", picked, shop):
+                response_cards = take_chat_card_rows(picked)
             return respond({
                 "answer": fallback_answer_v2(shop, picked, q),
-                "products": abs_picked,
+                "products": serialize_products_bulk(response_cards, None, {shop_id: shop}, currency) if response_cards else [],
                 "meta": {
                     "llm_used": False,
                     "reason": "scope_guard",
@@ -7049,14 +7221,15 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
                     "rag_matches": len(rag.get('matches', [])),
                 }
             })
-        attached = choose_chat_products(prod_rows, q, llm_res["content"], prefer_images=wants_product_image(q), limit=4, category=shop.get("category", ""), business_type=shop.get("business_type", ""))
-        if attached:
-            abs_picked = serialize_products_bulk(attached, None, {shop_id: shop}, currency)
-        elif wants_product_image(q):
-            with_images = [p for p in picked if p.get("images")]
-            if with_images:
-                abs_picked = serialize_products_bulk(with_images[:4], None, {shop_id: shop}, currency)
-        return respond({"answer": llm_res["content"], "products": abs_picked, "meta": {"llm_used": True, "model": llm_res.get("model") or OPENROUTER_MODEL, "suggestions": suggestions, "rag_matches": len(rag.get('matches', [])), "finish_reason": llm_res.get("finish_reason") or "stop"}})
+        if product_card_query_intent(q, llm_res["content"], picked, shop):
+            attached = choose_chat_products(prod_rows, q, llm_res["content"], prefer_images=wants_product_image(q), limit=CHAT_CARD_MAX_RESULTS, category=shop.get("category", ""), business_type=shop.get("business_type", ""))
+            if attached:
+                response_cards = take_chat_card_rows(attached)
+            elif wants_product_image(q):
+                response_cards = select_chat_product_cards(picked, shop, prefer_images=True)
+            else:
+                response_cards = take_chat_card_rows(picked or select_chat_product_cards(prod_rows, shop))
+        return respond({"answer": llm_res["content"], "products": serialize_products_bulk(response_cards, None, {shop_id: shop}, currency) if response_cards else [], "meta": {"llm_used": True, "model": llm_res.get("model") or OPENROUTER_MODEL, "suggestions": suggestions, "rag_matches": len(rag.get('matches', [])), "finish_reason": llm_res.get("finish_reason") or "stop"}})
     except Exception as e:
         err_msg = str(e)
         if hasattr(e, "response") and getattr(e, "response") is not None:
@@ -7065,10 +7238,12 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
         print(f"[Chat LLM Exception] Fallback triggered: {err_msg}")
         
         ans = fallback_answer_v2(shop, picked, q)
+        if product_card_query_intent(q, ans, picked, shop):
+            response_cards = take_chat_card_rows(picked)
 
         return respond({
             "answer": ans,
-            "products": abs_picked,
+            "products": serialize_products_bulk(response_cards, None, {shop_id: shop}, currency) if response_cards else [],
             "meta": {"llm_used": False, "reason": "fallback_after_llm_error", "suggestions": suggestions, "rag_matches": len(rag.get('matches', []))}
         })
 
