@@ -290,6 +290,7 @@ PRODUCT_SEARCH_INDEX_COLUMNS = ",".join([
     "variant_data",
     "variant_matrix",
     "attribute_data",
+    "external_links",
     "stock",
     "updated_at",
     "price",
@@ -664,6 +665,12 @@ def offering_summary_bits(row: Dict[str, Any], shop: Optional[Dict[str, Any]] = 
         bits.append(f"Capacity {int(row['capacity'])}")
     return bits
 
+def offering_external_links_text(row: Dict[str, Any], limit: int = 3) -> str:
+    links = normalize_offering_external_links((row or {}).get("external_links") or (row or {}).get("offering_links") or (row or {}).get("action_links"))
+    if not links:
+        return ""
+    return "; ".join(f"{item['label']}: {item['url']}" for item in links[:limit])
+
 class RegisterReq(BaseModel):
     email: str
     password: str
@@ -772,6 +779,7 @@ class Product(BaseModel):
     variant_data: List[Dict[str, Any]] = []
     variant_matrix: List[Dict[str, Any]] = []
     attribute_data: Dict[str, str] = {}
+    external_links: List[Dict[str, Any]] = []
     images: List[str] = []
 
 class CreateShopReq(BaseModel):
@@ -877,8 +885,12 @@ def normalize_bool_flag(value: Any, default: bool = False) -> bool:
 def normalize_owner_contact_name(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()[:120]
 
+MAX_PUBLIC_URL_LENGTH = 800
+MAX_OFFERING_EXTERNAL_LINKS = 4
+MAX_OFFERING_LINK_LABEL_LENGTH = 48
+
 def normalize_public_url(value: Any) -> str:
-    text = re.sub(r"\s+", "", str(value or "")).strip()[:300]
+    text = re.sub(r"\s+", "", str(value or "")).strip()[:MAX_PUBLIC_URL_LENGTH]
     if not text:
         return ""
     if text.startswith("//"):
@@ -892,6 +904,57 @@ def normalize_public_url(value: Any) -> str:
     if parsed.scheme not in {"http", "https"} or not parsed.netloc or "." not in parsed.netloc:
         return ""
     return text
+
+def normalize_offering_external_links(raw: Any, strict: bool = False) -> List[Dict[str, str]]:
+    if raw in (None, ""):
+        return []
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return []
+        try:
+            raw = json.loads(text)
+        except Exception:
+            if strict:
+                raise HTTPException(400, "external_links_json must be valid JSON")
+            return []
+    if isinstance(raw, dict):
+        raw = [raw]
+    if not isinstance(raw, list):
+        if strict:
+            raise HTTPException(400, "external_links must be a JSON array")
+        return []
+
+    out: List[Dict[str, str]] = []
+    seen = set()
+    for idx, item in enumerate(raw[:MAX_OFFERING_EXTERNAL_LINKS]):
+        if isinstance(item, str):
+            label_raw = "Website"
+            url_raw = item
+        elif isinstance(item, dict):
+            label_raw = item.get("label") or item.get("name") or item.get("title") or item.get("button_label") or item.get("text") or ""
+            url_raw = item.get("url") or item.get("href") or item.get("website") or item.get("link") or ""
+        else:
+            if strict:
+                raise HTTPException(400, f"External link {idx + 1} must be an object")
+            continue
+
+        label = re.sub(r"\s+", " ", str(label_raw or "")).strip()[:MAX_OFFERING_LINK_LABEL_LENGTH].strip()
+        url = normalize_public_url(url_raw)
+        if not label and not url:
+            continue
+        if not url:
+            if strict:
+                raise HTTPException(400, f"External link {idx + 1} needs a valid website URL")
+            continue
+        if not label:
+            label = "Website"
+        signature = (label.lower(), url.lower())
+        if signature in seen:
+            continue
+        seen.add(signature)
+        out.append({"label": label, "url": url})
+    return out
 
 def normalize_verification_evidence(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()[:500]
@@ -1978,7 +2041,7 @@ SHOP_OPTIONAL_WRITE_COLUMNS = [
 PRODUCT_OPTIONAL_WRITE_COLUMNS = [
     "price_amount", "stock_quantity", "product_slug", "variant_data", "variant_matrix",
     "attribute_data", "currency_code", "offering_type", "price_mode", "availability_mode",
-    "duration_minutes", "capacity",
+    "duration_minutes", "capacity", "external_links",
 ]
 
 def shop_write_payload_with_fallback(shop_id: str, data: Dict[str, Any], existing: bool, strict_cols: Optional[List[str]] = None) -> Tuple[Dict[str, Any], List[str]]:
@@ -2233,6 +2296,7 @@ def serialize_product(row: dict, user_id: str = None, shop: Optional[Dict[str, A
         except: pass
     offering_type = normalize_offering_type(row.get("offering_type", ""), shop_row.get("business_type", ""), shop_row.get("category", ""))
     normalized_attributes = normalize_attribute_data(row.get("attribute_data"), shop_row.get("category", ""), offering_type, shop_row.get("business_type", ""))
+    external_links = normalize_offering_external_links(row.get("external_links") or row.get("offering_links") or row.get("action_links"))
     variant_data = normalize_variant_data(row.get("variant_data") or row.get("variants", ""), shop_id)
     variant_matrix = normalize_variant_matrix(row.get("variant_matrix", []), variant_data, shop_id)
     return offering_record_with_aliases({
@@ -2250,6 +2314,9 @@ def serialize_product(row: dict, user_id: str = None, shop: Optional[Dict[str, A
         "variant_matrix": variant_matrix,
         "attribute_data": normalized_attributes,
         "attribute_lines": format_attribute_lines(normalized_attributes, shop_row.get("category", ""), offering_type, shop_row.get("business_type", "")),
+        "external_links": external_links,
+        "offering_links": external_links,
+        "action_links": external_links,
         "images": imgs, "image_count": len(imgs),
         "product_views": len(product_views),
         "avg_rating": round(sum(r["rating"] for r in rv)/len(rv) if rv else 0, 1),
@@ -2307,6 +2374,7 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Opt
         shop_row = normalize_shop_record((shop_map or {}).get(shop_id, {}))
         offering_type = normalize_offering_type(row.get("offering_type", ""), shop_row.get("business_type", ""), shop_row.get("category", ""))
         normalized_attributes = normalize_attribute_data(row.get("attribute_data"), shop_row.get("category", ""), offering_type, shop_row.get("business_type", ""))
+        external_links = normalize_offering_external_links(row.get("external_links") or row.get("offering_links") or row.get("action_links"))
         variant_data = normalize_variant_data(row.get("variant_data") or row.get("variants", ""), shop_id)
         variant_matrix = normalize_variant_matrix(row.get("variant_matrix", []), variant_data, shop_id)
         out.append(offering_record_with_aliases({
@@ -2330,6 +2398,9 @@ def serialize_products_bulk(rows: List[dict], user_id: str = None, shop_map: Opt
             "variant_matrix": variant_matrix,
             "attribute_data": normalized_attributes,
             "attribute_lines": format_attribute_lines(normalized_attributes, shop_row.get("category", ""), offering_type, shop_row.get("business_type", "")),
+            "external_links": external_links,
+            "offering_links": external_links,
+            "action_links": external_links,
             "images": imgs,
             "image_count": len(imgs),
             "product_views": view_map.get(key, 0),
@@ -2518,6 +2589,7 @@ def rebuild_kb(shop_id: str):
             "stock": p.get("stock", "in"), "variants": p.get("variants", ""),
             "offering_type": normalize_offering_type(p.get("offering_type", ""), shop_row.get("business_type", ""), shop_row.get("category", "")),
             "attribute_data": normalize_attribute_data(p.get("attribute_data"), shop_row.get("category", ""), p.get("offering_type", ""), shop_row.get("business_type", "")),
+            "external_links": normalize_offering_external_links(p.get("external_links")),
             "images": imgs
         })
     
@@ -3024,6 +3096,10 @@ def offering_record_with_aliases(row: Dict[str, Any]) -> Dict[str, Any]:
     out["offering_slug"] = out.get("offering_slug") or out.get("product_slug", "")
     out["business_id"] = out.get("business_id") or out.get("shop_id", "")
     out["business_slug"] = out.get("business_slug") or out.get("shop_slug", "")
+    external_links = normalize_offering_external_links(out.get("external_links") or out.get("offering_links") or out.get("action_links"))
+    out["external_links"] = external_links
+    out["offering_links"] = external_links
+    out["action_links"] = external_links
     if out.get("product_views") is not None and out.get("offering_views") is None:
         out["offering_views"] = out.get("product_views")
     if out.get("shop_name") and not out.get("business_name"):
@@ -3811,6 +3887,7 @@ def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[st
     normalized_variants = summarize_variant_data(variant_data) or normalize_variants_text(product.variants) if uses_variants(offering_type, business_type, shop.get("category", "")) else ""
     stock_value = derive_stock_from_quantity(stock_quantity, stock_raw) if tracks_inventory(offering_type, business_type, shop.get("category", "")) else stock_raw
     attribute_data = parse_attribute_data_strict(product.attribute_data, shop.get("category", ""), offering_type, business_type)
+    external_links = normalize_offering_external_links(product.external_links, strict=True)
     price_text = get_display_price_fields({
         "price_amount": round(amount, 2) if amount is not None else None,
         "price": product.price,
@@ -3834,6 +3911,7 @@ def normalize_product_payload(product: Product, shop: Dict[str, Any]) -> Dict[st
         "variant_data": variant_data,
         "variant_matrix": variant_matrix,
         "attribute_data": attribute_data,
+        "external_links": external_links,
         "images": dedup(product.images or []),
         "updated_at": "now()",
     }
@@ -3850,6 +3928,8 @@ def product_strict_columns_for_data(data: Dict[str, Any]) -> List[str]:
         strict_cols.append("duration_minutes")
     if data.get("capacity") not in (None, ""):
         strict_cols.append("capacity")
+    if data.get("external_links"):
+        strict_cols.append("external_links")
     return strict_cols
 
 def normalize_catalog_header(value: str) -> str:
@@ -4158,6 +4238,15 @@ def build_product_from_catalog_row(shop_id: str, shop: Dict[str, Any], row: Dict
     attr_raw = parse_catalog_json(catalog_value(row, "attribute_data_json", "category_details_json"), {})
     if not isinstance(attr_raw, dict):
         raise ValueError("attribute_data_json must be a JSON object")
+    external_links_raw = parse_catalog_json(catalog_value(row, "external_links_json", "offering_links_json", "action_links_json"), [])
+    if not isinstance(external_links_raw, list):
+        raise ValueError("external_links_json must be a JSON array")
+    simple_link_url = catalog_value(row, "external_url", "external_link", "website_url", "booking_url", "product_url")
+    if simple_link_url:
+        external_links_raw.append({
+            "label": catalog_value(row, "external_label", "external_link_label", "website_label", "booking_label", "product_link_label") or "Website",
+            "url": simple_link_url,
+        })
     schema = offering_attribute_schema(business_type, shop.get("category", ""), offering_type)
     for key, label in schema:
         value = catalog_value(row, key, label)
@@ -4195,6 +4284,7 @@ def build_product_from_catalog_row(shop_id: str, shop: Dict[str, Any], row: Dict
         variant_data=variant_data,
         variant_matrix=variant_matrix,
         attribute_data=attr_raw,
+        external_links=normalize_offering_external_links(external_links_raw, strict=True),
         images=dedup(product_images),
     )
     return pid, product
@@ -4385,6 +4475,7 @@ def enrich_chat_row(row: Dict[str, Any], shop: Optional[Dict[str, Any]] = None, 
         "images": normalize_image_list(row.get("shop_id", ""), row.get("images", [])),
         "attribute_data": attr_data,
         "attribute_lines": format_attribute_lines(attr_data, category, offering_type, business_type),
+        "external_links": normalize_offering_external_links(row.get("external_links") or row.get("offering_links") or row.get("action_links")),
         "avg_rating": row.get("avg_rating", 0),
         "review_count": row.get("review_count", 0),
         "product_views": row.get("product_views", 0),
@@ -4833,8 +4924,10 @@ def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Op
             row_type = normalize_offering_type(p.get("offering_type", ""), shop.get("business_type", ""), shop.get("category", ""))
             attr_lines = format_attribute_lines(normalize_attribute_data(p.get("attribute_data"), shop.get("category", ""), row_type, shop.get("business_type", "")), shop.get("category", ""), row_type, shop.get("business_type", ""))
             attr_part = f" | Details: {'; '.join(attr_lines[:3])}" if attr_lines else ""
+            link_text = offering_external_links_text(p)
+            link_part = f" | Links: {link_text}" if link_text else ""
             summary = " | ".join(offering_summary_bits(p, shop)) or "Details available on request"
-            lines.append(f'- {p["name"]} | {summary}{img_part}{attr_part}')
+            lines.append(f'- {p["name"]} | {summary}{img_part}{attr_part}{link_part}')
     elif all_rows:
         lines.append(f"\nSample {nouns['plural']} from this business:")
         for row in all_rows[:8]:
@@ -4843,8 +4936,10 @@ def build_context(shop: dict, picked: List[Dict], all_rows: List, rag_chunks: Op
             img_part = f' | Photo: ![{row.get("name","Offering")}]({imgs[0]})' if imgs else ""
             attr_lines = format_attribute_lines(normalize_attribute_data(row.get("attribute_data"), shop.get("category", ""), row_type, shop.get("business_type", "")), shop.get("category", ""), row_type, shop.get("business_type", ""))
             attr_part = f" | Details: {'; '.join(attr_lines[:3])}" if attr_lines else ""
+            link_text = offering_external_links_text(row)
+            link_part = f" | Links: {link_text}" if link_text else ""
             summary = " | ".join(offering_summary_bits(row, shop)) or "Details available on request"
-            lines.append(f'- {row.get("name","Offering")} | {summary}{img_part}{attr_part}')
+            lines.append(f'- {row.get("name","Offering")} | {summary}{img_part}{attr_part}{link_part}')
     if rag_chunks:
         lines.append("\nKnowledge base notes:")
         for chunk in rag_chunks[:4]:
@@ -6214,11 +6309,13 @@ def build_marketplace_context(shops: List[Dict[str, Any]], picked: List[Dict[str
             row_type = normalize_offering_type(row.get("offering_type", ""), shop.get("business_type", ""), shop.get("category", ""))
             attr_lines = format_attribute_lines(normalize_attribute_data(row.get("attribute_data"), shop.get("category", ""), row_type, shop.get("business_type", "")), shop.get("category", ""), row_type, shop.get("business_type", ""))
             attr_part = f" | Details: {'; '.join(attr_lines[:3])}" if attr_lines else ""
+            link_text = offering_external_links_text(row)
+            link_part = f" | Links: {link_text}" if link_text else ""
             location_part = f" | Location: {location}" if location else ""
             rating_part = ""
             if float(row.get("avg_rating", 0) or 0) > 0 and int(row.get("review_count", 0) or 0) > 0:
                 rating_part = f" | Rating: {product_rating_label(row)}"
-            lines.append(f"- {row.get('name', 'Offering')} | Business: {shop.get('name', 'Business')} | Category: {shop.get('category', 'Business')} | {summary_bits}{rating_part}{location_part}{attr_part}")
+            lines.append(f"- {row.get('name', 'Offering')} | Business: {shop.get('name', 'Business')} | Category: {shop.get('category', 'Business')} | {summary_bits}{rating_part}{location_part}{attr_part}{link_part}")
     else:
         lines.append("\nSample businesses:")
         counts = marketplace_shop_offering_counts(prod_rows)
@@ -7478,7 +7575,7 @@ def admin_export_products_csv(authorization: Optional[str] = Header(None)):
         row.get("shop_id"): normalize_shop_record(row)
         for row in (supabase.table("shops").select("*").in_("shop_id", shop_ids).execute().data or [])
     } if shop_ids else {}
-    writer.writerow(["shop_id", "product_id", "offering_type", "price_mode", "availability_mode", "name", "price_amount", "currency_code", "price", "stock", "stock_quantity", "duration_minutes", "capacity", "variants", "variant_data_json", "variant_matrix_json", "attribute_data_json", "overview", "image_urls"])
+    writer.writerow(["shop_id", "product_id", "offering_type", "price_mode", "availability_mode", "name", "price_amount", "currency_code", "price", "stock", "stock_quantity", "duration_minutes", "capacity", "variants", "variant_data_json", "variant_matrix_json", "attribute_data_json", "external_links_json", "overview", "image_urls"])
     for row in rows or []:
         shop_row = shop_meta.get(row.get("shop_id"), {})
         business_type = shop_row.get("business_type", "")
@@ -7490,6 +7587,7 @@ def admin_export_products_csv(authorization: Optional[str] = Header(None)):
             json.dumps(normalize_variant_data(row.get("variant_data") or row.get("variants", ""), row.get("shop_id", "")), ensure_ascii=False),
             json.dumps(normalize_variant_matrix(row.get("variant_matrix", []), normalize_variant_data(row.get("variant_data") or row.get("variants", ""), row.get("shop_id", "")), row.get("shop_id", "")), ensure_ascii=False),
             json.dumps(normalize_attribute_data(row.get("attribute_data"), category, offering_type, business_type), ensure_ascii=False),
+            json.dumps(normalize_offering_external_links(row.get("external_links")), ensure_ascii=False),
             row.get("overview", ""),
             "|".join(normalize_image_list(row.get("shop_id", ""), row.get("images", []))),
         ])
@@ -8404,17 +8502,7 @@ def admin_upsert_product(shop_id: str, product: Product, authorization: Optional
     imgs = data["images"]
     if existing and not imgs: imgs = existing[0].get("images", [])
     data["images"] = imgs
-    strict_cols = ["variant_data", "variant_matrix"] if data.get("variant_data") or data.get("variant_matrix") else []
-    if data.get("offering_type") != "product":
-        strict_cols.append("offering_type")
-    if data.get("price_mode") != "fixed":
-        strict_cols.append("price_mode")
-    if data.get("availability_mode") not in {"", "in_stock"}:
-        strict_cols.append("availability_mode")
-    if data.get("duration_minutes") not in (None, ""):
-        strict_cols.append("duration_minutes")
-    if data.get("capacity") not in (None, ""):
-        strict_cols.append("capacity")
+    strict_cols = product_strict_columns_for_data(data)
     data, unsupported_cols = product_write_payload_with_fallback(shop_id, pid, data, bool(existing), strict_cols)
     if unsupported_cols:
         print(f"[Product Schema Warning] {shop_id}/{pid}: saved without optional columns {unsupported_cols}")
@@ -8605,7 +8693,7 @@ async def admin_product_with_images(
     price_amount: str = Form(""), currency_code: str = Form(""),
     offering_type: str = Form(""), price_mode: str = Form("fixed"), availability_mode: str = Form(""),
     stock: str = Form("in"), stock_quantity: str = Form(""), duration_minutes: str = Form(""), capacity: str = Form(""),
-    variants: str = Form(""), variant_data_json: str = Form(""), variant_matrix_json: str = Form(""), attribute_data_json: str = Form(""),
+    variants: str = Form(""), variant_data_json: str = Form(""), variant_matrix_json: str = Form(""), attribute_data_json: str = Form(""), external_links_json: str = Form(""),
     image_urls: str = Form(""), images_json: str = Form(""), images: List[UploadFile] = File(default=[])
 ):
     user, prof = get_user(authorization)
@@ -8666,6 +8754,7 @@ async def admin_product_with_images(
     except Exception:
         raise HTTPException(400, "Capacity must be a whole number")
     parsed_attribute_data = parse_attribute_data_strict(attribute_data_json, shop.get("category", ""), offering_type, shop.get("business_type", ""))
+    parsed_external_links = normalize_offering_external_links(external_links_json, strict=True)
     
     parsed_variant_data = normalize_variant_data(variant_data_json or variants, shop_id)
     for idx, files in variant_upload_map.items():
@@ -8698,20 +8787,11 @@ async def admin_product_with_images(
         variant_data=parsed_variant_data,
         variant_matrix=parsed_variant_matrix,
         attribute_data=parsed_attribute_data,
+        external_links=parsed_external_links,
         images=merged,
     ), shop)
     data["product_slug"] = unique_product_slug(shop_id, name.strip(), pid if existing else "")
-    strict_cols = ["variant_data", "variant_matrix"] if data.get("variant_data") or data.get("variant_matrix") else []
-    if data.get("offering_type") != "product":
-        strict_cols.append("offering_type")
-    if data.get("price_mode") != "fixed":
-        strict_cols.append("price_mode")
-    if data.get("availability_mode") not in {"", "in_stock"}:
-        strict_cols.append("availability_mode")
-    if data.get("duration_minutes") not in (None, ""):
-        strict_cols.append("duration_minutes")
-    if data.get("capacity") not in (None, ""):
-        strict_cols.append("capacity")
+    strict_cols = product_strict_columns_for_data(data)
     data, unsupported_cols = product_write_payload_with_fallback(shop_id, pid, data, bool(existing), strict_cols)
     if unsupported_cols:
         print(f"[Product Schema Warning] {shop_id}/{pid}: saved without optional columns {unsupported_cols}")

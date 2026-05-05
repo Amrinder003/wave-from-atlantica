@@ -578,6 +578,46 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertIsNone(data["business"]["latitude"])
         self.assertIsNone(data["business"]["longitude"])
 
+    def test_admin_offering_accepts_named_external_links(self):
+        with self._patch_get_user(self.owner):
+            response = self.client.post(
+                "/admin/business/svc-1/offering",
+                headers=self._owner_headers(),
+                json={
+                    "product_id": "offer-1",
+                    "name": "Trip Planning Session",
+                    "overview": "A one-hour travel planning consultation.",
+                    "price_amount": 120,
+                    "currency_code": "CAD",
+                    "offering_type": "service",
+                    "price_mode": "starting_at",
+                    "availability_mode": "available",
+                    "stock": "in",
+                    "duration_minutes": 60,
+                    "attribute_data": {"service_mode": "Online", "provider": "Senior agent"},
+                    "external_links": [
+                        {"label": "Book Session", "url": "northcoast.example/book/trip-planning"},
+                        {"label": "Planning Form", "url": "https://forms.example/intake"},
+                    ],
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        stored = next(row for row in self.fake_supabase.tables["products"] if row["product_id"] == "offer-1")
+        self.assertEqual(
+            stored["external_links"],
+            [
+                {"label": "Book Session", "url": "https://northcoast.example/book/trip-planning"},
+                {"label": "Planning Form", "url": "https://forms.example/intake"},
+            ],
+        )
+
+        public_response = self.client.get("/public/business/north-coast-travel")
+        self.assertEqual(public_response.status_code, 200)
+        offering = public_response.json()["offerings"][0]
+        self.assertEqual(offering["external_links"], stored["external_links"])
+        self.assertEqual(offering["offering_links"], stored["external_links"])
+
     def test_public_business_list_hides_coordinates_for_non_mappable_locations(self):
         response = self.client.get("/public/businesses")
         self.assertEqual(response.status_code, 200)
