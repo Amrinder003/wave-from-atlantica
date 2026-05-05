@@ -3604,75 +3604,6 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   .compose-row{grid-template-columns:minmax(0,1fr) auto!important}
 }
 
-.pc.pc-service{
-  display:grid!important;
-  grid-template-columns:92px minmax(0,1fr)!important;
-  align-items:stretch!important;
-  min-height:148px!important;
-}
-.pc.pc-service .pc-photo-wrap{
-  aspect-ratio:auto!important;
-  height:100%!important;
-  min-height:100%!important;
-  border-right:1px solid rgba(191,174,149,.22)!important;
-  background:linear-gradient(180deg,#fff8ef,#ead6bb)!important;
-}
-.pc.pc-service .pc-nophoto{
-  width:54px;
-  height:54px;
-  border-radius:18px;
-  display:grid;
-  place-items:center;
-  padding:0 8px;
-  background:rgba(255,250,242,.92);
-  border:1px solid rgba(162,76,46,.18);
-  box-shadow:0 10px 20px rgba(92,47,24,.1);
-  color:var(--A2);
-  font-size:11px;
-  font-weight:900;
-  line-height:1.1;
-  text-align:center;
-  text-transform:uppercase;
-}
-.pc.pc-service .pc-body{
-  min-width:0!important;
-  padding:14px 14px 13px!important;
-}
-.pc.pc-service .pc-name{
-  -webkit-line-clamp:2;
-  overflow-wrap:anywhere;
-}
-.pc.pc-service .pc-price,
-.pc.pc-service .pc-noprice{
-  font-size:13px!important;
-  line-height:1.3;
-  overflow-wrap:anywhere;
-}
-.pc.pc-service .pc-overview{
-  -webkit-line-clamp:3;
-}
-.pc.pc-service .pc-attr{
-  -webkit-line-clamp:2;
-}
-.pc.pc-service .pc-fav{
-  opacity:1;
-}
-@media(max-width:420px){
-  .pc.pc-service,
-  .shop-pgrid .pc.pc-service{
-    display:grid!important;
-    grid-template-columns:82px minmax(0,1fr)!important;
-    min-height:136px!important;
-  }
-  .pc.pc-service .pc-photo-wrap,
-  .shop-pgrid .pc.pc-service .pc-photo-wrap{
-    height:100%!important;
-    min-height:100%!important;
-    border-right:1px solid rgba(191,174,149,.22)!important;
-  }
-  .pc.pc-service .pc-body{padding:12px!important}
-}
-
 /* 2026 admin readability repair */
 #pg-admin,#pg-admin .admin-wrap,#pg-admin .admin-main,#pg-admin .asub,#pg-admin .shop-admin-view,
 #authBg .auth-box,#profileBg .profile-panel,#orderBg .auth-box,#trackReqBg .auth-box{
@@ -4691,7 +4622,7 @@ select.btn{
 #pdBg #pdAttrList{
   margin-top:6px!important;
   display:grid!important;
-  grid-template-columns:repeat(2,minmax(0,1fr));
+  grid-template-columns:1fr!important;
   gap:8px!important;
 }
 #pdBg .tp-row{
@@ -4715,6 +4646,9 @@ select.btn{
 #pdBg .tp-name{
   font-size:12px!important;
   line-height:1.45!important;
+  min-width:0!important;
+  overflow-wrap:anywhere!important;
+  word-break:normal!important;
 }
 #pdBg .pd-fav-btn.saved{
   background:var(--Rp)!important;
@@ -12889,9 +12823,7 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
     return art;
   }
 
-  const serviceCard=!ctx.inventory;
-  const serviceCardLabel=ctx.meta?.label || 'Service';
-  const art=document.createElement('article');art.className=serviceCard?'pc pc-service':'pc';
+  const art=document.createElement('article');art.className='pc';
   art.__waveCardProduct=p;
   art.__waveCardOpts={mode,showShop,sid, sname};
   if(accentColor){ art.classList.add('has-color'); art.style.setProperty('--variant-accent',accentColor); }
@@ -12910,14 +12842,14 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
       <div class="pc-stock ${availabilityTone}">${esc(availability)}</div>
       ${variantPreview}
       ${p.overview?`<div class="pc-overview">${esc(p.overview)}</div>`:''}
-      ${attrPreview?`<div class="pc-attr">${esc(attrPreview)}</div>`:''}
+      ${ctx.inventory&&attrPreview?`<div class="pc-attr">${esc(attrPreview)}</div>`:''}
       ${showShop&&shopName?`<div class="pc-shop">🏪 <span class="pc-shop-link" data-sid="${esc(shopRef)}">${esc(shopName)}</span></div>`:''}
       ${(p.product_views>0)?`<div class="pc-views">${p.product_views} view${p.product_views===1?'':'s'}</div>`:''}
       ${(p.avg_rating>0)?`<div class="pc-rating">${starsHtml(p.avg_rating,5,11)} <span>${p.avg_rating.toFixed(1)}</span>${p.review_count?` (${p.review_count})`:''}</div>`:''}
     </div>`;
 
   const noPhoto=art.querySelector('.pc-nophoto');
-  if(noPhoto) noPhoto.textContent=serviceCard?serviceCardLabel:'No photo';
+  if(noPhoto) noPhoto.textContent='No photo';
   const photoCount=art.querySelector('.pc-n');
   if(photoCount && n>1) photoCount.textContent=`${n} photos`;
   const shopLine=art.querySelector('.pc-shop');
@@ -13170,6 +13102,53 @@ function buildPagination(container,pagination,onPageClick){
     container.appendChild(btn(pages,pages));
   }
   container.appendChild(btn('Next >',page+1,false,page>=pages));
+}
+
+function compactDetailValue(value='',max=96){
+  const text=String(value||'').replace(/\s+/g,' ').trim();
+  if(!text) return '';
+  if(text.length<=max) return text;
+  return `${text.slice(0,Math.max(0,max-3)).trim()}...`;
+}
+function buildOfferingDetailLines(p={},ctx={},shop={}){
+  if(ctx.inventory){
+    return (Array.isArray(p.attribute_lines)?p.attribute_lines:[])
+      .map(line=>String(line||'').trim())
+      .filter(Boolean)
+      .slice(0,6);
+  }
+  const category=ctx.category||shop.category||'';
+  const businessType=ctx.businessType||shop.business_type||'';
+  const offeringType=ctx.offeringType||p.offering_type||'';
+  const schema=offeringSchema(category,businessType,offeringType);
+  const labels=Object.fromEntries(schema);
+  const attrData=(p.attribute_data&&typeof p.attribute_data==='object')?p.attribute_data:{};
+  const lines=[];
+  const seen=new Set();
+  const add=(label,value,max=88)=>{
+    const clean=compactDetailValue(value,max);
+    const safeLabel=String(label||'Detail').trim();
+    if(!clean || seen.has(`${safeLabel}:${clean}`)) return;
+    lines.push(`${safeLabel}: ${clean}`);
+    seen.add(`${safeLabel}:${clean}`);
+  };
+  if(supportsDuration(offeringType,businessType,category) && p.duration_minutes!=null && p.duration_minutes!==''){
+    add('Duration',`${p.duration_minutes} min`,32);
+  }
+  if(supportsCapacity(offeringType,businessType,category) && p.capacity!=null && p.capacity!==''){
+    add('Capacity',p.capacity,32);
+  }
+  const usefulKeys={
+    service:['service_mode','provider','service_area_note'],
+    class:['level','audience','schedule_notes'],
+    event:['event_date','venue','audience'],
+    portfolio:['medium','style','commission_type','turnaround'],
+    offering:['availability_notes','pricing_notes','service_area_note'],
+  }[normalizeOfferingType(offeringType,businessType,category)] || [];
+  usefulKeys.forEach(key=>{
+    if(attrData[key]) add(labels[key]||key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),attrData[key],key.includes('note')?100:72);
+  });
+  return lines.slice(0,4);
 }
 
 async function openPD(p,mode,sid,sname){
@@ -13437,7 +13416,7 @@ async function openPD(p,mode,sid,sname){
   $('pdPid').textContent=p.product_id||'';
   $('pdName').textContent=p.name||'';
   if($('pdAboutLabel')) $('pdAboutLabel').textContent=`About this ${ctx.meta.singular}`;
-  if($('pdAttrTitle')) $('pdAttrTitle').textContent=ctx.offeringType==='product'?'Product Details':'Details';
+  if($('pdAttrTitle')) $('pdAttrTitle').textContent=ctx.offeringType==='product'?'Product Details':'Useful Details';
   const pe=$('pdPrice');pe.textContent=priceDisplayText(p,shop,{fallback:'Price not listed',incomplete:'Price not listed'});pe.className=String(p.price||'').trim()?'pd-price':'pd-noprice-t';
   $('pdPriceNote').textContent=p.price_converted&&p.price_native?`Converted from ${p.price_native}`:'';
   const sm={in:{l:'✅ In Stock',c:'in'},low:{l:'⚠️ Low Stock',c:'low'},out:{l:'❌ Out of Stock',c:'out'}};
@@ -13446,7 +13425,7 @@ async function openPD(p,mode,sid,sname){
   $('pdViews').textContent=`${p.product_views||0} view${(p.product_views||0)===1?'':'s'}`;
   $('pdDesc').textContent=p.overview||'No details available.';
   const attrWrap=$('pdAttrWrap'),attrList=$('pdAttrList');
-  const attrLines=p.attribute_lines||[];
+  const attrLines=buildOfferingDetailLines(p,ctx,shop);
   if(attrWrap&&attrList){
     if(attrLines.length){
       attrWrap.style.display='grid';
