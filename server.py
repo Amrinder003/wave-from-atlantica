@@ -1379,6 +1379,24 @@ def attach_business_claim_shops(rows: List[Dict[str, Any]]) -> List[Dict[str, An
         claim["business_name"] = claim["shop_name"]
     return claims
 
+def add_claim_review_management_context(claims: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    owner_ids = [
+        str((claim.get("shop") or {}).get("owner_user_id", "") or "").strip()
+        for claim in (claims or [])
+    ]
+    owner_email_map = load_auth_email_map(owner_ids)
+    for claim in claims or []:
+        shop = normalize_shop_record(claim.get("shop") or {})
+        owner_id = str(shop.get("owner_user_id", "") or "").strip()
+        platform_managed = shop_is_platform_managed(shop)
+        claim["current_manager_label"] = "Atlantic Ordinate staff" if platform_managed else (shop.get("owner_contact_name") or "Business owner account")
+        claim["current_manager_account_id"] = owner_id
+        if owner_email_map.get(owner_id):
+            claim["current_manager_account_email"] = owner_email_map[owner_id]
+        claim["current_ownership_state"] = "Staff-managed until claim approval" if platform_managed else "Owner claimed"
+        claim["transfer_target_label"] = claim.get("claimant_display_name") or claim.get("claimant_email") or claim.get("claimant_user_id") or "Claimant account"
+    return claims
+
 def require_supabase() -> Client:
     if supabase is None:
         raise HTTPException(503, "Server is missing Supabase configuration.")
@@ -8205,7 +8223,7 @@ def admin_review_business_claims(status: str = Query(CLAIM_STATUS_PENDING), auth
         rows = supabase.table("business_claims").select("*").eq("status", status_key).order("created_at", desc=False).execute().data or []
     except Exception as e:
         raise HTTPException(500, "Business claim database table is not ready. Run migrations/20260428_business_claims.sql.") from e
-    claims = attach_business_claim_shops(rows)
+    claims = add_claim_review_management_context(attach_business_claim_shops(rows))
     return {"ok": True, "claims": claims}
 
 @app.post("/admin/review/business-claim/{claim_id}/approve")

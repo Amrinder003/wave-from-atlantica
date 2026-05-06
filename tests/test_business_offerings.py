@@ -1006,6 +1006,38 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_admin_claim_queue_includes_transfer_context(self):
+        self._add_platform_managed_shop()
+        self.fake_supabase.tables["business_claims"].append(
+            {
+                "claim_id": "claim-1",
+                "shop_id": "import-1",
+                "claimant_user_id": "user-1",
+                "claimant_display_name": "Verified User",
+                "claimant_email": "verified@example.com",
+                "note": "I own this business.",
+                "status": "pending",
+                "review_note": "",
+            }
+        )
+
+        with self._patch_get_user(self.admin):
+            admin_response = self.client.get("/admin/review/business-claims", headers=self._admin_headers())
+        with self._patch_get_user(self.user):
+            owner_response = self.client.get("/admin/my-business-claims", headers=self._user_headers())
+
+        self.assertEqual(admin_response.status_code, 200)
+        claim = admin_response.json()["claims"][0]
+        self.assertEqual(claim["current_manager_label"], "Atlantic Ordinate staff")
+        self.assertEqual(claim["current_manager_account_id"], "imports-1")
+        self.assertEqual(claim["current_ownership_state"], "Staff-managed until claim approval")
+        self.assertEqual(claim["transfer_target_label"], "Verified User")
+
+        self.assertEqual(owner_response.status_code, 200)
+        owner_claim = owner_response.json()["claims"][0]
+        self.assertNotIn("current_manager_account_id", owner_claim)
+        self.assertNotIn("current_ownership_state", owner_claim)
+
     def test_claim_approval_transfers_platform_import_out_of_managed_queue(self):
         self._add_platform_managed_shop()
         self.fake_supabase.tables["business_claims"].append(

@@ -1398,6 +1398,10 @@ a{color:inherit;text-decoration:none}
 .claim-result-meta{font-size:12px;line-height:1.55;color:var(--ink3)}
 .claim-result-note{font-size:12px;line-height:1.6;color:var(--ink2)}
 .claim-result-note strong{color:var(--ink)}
+.claim-review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+.claim-review-row{padding:10px 11px;border-radius:14px;background:rgba(255,255,255,.72);border:1px solid rgba(191,174,149,.28)}
+.claim-review-k{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:var(--ink4)}
+.claim-review-v{margin-top:4px;font-size:12px;line-height:1.45;font-weight:800;color:var(--ink)}
 .claim-help-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 14px}
 .claim-help-card{padding:12px;border-radius:18px;background:#f8faf8;border:1px solid var(--bd);display:grid;gap:5px}
 .claim-help-k{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:var(--A2)}
@@ -1410,7 +1414,7 @@ a{color:inherit;text-decoration:none}
   .owner-filter-bar .btn-row{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
   .owner-filter-bar .btn-row .btn{width:100%;justify-content:center}
 }
-@media(max-width:760px){.claim-help-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.claim-help-grid,.claim-review-grid{grid-template-columns:1fr}}
 @media(max-width:680px){.owner-filter-bar{grid-template-columns:1fr}.claim-search-row{grid-template-columns:1fr}}
 .owner-detail-card{overflow:hidden;background:linear-gradient(135deg,rgba(255,250,244,.98),rgba(250,242,232,.92));position:relative}
 .owner-detail-card::after{content:"";position:absolute;right:-40px;top:-26px;width:180px;height:180px;border-radius:999px;background:radial-gradient(circle,rgba(2,132,199,.1),rgba(2,132,199,0));pointer-events:none}
@@ -7627,6 +7631,11 @@ function normalizeBusinessClaimRecord(row={}){
   out.review_note=(out.review_note||'').trim();
   out.claimant_display_name=(out.claimant_display_name||'').trim();
   out.claimant_email=(out.claimant_email||'').trim();
+  out.current_manager_label=(out.current_manager_label||'').trim();
+  out.current_manager_account_id=(out.current_manager_account_id||'').trim();
+  out.current_manager_account_email=(out.current_manager_account_email||'').trim();
+  out.current_ownership_state=(out.current_ownership_state||'').trim();
+  out.transfer_target_label=(out.transfer_target_label||'').trim();
   out.shop=normalizeBusinessRecord(out.shop||out.business||{});
   out.business=out.shop;
   out.has_pending_claim=out.has_pending_claim===true;
@@ -16607,10 +16616,22 @@ function renderAdminClaimQueue(){
   claims.forEach(rawClaim=>{
     const claim=normalizeBusinessClaimRecord(rawClaim);
     const shop=normalizeBusinessRecord(claim.shop||claim.business||{});
+    const claimantLabel=claim.claimant_display_name||claim.claimant_email||claim.claimant_user_id||'Unknown claimant';
+    const currentManager=claim.current_manager_label || (shop.is_platform_managed?'Atlantic Ordinate staff':(shop.owner_contact_name||'Business owner account'));
+    const managerAccount=claim.current_manager_account_email || claim.current_manager_account_id || shop.owner_user_id || 'Account reference unavailable';
+    const transferTarget=claim.transfer_target_label || claimantLabel;
+    const reviewRows=[
+      ['Current manager',currentManager],
+      ['Ownership state',claim.current_ownership_state || (shop.is_platform_managed?'Staff-managed until claim approval':'Owner claimed')],
+      ['Managing account',managerAccount],
+      ['Transfer target',transferTarget],
+      ['Claimant account',claim.claimant_email||claim.claimant_user_id||'Not provided'],
+      ['Business proof cues',[shop.website||'',shop.phone?`Review phone ${shop.phone}`:''].filter(Boolean).join(' | ') || 'No website or phone in listing'],
+    ];
     const item=document.createElement('div');
     item.className='review-queue-item';
-    item.innerHTML=`<div class="claim-result-head"><div><div class="claim-result-title">${esc(shop.name||'Untitled Business')}</div><div class="claim-result-meta">${esc(claim.claimant_display_name||claim.claimant_email||'Unknown claimant')} - ${esc(claim.claimant_email||'No email')} - ${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}</div></div>${businessClaimPillHtml(claim,'Pending Review')}</div><div class="claim-result-note"><strong>Claim note</strong> ${esc(claim.note||'No note supplied.')}</div><div class="review-queue-actions"><button class="btn btn-A btn-sm" type="button" data-claim-approve="${esc(claim.claim_id||'')}">Approve Transfer</button><button class="btn btn-o btn-sm" type="button" data-claim-reject="${esc(claim.claim_id||'')}">Reject</button><button class="btn btn-g btn-sm" type="button" data-claim-open-shop="${esc(shop.shop_id||'')}">Open Live Page</button></div>`;
-    item.querySelector('[data-claim-approve]')?.addEventListener('click',()=>approveBusinessClaim(claim.claim_id||''));
+    item.innerHTML=`<div class="claim-result-head"><div class="claim-result-ident"><div class="claim-result-avatar">${businessAvatarHtml(shop,shop.name||'Business')}</div><div><div class="claim-result-title">${esc(shop.name||'Untitled Business')}</div><div class="claim-result-meta">${esc(claimantLabel)} - ${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}</div></div></div>${businessClaimPillHtml(claim,'Pending Review')}</div><div class="claim-review-grid">${reviewRows.map(([k,v])=>`<div class="claim-review-row"><div class="claim-review-k">${esc(k)}</div><div class="claim-review-v">${esc(v)}</div></div>`).join('')}</div><div class="claim-result-note"><strong>Claim note</strong> ${esc(claim.note||'No note supplied.')}</div><div class="review-queue-actions"><button class="btn btn-A btn-sm" type="button" data-claim-approve="${esc(claim.claim_id||'')}">Approve Transfer</button><button class="btn btn-o btn-sm" type="button" data-claim-reject="${esc(claim.claim_id||'')}">Reject</button><button class="btn btn-g btn-sm" type="button" data-claim-open-shop="${esc(shop.shop_id||'')}">Open Live Page</button></div>`;
+    item.querySelector('[data-claim-approve]')?.addEventListener('click',()=>approveBusinessClaim(claim));
     item.querySelector('[data-claim-reject]')?.addEventListener('click',()=>rejectBusinessClaim(claim.claim_id||''));
     item.querySelector('[data-claim-open-shop]')?.addEventListener('click',()=>openShopPage(shop.shop_slug||shop.shop_id||''));
     list.appendChild(item);
@@ -16688,8 +16709,24 @@ async function openManagedBusiness(shopId=''){
   setFieldHint('adminManagedBusinessesStatus','Opening listing workspace...');
   await loadAdminShop(shopId,{refreshOwnerList:false});
 }
-async function approveBusinessClaim(claimId=''){
+function findAdminReviewClaim(claimId=''){
+  const id=String(claimId||'').trim();
+  return (App.adminReviewClaims||[]).map(normalizeBusinessClaimRecord).find(claim=>claim.claim_id===id)||null;
+}
+async function approveBusinessClaim(claimInput=''){
+  const claim=typeof claimInput==='object' && claimInput ? normalizeBusinessClaimRecord(claimInput) : findAdminReviewClaim(claimInput);
+  const claimId=claim?.claim_id || String(claimInput||'').trim();
   if(!claimId) return;
+  const shop=normalizeBusinessRecord(claim?.shop||claim?.business||{});
+  const businessName=shop.name||claim?.shop_name||claim?.business_name||'this business';
+  const currentManager=claim?.current_manager_label || (shop.is_platform_managed?'Atlantic Ordinate staff':(shop.owner_contact_name||'Business owner account'));
+  const target=claim?.transfer_target_label || claim?.claimant_display_name || claim?.claimant_email || claim?.claimant_user_id || 'the claimant account';
+  const typed=prompt(`Approve ownership transfer?\n\nBusiness: ${businessName}\nCurrent manager: ${currentManager}\nNew manager: ${target}\n\nType TRANSFER to confirm.`);
+  if(typed===null) return;
+  if(String(typed||'').trim().toUpperCase()!=='TRANSFER'){
+    setFieldHint('adminClaimQueueStatus','Ownership transfer was not approved. Type TRANSFER exactly to confirm.','err');
+    return;
+  }
   try{
     setFieldHint('adminClaimQueueStatus','Approving ownership claim...');
     await api(`/admin/review/business-claim/${encodeURIComponent(claimId)}/approve`,{method:'POST',auth:true});
