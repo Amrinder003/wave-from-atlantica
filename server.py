@@ -296,6 +296,9 @@ PRODUCT_SEARCH_INDEX_COLUMNS = ",".join([
     "price",
     "price_amount",
 ])
+PRODUCT_SEARCH_INDEX_COLUMNS_LEGACY = ",".join(
+    col for col in PRODUCT_SEARCH_INDEX_COLUMNS.split(",") if col != "external_links"
+)
 
 COUNTRY_META: Dict[str, Dict[str, Any]] = {
     "AU": {"name": "Australia", "currency": "AUD", "postal_regex": r"^\d{4}$", "timezone": "Australia/Sydney"},
@@ -2566,7 +2569,12 @@ def get_shop_product_search_rows(shop_id: str) -> List[Dict[str, Any]]:
     cached = PRODUCT_SEARCH_INDEX_CACHE.get(shop_key)
     if cached and now - float(cached.get("ts", 0) or 0) < PRODUCT_SEARCH_INDEX_CACHE_SECONDS:
         return list(cached.get("rows") or [])
-    rows = supabase.table("products").select(PRODUCT_SEARCH_INDEX_COLUMNS).eq("shop_id", shop_key).order("updated_at", desc=True).execute().data or []
+    try:
+        rows = supabase.table("products").select(PRODUCT_SEARCH_INDEX_COLUMNS).eq("shop_id", shop_key).order("updated_at", desc=True).execute().data or []
+    except Exception as e:
+        if "external_links" not in str(e or ""):
+            raise
+        rows = supabase.table("products").select(PRODUCT_SEARCH_INDEX_COLUMNS_LEGACY).eq("shop_id", shop_key).order("updated_at", desc=True).execute().data or []
     PRODUCT_SEARCH_INDEX_CACHE[shop_key] = {"ts": now, "rows": rows}
     return list(rows)
 
