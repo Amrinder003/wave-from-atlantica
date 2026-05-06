@@ -3709,6 +3709,17 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   color:#7d8b84!important;
   opacity:1!important;
 }
+#authBg .fld input::placeholder,#authBg .fld textarea::placeholder{
+  color:#a8b5ae!important;
+  -webkit-text-fill-color:#a8b5ae!important;
+  font-weight:400!important;
+}
+#authBg .auth-mini-link{
+  color:var(--A2)!important;
+}
+#authBg .auth-mini-link:hover{
+  color:var(--A)!important;
+}
 #pg-admin .fld input:disabled,#pg-admin .fld textarea:disabled,#pg-admin .fld select:disabled,
 #pg-admin .fld input:read-only:not([type=file]){
   background:#eef3f0!important;
@@ -5945,8 +5956,8 @@ select.btn{
               <div class="account-note-copy">Sign in to manage your business pages, resend verification emails, and keep account access secure.</div>
             </div>
             <div id="adminAuthFields" class="fg2">
-              <div class="fld"><label>Email</label><input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com"/></div>
-              <div class="fld"><label>Password</label><input id="authPass" type="password" autocomplete="current-password" placeholder="Your password"/></div>
+              <div class="fld"><label>Email</label><input id="authEmail" type="email" autocomplete="email"/></div>
+              <div class="fld"><label>Password</label><input id="authPass" type="password" autocomplete="current-password"/></div>
             </div>
             <div id="adminGuestActions" class="btn-row">
               <button id="adminLoginBtn" class="btn btn-A btn-sm">Login</button>
@@ -6846,8 +6857,8 @@ select.btn{
     </div>
     <div class="auth-form">
       <div id="atab-login" class="auth-panel on">
-        <div class="fld"><label>Email</label><input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com"/></div>
-        <div class="fld"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="Your password"/></div>
+        <div class="fld"><label>Email</label><input id="loginEmail" type="email" autocomplete="email"/></div>
+        <div class="fld"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password"/></div>
         <button id="loginSubmitBtn" class="btn btn-A" style="width:100%;justify-content:center">Sign In</button>
         <div id="forgotLinkBtn" class="auth-mini-link">Forgot Password?</div>
         <div id="loginStatus" class="stxt"></div>
@@ -7335,6 +7346,7 @@ const App = {
   pdShareUrl: '',
   pdShareTitle: '',
   pdShareText: '',
+  pdReturnPath: '',
   pdVariantSelection: {},
   cardVariantSelections: (()=>{ try{return JSON.parse(localStorage.getItem('lm_card_variant_selections')||'{}')||{};}catch{return {};} })(),
   mapSupport: null,
@@ -7483,6 +7495,9 @@ const norm=u=>(u||'').trim().replace(/\/$/,'');
 function appUiRootPath(){
   return '/ui';
 }
+function currentRoutePath(){
+  return `${location.pathname}${location.search}${location.hash||''}` || appUiRootPath();
+}
 function buildBusinessPublicPath(businessRef=''){
   return `/business/${encodeURIComponent(String(businessRef||'').trim())}`;
 }
@@ -7498,8 +7513,23 @@ function buildProductPublicPath(shopRef='', productRef=''){
 function buildInternalReviewPath(){
   return '/internal/review';
 }
+function isAppRootPath(pathname=location.pathname||''){
+  return /^\/(?:ui)?\/?$/i.test(String(pathname||'').trim());
+}
 function isInternalReviewPath(pathname=location.pathname||''){
   return /^\/internal\/review\/?$/i.test(String(pathname||'').trim());
+}
+function isPublicBusinessPath(pathname=location.pathname||''){
+  return /^\/(?:business|shop)\/[^/]+\/?$/i.test(String(pathname||'').trim());
+}
+function isPublicOfferingPath(pathname=location.pathname||''){
+  return /^\/(?:offering|product)\/[^/]+\/[^/]+\/?$/i.test(String(pathname||'').trim());
+}
+function isLegacyOfferingHash(hash=location.hash||''){
+  return /^#p:[^:]+:.+$/i.test(String(hash||'').trim());
+}
+function isPublicDeepLinkRoute(){
+  return isPublicBusinessPath() || isPublicOfferingPath() || isLegacyOfferingHash();
 }
 function normalizeBusinessListingStatus(value=''){
   const status=String(value||'').trim().toLowerCase();
@@ -7709,12 +7739,9 @@ function normalizeCatalogPayload(data={}){
 function setPublicPath(path, replace=false){
   try{
     const target=String(path||'').trim()||appUiRootPath();
-    if(`${location.pathname}${location.search}`===target) return;
+    if(currentRoutePath()===target) return;
     history[replace?'replaceState':'pushState']({},'',target);
   }catch{}
-}
-function sameShopRef(a='',b=''){
-  return String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase();
 }
 function resolveSrv(v=''){
   const raw=norm(v);
@@ -11674,7 +11701,8 @@ async function refreshBrowserSession(base=resolveSrv(App.srv)){
 /* ═════════════════════════════════════════════
    PAGE ROUTING
 ═════════════════════════════════════════════ */
-function showPage(pg){
+function showPage(pg,opts={}){
+  if(pg==='home' && isPublicDeepLinkRoute() && !opts?.allowPublicRouteOverride) return;
   if(pg==='shop') syncShopSidebarPlacement();
   if(pg==='chat') syncChatSidePlacement();
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('show',p.id===`pg-${pg}`));
@@ -11685,7 +11713,7 @@ function showPage(pg){
   if(pg==='home' && App.publicCatalogDirty) setTimeout(()=>loadAllShops(),0);
   if(pg==='home') setTimeout(()=>maybeOfferLocationOnLaunch().catch(()=>{}),0);
 }
-function goHome(){App.activeCat='';App.marketAttrFilter={key:'',value:'',category:''};highlightCat('');showPage('home');setPublicPath(appUiRootPath());}
+function goHome(){App.activeCat='';App.marketAttrFilter={key:'',value:'',category:''};highlightCat('');setPublicPath(appUiRootPath());showPage('home',{allowPublicRouteOverride:true});}
 function isMobileHomeLayout(){return window.matchMedia('(max-width: 680px)').matches;}
 function isMobileShopLayout(){return window.matchMedia('(max-width: 860px)').matches;}
 function isHomeSearchActive(){
@@ -11722,7 +11750,8 @@ function setHomeMobileView(view='products'){
   shopsBtn?.setAttribute('aria-pressed',shopsActive?'true':'false');
 }
 function focusHomeSection(view='shops'){
-  showPage('home');
+  setPublicPath(appUiRootPath());
+  showPage('home',{allowPublicRouteOverride:true});
   setHomeMobileView(view);
   const target=view==='products' ? $('featuredSection') : $('shopsSection');
   target?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -13495,7 +13524,13 @@ async function openPD(p,mode,sid,sname){
   const ctx=offeringContext(p,shop);
   const shopRef=App.shopData?.shop?.shop_slug||sid||p.shop_slug||p.shop_id||App.shopId;
   const productRef=p.product_slug||p.product_id;
-  if(shopRef && productRef) setPublicPath(buildProductPublicPath(shopRef,productRef));
+  if(shopRef && productRef){
+    const productPath=buildProductPublicPath(shopRef,productRef);
+    const currentPath=currentRoutePath();
+    const alreadyOnOfferingPath=isPublicOfferingPath()||isLegacyOfferingHash();
+    App.pdReturnPath=alreadyOnOfferingPath ? buildShopPublicPath(shopRef) : currentPath;
+    setPublicPath(productPath,alreadyOnOfferingPath);
+  }
   App.pdVariant='';App.pdStar=0;App.pdVariantSelection={};
   App.pdGalleryImages=[];
   App.pdGalleryIndex=0;
@@ -14027,7 +14062,24 @@ async function submitReview(){
   }catch(e){setS('revStatus',e.message,'err');}
   finally{setReviewSubmitState(false);}
 }
-function closePD(){pdGalleryRefresh=null;App.pdReviewRequestKey='';App.pdGalleryImages=[];App.pdGalleryIndex=0;App.pdShareUrl='';App.pdShareTitle='';App.pdShareText='';setProductSharePanel(false);$('pdBg').classList.remove('on');if(location.pathname.startsWith('/offering/')||location.pathname.startsWith('/product/')){const shopRef=App.shopData?.shop?.shop_slug||App.curSid||App.shopId;if(shopRef) setPublicPath(buildShopPublicPath(shopRef),true);}document.body.style.overflow='';}
+function closePD(){
+  pdGalleryRefresh=null;
+  App.pdReviewRequestKey='';
+  App.pdGalleryImages=[];
+  App.pdGalleryIndex=0;
+  App.pdShareUrl='';
+  App.pdShareTitle='';
+  App.pdShareText='';
+  setProductSharePanel(false);
+  $('pdBg').classList.remove('on');
+  if(isPublicOfferingPath()){
+    const shopRef=App.shopData?.shop?.shop_slug||App.curSid||App.shopId;
+    const returnPath=App.pdReturnPath||buildShopPublicPath(shopRef);
+    if(returnPath) setPublicPath(returnPath,true);
+  }
+  App.pdReturnPath='';
+  document.body.style.overflow='';
+}
 $('pdClose').addEventListener('click',closePD);
 $('pdBg').addEventListener('click',e=>{if(e.target===$('pdBg'))closePD();});
 $('pdShareTrigger').addEventListener('click',e=>{
@@ -14205,7 +14257,8 @@ function renderTxt(text){
 async function doSearch(page=1){
   const q=$('navSrchIn').value.trim();if(!q)return;
   App.srchPage=page;
-  showPage('home');
+  setPublicPath(appUiRootPath());
+  showPage('home',{allowPublicRouteOverride:true});
   $('srchBar').style.display='flex';
   $('srchResultGrid').style.display='grid';$('srchPagination').style.display='block';
   $('srchTitle').textContent=`Searching "${q}"...`;
@@ -14502,6 +14555,7 @@ function renderShopLoadError(message='Business is temporarily unavailable.'){
 }
 async function openShopPage(shopId,page=1,sort='',stock='',opts={}){
   const preserveSearch=!!opts?.preserveSearch;
+  const preservePublicPath=!!opts?.preservePublicPath;
   const changedShop=App.shopId!==shopId;
   const requestKey=`shop:${shopId}:${page}:${sort||''}:${stock||''}:${Date.now()}`;
   App.shopCatalogRequestKey=requestKey;
@@ -14538,7 +14592,7 @@ async function openShopPage(shopId,page=1,sort='',stock='',opts={}){
     const s=d.shop,st=d.stats||{};
     const products=applyFavouriteStateToProducts(d.products||[]);
     App.shopId=activeShopRef;save();
-    setPublicPath(buildShopPublicPath(activeShopRef), location.pathname.startsWith('/offering/')||location.pathname.startsWith('/product/'));
+    if(!preservePublicPath) setPublicPath(buildShopPublicPath(activeShopRef), isPublicOfferingPath());
     const nouns=offeringNouns(s,products);
     const inventoryMode=shopInventoryMode(s,products);
     syncAvailabilityFilterLabels(s,products);
@@ -17830,6 +17884,15 @@ $('importCsvBtn').addEventListener('click',async()=>{
 ═════════════════════════════════════════════ */
 async function handlePathDeepLink(source='init'){
   const path=location.pathname||'';
+  if(isAppRootPath(path) && !isLegacyOfferingHash()){
+    if(source!=='init'){
+      closePD();
+      const params=new URLSearchParams(location.search||'');
+      if(params.has('page')) applyPageQueryState();
+      else showPage('home');
+    }
+    return true;
+  }
   let shopRef='', productRef='';
   let m=path.match(/^\/offering\/([^/]+)\/([^/]+)\/?$/) || path.match(/^\/product\/([^/]+)\/([^/]+)\/?$/);
   if(m){
@@ -17845,15 +17908,11 @@ async function handlePathDeepLink(source='init'){
         shopRef=hm[1];
         productRef=hm[2];
       }else{
-        return;
+        return false;
       }
     }
   }
-  if(source==='init' && shopRef && !productRef && sameShopRef(App.shopId,shopRef)){
-    showPage('home');
-    setPublicPath(appUiRootPath(), true);
-    return;
-  }
+  if(!productRef && source!=='init' && $('pdBg')?.classList.contains('on')) closePD();
   try{
     if(productRef){
       const pd=normalizeCatalogPayload(await api(withViewerCurrency(`/public/offering/${encodeURIComponent(shopRef)}/${encodeURIComponent(productRef)}`),{auth:!!tok()}));
@@ -17871,8 +17930,8 @@ async function handlePathDeepLink(source='init'){
         save();
         showPage('shop');
         openPD(p,'browse',pd.shop_id||effectiveShopRef,pd.shop?.name);
-        openShopPage(effectiveShopRef).catch(()=>{});
-        return;
+        openShopPage(effectiveShopRef,1,'','',{preservePublicPath:true}).catch(()=>{});
+        return true;
       }
     }
     const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(shopRef)}`),{auth:!!tok()}));
@@ -17881,8 +17940,10 @@ async function handlePathDeepLink(source='init'){
     App.shopData=d;
     save();
     await openShopPage(d.shop_slug||d.shop_id||shopRef);
+    return true;
   }catch{
     if(shopRef) await openShopPage(shopRef);
+    return true;
   }
 }
 
@@ -18136,8 +18197,8 @@ async function init(){
   if(App.shopId){
     try{const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(App.shopId)}`),{auth:!!tok()}));assertPublicBrowseOk(d,'Business is temporarily unavailable.');App.shopData=d;App.chatShopId=d.shop?.shop_slug||d.shop?.shop_id||App.shopId;if(currentChatMode()!=='global'){$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}}catch{}
   }
-  await handlePathDeepLink('init');
-  applyPageQueryState();
+  const handledDeepLink=await handlePathDeepLink('init');
+  if(!handledDeepLink || !isPublicDeepLinkRoute()) applyPageQueryState();
   if(!handledAuthRedirect) await maybeOfferLocationOnLaunch();
 }
 $('shopFilterApply')?.addEventListener('click',()=>{loadAllShops();toggleShopFilters(false);});
