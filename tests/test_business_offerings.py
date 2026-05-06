@@ -545,6 +545,32 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.fake_supabase.tables["profiles"].append({"id": "imports-1", "display_name": "Atlantic Ordinate Imports", "role": "shopkeeper"})
         return shop
 
+    def _managed_business_payload(self):
+        return {
+            "business": {
+                "name": "Managed Repair",
+                "overview": "Staff-created computer support listing for verified public discovery.",
+                "category": "Professional Services",
+                "business_type": "service",
+                "location_mode": "service_area",
+                "service_area": "Summerside, Prince Edward Island",
+                "phone": "+1 902 555 0900",
+                "country_code": "CA",
+                "country_name": "Canada",
+                "timezone_name": "America/Halifax",
+                "currency_code": "CAD",
+                "region": "Prince Edward Island",
+                "city": "Summerside",
+                "hours_structured": [{"day": "mon", "start": "09:00", "end": "17:00"}],
+                "supports_pickup": False,
+                "supports_delivery": False,
+                "supports_walk_in": True,
+                "verification_method": "website",
+                "verification_evidence": "https://managed.example",
+            },
+            "publish": True,
+        }
+
     def test_alias_catalog_response_populates_business_and_offering_aliases(self):
         payload = server.alias_catalog_response(
             {
@@ -900,6 +926,57 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
 
         owner_profile = next(row for row in self.fake_supabase.tables["profiles"] if row["id"] == "owner-1")
         self.assertEqual(owner_profile["role"], "shopkeeper")
+
+    def test_admin_can_create_platform_managed_business(self):
+        with self._patch_get_user(self.admin), \
+            patch.object(server, "gen_shop_id", lambda name: "managed-repair-1001"), \
+            patch.object(server, "unique_shop_slug", lambda name, ignore_shop_id="": "managed-repair"):
+            response = self.client.post(
+                "/admin/managed-businesses",
+                headers=self._admin_headers(),
+                json=self._managed_business_payload(),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["business_id"], "managed-repair-1001")
+        self.assertEqual(data["business_slug"], "managed-repair")
+        self.assertEqual(data["listing_status"], "verified")
+        self.assertEqual(data["listing_source"], "platform_import")
+        self.assertEqual(data["ownership_status"], "platform_managed")
+        self.assertTrue(data["is_platform_managed"])
+
+        inserted = next(row for row in self.fake_supabase.tables["shops"] if row["shop_id"] == "managed-repair-1001")
+        self.assertEqual(inserted["owner_user_id"], "admin-1")
+        self.assertEqual(inserted["owner_contact_name"], server.PLATFORM_MANAGED_OWNER_CONTACT)
+        self.assertEqual(inserted["listing_source"], "platform_import")
+        self.assertEqual(inserted["ownership_status"], "platform_managed")
+        self.assertIsNone(inserted["claimed_at"])
+        self.assertTrue(inserted["verified_at"])
+
+        with self._patch_get_user(self.admin):
+            managed_response = self.client.get("/admin/managed-businesses", headers=self._admin_headers())
+            my_businesses_response = self.client.get("/admin/my-businesses", headers=self._admin_headers())
+        public_response = self.client.get("/public/business/managed-repair")
+
+        self.assertEqual([row["business_id"] for row in managed_response.json()["businesses"]], ["managed-repair-1001"])
+        self.assertEqual(my_businesses_response.json()["businesses"], [])
+        self.assertEqual(public_response.status_code, 200)
+        public_business = public_response.json()["business"]
+        self.assertEqual(public_business["business_id"], "managed-repair-1001")
+        self.assertNotIn("ownership_status", public_business)
+        self.assertNotIn("listing_source", public_business)
+
+    def test_non_admin_cannot_create_platform_managed_business(self):
+        with self._patch_get_user(self.user):
+            response = self.client.post(
+                "/admin/managed-businesses",
+                headers=self._user_headers(),
+                json=self._managed_business_payload(),
+            )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(any(row.get("name") == "Managed Repair" for row in self.fake_supabase.tables["shops"]))
 
     def test_admin_can_manage_platform_import_until_claimed(self):
         self._add_platform_managed_shop()

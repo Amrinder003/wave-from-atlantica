@@ -791,6 +791,11 @@ class CreateShopReq(BaseModel):
     shop: Optional[ShopInfo] = None
     business: Optional[ShopInfo] = None
 
+class CreateManagedShopReq(BaseModel):
+    shop: Optional[ShopInfo] = None
+    business: Optional[ShopInfo] = None
+    publish: bool = True
+
 class ReviewReq(BaseModel):
     rating: int = Field(..., ge=1, le=5)
     body: str
@@ -3093,6 +3098,25 @@ def map_safe_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
 
 def public_shop_payload(row: Dict[str, Any]) -> Dict[str, Any]:
     safe = map_safe_shop_record({key: row.get(key) for key in PUBLIC_SHOP_FIELDS})
+    for internal_key in (
+        "listing_status",
+        "listing_source",
+        "ownership_status",
+        "claimed_at",
+        "is_platform_managed",
+        "is_claimed",
+        "owner_contact_name",
+        "verification_method",
+        "verification_evidence",
+        "verification_submitted_at",
+        "verified_at",
+        "verification_rejection_reason",
+        "trust_flags",
+        "risk_score",
+        "risk_level",
+        "is_publicly_listed",
+    ):
+        safe.pop(internal_key, None)
     safe["is_open_now"] = bool(row.get("is_open_now", shop_is_open_now(safe)))
     if "stats" in row:
         safe["stats"] = row.get("stats") or {}
@@ -7417,37 +7441,49 @@ def check_shop_owner(user_id: str, shop_id: str):
         return
     raise HTTPException(404, "Not found or not yours")
 
-@app.post("/admin/create-business")
-@app.post("/admin/create-shop")
-def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)):
-    user, prof = get_user(authorization)
-    require_verified(user)
-    prof = safe_ensure_profile_row(user, prof)
-    raw_business = body.business or body.shop
-    if raw_business is None:
-        raise HTTPException(400, "Business payload is required")
-    shop = validate_shop_payload(raw_business)
-    owner_rows, all_rows = load_shop_trust_rows(user.id)
-    enforce_creator_draft_limits(user, owner_rows)
-    trust_snapshot = build_shop_trust_snapshot(shop, user, owner_rows, all_rows, projected_new_unpublished=True)
-    sid = gen_shop_id(shop["name"])
-    shop_slug = unique_shop_slug(shop["name"])
+def allocate_shop_identity(name: str) -> Tuple[str, str]:
+    sid = gen_shop_id(name)
+    shop_slug = unique_shop_slug(name)
     for _ in range(5):
         exists_res = supabase.table("shops").select("shop_id").eq("shop_id", sid).execute()
         if not exists_res.data:
-            break
-        sid = gen_shop_id(shop["name"])
-    else:
-        raise HTTPException(500, "Could not generate a unique shop ID")
+            return sid, shop_slug
+        sid = gen_shop_id(name)
+    raise HTTPException(500, "Could not generate a unique shop ID")
 
-    now_iso = datetime.now(timezone.utc).isoformat()
-    payload = {
+def shop_create_strict_columns(shop: Dict[str, Any]) -> List[str]:
+    strict_cols = list(SHOP_REVIEW_WRITE_COLUMNS)
+    if shop.get("business_type") != "retail":
+        strict_cols.append("business_type")
+    if shop.get("location_mode") != "storefront":
+        strict_cols.append("location_mode")
+    if shop.get("service_area"):
+        strict_cols.append("service_area")
+    return strict_cols
+
+def build_shop_insert_payload(
+    shop: Dict[str, Any],
+    user: Any,
+    prof: Dict[str, Any],
+    shop_slug: str,
+    trust_snapshot: Dict[str, Any],
+    *,
+    listing_status: str,
+    listing_source: str,
+    ownership_status: str,
+    owner_user_id: str,
+    owner_contact_name: str,
+    claimed_at: Optional[str],
+    verified_at: Optional[str] = None,
+    verification_submitted_at: Optional[str] = None,
+) -> Dict[str, Any]:
+    return {
         "shop_slug": shop_slug,
-        "owner_user_id": user.id,
-        "listing_status": LISTING_STATUS_DRAFT,
-        "listing_source": LISTING_SOURCE_OWNER_CREATED,
-        "ownership_status": OWNERSHIP_STATUS_CLAIMED,
-        "claimed_at": now_iso,
+        "owner_user_id": owner_user_id,
+        "listing_status": listing_status,
+        "listing_source": listing_source,
+        "ownership_status": ownership_status,
+        "claimed_at": claimed_at,
         "name": shop["name"].strip(),
         "profile_image_url": shop.get("profile_image_url", ""),
         "address": shop["address"],
@@ -7480,23 +7516,47 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         "delivery_radius_km": shop.get("delivery_radius_km"),
         "delivery_fee": shop.get("delivery_fee"),
         "pickup_notes": shop.get("pickup_notes", ""),
-        "owner_contact_name": shop.get("owner_contact_name") or normalize_display_name(prof.get("display_name", ""), getattr(user, "email", "")),
+        "owner_contact_name": owner_contact_name or shop.get("owner_contact_name") or normalize_display_name(prof.get("display_name", ""), getattr(user, "email", "")),
         "verification_method": shop.get("verification_method", ""),
         "verification_evidence": shop.get("verification_evidence", ""),
-        "verification_submitted_at": None,
-        "verified_at": None,
+        "verification_submitted_at": verification_submitted_at,
+        "verified_at": verified_at,
         "verification_rejection_reason": "",
         "trust_flags": trust_snapshot["trust_flags"],
         "risk_score": trust_snapshot["risk_score"],
         "risk_level": trust_snapshot["risk_level"],
     }
-    strict_cols = list(SHOP_REVIEW_WRITE_COLUMNS)
-    if shop.get("business_type") != "retail":
-        strict_cols.append("business_type")
-    if shop.get("location_mode") != "storefront":
-        strict_cols.append("location_mode")
-    if shop.get("service_area"):
-        strict_cols.append("service_area")
+
+@app.post("/admin/create-business")
+@app.post("/admin/create-shop")
+def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    require_verified(user)
+    prof = safe_ensure_profile_row(user, prof)
+    raw_business = body.business or body.shop
+    if raw_business is None:
+        raise HTTPException(400, "Business payload is required")
+    shop = validate_shop_payload(raw_business)
+    owner_rows, all_rows = load_shop_trust_rows(user.id)
+    enforce_creator_draft_limits(user, owner_rows)
+    trust_snapshot = build_shop_trust_snapshot(shop, user, owner_rows, all_rows, projected_new_unpublished=True)
+    sid, shop_slug = allocate_shop_identity(shop["name"])
+    now_iso = datetime.now(timezone.utc).isoformat()
+    payload = build_shop_insert_payload(
+        shop,
+        user,
+        prof,
+        shop_slug,
+        trust_snapshot,
+        listing_status=LISTING_STATUS_DRAFT,
+        listing_source=LISTING_SOURCE_OWNER_CREATED,
+        ownership_status=OWNERSHIP_STATUS_CLAIMED,
+        owner_user_id=user.id,
+        owner_contact_name=shop.get("owner_contact_name") or normalize_display_name(prof.get("display_name", ""), getattr(user, "email", "")),
+        claimed_at=now_iso,
+    )
+    strict_cols = shop_create_strict_columns(shop)
+    strict_cols.extend(SHOP_OWNERSHIP_WRITE_COLUMNS)
     payload, unsupported_cols = shop_write_payload_with_fallback(sid, payload, False, strict_cols)
     if unsupported_cols:
         print(f"[Shop Schema Warning] {sid}: saved without optional columns {unsupported_cols}")
@@ -7507,12 +7567,66 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     rebuild_kb(sid)
     return {"ok": True, "shop_id": sid, "business_id": sid, "shop_slug": shop_slug, "business_slug": shop_slug, "listing_status": LISTING_STATUS_DRAFT}
 
+@app.post("/admin/managed-businesses")
+@app.post("/admin/managed-shops")
+def create_managed_shop(body: CreateManagedShopReq, authorization: Optional[str] = Header(None)):
+    user, prof = get_user(authorization)
+    require_verified(user)
+    prof = safe_ensure_profile_row(user, prof)
+    require_admin_role(prof)
+    raw_business = body.business or body.shop
+    if raw_business is None:
+        raise HTTPException(400, "Business payload is required")
+    shop = validate_shop_payload(raw_business)
+    shop["owner_contact_name"] = PLATFORM_MANAGED_OWNER_CONTACT
+    if not shop.get("verification_method"):
+        shop["verification_method"] = "manual"
+    if not shop.get("verification_evidence"):
+        shop["verification_evidence"] = "Staff-created platform-managed listing. Public page is claimable after publication."
+    owner_rows, all_rows = load_shop_trust_rows("")
+    trust_snapshot = build_shop_trust_snapshot(shop, user, owner_rows, all_rows, projected_new_unpublished=not bool(body.publish))
+    sid, shop_slug = allocate_shop_identity(shop["name"])
+    now_iso = datetime.now(timezone.utc).isoformat()
+    listing_status = LISTING_STATUS_VERIFIED if body.publish else LISTING_STATUS_DRAFT
+    payload = build_shop_insert_payload(
+        shop,
+        user,
+        prof,
+        shop_slug,
+        trust_snapshot,
+        listing_status=listing_status,
+        listing_source=LISTING_SOURCE_PLATFORM_IMPORT,
+        ownership_status=OWNERSHIP_STATUS_PLATFORM_MANAGED,
+        owner_user_id=user.id,
+        owner_contact_name=PLATFORM_MANAGED_OWNER_CONTACT,
+        claimed_at=None,
+        verified_at=now_iso if listing_status == LISTING_STATUS_VERIFIED else None,
+        verification_submitted_at=now_iso if listing_status == LISTING_STATUS_VERIFIED else None,
+    )
+    strict_cols = shop_create_strict_columns(shop)
+    strict_cols.extend(SHOP_OWNERSHIP_WRITE_COLUMNS)
+    payload, unsupported_cols = shop_write_payload_with_fallback(sid, payload, False, strict_cols)
+    if unsupported_cols:
+        print(f"[Managed Shop Schema Warning] {sid}: saved without optional columns {unsupported_cols}")
+    rebuild_kb(sid)
+    return {
+        "ok": True,
+        "shop_id": sid,
+        "business_id": sid,
+        "shop_slug": shop_slug,
+        "business_slug": shop_slug,
+        "listing_status": listing_status,
+        "listing_source": LISTING_SOURCE_PLATFORM_IMPORT,
+        "ownership_status": OWNERSHIP_STATUS_PLATFORM_MANAGED,
+        "is_platform_managed": True,
+    }
+
 @app.get("/admin/my-businesses")
 @app.get("/admin/my-shops")
 def my_shops(authorization: Optional[str] = Header(None)):
     user, prof = get_user(authorization)
     shops_res = supabase.table("shops").select("*").eq("owner_user_id", user.id).order("created_at", desc=True).execute()
-    rows = shops_res.data
+    rows = [row for row in (shops_res.data or []) if not shop_is_platform_managed(row)]
     owner_rows, all_rows = load_shop_trust_rows(user.id)
     
     for r in rows:

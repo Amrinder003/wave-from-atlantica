@@ -6719,6 +6719,7 @@ select.btn{
               <div class="workspace-desc">This is the staff queue. Business verification requests are reviewed here, not inside customer pages.</div>
             </div>
             <div class="workspace-actions">
+              <button id="createManagedBusinessBtn" class="btn btn-A btn-sm">Create Managed Listing</button>
               <button id="refreshReviewCenterBtn" class="btn btn-o btn-sm">Refresh Review Center</button>
             </div>
           </div>
@@ -6727,7 +6728,7 @@ select.btn{
             <div class="card-body">
               <div id="reviewCenterGuide" class="review-note" style="display:block;margin:0">
                 <strong>Reviewer access</strong>
-                Only accounts with the <strong>admin</strong> or <strong>superadmin</strong> role can see and act on this queue. Reviewers use the verification note, account email, and private review phone shown here. If you submit a business and nobody can review it here, no reviewer account exists yet.
+                Only <strong>admin</strong> and <strong>superadmin</strong> accounts can review launches, create managed listings, or approve ownership transfers. Managed listings are staff-owned records in this private queue; public visitors see a normal verified business page, and ownership moves only after a reviewed claim is approved.
               </div>
             </div>
           </div>
@@ -6788,9 +6789,10 @@ select.btn{
         <div id="adminManagedBusinessesCard" class="card" style="display:none">
           <div class="card-head">
             <div class="card-title">Platform-Managed Listings</div>
+            <button id="createManagedBusinessBtnSide" class="btn btn-A btn-sm" type="button">Create Managed Listing</button>
           </div>
           <div class="card-body">
-            <div class="fld-hint" style="margin-bottom:10px">These imported listings are managed by Atlantic Ordinate until an ownership claim is approved.</div>
+            <div class="fld-hint" style="margin-bottom:10px">Internal staff queue for claimable business pages created by Atlantic Ordinate. Public visitors see a normal business page; staff see ownership state here.</div>
             <div id="adminManagedBusinessesList" class="review-queue"><div class="review-queue-empty">No platform-managed listings.</div></div>
             <div id="adminManagedBusinessesStatus" class="stxt"></div>
           </div>
@@ -15368,8 +15370,13 @@ function syncShopWizard(){
   if($('shopWizardNextBtn')) $('shopWizardNextBtn').style.display=last?'none':'';
   if($('shopFloatingSubmitBtn')) $('shopFloatingSubmitBtn').style.display=last?'':'none';
   if($('shopFloatingNote') && !App.shopFormDirty){
+    const mode=$('shopFloatingSubmitBtn')?.dataset.mode||'create';
     $('shopFloatingNote').textContent=last
-      ? (($('shopFloatingSubmitBtn')?.dataset.mode==='edit') ? 'Review the details, then save the business.' : 'Review the details, then create the business.')
+      ? (mode==='edit'
+          ? 'Review the details, then save the business.'
+          : (mode==='managed-create'
+              ? 'Review the details, then create the staff-managed claimable listing.'
+              : 'Review the details, then create the business.'))
       : 'Complete this step, then continue. You can return to earlier steps before saving.';
   }
 }
@@ -15664,9 +15671,12 @@ function updateShopDraftState(dirty){
     }else if($('shopWizardTrack')?.dataset.bound==='1'){
       syncShopWizard();
     }else{
-      $('shopFloatingNote').textContent=($('shopFloatingSubmitBtn')?.dataset.mode==='edit')
+      const mode=$('shopFloatingSubmitBtn')?.dataset.mode||'create';
+      $('shopFloatingNote').textContent=mode==='edit'
         ? 'Save your changes to update the live business page and assistant context.'
-        : 'Create the business to open its workspace and start adding offerings.';
+        : (mode==='managed-create'
+            ? 'Create a staff-managed claimable listing. It appears in Review Center, not a personal owner workspace.'
+            : 'Create the business to open its workspace and start adding offerings.');
     }
   }
 }
@@ -15721,13 +15731,17 @@ function syncProductEditorState(mode='create'){
 }
 function syncShopFormActions(mode='create'){
   const isEdit=mode==='edit';
+  const isManagedCreate=mode==='managed-create';
   if($('createShopBtn')) $('createShopBtn').style.display=isEdit?'none':'';
   if($('saveShopBtn')) $('saveShopBtn').style.display=isEdit?'':'none';
   if($('shopFloatingSubmitBtn')){
-    $('shopFloatingSubmitBtn').textContent=isEdit?'Save Business':'Create Business';
-    $('shopFloatingSubmitBtn').dataset.mode=isEdit?'edit':'create';
+    $('shopFloatingSubmitBtn').textContent=isEdit?'Save Business':(isManagedCreate?'Create Managed Listing':'Create Business');
+    $('shopFloatingSubmitBtn').dataset.mode=isEdit?'edit':(isManagedCreate?'managed-create':'create');
   }
-  if($('createShopBtn')) $('createShopBtn').textContent='Create Business';
+  if($('createShopBtn')) {
+    $('createShopBtn').textContent=isManagedCreate?'Create Managed Listing':'Create Business';
+    $('createShopBtn').dataset.mode=isManagedCreate?'managed-create':'create';
+  }
   if($('saveShopBtn')) $('saveShopBtn').textContent='Save Business';
   if($('shopIdRef')) $('shopIdRef').textContent=isEdit?($('shopId')?.value.trim()||'Saved business'):'Generated after creation';
   updateShopDraftState(false);
@@ -15927,6 +15941,45 @@ function openCreateShopView(){
   $('deleteShopBtn').style.display='none';
   $('rebuildKbBtn').style.display='none';
   setFieldHint('shopStatus','Start with the public details customers will see on the business page. New businesses begin as private drafts.','');
+  switchAdminSub('shops');
+  showShopManagerView('shopform');
+}
+
+function openCreateManagedBusinessView(){
+  if(!tok()){
+    showPage('admin');
+    switchAdminSub('account');
+    setS('authStatus','Sign in with an admin account to create a managed listing.','');
+    toast('Admin sign in required','','err');
+    return;
+  }
+  if(!isReviewerAccount()){
+    toast('Admin access required','Only admin and superadmin accounts can create staff-managed listings.','err');
+    return;
+  }
+  App.adminShopId=null;
+  App.adminShopData=null;
+  App.adminProducts=[];
+  resetShopForm();
+  $('shopFormTitle').textContent='Create managed listing';
+  if($('shopBusinessType')) $('shopBusinessType').value='service';
+  renderCategoryOptionsForBusiness('service','Professional Services');
+  if($('shopLocationMode')) $('shopLocationMode').value='service_area';
+  if($('shopOwnerContactName')) $('shopOwnerContactName').value='Platform imported listing';
+  if($('shopVerificationMethod')) $('shopVerificationMethod').value='manual';
+  if($('shopVerificationEvidence')) $('shopVerificationEvidence').value='Staff-created managed listing. Source checked manually.';
+  $('shopSupportsPickup').checked=false;
+  $('shopSupportsDelivery').checked=false;
+  $('shopSupportsWalkIn').checked=true;
+  syncDeliverySettingsVisibility();
+  updateShopCurrencyBadge();
+  syncShopLocationModeUi();
+  buildShopAddressPayload();
+  syncShopFormActions('managed-create');
+  $('deleteShopBtn').style.display='none';
+  $('rebuildKbBtn').style.display='none';
+  renderBusinessListingUi({listing_status:'verified',listing_source:'platform_import',ownership_status:'platform_managed',owner_contact_name:'Platform imported listing',review_requirements:[]});
+  setFieldHint('shopStatus','Create a claimable public page managed by staff. It will appear in Review Center, not in a personal owner workspace.','');
   switchAdminSub('shops');
   showShopManagerView('shopform');
 }
@@ -16697,6 +16750,11 @@ async function refreshBusinessWorkspace(shopId){
   ]);
   markPublicCatalogDirty();
 }
+function collectShopCreatePayload(){
+  const addr=buildShopAddressPayload();
+  const hoursData=updateHoursSummary();
+  return {shop:{name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),phone_public:Boolean($('shopPhonePublic')?.checked),website:normalizeWebsiteUrl($('shopWebsite').value.trim()),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()}};
+}
 function renderAdminProds(prods){
   if(!$('adminPGrid')||!$('adminPBadge')) return;
   const q=$('adminProdSearch')?.value.trim().toLowerCase()||'';
@@ -16738,9 +16796,7 @@ async function createShop(){
   normalizeShopDeliveryInputs();
   const formErr=validateShopForm();
   if(formErr){setS('shopStatus',formErr,'err');return toast('Business details missing',formErr,'err');}
-  const addr=buildShopAddressPayload();
-  const hoursData=updateHoursSummary();
-    const payload={shop:{name:$('shopName').value.trim(),profile_image_url:App.shopProfileImageUrl||'',address:addr.address,formatted_address:addr.formatted_address,country_code:addr.country_code,country_name:addr.country_name,timezone_name:$('shopTimezone').value,currency_code:$('shopCurrencyBadge').textContent.trim(),region:addr.region,city:addr.city,postal_code:addr.postal_code,street_line1:addr.street_line1,street_line2:addr.street_line2,latitude:addr.latitude,longitude:addr.longitude,overview:$('shopOverview').value.trim(),phone:$('shopPhone').value.trim(),phone_public:Boolean($('shopPhonePublic')?.checked),website:normalizeWebsiteUrl($('shopWebsite').value.trim()),hours:hoursData.hours,hours_structured:hoursData.hours_structured,category:$('shopCat').value,business_type:addr.business_type,location_mode:addr.location_mode,service_area:addr.service_area,whatsapp:$('shopWhatsapp').value.trim(),supports_pickup:$('shopSupportsPickup').checked,supports_delivery:$('shopSupportsDelivery').checked,supports_walk_in:$('shopSupportsWalkIn').checked,delivery_radius_km:$('shopDeliveryRadius').value.trim()===''?null:Number($('shopDeliveryRadius').value),delivery_fee:$('shopDeliveryFee').value.trim()===''?null:Number($('shopDeliveryFee').value),pickup_notes:$('shopPickupNotes').value.trim(),owner_contact_name:$('shopOwnerContactName').value.trim(),verification_method:$('shopVerificationMethod').value,verification_evidence:$('shopVerificationEvidence').value.trim()}}; 
+  const payload=collectShopCreatePayload();
   try{
     setBtnBusy('createShopBtn',true,'Creating...');
     setBtnBusy('shopFloatingSubmitBtn',true,'Creating...');
@@ -16771,6 +16827,55 @@ async function createShop(){
     setBtnBusy('createShopBtn',false);
     setBtnBusy('shopFloatingSubmitBtn',false);
   }
+}
+async function createManagedBusiness(){
+  if(!tok())return toast('Login required','','err');
+  if(!isReviewerAccount())return toast('Admin access required','Only admin and superadmin accounts can create staff-managed listings.','err');
+  normalizeShopDeliveryInputs();
+  const formErr=validateShopForm();
+  if(formErr){setS('shopStatus',formErr,'err');return toast('Managed listing details missing',formErr,'err');}
+  const payload=collectShopCreatePayload();
+  payload.shop.owner_contact_name='Platform imported listing';
+  payload.shop.verification_method=payload.shop.verification_method||'manual';
+  payload.shop.verification_evidence=payload.shop.verification_evidence||'Staff-created managed listing. Source checked manually.';
+  try{
+    setBtnBusy('createShopBtn',true,'Creating...');
+    setBtnBusy('shopFloatingSubmitBtn',true,'Creating...');
+    setS('shopStatus','Creating staff-managed listing...');
+    const d=await api('/admin/managed-businesses',{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,business:payload.shop,publish:true})});
+    let syncResult={uploaded:false,removed:false};
+    let syncError='';
+    try{
+      syncResult=await syncShopProfileImage(d.shop_id);
+    }catch(imageErr){
+      syncError=imageErr.message;
+      toast('Business image update failed',imageErr.message,'err');
+    }
+    updateShopDraftState(false);
+    await loadAdminManagedBusinesses();
+    await loadAdminShop(d.shop_id,{refreshOwnerList:false});
+    markPublicCatalogDirty();
+    toast('Managed listing created',d.shop_id);
+    setS('shopStatus',
+      syncError
+        ? `Managed listing created, but the profile image could not be saved: ${syncError}`
+        : (syncResult.uploaded
+            ? 'Managed listing created, published, and profile image saved successfully.'
+            : 'Managed listing created and published successfully.'),
+      syncError?'err':'ok');
+  }catch(e){
+    setS('shopStatus',e.message,'err');
+    toast('Create failed',e.message,'err');
+  }finally{
+    setBtnBusy('createShopBtn',false);
+    setBtnBusy('shopFloatingSubmitBtn',false);
+  }
+}
+function submitShopForm(){
+  const mode=$('shopFloatingSubmitBtn')?.dataset.mode || $('createShopBtn')?.dataset.mode || 'create';
+  if(mode==='edit') return saveShop();
+  if(mode==='managed-create') return createManagedBusiness();
+  return createShop();
 }
 async function saveShop(){
   if(!tok())return toast('Login required','','err');
@@ -16875,6 +16980,8 @@ function openAdminLiveBusiness(){
   openShopPage(shopId);
 }
 $('ownerCreateShopBtn').addEventListener('click',openCreateShopView);
+$('createManagedBusinessBtn')?.addEventListener('click',openCreateManagedBusinessView);
+$('createManagedBusinessBtnSide')?.addEventListener('click',openCreateManagedBusinessView);
 $('ownerClaimBusinessBtn')?.addEventListener('click',()=>openClaimWorkspace());
 $('closeClaimWorkspaceBtn')?.addEventListener('click',()=>{
   if($('businessClaimCard')) $('businessClaimCard').style.display='none';
@@ -16903,9 +17010,9 @@ $('shopWizardNextBtn')?.addEventListener('click',()=>setShopWizardStep(shopStepI
 $('productFloatingBackBtn').addEventListener('click',()=>showShopManagerView('detail'));
 $('productWizardPrevBtn')?.addEventListener('click',()=>setProductWizardStep(productStepIndex()-1,{validate:false}));
 $('productWizardNextBtn')?.addEventListener('click',()=>setProductWizardStep(productStepIndex()+1,{validate:true}));
-$('shopFloatingSubmitBtn').addEventListener('click',()=>($('shopFloatingSubmitBtn').dataset.mode==='edit'?saveShop():createShop()));
+$('shopFloatingSubmitBtn').addEventListener('click',submitShopForm);
 $('productFloatingSubmitBtn').addEventListener('click',saveProd);
-$('createShopBtn').addEventListener('click',createShop);
+$('createShopBtn').addEventListener('click',submitShopForm);
 $('saveShopBtn').addEventListener('click',saveShop);
 $('claimSearchBtn')?.addEventListener('click',()=>searchClaimableBusinesses());
 $('claimSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchClaimableBusinesses();}});
