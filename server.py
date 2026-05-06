@@ -3096,7 +3096,34 @@ def map_safe_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
         shop["longitude"] = None
     return shop
 
-def public_shop_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+def public_business_transparency(row: Dict[str, Any]) -> Dict[str, Any]:
+    shop = normalize_shop_record(row or {})
+    platform_managed = shop_is_platform_managed(shop)
+    reviewed_at = parse_datetime_value(shop.get("verified_at") or shop.get("verification_submitted_at") or shop.get("created_at"))
+    reviewed_label = reviewed_at.date().isoformat() if reviewed_at else ""
+    if platform_managed:
+        return {
+            "manager_type": "atlantic_ordinate",
+            "managed_by": "Atlantic Ordinate staff",
+            "claim_status": "Not yet claimed by the business owner",
+            "review_status": "Reviewed by Atlantic Ordinate",
+            "last_reviewed": reviewed_label,
+            "claim_available": shop_is_publicly_listable(shop),
+            "summary": "This page is maintained by Atlantic Ordinate using public or official business information until an approved owner claim transfers it.",
+            "account_note": "Internal staff account details are not shown publicly.",
+        }
+    return {
+        "manager_type": "business_owner",
+        "managed_by": "Verified business owner",
+        "claim_status": "Claimed by the business owner",
+        "review_status": "Reviewed by Atlantic Ordinate",
+        "last_reviewed": reviewed_label,
+        "claim_available": False,
+        "summary": "This page is managed from the business owner's account after Atlantic Ordinate review.",
+        "account_note": "Owner account details are not shown publicly.",
+    }
+
+def public_shop_payload(row: Dict[str, Any], *, include_transparency: bool = False) -> Dict[str, Any]:
     safe = map_safe_shop_record({key: row.get(key) for key in PUBLIC_SHOP_FIELDS})
     for internal_key in (
         "listing_status",
@@ -3117,6 +3144,8 @@ def public_shop_payload(row: Dict[str, Any]) -> Dict[str, Any]:
         "is_publicly_listed",
     ):
         safe.pop(internal_key, None)
+    if include_transparency:
+        safe["business_transparency"] = public_business_transparency(row)
     safe["is_open_now"] = bool(row.get("is_open_now", shop_is_open_now(safe)))
     if "stats" in row:
         safe["stats"] = row.get("stats") or {}
@@ -7002,7 +7031,7 @@ def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), s
         ser_prods = serialize_products_bulk(paged["items"], user_id, {shop_id: shop_row}, currency)
 
         return alias_catalog_response({
-            "ok": True, "shop_id": shop_id, "shop_slug": shop_row.get("shop_slug", ""), "shop": public_shop_payload(shop_row),
+            "ok": True, "shop_id": shop_id, "shop_slug": shop_row.get("shop_slug", ""), "shop": public_shop_payload(shop_row, include_transparency=True),
             "products": ser_prods,
             "pagination": paged["pagination"],
             "stats": shop_stats(shop_id),
@@ -7027,7 +7056,7 @@ def public_product(shop_ref: str, product_ref: str, request: Request, currency: 
             "ok": True,
             "shop_id": shop_row["shop_id"],
             "shop_slug": shop_row.get("shop_slug", ""),
-            "shop": public_shop_payload(shop_row),
+            "shop": public_shop_payload(shop_row, include_transparency=True),
             "product": product,
             "offering": product,
             "products": [product],
@@ -7737,6 +7766,12 @@ def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     shop["review_requirements"] = shop_review_requirements(shop, stats)
     shop["review_ready"] = not shop["review_requirements"]
     shop["is_publicly_listed"] = shop_is_publicly_listable(shop)
+    shop["managed_by_label"] = "Atlantic Ordinate staff" if shop_is_platform_managed(shop) else (shop.get("owner_contact_name") or "Business owner account")
+    shop["management_account_id"] = shop.get("owner_user_id", "")
+    if is_admin_profile(prof):
+        owner_email = load_auth_email_map([shop.get("owner_user_id", "")]).get(shop.get("owner_user_id", ""), "")
+        if owner_email:
+            shop["management_account_email"] = owner_email
     
     ser_prods = serialize_products_bulk(prods, None, {shop_id: shop})
     return {

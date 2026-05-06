@@ -598,6 +598,9 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertEqual(data["shop"]["shop_id"], "svc-1")
         self.assertEqual(data["business"]["profile_image_url"], "https://storage.example/product-images/business-profiles/svc-1/original.png")
         self.assertEqual(data["business"]["business_profile_image_url"], "https://storage.example/product-images/business-profiles/svc-1/original.png")
+        self.assertEqual(data["business"]["business_transparency"]["manager_type"], "business_owner")
+        self.assertEqual(data["business"]["business_transparency"]["managed_by"], "Verified business owner")
+        self.assertFalse(data["business"]["business_transparency"]["claim_available"])
         self.assertEqual(data["offerings"][0]["offering_id"], "offer-1")
         self.assertEqual(data["products"][0]["product_id"], "offer-1")
         self.assertEqual(data["offerings"][0]["business_id"], "svc-1")
@@ -654,6 +657,7 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertEqual(business["location_mode"], "service_area")
         self.assertIsNone(business["latitude"])
         self.assertIsNone(business["longitude"])
+        self.assertNotIn("business_transparency", business)
 
     def test_admin_profile_image_upload_updates_business_record(self):
         with self._patch_get_user(self.owner):
@@ -964,6 +968,10 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertEqual(public_response.status_code, 200)
         public_business = public_response.json()["business"]
         self.assertEqual(public_business["business_id"], "managed-repair-1001")
+        self.assertEqual(public_business["business_transparency"]["manager_type"], "atlantic_ordinate")
+        self.assertEqual(public_business["business_transparency"]["managed_by"], "Atlantic Ordinate staff")
+        self.assertEqual(public_business["business_transparency"]["claim_status"], "Not yet claimed by the business owner")
+        self.assertTrue(public_business["business_transparency"]["claim_available"])
         self.assertNotIn("ownership_status", public_business)
         self.assertNotIn("listing_source", public_business)
 

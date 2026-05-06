@@ -405,6 +405,18 @@ a{color:inherit;text-decoration:none}
 .shop-side-prompt{padding:10px 11px;border-radius:14px;background:var(--sf);border:1px solid rgba(191,174,149,.32);font-size:12px;color:var(--ink2);cursor:pointer;text-align:left;transition:.12s;line-height:1.45;display:grid;align-items:center;min-height:46px}
 .shop-side-prompt:hover{border-color:rgba(162,76,46,.32);transform:translateY(-1px)}
 .shop-side-prompt:active{transform:scale(.985);background:var(--sf2)}
+.shop-transparency{border:1px solid rgba(191,174,149,.34);background:rgba(255,248,240,.72);border-radius:16px;overflow:hidden}
+.shop-transparency summary{list-style:none;cursor:pointer;padding:12px 13px;font-size:12px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);display:flex;justify-content:space-between;gap:10px;align-items:center}
+.shop-transparency summary::-webkit-details-marker{display:none}
+.shop-transparency summary::after{content:"+";font-family:'Sora',sans-serif;font-size:16px;color:var(--A2)}
+.shop-transparency[open] summary::after{content:"-"}
+.shop-transparency-body{display:grid;gap:9px;padding:0 13px 13px}
+.shop-transparency-row{display:grid;gap:3px;padding:9px 0;border-top:1px solid rgba(191,174,149,.22)}
+.shop-transparency-k{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)}
+.shop-transparency-v{font-size:13px;line-height:1.5;color:var(--ink);font-weight:700}
+.shop-transparency-copy{font-size:12px;line-height:1.6;color:var(--ink3)}
+.shop-transparency-actions{display:grid;gap:8px;margin-top:2px}
+.shop-transparency-actions .btn{justify-content:center}
 .map-sheet-bg{position:fixed;inset:0;background:rgba(15,23,42,.34);backdrop-filter:blur(6px);z-index:460;display:none;align-items:stretch;justify-content:stretch;padding:0}
 .map-sheet-bg.on{display:flex}
 .map-sheet{position:relative;width:100vw;width:100dvw;height:100vh;height:100dvh;overflow:hidden;border-radius:0;border:none;background:linear-gradient(180deg,#f8f1e4,#eadbc6);box-shadow:none;--map-sheet-list-height:86px;--map-sheet-mini-height:46px;--map-sheet-floating-bottom:126px}
@@ -5772,6 +5784,12 @@ select.btn{
         <div class="shop-sidebar-lbl">Business Snapshot</div>
         <div id="shopSideStats" class="shop-side-stats"></div>
       </div>
+      <div class="shop-sidebar-sec" data-mobile-group="info">
+        <details id="shopTransparencyBox" class="shop-transparency">
+          <summary>Business Transparency</summary>
+          <div id="shopTransparencyBody" class="shop-transparency-body"></div>
+        </details>
+      </div>
       <div class="shop-sidebar-sec" data-mobile-group="filters">
         <div class="shop-sidebar-lbl">Availability</div>
         <div id="stockFilterList">
@@ -6151,6 +6169,11 @@ select.btn{
                   <button id="detailEditShopBtnSide" class="btn btn-o btn-sm">Edit Business Details</button>
                   <button id="detailOpenLiveShopBtnSide" class="btn btn-g btn-sm">Open Live Page</button>
                 </div>
+              </div>
+              <div class="owner-side-card">
+                <div class="owner-side-label">Management</div>
+                <div class="owner-side-title">Who manages this page</div>
+                <div id="ownerManagementDetails" class="tp-list" style="margin-top:12px"></div>
               </div>
               <div class="owner-side-card">
                 <div class="owner-side-label">Quality Check</div>
@@ -7551,6 +7574,20 @@ function businessClaimPillHtml(claim={},labelOverride=''){
   const meta=businessClaimStatusMeta(claim);
   return `<span class="${meta.pillClass}">${esc(labelOverride||meta.label)}</span>`;
 }
+function normalizeBusinessTransparency(row={}){
+  const out={...(row||{})};
+  const managerType=String(out.manager_type||'').trim() || 'business_owner';
+  return {
+    manager_type:['atlantic_ordinate','business_owner'].includes(managerType)?managerType:'business_owner',
+    managed_by:String(out.managed_by||'Verified business owner').trim(),
+    claim_status:String(out.claim_status||'Claimed by the business owner').trim(),
+    review_status:String(out.review_status||'Reviewed by Atlantic Ordinate').trim(),
+    last_reviewed:String(out.last_reviewed||'').trim(),
+    claim_available:out.claim_available===true,
+    summary:String(out.summary||'This page is managed from a verified business account.').trim(),
+    account_note:String(out.account_note||'Account details are not shown publicly.').trim(),
+  };
+}
 function normalizeBusinessRecord(row={}){
   const out={...(row||{})};
   out.business_id=out.business_id||out.shop_id||'';
@@ -7577,6 +7614,7 @@ function normalizeBusinessRecord(row={}){
   out.risk_score=Number.isFinite(Number(out.risk_score))?Number(out.risk_score):0;
   out.risk_level=['low','medium','high'].includes(String(out.risk_level||'').trim().toLowerCase())?String(out.risk_level||'').trim().toLowerCase():(out.risk_score>=60?'high':(out.risk_score>=25?'medium':'low'));
   out.is_publicly_listed=out.is_publicly_listed===true || out.listing_status==='verified';
+  out.business_transparency=out.business_transparency?normalizeBusinessTransparency(out.business_transparency):null;
   return out;
 }
 function normalizeBusinessClaimRecord(row={}){
@@ -14351,6 +14389,27 @@ function buildShopActionControls(shop={},inventoryMode='',options={}){
   }
   return mobile ? actions.slice(0,4) : actions;
 }
+function businessTransparencyForDisplay(shop={}){
+  return normalizeBusinessTransparency(shop?.business_transparency || {});
+}
+function renderBusinessTransparency(shop={}){
+  const box=$('shopTransparencyBox');
+  const body=$('shopTransparencyBody');
+  if(!box || !body) return;
+  const t=businessTransparencyForDisplay(shop);
+  const rows=[
+    ['Managed by',t.managed_by],
+    ['Claim status',t.claim_status],
+    ['Review',t.last_reviewed?`${t.review_status} on ${t.last_reviewed}`:t.review_status],
+    ['Account details',t.account_note],
+  ].filter(([,value])=>String(value||'').trim());
+  body.innerHTML=rows.map(([key,value])=>`<div class="shop-transparency-row"><div class="shop-transparency-k">${esc(key)}</div><div class="shop-transparency-v">${esc(value)}</div></div>`).join('')
+    + `<div class="shop-transparency-copy">${esc(t.summary)}</div>`
+    + (t.claim_available?'<div class="shop-transparency-actions"><button id="shopTransparencyClaimBtn" class="btn btn-o btn-sm" type="button">Claim this business</button></div>':'');
+  $('shopTransparencyClaimBtn')?.addEventListener('click',()=>{
+    openClaimWorkspace({seed:shop?.name||shop?.shop_slug||shop?.shop_id||''});
+  });
+}
 function renderShopLoadError(message='Business is temporarily unavailable.'){
   const detail=compactText(message||'Business is temporarily unavailable.',180);
   App.shopData=null;
@@ -14367,6 +14426,7 @@ function renderShopLoadError(message='Business is temporarily unavailable.'){
   if($('shopSnapshotGrid')) $('shopSnapshotGrid').innerHTML='';
   $('shopSideStats').innerHTML='';
   $('shopSidePrompts').innerHTML='';
+  if($('shopTransparencyBody')) $('shopTransparencyBody').innerHTML='';
   $('shopQchips').innerHTML='';
   $('shopProdCount').textContent='Business unavailable';
   $('shopProdGrid').innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">Warning</div><div class="et">${esc(detail)}</div></div>`;
@@ -14398,6 +14458,7 @@ async function openShopPage(shopId,page=1,sort='',stock='',opts={}){
   if($('shopMobileActions')) $('shopMobileActions').innerHTML='';
   if($('shopSnapshotTitle')) $('shopSnapshotTitle').textContent='At a glance';
   if($('shopSnapshotGrid')) $('shopSnapshotGrid').innerHTML='';
+  if($('shopTransparencyBody')) $('shopTransparencyBody').innerHTML='';
   $('shopSideStats').innerHTML='';$('shopSidePrompts').innerHTML='';
   $('shopProdGrid').innerHTML=`<div class="empty"><div class="ei">...</div><div class="et">Loading offerings...</div></div>`;
   $('shopQchips').innerHTML='';$('shopProdCount').textContent='Loading offerings...';$('shopSrchIn').value=App.shopSearchQuery||'';$('shopSort').value=App.shopSort||'';
@@ -14459,6 +14520,7 @@ async function openShopPage(shopId,page=1,sort='',stock='',opts={}){
     $('shopSideStats').innerHTML=statsMarkup;
     if($('shopSnapshotGrid')) $('shopSnapshotGrid').innerHTML=statsMarkup;
     if($('shopSnapshotTitle')) $('shopSnapshotTitle').textContent=s.name||'Business Snapshot';
+    renderBusinessTransparency(s);
     $('shopSidePrompts').innerHTML='';
     visibleQuestions.forEach(q=>{
       const b=document.createElement('button');
@@ -16132,6 +16194,27 @@ function refreshWorkspaceHeader(shop=null,stats={}){
       : ['Business Page','Products','Chat Ready'];
     $('ownerDetailTags').innerHTML = tags.map(t=>`<div class="owner-detail-tag">${esc(t)}</div>`).join('');
   }
+  renderOwnerManagementDetails(shop||null);
+}
+function renderOwnerManagementDetails(shop=null){
+  const host=$('ownerManagementDetails');
+  if(!host) return;
+  if(!shop){
+    host.innerHTML='<div class="fld-hint">Open a business to see management details.</div>';
+    return;
+  }
+  const normalized=normalizeBusinessRecord(shop||{});
+  const managedBy=normalized.managed_by_label || (normalized.is_platform_managed ? 'Atlantic Ordinate staff' : (normalized.owner_contact_name || 'Business owner account'));
+  const account=normalized.management_account_email || normalized.owner_email || normalized.management_account_id || normalized.owner_user_id || 'Account reference unavailable';
+  const rows=[
+    ['Managed by',managedBy],
+    ['Ownership state',normalized.is_platform_managed?'Staff-managed until claim approval':'Owner claimed'],
+    ['Managing account',account],
+    ['Listing source',normalized.listing_source==='platform_import'?'Atlantic Ordinate managed listing':'Owner-created listing'],
+    ['Claimed at',normalized.claimed_at||'Not claimed yet'],
+    ['Last verified',normalized.verified_at||'Not recorded'],
+  ];
+  host.innerHTML=rows.map(([label,value])=>`<div class="tp-row"><div>${esc(label)}</div><b>${esc(String(value||''))}</b></div>`).join('');
 }
 function renderBusinessListingUi(shop={}){
   const normalized=normalizeBusinessRecord(shop||{});
