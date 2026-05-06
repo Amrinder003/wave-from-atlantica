@@ -472,6 +472,7 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
                 ],
                 "analytics": [],
                 "order_requests": [],
+                "business_audit_events": [],
             }
         )
         self.user = SimpleNamespace(id="user-1", email_confirmed_at="2026-04-13T00:00:00Z")
@@ -961,10 +962,17 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         with self._patch_get_user(self.admin):
             managed_response = self.client.get("/admin/managed-businesses", headers=self._admin_headers())
             my_businesses_response = self.client.get("/admin/my-businesses", headers=self._admin_headers())
+            detail_response = self.client.get("/admin/business/managed-repair-1001", headers=self._admin_headers())
         public_response = self.client.get("/public/business/managed-repair")
 
         self.assertEqual([row["business_id"] for row in managed_response.json()["businesses"]], ["managed-repair-1001"])
         self.assertEqual(my_businesses_response.json()["businesses"], [])
+        self.assertEqual(detail_response.status_code, 200)
+        detail_events = detail_response.json()["data"]["audit_events"]
+        self.assertEqual(detail_events[0]["event_type"], "managed_listing_created")
+        self.assertEqual(detail_events[0]["actor_user_id"], "admin-1")
+        audit_rows = [row for row in self.fake_supabase.tables["business_audit_events"] if row["shop_id"] == "managed-repair-1001"]
+        self.assertEqual([row["event_type"] for row in audit_rows], ["managed_listing_created"])
         self.assertEqual(public_response.status_code, 200)
         public_business = public_response.json()["business"]
         self.assertEqual(public_business["business_id"], "managed-repair-1001")
@@ -1065,6 +1073,10 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertEqual(shop["owner_contact_name"], "Verified User")
         self.assertEqual(detail_response.status_code, 404)
         self.assertEqual(list_response.json()["businesses"], [])
+        audit_rows = [row for row in self.fake_supabase.tables["business_audit_events"] if row["shop_id"] == "import-1"]
+        self.assertEqual([row["event_type"] for row in audit_rows], ["ownership_claim_approved"])
+        self.assertEqual(audit_rows[0]["metadata"]["previous_owner_user_id"], "imports-1")
+        self.assertEqual(audit_rows[0]["metadata"]["new_owner_user_id"], "user-1")
 
     def test_delete_business_cleans_related_rows(self):
         self.fake_supabase.tables["favourites"].append(

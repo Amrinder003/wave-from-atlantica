@@ -1397,6 +1397,93 @@ def add_claim_review_management_context(claims: List[Dict[str, Any]]) -> List[Di
         claim["transfer_target_label"] = claim.get("claimant_display_name") or claim.get("claimant_email") or claim.get("claimant_user_id") or "Claimant account"
     return claims
 
+def normalize_audit_metadata(value: Any) -> Dict[str, Any]:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except Exception:
+            value = {"value": value}
+    if not isinstance(value, dict):
+        value = {}
+    try:
+        return json.loads(json.dumps(value, default=str))
+    except Exception:
+        return {str(k): str(v) for k, v in value.items()}
+
+def normalize_business_audit_event(row: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(row or {})
+    out["event_id"] = str(out.get("event_id", "") or "").strip()
+    out["shop_id"] = str(out.get("shop_id", "") or out.get("business_id", "") or "").strip()
+    out["business_id"] = out["shop_id"]
+    out["event_type"] = re.sub(r"\s+", "_", str(out.get("event_type", "") or "").strip().lower())[:80]
+    out["actor_user_id"] = str(out.get("actor_user_id", "") or "").strip()
+    out["actor_email"] = clean_email(out.get("actor_email", ""))
+    out["actor_display_name"] = re.sub(r"\s+", " ", str(out.get("actor_display_name", "") or "").strip())[:120]
+    out["actor_role"] = re.sub(r"\s+", " ", str(out.get("actor_role", "") or "").strip().lower())[:40]
+    out["summary"] = re.sub(r"\s+", " ", str(out.get("summary", "") or "").strip())[:300]
+    out["metadata"] = normalize_audit_metadata(out.get("metadata"))
+    out["created_at"] = out.get("created_at") or None
+    out["actor_label"] = out["actor_email"] or out["actor_display_name"] or out["actor_user_id"] or "System"
+    return out
+
+def audit_changed_fields(before: Dict[str, Any], after: Dict[str, Any], ignore: Optional[List[str]] = None) -> List[str]:
+    ignored = set(ignore or [])
+    changed = []
+    for key, value in (after or {}).items():
+        if key in ignored:
+            continue
+        before_value = (before or {}).get(key)
+        try:
+            before_sig = json.dumps(before_value, sort_keys=True, default=str)
+            after_sig = json.dumps(value, sort_keys=True, default=str)
+        except Exception:
+            before_sig = str(before_value)
+            after_sig = str(value)
+        if before_sig != after_sig:
+            changed.append(key)
+    return changed
+
+def record_business_audit_event(
+    shop_id: str,
+    event_type: str,
+    user: Any = None,
+    prof: Optional[Dict[str, Any]] = None,
+    summary: str = "",
+    metadata: Optional[Dict[str, Any]] = None,
+) -> None:
+    sid = str(shop_id or "").strip()
+    if not sid:
+        return
+    actor_email = clean_email(getattr(user, "email", "") or "")
+    actor_display = normalize_display_name((prof or {}).get("display_name", ""), actor_email)
+    payload = {
+        "event_id": f"audit_{uuid.uuid4().hex[:24]}",
+        "shop_id": sid,
+        "event_type": re.sub(r"\s+", "_", str(event_type or "event").strip().lower())[:80],
+        "actor_user_id": str(getattr(user, "id", "") or "").strip(),
+        "actor_email": actor_email,
+        "actor_display_name": actor_display,
+        "actor_role": str((prof or {}).get("role", "") or "").strip().lower()[:40],
+        "summary": re.sub(r"\s+", " ", str(summary or "").strip())[:300],
+        "metadata": normalize_audit_metadata(metadata or {}),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        supabase.table("business_audit_events").insert(payload).execute()
+    except Exception as e:
+        print(f"[Business Audit Warning] {sid}: could not record {payload['event_type']}: {e}")
+
+def load_business_audit_events(shop_id: str, limit: int = 30) -> List[Dict[str, Any]]:
+    sid = str(shop_id or "").strip()
+    if not sid:
+        return []
+    try:
+        rows = supabase.table("business_audit_events").select("*").eq("shop_id", sid).order("created_at", desc=True).limit(max(1, min(int(limit or 30), 100))).execute().data or []
+        return [normalize_business_audit_event(row) for row in rows]
+    except Exception as e:
+        print(f"[Business Audit Warning] {sid}: could not load audit history: {e}")
+        return []
+
 def require_supabase() -> Client:
     if supabase is None:
         raise HTTPException(503, "Server is missing Supabase configuration.")
@@ -7612,6 +7699,14 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
     supabase.table("profiles").update({"role": next_role}).eq("id", user.id).execute()
     
     rebuild_kb(sid)
+    record_business_audit_event(
+        sid,
+        "business_created",
+        user,
+        prof,
+        "Business draft created.",
+        {"listing_status": LISTING_STATUS_DRAFT, "listing_source": LISTING_SOURCE_OWNER_CREATED},
+    )
     return {"ok": True, "shop_id": sid, "business_id": sid, "shop_slug": shop_slug, "business_slug": shop_slug, "listing_status": LISTING_STATUS_DRAFT}
 
 @app.post("/admin/managed-businesses")
@@ -7656,6 +7751,14 @@ def create_managed_shop(body: CreateManagedShopReq, authorization: Optional[str]
     if unsupported_cols:
         print(f"[Managed Shop Schema Warning] {sid}: saved without optional columns {unsupported_cols}")
     rebuild_kb(sid)
+    record_business_audit_event(
+        sid,
+        "managed_listing_created",
+        user,
+        prof,
+        "Staff-managed listing created.",
+        {"listing_status": listing_status, "listing_source": LISTING_SOURCE_PLATFORM_IMPORT, "ownership_status": OWNERSHIP_STATUS_PLATFORM_MANAGED},
+    )
     return {
         "ok": True,
         "shop_id": sid,
@@ -7790,6 +7893,7 @@ def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
         owner_email = load_auth_email_map([shop.get("owner_user_id", "")]).get(shop.get("owner_user_id", ""), "")
         if owner_email:
             shop["management_account_email"] = owner_email
+    audit_events = load_business_audit_events(shop_id) if is_admin_profile(prof) else []
     
     ser_prods = serialize_products_bulk(prods, None, {shop_id: shop})
     return {
@@ -7802,6 +7906,7 @@ def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
             "products": ser_prods,
             "offerings": ser_prods,
             "stats": stats,
+            "audit_events": audit_events,
         },
     }
 
@@ -7920,6 +8025,19 @@ def admin_update_shop(shop_id: str, body: ShopInfo, authorization: Optional[str]
     if unsupported_cols:
         print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
     rebuild_kb(shop_id)
+    changed_fields = audit_changed_fields(
+        existing_shop,
+        payload,
+        ["trust_flags", "risk_score", "risk_level", "verification_submitted_at", "verified_at"],
+    )
+    record_business_audit_event(
+        shop_id,
+        "business_details_updated",
+        user,
+        prof,
+        "Business details updated.",
+        {"changed_fields": changed_fields[:40], "listing_status": listing_status},
+    )
     return {"ok": True, "business_id": shop_id, "listing_status": listing_status}
 
 @app.post("/admin/business/{shop_id}/submit-for-review")
@@ -7977,6 +8095,14 @@ def admin_submit_shop_for_review(shop_id: str, authorization: Optional[str] = He
         )
     except Exception as notify_err:
         print(f"[Review Notification Warning] Business review email failed for {shop_id}: {notify_err}")
+    record_business_audit_event(
+        shop_id,
+        "business_submitted_for_review",
+        user,
+        prof,
+        "Business submitted for review.",
+        {"risk_level": trust_snapshot.get("risk_level"), "risk_score": trust_snapshot.get("risk_score")},
+    )
     return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_PENDING_REVIEW, "verification_submitted_at": now_iso}
 
 @app.post("/admin/business/{shop_id}/move-to-draft")
@@ -7989,6 +8115,7 @@ def admin_move_shop_to_draft(shop_id: str, authorization: Optional[str] = Header
     payload, unsupported_cols = shop_write_payload_with_fallback(shop_id, payload, True, SHOP_REVIEW_WRITE_COLUMNS)
     if unsupported_cols:
         print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
+    record_business_audit_event(shop_id, "business_moved_to_draft", user, prof, "Business moved to draft.", {"listing_status": LISTING_STATUS_DRAFT})
     return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_DRAFT}
 
 @app.get("/admin/managed-businesses")
@@ -8110,6 +8237,7 @@ def admin_approve_business(shop_id: str, authorization: Optional[str] = Header(N
     payload, unsupported_cols = shop_write_payload_with_fallback(shop_id, payload, True, SHOP_REVIEW_WRITE_COLUMNS)
     if unsupported_cols:
         print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
+    record_business_audit_event(shop_id, "business_review_approved", user, prof, "Business review approved.", {"verified_at": now_iso})
     return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_VERIFIED, "verified_at": now_iso}
 
 @app.post("/admin/review/business/{shop_id}/reject")
@@ -8128,6 +8256,7 @@ def admin_reject_business(shop_id: str, body: ReviewDecisionReq, authorization: 
     payload, unsupported_cols = shop_write_payload_with_fallback(shop_id, payload, True, SHOP_REVIEW_WRITE_COLUMNS)
     if unsupported_cols:
         print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
+    record_business_audit_event(shop_id, "business_review_rejected", user, prof, "Business review rejected.", {"reason": reason[:500]})
     return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_REJECTED, "reason": reason[:500]}
 
 @app.get("/admin/business-claim/candidates")
@@ -8197,6 +8326,19 @@ def admin_create_business_claim(shop_id: str, body: BusinessClaimReq, authorizat
         raise
     except Exception as e:
         raise HTTPException(500, "Could not create the claim request. Confirm the business_claims migration has run.") from e
+    record_business_audit_event(
+        shop_id,
+        "ownership_claim_requested",
+        user,
+        prof,
+        "Ownership claim requested.",
+        {
+            "claim_id": payload.get("claim_id", ""),
+            "claimant_user_id": user.id,
+            "claimant_email": payload.get("claimant_email", ""),
+            "claimant_display_name": payload.get("claimant_display_name", ""),
+        },
+    )
     claim = attach_business_claim_shops([payload])[0]
     return {"ok": True, "claim": claim}
 
@@ -8246,6 +8388,7 @@ def admin_approve_business_claim(claim_id: str, authorization: Optional[str] = H
     if not shop_rows:
         raise HTTPException(404, "Business not found")
     shop = normalize_shop_record(shop_rows[0])
+    previous_owner_user_id = str(shop.get("owner_user_id", "") or "").strip()
     now_iso = datetime.now(timezone.utc).isoformat()
     shop_payload = {
         "owner_user_id": claim.get("claimant_user_id"),
@@ -8272,6 +8415,21 @@ def admin_approve_business_claim(claim_id: str, authorization: Optional[str] = H
                 "review_note": "Another ownership claim for this business was approved.",
                 "updated_at": now_iso,
             }).eq("claim_id", other_id).execute()
+    record_business_audit_event(
+        shop_id,
+        "ownership_claim_approved",
+        user,
+        prof,
+        "Ownership claim approved and management transferred.",
+        {
+            "claim_id": claim_id,
+            "previous_owner_user_id": previous_owner_user_id,
+            "new_owner_user_id": claim.get("claimant_user_id", ""),
+            "claimant_email": claim.get("claimant_email", ""),
+            "claimant_display_name": claim.get("claimant_display_name", ""),
+            "claimed_at": now_iso,
+        },
+    )
     return {"ok": True, "business_id": shop_id, "shop_id": shop_id, "claim_id": claim_id, "owner_user_id": claim.get("claimant_user_id")}
 
 @app.post("/admin/review/business-claim/{claim_id}/reject")
@@ -8298,6 +8456,19 @@ def admin_reject_business_claim(claim_id: str, body: ReviewDecisionReq, authoriz
         "review_note": reason,
         "updated_at": now_iso,
     }).eq("claim_id", claim_id).execute()
+    record_business_audit_event(
+        claim.get("shop_id", ""),
+        "ownership_claim_rejected",
+        user,
+        prof,
+        "Ownership claim rejected.",
+        {
+            "claim_id": claim_id,
+            "claimant_user_id": claim.get("claimant_user_id", ""),
+            "claimant_email": claim.get("claimant_email", ""),
+            "reason": reason[:500],
+        },
+    )
     return {"ok": True, "claim_id": claim_id, "status": CLAIM_STATUS_REJECTED, "reason": reason}
 
 @app.post("/admin/business/{shop_id}/profile-image")
@@ -8325,6 +8496,14 @@ def admin_upload_shop_profile_image(shop_id: str, authorization: Optional[str] =
     if current_url and current_url != new_url:
         remove_public_image(IMAGE_BUCKET, current_url)
     rebuild_kb(shop_id)
+    record_business_audit_event(
+        shop_id,
+        "business_profile_image_updated",
+        user,
+        prof,
+        "Business profile image updated.",
+        {"had_previous_image": bool(current_url), "profile_image_url": payload.get("profile_image_url", new_url)},
+    )
     return {
         "ok": True,
         "business_id": shop_id,
@@ -8352,6 +8531,14 @@ def admin_delete_shop_profile_image(shop_id: str, authorization: Optional[str] =
     if current_url:
         remove_public_image(IMAGE_BUCKET, current_url)
     rebuild_kb(shop_id)
+    record_business_audit_event(
+        shop_id,
+        "business_profile_image_removed",
+        user,
+        prof,
+        "Business profile image removed.",
+        {"had_previous_image": bool(current_url)},
+    )
     return {"ok": True, "business_id": shop_id, "profile_image_url": "", "business_profile_image_url": ""}
 
 @app.post("/public/fulfillment-request")

@@ -6179,6 +6179,11 @@ select.btn{
                 <div class="owner-side-title">Who manages this page</div>
                 <div id="ownerManagementDetails" class="tp-list" style="margin-top:12px"></div>
               </div>
+              <div id="ownerAuditCard" class="owner-side-card" style="display:none">
+                <div class="owner-side-label">Audit History</div>
+                <div class="owner-side-title">Recent staff activity</div>
+                <div id="ownerAuditHistoryList" class="tp-list" style="margin-top:12px"></div>
+              </div>
               <div class="owner-side-card">
                 <div class="owner-side-label">Quality Check</div>
                 <div class="owner-side-title">What customers notice first</div>
@@ -7641,6 +7646,22 @@ function normalizeBusinessClaimRecord(row={}){
   out.has_pending_claim=out.has_pending_claim===true;
   out.duplicate_reasons=Array.isArray(out.duplicate_reasons)?out.duplicate_reasons:[];
   out.duplicate_score=Number.isFinite(Number(out.duplicate_score))?Number(out.duplicate_score):0;
+  return out;
+}
+function normalizeBusinessAuditEvent(row={}){
+  const out={...(row||{})};
+  out.event_id=String(out.event_id||'').trim();
+  out.shop_id=String(out.shop_id||out.business_id||'').trim();
+  out.business_id=out.shop_id;
+  out.event_type=String(out.event_type||'event').trim().toLowerCase().replace(/\s+/g,'_');
+  out.summary=String(out.summary||'Activity recorded.').trim();
+  out.actor_user_id=String(out.actor_user_id||'').trim();
+  out.actor_email=String(out.actor_email||'').trim();
+  out.actor_display_name=String(out.actor_display_name||'').trim();
+  out.actor_role=String(out.actor_role||'').trim();
+  out.actor_label=String(out.actor_label||out.actor_email||out.actor_display_name||out.actor_user_id||'System').trim();
+  out.created_at=out.created_at||'';
+  out.metadata=(out.metadata&&typeof out.metadata==='object')?out.metadata:{};
   return out;
 }
 function normalizeOfferingRecord(row={}){
@@ -12764,6 +12785,37 @@ function renderOwnerRequests(requests=[]){
   }).join('');
   host.querySelectorAll('[data-req-status]').forEach(btn=>btn.addEventListener('click',()=>updateOrderRequestStatus(App.adminShopId,btn.getAttribute('data-req-id'),btn.getAttribute('data-req-status'))));
 }
+function renderBusinessAuditEvents(events=[]){
+  const card=$('ownerAuditCard');
+  const host=$('ownerAuditHistoryList');
+  if(!card || !host) return;
+  if(!isReviewerAccount()){
+    card.style.display='none';
+    host.innerHTML='';
+    return;
+  }
+  card.style.display='';
+  const rows=(events||[]).map(normalizeBusinessAuditEvent);
+  if(!rows.length){
+    host.innerHTML='<div class="fld-hint">No audit events recorded yet.</div>';
+    return;
+  }
+  host.innerHTML=rows.slice(0,10).map(event=>{
+    const label=event.event_type.replace(/_/g,' ').replace(/\b\w/g,ch=>ch.toUpperCase());
+    const time=event.created_at ? new Date(event.created_at) : null;
+    const when=time && !Number.isNaN(time.getTime()) ? time.toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+    const actor=event.actor_label || 'System';
+    const summary=event.summary || label;
+    return `<div class="tp-row" style="align-items:flex-start">
+      <span class="tp-name">
+        ${esc(label)}
+        <div class="fld-hint" style="margin-top:3px">${esc(summary)}</div>
+        <div class="fld-hint" style="margin-top:3px">${esc(actor)}</div>
+      </span>
+      <span class="tp-views">${esc(when)}</span>
+    </div>`;
+  }).join('');
+}
 function updateCartFulfillmentState(){
   const note=$('cartFulfillmentNote');
   const btn=$('cartCheckout');
@@ -16827,6 +16879,7 @@ async function loadAdminShop(shopId,{refreshOwnerList=false}={}){
       offerings:(d.data?.offerings||d.data?.products||[]).map(normalizeOfferingRecord),
       products:(d.data?.offerings||d.data?.products||[]).map(normalizeOfferingRecord),
       stats:d.data?.stats||{},
+      audit_events:(d.data?.audit_events||[]).map(normalizeBusinessAuditEvent),
     };
     App.adminShopData=adminData;
     const s=adminData.shop;
@@ -16854,6 +16907,7 @@ async function loadAdminShop(shopId,{refreshOwnerList=false}={}){
     App.adminProducts=adminData.products||[];
     const requests=reqRes.requests||[];
     renderOwnerRequests(requests);
+    renderBusinessAuditEvents(adminData.audit_events||[]);
     refreshWorkspaceHeader(s,st);
     renderBusinessListingUi(s);
     renderAdminProds(App.adminProducts);
@@ -17044,7 +17098,7 @@ async function deleteShop(){
   const shopId=$('shopId').value.trim();if(!shopId)return toast('No business loaded','','err');
   const shopName=$('shopName').value.trim()||shopId;
   if(!confirm(`Delete "${shopName}" and all of its offerings? This cannot be undone.`))return;
-  try{await api(`/admin/business/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});toast('Business deleted',shopId);setS('shopStatus','');updateShopDraftState(false);$('shopStats').style.display='none';App.adminShopId=null;App.adminShopData=null;App.adminProducts=[];refreshWorkspaceHeader();renderAdminProds([]);clearProdForm();await loadMyShops();markPublicCatalogDirty();switchAdminSub('shops',{refreshShops:false});showShopManagerView('landing');}catch(e){setS('shopStatus',e.message,'err');toast('Delete failed',e.message,'err');}
+  try{await api(`/admin/business/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});toast('Business deleted',shopId);setS('shopStatus','');updateShopDraftState(false);$('shopStats').style.display='none';App.adminShopId=null;App.adminShopData=null;App.adminProducts=[];refreshWorkspaceHeader();renderBusinessAuditEvents([]);renderAdminProds([]);clearProdForm();await loadMyShops();markPublicCatalogDirty();switchAdminSub('shops',{refreshShops:false});showShopManagerView('landing');}catch(e){setS('shopStatus',e.message,'err');toast('Delete failed',e.message,'err');}
 }
 async function submitBusinessForReview(){
   if(!tok()) return toast('Login required','','err');
