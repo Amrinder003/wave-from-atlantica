@@ -3611,6 +3611,125 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   #shopFiltersPanel .shop-filter-actions{display:grid!important;grid-template-columns:1fr 1fr!important;align-items:stretch!important}
   #shopFiltersPanel .shop-filter-toggle{grid-column:1/-1!important}
 }
+#shopFiltersPanel{
+  scrollbar-width:thin;
+  scrollbar-color:rgba(15,118,110,.34) transparent;
+}
+#shopFiltersPanel::-webkit-scrollbar{width:8px}
+#shopFiltersPanel::-webkit-scrollbar-thumb{background:rgba(15,118,110,.28);border-radius:999px;border:2px solid transparent;background-clip:content-box}
+#shopFiltersPanel .shop-filter-panel-head{
+  border-left:0!important;
+  border-right:0!important;
+  border-top:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+#shopFiltersPanel .shop-filter-toggle{
+  position:relative;
+  min-height:44px;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px!important;
+  border-color:#cfe0d8!important;
+  background:linear-gradient(180deg,#fff,#f7fbf9)!important;
+  color:var(--ink2)!important;
+  font-weight:800;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:manipulation;
+  transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,color .16s ease,transform .16s ease;
+}
+#shopFiltersPanel .shop-filter-toggle:hover{
+  border-color:#a8d7c9!important;
+  background:#f5fffb!important;
+  color:var(--A2)!important;
+}
+#shopFiltersPanel .shop-filter-toggle:active{
+  transform:scale(.99);
+}
+#shopFiltersPanel .shop-filter-toggle:has(#shopFilterOpenNow:checked){
+  border-color:#7bc3b0!important;
+  background:linear-gradient(180deg,#effaf6,#e5f6f0)!important;
+  color:#0f5f55!important;
+  box-shadow:0 8px 20px rgba(15,118,110,.12)!important;
+}
+#shopFiltersPanel .shop-filter-toggle input{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+#shopFiltersPanel .shop-filter-check{
+  width:22px;
+  height:22px;
+  border-radius:7px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  border:1.5px solid #b6c8c0;
+  background:#fff;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.88),0 1px 2px rgba(15,23,42,.06);
+  transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;
+}
+#shopFiltersPanel .shop-filter-check::after{
+  content:"";
+  width:11px;
+  height:7px;
+  border-left:2px solid #fff;
+  border-bottom:2px solid #fff;
+  transform:rotate(-45deg) scale(.78);
+  opacity:0;
+  transition:opacity .12s ease,transform .16s ease;
+}
+#shopFiltersPanel #shopFilterOpenNow:checked + .shop-filter-check{
+  border-color:#0f766e;
+  background:linear-gradient(180deg,#14a085,#0f766e);
+  box-shadow:0 0 0 3px rgba(20,160,133,.14),0 5px 12px rgba(15,118,110,.18);
+}
+#shopFiltersPanel #shopFilterOpenNow:checked + .shop-filter-check::after{
+  opacity:1;
+  transform:rotate(-45deg) scale(1);
+}
+#shopFiltersPanel .shop-filter-toggle:focus-within{
+  border-color:#7bc3b0!important;
+  box-shadow:0 0 0 3px rgba(15,118,110,.14)!important;
+}
+#shopFiltersPanel .shop-filter-toggle-text{
+  line-height:1.2;
+}
+@media(max-width:680px){
+  #shopFiltersPanel{
+    touch-action:pan-y;
+    overscroll-behavior-y:contain;
+    scroll-behavior:smooth;
+    backface-visibility:hidden;
+    transform:translate3d(0,28px,0)!important;
+    transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .22s ease,visibility 0s linear .28s!important;
+  }
+  #shopFiltersPanel.on{
+    transform:translate3d(0,0,0)!important;
+    transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .22s ease!important;
+  }
+  #shopFiltersPanel .shop-filter-panel-head::before{
+    content:"";
+    position:absolute;
+    left:50%;
+    top:7px;
+    width:42px;
+    height:4px;
+    border-radius:999px;
+    background:#cad8d1;
+    transform:translateX(-50%);
+  }
+  #shopFiltersPanel .shop-filter-panel-head{
+    padding-top:18px!important;
+  }
+  #shopFiltersPanel .shop-filter-toggle{
+    min-height:48px;
+    padding:12px!important;
+  }
+}
 @media(max-width:420px){
   .hero-title{font-size:1.78rem!important}
   .hero-mobile-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important}
@@ -5724,7 +5843,7 @@ select.btn{
 </div>
 
 <div id="shopFilterScrim" class="mobile-panel-scrim"></div>
-<div id="shopFiltersPanel" class="shop-filter-shell" role="dialog" aria-label="Filter businesses">
+      <div id="shopFiltersPanel" class="shop-filter-shell" role="dialog" aria-label="Filter businesses">
   <div class="shop-filter-panel-head">
     <div class="shop-filter-panel-title">Filter Businesses</div>
     <button id="shopFilterCloseBtn" class="btn btn-g btn-sm" type="button">Done</button>
@@ -5737,7 +5856,7 @@ select.btn{
     <div class="fld"><label>Open Day</label><select id="shopFilterDay"><option value="">Any day</option><option value="mon">Monday</option><option value="tue">Tuesday</option><option value="wed">Wednesday</option><option value="thu">Thursday</option><option value="fri">Friday</option><option value="sat">Saturday</option><option value="sun">Sunday</option></select></div>
     <div class="fld"><label>Open Time</label><input id="shopFilterTime" type="time"/></div>
     <div class="shop-filter-actions">
-      <label class="shop-filter-toggle"><input id="shopFilterOpenNow" type="checkbox"/> Open now</label>
+      <label class="shop-filter-toggle"><input id="shopFilterOpenNow" type="checkbox"/><span class="shop-filter-check" aria-hidden="true"></span><span class="shop-filter-toggle-text">Open now</span></label>
       <button id="shopFilterApply" class="btn btn-o btn-sm">Apply</button>
       <button id="shopFilterClear" class="btn btn-g btn-sm">Clear</button>
     </div>
