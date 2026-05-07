@@ -5725,6 +5725,9 @@ select.btn{
 #pg-admin .owner-control-card .card-body{
   padding:14px!important;
 }
+#pg-admin .owner-control-card{
+  overflow:visible!important;
+}
 #pg-admin .owner-control-head{
   display:flex;
   align-items:center;
@@ -6010,6 +6013,236 @@ select.btn{
   }
   #pg-admin .owner-shop-card-stats{
     grid-template-columns:1fr 1fr 1fr!important;
+  }
+}
+
+/* My Businesses card redesign pass */
+#pg-admin .owner-control-head>div:first-child{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+#pg-admin .owner-guide{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+}
+#pg-admin .owner-guide-trigger{
+  min-height:30px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid #d4e4dd;
+  background:#fff;
+  color:var(--A2);
+  font-size:11px;
+  font-weight:800;
+  box-shadow:0 6px 16px rgba(15,23,42,.04);
+}
+#pg-admin .owner-guide-popover{
+  position:absolute;
+  left:0;
+  top:calc(100% + 8px);
+  width:340px;
+  display:grid;
+  gap:8px;
+  padding:12px;
+  border-radius:14px;
+  border:1px solid #dbe7e1;
+  background:#fff;
+  box-shadow:0 18px 40px rgba(15,23,42,.12);
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateY(-4px);
+  transition:opacity .16s ease,transform .16s ease,visibility 0s linear .16s;
+  z-index:30;
+}
+#pg-admin .owner-guide:hover .owner-guide-popover,
+#pg-admin .owner-guide:focus-within .owner-guide-popover{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transform:translateY(0);
+  transition:opacity .16s ease,transform .16s ease;
+}
+#pg-admin .owner-guide-popover div{
+  display:grid;
+  grid-template-columns:78px minmax(0,1fr);
+  gap:10px;
+  align-items:start;
+  padding:8px 9px;
+  border-radius:10px;
+  background:#f7fbf9;
+}
+#pg-admin .owner-guide-popover strong{
+  color:var(--A2);
+  font-size:11px;
+  line-height:1.35;
+}
+#pg-admin .owner-guide-popover span{
+  color:#52635c;
+  font-size:12px;
+  line-height:1.45;
+}
+#pg-admin #ownerShopGrid{
+  grid-template-columns:repeat(auto-fill,minmax(min(100%,390px),1fr))!important;
+  align-items:stretch!important;
+}
+#pg-admin #ownerShopGrid .owner-shop-card{
+  display:grid!important;
+  grid-template-rows:auto minmax(44px,auto) auto auto auto;
+  min-height:292px!important;
+  border-radius:16px!important;
+  padding:18px!important;
+  gap:13px!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.96),rgba(250,253,251,.98)),
+    radial-gradient(circle at 94% 0%,rgba(15,118,110,.08),transparent 28%)!important;
+  border-color:#d7e6df!important;
+}
+#pg-admin #ownerShopGrid .owner-shop-card::before{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  top:0;
+  height:3px;
+  background:linear-gradient(90deg,#0f766e,#a7e8c3);
+  opacity:.68;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-top{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:flex-start!important;
+  min-width:0;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-ident{
+  flex:1 1 auto;
+  min-width:0;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-count{
+  display:none!important;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-avatar{
+  width:52px!important;
+  height:52px!important;
+  border-radius:16px!important;
+  box-shadow:0 10px 22px rgba(15,118,110,.07)!important;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-name{
+  font-size:19px!important;
+  line-height:1.12!important;
+  overflow-wrap:anywhere;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-meta{
+  white-space:normal!important;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  min-height:34px;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-overview{
+  min-height:56px!important;
+  font-size:13px!important;
+  line-height:1.55!important;
+  color:#52635c!important;
+  -webkit-line-clamp:3;
+}
+#pg-admin #ownerShopGrid .owner-flag-list{
+  min-height:28px;
+  align-content:start;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-stats{
+  padding:6px!important;
+  gap:0!important;
+  border-radius:14px!important;
+  background:#f5faf8!important;
+  border:1px solid #dfece6!important;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-stat{
+  min-height:62px;
+  display:grid;
+  align-content:center;
+  gap:3px;
+  padding:8px 10px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-stat + .owner-shop-card-stat{
+  border-left:1px solid #dce9e3!important;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-stat-v{
+  font-family:'Sora',sans-serif;
+  color:var(--A2)!important;
+  font-size:18px!important;
+  line-height:1!important;
+  font-weight:800!important;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-stat-k{
+  text-transform:none!important;
+  letter-spacing:0!important;
+  font-size:11px!important;
+  line-height:1.25!important;
+  font-weight:700!important;
+  color:#708078!important;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-go{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  min-height:36px;
+  margin-top:0!important;
+  padding:2px 0 0!important;
+  border-top:0!important;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-go span{
+  color:var(--A2);
+  font-size:13px;
+  font-weight:800;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-go::after{
+  content:"›";
+  width:30px;
+  height:30px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  border-radius:999px;
+  background:#eef7f4;
+  color:var(--A2);
+  font-size:22px;
+  line-height:1;
+  transition:transform .14s ease,background .14s ease,color .14s ease;
+}
+#pg-admin #ownerShopGrid .owner-shop-card:hover .owner-shop-card-go::after{
+  transform:translateX(2px);
+  background:var(--A);
+  color:#fff;
+}
+#pg-admin #ownerShopGrid .owner-shop-card-arrow{
+  display:none!important;
+}
+#pg-admin #myShopsStatus.ok:not(:empty){
+  background:#f0fdf4!important;
+  border-color:#86efac!important;
+  color:#14532d!important;
+}
+@media(max-width:680px){
+  #pg-admin .owner-guide{
+    display:none!important;
+  }
+  #pg-admin #ownerShopGrid{
+    grid-template-columns:1fr!important;
+  }
+  #pg-admin #ownerShopGrid .owner-shop-card{
+    min-height:0!important;
+  }
+  #pg-admin #ownerShopGrid .owner-shop-card-meta,
+  #pg-admin #ownerShopGrid .owner-shop-card-overview{
+    min-height:0!important;
   }
 }
 </style>
@@ -6474,9 +6707,6 @@ select.btn{
                 <div id="accountDeleteStatus" class="stxt"></div>
               </div>
             </div>
-            <div id="adminUserActions" class="btn-row" style="display:none">
-              <button id="adminLogoutBtn" class="btn btn-g btn-sm">Sign Out</button>
-            </div>
             <div id="authStatus" class="stxt"></div>
           </div>
         </div>
@@ -6506,6 +6736,14 @@ select.btn{
                   <div id="ownerReviewGuideCard" class="review-note owner-review-note" style="display:block">
                     <strong>Review</strong>
                     New businesses stay private until Atlantic Ordinate approves them.
+                  </div>
+                  <div class="owner-guide">
+                    <button class="owner-guide-trigger" type="button">How it works</button>
+                    <div class="owner-guide-popover">
+                      <div><strong>Create</strong><span>Add the business details customers see.</span></div>
+                      <div><strong>Offerings</strong><span>Build the catalog for browsing and chat.</span></div>
+                      <div><strong>Review</strong><span>Open the public page after approval.</span></div>
+                    </div>
                   </div>
                 </div>
                 <div class="owner-control-actions">
@@ -12591,7 +12829,7 @@ function renderUserUI(){
     $('authBadge').className='badge g';
     $('adminAuthFields').style.display='none';
     $('adminGuestActions').style.display='none';
-    $('adminUserActions').style.display='none';
+    if($('adminUserActions')) $('adminUserActions').style.display='none';
     setS('authStatus',safeEmail?`Logged in as ${safeEmail}`:'Signed in','ok');
   }else{
     setProfileNavIcon('', 'U');
@@ -12604,7 +12842,7 @@ function renderUserUI(){
     $('authBadge').className='badge y';
     $('adminAuthFields').style.display='grid';
     $('adminGuestActions').style.display='flex';
-    $('adminUserActions').style.display='none';
+    if($('adminUserActions')) $('adminUserActions').style.display='none';
     setS('authStatus','');
   }
   renderAdminAccountState(u);
@@ -12991,7 +13229,7 @@ $('adminForgotBtn').addEventListener('click',()=>{
   $('forgotEmail').value=$('authEmail').value.trim();
   openAuthModal('forgot');
 });
-$('adminLogoutBtn').addEventListener('click',async()=>{
+$('adminLogoutBtn')?.addEventListener('click',async()=>{
   await doLogout();
   setS('authStatus','Logged out.','ok');
 });
@@ -16675,7 +16913,7 @@ async function loadMyShops(){
       const overviewText=s.overview ? String(s.overview).trim().slice(0,120) : 'Open this workspace to finish the public profile.';
       const card=document.createElement('button');
       card.className='owner-shop-card';
-      card.innerHTML=`<div class="owner-shop-card-top"><div class="owner-shop-card-ident"><div class="owner-shop-card-avatar">${businessAvatarHtml(s,s.name||'Business')}</div><div class="owner-shop-card-title-wrap"><div class="owner-shop-card-name">${esc(s.name||'Untitled Business')}</div><div class="owner-shop-card-meta">${esc(locationText)}${s.category?` <span>${esc(s.category)}</span>`:''}</div></div></div><div class="owner-shop-card-count"><strong>${offeringCount}</strong><span>${esc(nouns.plural)}</span></div></div><div class="owner-shop-card-overview">${esc(overviewText)}</div><div class="owner-flag-list">${businessListingPillHtml(s,listingMeta.label)}${s.is_open_now?'<span class="owner-open-chip">Open now</span>':''}${visibleFlags.length?visibleFlags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join('')+moreFlags:(listingMeta.live?'<span class="owner-good">Ready</span>':'')}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-v">${offeringCount}</div><div class="owner-shop-card-stat-k">${esc(nouns.plural)}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-v">${stats.chat_hits_30d??0}</div><div class="owner-shop-card-stat-k">Chats</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-v">${Number(stats.avg_rating||0).toFixed(1)}</div><div class="owner-shop-card-stat-k">Rating</div></div></div><div class="owner-shop-card-go"><span>Manage</span><span class="owner-shop-card-arrow">&rsaquo;</span></div>`;
+      card.innerHTML=`<div class="owner-shop-card-top"><div class="owner-shop-card-ident"><div class="owner-shop-card-avatar">${businessAvatarHtml(s,s.name||'Business')}</div><div class="owner-shop-card-title-wrap"><div class="owner-shop-card-name">${esc(s.name||'Untitled Business')}</div><div class="owner-shop-card-meta">${esc(locationText)}${s.category?` <span>${esc(s.category)}</span>`:''}</div></div></div><div class="owner-shop-card-count"><strong>${offeringCount}</strong><span>${esc(nouns.plural)}</span></div></div><div class="owner-shop-card-overview">${esc(overviewText)}</div><div class="owner-flag-list">${businessListingPillHtml(s,listingMeta.label)}${s.is_open_now?'<span class="owner-open-chip">Open now</span>':''}${visibleFlags.length?visibleFlags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join('')+moreFlags:(listingMeta.live?'<span class="owner-good">Ready</span>':'')}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-v">${offeringCount}</div><div class="owner-shop-card-stat-k">${esc(nouns.plural)}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-v">${stats.chat_hits_30d??0}</div><div class="owner-shop-card-stat-k">Chats</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-v">${Number(stats.avg_rating||0).toFixed(1)}</div><div class="owner-shop-card-stat-k">Rating</div></div></div><div class="owner-shop-card-go"><span>Open workspace</span></div>`;
       card.addEventListener('click',()=>loadAdminShop(s.shop_id));
       grid.appendChild(card);
     });
