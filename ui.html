@@ -6435,6 +6435,38 @@ select.btn{
 #pg-admin #shopDetailView .workspace-copy{
   min-width:0;
 }
+#pg-admin #shopDetailView .workspace-identity{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+#pg-admin #shopDetailView .workspace-avatar{
+  width:58px;
+  height:58px;
+  border-radius:16px;
+  overflow:hidden;
+  flex:0 0 auto;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(180deg,#f8fffc,#edf7f2);
+  border:1px solid #d6e6df;
+  box-shadow:0 10px 22px rgba(15,118,110,.07);
+}
+#pg-admin #shopDetailView .workspace-avatar img,
+#pg-admin #shopDetailView .workspace-avatar .biz-avatar-img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+#pg-admin #shopDetailView .workspace-avatar .biz-avatar-fallback,
+#pg-admin #shopDetailView .workspace-avatar span{
+  font-family:'Sora',sans-serif;
+  font-size:22px;
+  font-weight:800;
+  color:var(--A2);
+}
 #pg-admin #shopDetailView .workspace-kicker,
 #pg-admin #shopDetailView .owner-products-topline,
 #pg-admin #shopDetailView .owner-side-label{
@@ -6728,6 +6760,15 @@ select.btn{
   }
   #pg-admin #shopDetailView .workspace-hero{
     padding:16px!important;
+  }
+  #pg-admin #shopDetailView .workspace-identity{
+    align-items:flex-start;
+    gap:12px;
+  }
+  #pg-admin #shopDetailView .workspace-avatar{
+    width:48px;
+    height:48px;
+    border-radius:14px;
   }
   #pg-admin #shopDetailView .workspace-title{
     font-size:22px!important;
@@ -7439,16 +7480,18 @@ select.btn{
         <div id="shopDetailView" data-shop-view="detail" class="shop-admin-view">
           <div class="card">
             <div class="workspace-hero">
-              <div class="workspace-copy">
-                <div class="workspace-kicker">Business Overview</div>
-                <div id="workspaceTitle" class="workspace-title">Select a business to manage</div>
-                <div id="workspaceDesc" class="workspace-desc">Open one of your businesses to manage it here.</div>
+              <div class="workspace-identity">
+                <div id="workspaceAvatar" class="workspace-avatar" aria-hidden="true"><span>B</span></div>
+                <div class="workspace-copy">
+                  <div class="workspace-kicker">Business Overview</div>
+                  <div id="workspaceTitle" class="workspace-title">Select a business to manage</div>
+                  <div id="workspaceDesc" class="workspace-desc">Open one of your businesses to manage it here.</div>
+                </div>
               </div>
               <div class="workspace-actions">
-                <button id="detailBackBtn" class="btn btn-g btn-sm">Back to Businesses</button>
                 <button id="detailEditShopBtn" class="btn btn-o btn-sm">Edit Business</button>
                 <button id="detailOpenLiveShopBtn" class="btn btn-o btn-sm">Open Live Page</button>
-                <button id="detailAddProductBtn" class="btn btn-A btn-sm">+ Add Offering</button>
+                <button id="detailBackBtn" class="btn btn-g btn-sm">Back to Businesses</button>
               </div>
             </div>
             <div id="workspaceStats" class="workspace-stats">
@@ -7464,8 +7507,8 @@ select.btn{
             <div class="card owner-detail-card">
               <div class="owner-detail-card-top">
                 <div>
-                  <div id="ownerDetailName" class="owner-detail-name">Business Name</div>
-                  <div id="ownerDetailMeta" class="owner-detail-meta">Address - Category</div>
+                  <div id="ownerDetailName" class="owner-detail-name">Business page details</div>
+                  <div id="ownerDetailMeta" class="owner-detail-meta">Customer-facing summary and status.</div>
                 </div>
                 <div id="shopStats" class="stat-bar" style="display:none"></div>
               </div>
@@ -7487,9 +7530,9 @@ select.btn{
             </button>
             <div class="owner-side-stack is-collapsed" id="ownerWorkspaceTools">
               <div class="owner-side-card">
-                <div class="owner-side-label">Listing Status</div>
+                <div class="owner-side-label">Review Controls</div>
                 <div id="ownerListingStateTitle" class="owner-side-title">Business not loaded</div>
-                <div id="ownerListingStateCopy" class="owner-side-copy">Open a business to see whether it is private, pending review, or live on the public app.</div>
+                <div id="ownerListingStateCopy" class="owner-side-copy">Submit the page when it is ready for review, or keep it as draft while details are still being prepared.</div>
                 <div class="owner-flag-list" style="margin-top:12px">
                   <span id="ownerListingStateBadge" class="listing-pill draft">Draft</span>
                 </div>
@@ -7497,9 +7540,6 @@ select.btn{
                 <div class="owner-side-actions">
                   <button id="detailSubmitReviewBtn" class="btn btn-A btn-sm">Submit for Review</button>
                   <button id="detailMoveDraftBtn" class="btn btn-o btn-sm" style="display:none">Move to Draft</button>
-                  <button id="detailAddProductBtnSide" class="btn btn-A btn-sm">+ Add Offering</button>
-                  <button id="detailEditShopBtnSide" class="btn btn-o btn-sm">Edit Business Details</button>
-                  <button id="detailOpenLiveShopBtnSide" class="btn btn-g btn-sm">Open Live Page</button>
                 </div>
               </div>
               <div class="owner-side-card">
@@ -7546,6 +7586,7 @@ select.btn{
                   <div class="owner-products-sub">Everything listed under this business appears here. Open an offering to edit it, or use the search to find something quickly.</div>
                 </div>
                 <div class="product-manager-tools">
+                  <button id="detailAddProductBtn" class="btn btn-A btn-sm">+ Add Offering</button>
                   <button id="adminBulkToggleBtn" class="btn btn-g btn-sm">Bulk Edit</button>
                   <select id="adminProdHealth" class="btn btn-o btn-sm" style="padding:7px 10px">
                     <option value="">All offerings</option>
@@ -17622,23 +17663,24 @@ function refreshWorkspaceHeader(shop=null,stats={}){
   const ratingNum=Number(stats?.avg_rating);
   const nouns=offeringNouns(shop||{});
   const offeringCount=stats.offering_count??stats.product_count??0;
-  const location=[shop?.address||shop?.service_area||'',shop?.category||'',shop?.hours||''].filter(Boolean);
+  const addressText=shop?.formatted_address||shop?.address||shop?.service_area||'No address added yet';
+  const categoryText=shop?.category?` - ${shop.category}`:'';
   const listingMeta=businessListingMeta(shop||{});
   $('workspaceTitle').textContent=shop?.name||'Select a business to manage';
   $('workspaceDesc').textContent=shop
-    ? `${location.slice(0,2).join(' - ')||'No location yet'}. ${listingMeta.live?'This listing is live for customers.':'This listing is private until it is approved.'} Manage ${nouns.plural} and verification from one place.`
+    ? `${addressText}${categoryText}. ${listingMeta.live?'This listing is live for customers.':'This listing is private until it is approved.'}`
     : 'Open one of your businesses to manage its page and offerings.';
+  if($('workspaceAvatar')) $('workspaceAvatar').innerHTML=shop?businessAvatarHtml(shop,shop.name||'Business'):'<span>B</span>';
   $('wkStatus').textContent=shop?listingMeta.label:'No business loaded';
   $('wkProducts').textContent=String(offeringCount);
   $('wkChats').textContent=String(stats.chat_hits_30d??0);
   if($('wkShopViews')) $('wkShopViews').textContent=String(stats.shop_views_30d??0);
   if($('wkProductViews')) $('wkProductViews').textContent=String(stats.product_views_30d??0);
   $('wkRating').textContent=Number.isFinite(ratingNum)?ratingNum.toFixed(1):'0.0';
-  if($('ownerDetailName')) $('ownerDetailName').textContent=shop?.name||'Business Name';
-  if($('ownerDetailMeta')) $('ownerDetailMeta').textContent=shop ? (location.join(' - ')||'No location yet') : 'Location - Category';
+  if($('ownerDetailName')) $('ownerDetailName').textContent='Business page details';
+  if($('ownerDetailMeta')) $('ownerDetailMeta').textContent=shop ? 'Customer-facing summary and listing readiness.' : 'Customer-facing summary and status.';
   if($('ownerDetailOverview')) $('ownerDetailOverview').textContent=shop?.overview||'Add a stronger business overview so customers and the assistant both have better context.';
   if($('detailAddProductBtn')) $('detailAddProductBtn').textContent=`+ Add ${nouns.label}`;
-  if($('detailAddProductBtnSide')) $('detailAddProductBtnSide').textContent=`+ Add ${nouns.label}`;
   if($('ownerDetailTags')){
     const tags = shop
       ? [
@@ -17683,7 +17725,11 @@ function renderBusinessListingUi(shop={}){
   const unmet=Array.isArray(normalized.review_requirements)?normalized.review_requirements:[];
   const trustFlags=Array.isArray(normalized.trust_flags)?normalized.trust_flags:[];
   if($('ownerListingStateTitle')) $('ownerListingStateTitle').textContent=meta.title;
-  if($('ownerListingStateCopy')) $('ownerListingStateCopy').textContent=unmet.length && meta.canSubmit ? `${meta.copy} Next: ${unmet[0]}` : meta.copy;
+  if($('ownerListingStateCopy')){
+    $('ownerListingStateCopy').textContent=unmet.length && meta.canSubmit
+      ? `Before sending for review: ${unmet[0]}`
+      : (meta.live ? 'This page is live. Move it to draft only if it should be hidden while you edit.' : 'Submit the page when the profile is ready, or keep it as draft while details are still being prepared.');
+  }
   if($('ownerListingStateBadge')) $('ownerListingStateBadge').outerHTML=businessListingPillHtml(normalized,meta.label).replace('<span ','<span id="ownerListingStateBadge" ');
   if($('shopListingStateBadge')) $('shopListingStateBadge').outerHTML=businessListingPillHtml(normalized,meta.label).replace('<span ','<span id="shopListingStateBadge" ');
   if($('shopListingStateCopy')) $('shopListingStateCopy').textContent=isEdit ? (unmet.length && meta.canSubmit ? `${meta.copy} Next: ${unmet[0]}` : meta.copy) : 'Create the business first. Draft businesses stay private until they are reviewed and approved.';
@@ -17706,7 +17752,6 @@ function renderBusinessListingUi(shop={}){
   if($('detailMoveDraftBtn')) $('detailMoveDraftBtn').style.display=(isEdit && meta.canMoveDraft)?'':'none';
   if($('shopMoveDraftBtn')) $('shopMoveDraftBtn').style.display=(isEdit && meta.canMoveDraft)?'':'none';
   if($('detailOpenLiveShopBtn')) $('detailOpenLiveShopBtn').disabled=!meta.live;
-  if($('detailOpenLiveShopBtnSide')) $('detailOpenLiveShopBtnSide').disabled=!meta.live;
   const submitTitle=canSubmit ? 'Submit for review' : (isEdit ? 'Complete the requirements first' : 'Create the business first');
   if($('detailSubmitReviewBtn')) $('detailSubmitReviewBtn').title=submitTitle;
   if($('shopSubmitReviewBtn')) $('shopSubmitReviewBtn').title=submitTitle;
@@ -18562,8 +18607,6 @@ $('closeClaimWorkspaceBtn')?.addEventListener('click',()=>{
 $('detailBackBtn').addEventListener('click',()=>showShopManagerView('landing'));
 $('detailEditShopBtn').addEventListener('click',openEditShopView);
 $('detailAddProductBtn').addEventListener('click',()=>openProductForm());
-$('detailEditShopBtnSide').addEventListener('click',openEditShopView);
-$('detailAddProductBtnSide').addEventListener('click',()=>openProductForm());
 $('detailSubmitReviewBtn')?.addEventListener('click',submitBusinessForReview);
 $('detailMoveDraftBtn')?.addEventListener('click',moveBusinessToDraft);
 $('shopSubmitReviewBtn')?.addEventListener('click',submitBusinessForReview);
@@ -18574,7 +18617,6 @@ $('addVariantColorBtn')?.addEventListener('click',()=>appendVariantOption('Color
 $('addProdLinkBtn')?.addEventListener('click',addProductExternalLink);
 $('refreshVariantMatrixBtn')?.addEventListener('click',()=>{renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData());markProductFormDirty();});
 $('detailOpenLiveShopBtn').addEventListener('click',openAdminLiveBusiness);
-$('detailOpenLiveShopBtnSide').addEventListener('click',openAdminLiveBusiness);
 $('shopFormBackBtn').addEventListener('click',()=>showShopManagerView(App.adminShopId?'detail':'landing'));
 $('productFormBackBtn').addEventListener('click',()=>showShopManagerView('detail'));
 $('shopFloatingBackBtn').addEventListener('click',()=>showShopManagerView(App.adminShopId?'detail':'landing'));
