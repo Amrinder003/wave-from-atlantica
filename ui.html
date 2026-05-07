@@ -4201,6 +4201,14 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
 #pg-admin #sub-account #adminGuestActions{
   margin-top:-2px;
 }
+#pg-admin #sub-account.account-signed-in #adminAuthFields,
+#pg-admin #sub-account.account-signed-in #adminGuestActions{
+  display:none!important;
+}
+#pg-admin #sub-account.account-signed-out #adminAccountSummary,
+#pg-admin #sub-account.account-signed-out #adminAccountManage{
+  display:none!important;
+}
 #pg-admin #sub-account .danger-zone{
   border-color:#f5c4cc!important;
   background:linear-gradient(180deg,#fff8f9 0%,#fff 100%)!important;
@@ -14211,6 +14219,8 @@ function openInternalReviewWorkspace(){
 }
 function renderUserUI(){
   const u=App.user;
+  $('sub-account')?.classList.toggle('account-signed-in',!!u);
+  $('sub-account')?.classList.toggle('account-signed-out',!u);
   if(u){
     const safeEmail=u.email||'';
     const safeName=u.display_name||safeEmail.split('@')[0]||'Guest';
