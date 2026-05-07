@@ -6498,7 +6498,7 @@ select.btn{
   border-radius:10px!important;
 }
 #pg-admin #shopDetailView .workspace-stats{
-  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  grid-template-columns:minmax(190px,1.35fr) minmax(150px,1.15fr) repeat(3,minmax(130px,1fr))!important;
   gap:8px!important;
   padding:0 18px 18px!important;
 }
@@ -6518,6 +6518,33 @@ select.btn{
   color:var(--A2)!important;
   font-size:18px!important;
   line-height:1.1!important;
+}
+#pg-admin #shopDetailView .workspace-stat-rating{
+  background:linear-gradient(135deg,#f0fbf7 0%,#ffffff 100%)!important;
+  border-color:#b8d8ce!important;
+  box-shadow:0 14px 26px rgba(15,118,110,.07)!important;
+}
+#pg-admin #shopDetailView .workspace-rating-row{
+  display:grid;
+  gap:5px;
+}
+#pg-admin #shopDetailView .workspace-stat-rating .workspace-stat-value{
+  font-size:24px!important;
+}
+#pg-admin #shopDetailView .workspace-stars{
+  display:flex;
+  gap:2px;
+  line-height:1;
+  color:#cbd5cf;
+  font-size:15px;
+  letter-spacing:0;
+}
+#pg-admin #shopDetailView .workspace-stars span.on{
+  color:#f59e0b;
+  text-shadow:0 1px 0 rgba(255,255,255,.8);
+}
+#pg-admin #shopDetailView .workspace-stat-main .workspace-stat-value{
+  font-size:22px!important;
 }
 #pg-admin #shopDetailView .owner-detail-card,
 #pg-admin #shopDetailView .owner-products-card,
@@ -6739,7 +6766,7 @@ select.btn{
     grid-row:6!important;
   }
   #pg-admin #shopDetailView .workspace-stats{
-    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
   }
 }
 @media(max-width:760px){
@@ -6907,7 +6934,7 @@ select.btn{
     grid-template-columns:1fr!important;
   }
   #pg-admin #shopDetailView .workspace-stats{
-    grid-template-columns:1fr 1fr!important;
+    grid-template-columns:1fr!important;
   }
 }
 
@@ -7495,12 +7522,17 @@ select.btn{
               </div>
             </div>
             <div id="workspaceStats" class="workspace-stats">
-              <div class="workspace-stat"><div class="workspace-stat-label">Status</div><div id="wkStatus" class="workspace-stat-value">No business loaded</div></div>
-              <div class="workspace-stat"><div class="workspace-stat-label">Offerings</div><div id="wkProducts" class="workspace-stat-value">0</div></div>
+              <div class="workspace-stat workspace-stat-rating">
+                <div class="workspace-stat-label">Rating</div>
+                <div class="workspace-rating-row">
+                  <div id="wkRating" class="workspace-stat-value">0.0</div>
+                  <div id="wkRatingStars" class="workspace-stars" aria-label="0 out of 5 stars"></div>
+                </div>
+              </div>
+              <div class="workspace-stat workspace-stat-main"><div class="workspace-stat-label">Page Views / 30d</div><div id="wkShopViews" class="workspace-stat-value">0</div></div>
+              <div class="workspace-stat"><div id="wkProductsLabel" class="workspace-stat-label">Products</div><div id="wkProducts" class="workspace-stat-value">0</div></div>
+              <div class="workspace-stat"><div id="wkProductViewsLabel" class="workspace-stat-label">Product Views / 30d</div><div id="wkProductViews" class="workspace-stat-value">0</div></div>
               <div class="workspace-stat"><div class="workspace-stat-label">Chats / 30d</div><div id="wkChats" class="workspace-stat-value">0</div></div>
-              <div class="workspace-stat"><div class="workspace-stat-label">Page Views / 30d</div><div id="wkShopViews" class="workspace-stat-value">0</div></div>
-              <div class="workspace-stat"><div class="workspace-stat-label">Offering Views / 30d</div><div id="wkProductViews" class="workspace-stat-value">0</div></div>
-              <div class="workspace-stat"><div class="workspace-stat-label">Rating</div><div id="wkRating" class="workspace-stat-value">0.0</div></div>
             </div>
           </div>
           <div class="owner-detail-shell">
@@ -17658,8 +17690,12 @@ App.adminShopData=null;
 App.adminProducts=[];
 App.adminShops=[];
 
+function ratingStarsHtml(value=0){
+  const rating=Math.max(0,Math.min(5,Number(value)||0));
+  return [1,2,3,4,5].map(i=>`<span class="${rating>=i-.25?'on':''}">★</span>`).join('');
+}
 function refreshWorkspaceHeader(shop=null,stats={}){
-  if(!$('workspaceTitle')||!$('workspaceDesc')||!$('wkStatus')||!$('wkProducts')||!$('wkChats')||!$('wkRating')) return;
+  if(!$('workspaceTitle')||!$('workspaceDesc')||!$('wkProducts')||!$('wkChats')||!$('wkRating')) return;
   const ratingNum=Number(stats?.avg_rating);
   const nouns=offeringNouns(shop||{});
   const offeringCount=stats.offering_count??stats.product_count??0;
@@ -17671,12 +17707,18 @@ function refreshWorkspaceHeader(shop=null,stats={}){
     ? `${addressText}${categoryText}. ${listingMeta.live?'This listing is live for customers.':'This listing is private until it is approved.'}`
     : 'Open one of your businesses to manage its page and offerings.';
   if($('workspaceAvatar')) $('workspaceAvatar').innerHTML=shop?businessAvatarHtml(shop,shop.name||'Business'):'<span>B</span>';
-  $('wkStatus').textContent=shop?listingMeta.label:'No business loaded';
   $('wkProducts').textContent=String(offeringCount);
+  if($('wkProductsLabel')) $('wkProductsLabel').textContent=nouns.plural.charAt(0).toUpperCase()+nouns.plural.slice(1);
   $('wkChats').textContent=String(stats.chat_hits_30d??0);
   if($('wkShopViews')) $('wkShopViews').textContent=String(stats.shop_views_30d??0);
   if($('wkProductViews')) $('wkProductViews').textContent=String(stats.product_views_30d??0);
+  if($('wkProductViewsLabel')) $('wkProductViewsLabel').textContent=`${nouns.label.charAt(0).toUpperCase()+nouns.label.slice(1)} Views / 30d`;
   $('wkRating').textContent=Number.isFinite(ratingNum)?ratingNum.toFixed(1):'0.0';
+  if($('wkRatingStars')){
+    const safeRating=Number.isFinite(ratingNum)?ratingNum:0;
+    $('wkRatingStars').innerHTML=ratingStarsHtml(safeRating);
+    $('wkRatingStars').setAttribute('aria-label',`${safeRating.toFixed(1)} out of 5 stars`);
+  }
   if($('ownerDetailName')) $('ownerDetailName').textContent='Business page details';
   if($('ownerDetailMeta')) $('ownerDetailMeta').textContent=shop ? 'Customer-facing summary and listing readiness.' : 'Customer-facing summary and status.';
   if($('ownerDetailOverview')) $('ownerDetailOverview').textContent=shop?.overview||'Add a stronger business overview so customers and the assistant both have better context.';
@@ -18335,18 +18377,9 @@ async function loadAdminShop(shopId,{refreshOwnerList=false}={}){
     syncBulkEditBar();
     $('adminProdSearch').value='';
     populateShopForm({...s,shop_id:shopId});
-    const st=d.data.stats||{};const el=$('shopStats');el.style.display='grid';
-    const nouns=offeringNouns(s,adminData.products||[]);
-    const offeringCount=st.offering_count??st.product_count??0;
-    const withImages=st.offerings_with_images??st.products_with_images??0;
-    el.innerHTML=[
-      [nouns.plural.charAt(0).toUpperCase()+nouns.plural.slice(1),offeringCount],
-      ['Images',st.image_count??0],
-      ['Coverage',`${withImages}/${offeringCount}`],
-      ['Chats/30d',st.chat_hits_30d??0],
-      ['Page Views',st.shop_views_30d??0],
-      [`${nouns.label.charAt(0).toUpperCase()+nouns.label.slice(1)} Views`,st.product_views_30d??0]
-    ].map(([l,v])=>`<div class="sbox"><div class="sbox-l">${esc(l)}</div><div class="sbox-v">${esc(v)}</div></div>`).join('');
+    const st=d.data.stats||{};
+    const el=$('shopStats');
+    if(el){el.style.display='none';el.innerHTML='';}
     App.adminProducts=adminData.products||[];
     const requests=reqRes.requests||[];
     renderOwnerRequests(requests);
