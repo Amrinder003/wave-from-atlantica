@@ -7021,17 +7021,24 @@ select.btn{
     color:#fff;
   }
   #pg-admin #shopDetailView .owner-side-stack{
-    max-height:1800px;
+    height:auto;
+    max-height:none;
     overflow:hidden;
     opacity:1;
-    transition:max-height .28s cubic-bezier(.2,.8,.2,1),opacity .2s ease;
-    will-change:max-height,opacity;
+    transition:height .28s cubic-bezier(.2,.8,.2,1),opacity .18s ease;
+    will-change:height,opacity;
     touch-action:pan-y;
+    overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
+    transform:translateZ(0);
   }
   #pg-admin #shopDetailView .owner-side-stack.is-collapsed{
-    max-height:0!important;
+    height:0;
     opacity:0;
+    pointer-events:none;
+  }
+  #pg-admin #shopDetailView .owner-side-stack.is-animating{
+    overflow:hidden!important;
   }
   #pg-admin #shopDetailView .owner-side-card{
     padding:12px!important;
@@ -18195,13 +18202,47 @@ function setOwnerWorkspaceTools(open){
   const toggle=$('ownerWorkspaceToolsToggle');
   if(!tools) return;
   const expanded=!!open;
-  tools.classList.toggle('is-collapsed',!expanded);
   toggle?.classList.toggle('is-open',expanded);
   toggle?.setAttribute('aria-expanded',expanded?'true':'false');
+  const mobile=window.matchMedia?.('(max-width: 760px)').matches;
+  if(!mobile){
+    tools.classList.toggle('is-collapsed',!expanded);
+    tools.style.height='';
+    tools.classList.remove('is-animating');
+    return;
+  }
+  const startHeight=tools.classList.contains('is-collapsed') ? 0 : tools.getBoundingClientRect().height;
+  if(tools._ownerToolsFinish) tools.removeEventListener('transitionend',tools._ownerToolsFinish);
+  tools.classList.add('is-animating');
+  tools.style.height=`${startHeight}px`;
+  tools.getBoundingClientRect();
+  tools.classList.toggle('is-collapsed',!expanded);
+  const endHeight=expanded ? tools.scrollHeight : 0;
+  requestAnimationFrame(()=>{ tools.style.height=`${endHeight}px`; });
+  const finish=e=>{
+    if(e.target!==tools || e.propertyName!=='height') return;
+    tools.removeEventListener('transitionend',finish);
+    tools._ownerToolsFinish=null;
+    tools.classList.remove('is-animating');
+    tools.style.height=expanded?'auto':'0px';
+  };
+  tools._ownerToolsFinish=finish;
+  tools.addEventListener('transitionend',finish);
 }
 $('ownerWorkspaceToolsToggle')?.addEventListener('click',()=>{
   const tools=$('ownerWorkspaceTools');
   setOwnerWorkspaceTools(tools?.classList.contains('is-collapsed'));
+});
+window.addEventListener('resize',()=>{
+  const tools=$('ownerWorkspaceTools');
+  if(!tools) return;
+  const mobile=window.matchMedia?.('(max-width: 760px)').matches;
+  if(!mobile){
+    tools.style.height='';
+    tools.classList.remove('is-animating');
+  }else if(tools.classList.contains('is-collapsed')){
+    tools.style.height='0px';
+  }
 });
 function setWorkspaceActionsPanel(open){
   const panel=$('workspaceActionsPanel');
