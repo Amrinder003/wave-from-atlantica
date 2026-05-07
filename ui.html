@@ -7070,9 +7070,60 @@ select.btn{
   background:#e9f6f2;
   color:var(--A2);
 }
+#pg-admin #shopDetailView .catalog-import-toggle-row{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:-8px;
+}
+#pg-admin #shopDetailView .catalog-import-toggle-row .btn{
+  min-height:40px;
+  border-radius:12px!important;
+  background:#fff!important;
+  color:var(--A2)!important;
+  border-color:#bfd8cf!important;
+  box-shadow:0 10px 24px rgba(15,118,110,.06);
+}
+#pg-admin #shopDetailView .catalog-import-toggle-row .btn:hover{
+  background:#e9f6f2!important;
+  border-color:#94c8b8!important;
+}
+#pg-admin #shopDetailView .catalog-import-card[hidden]{
+  display:none!important;
+}
 #pg-admin #shopDetailView .catalog-import-card{
   border-color:#dbe7e1!important;
   background:#fff!important;
+}
+#pg-admin #shopDetailView .catalog-import-head{
+  display:flex!important;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+}
+#pg-admin #shopDetailView .catalog-import-close{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  border:1px solid #d7e6df;
+  border-radius:999px;
+  background:#f8fbfa;
+  color:var(--A2);
+  cursor:pointer;
+  transition:background .15s ease,border-color .15s ease,transform .15s ease;
+}
+#pg-admin #shopDetailView .catalog-import-close svg{
+  width:18px;
+  height:18px;
+  stroke:currentColor;
+  stroke-width:2.3;
+  stroke-linecap:round;
+}
+#pg-admin #shopDetailView .catalog-import-close:hover{
+  background:#e9f6f2;
+  border-color:#a9d5c8;
+  transform:translateY(-1px);
 }
 #pg-admin #shopDetailView .catalog-import-card .card-head{
   border-bottom:1px solid #edf3f0!important;
@@ -7143,6 +7194,13 @@ select.btn{
   #pg-admin #shopDetailView .catalog-filter-menu{
     position:static;
     margin-top:6px;
+  }
+  #pg-admin #shopDetailView .catalog-import-toggle-row{
+    margin-top:0;
+  }
+  #pg-admin #shopDetailView .catalog-import-toggle-row .btn{
+    width:100%;
+    justify-content:center;
   }
 }
 
@@ -7614,7 +7672,7 @@ select.btn{
       </div>
       <div id="sub-shops" class="asub">
         <div id="shopsLandingView" data-shop-view="landing" class="shop-admin-view on">
-          <div class="card catalog-import-card">
+          <div class="card">
             <div class="workspace-hero">
               <div class="workspace-copy">
                 <div class="workspace-kicker">My Businesses</div>
@@ -7856,8 +7914,19 @@ select.btn{
               <div id="adminPGrid" class="admin-pgrid"><div class="empty" style="grid-column:1/-1"><div class="ei">📦</div><div class="et">Load a business first</div></div></div>
             </div>
           </div>
-          <div class="card">
-            <div class="card-head"><div class="card-title">Catalog Import</div></div>
+          <div class="catalog-import-toggle-row">
+            <button id="catalogImportOpenBtn" class="btn btn-o btn-sm" type="button" aria-expanded="false" aria-controls="catalogImportCard">Catalogue Import</button>
+          </div>
+          <div id="catalogImportCard" class="card catalog-import-card" hidden>
+            <div class="card-head catalog-import-head">
+              <div>
+                <div class="owner-products-topline">Bulk tools</div>
+                <div class="card-title">Catalogue Import</div>
+              </div>
+              <button id="catalogImportCloseBtn" class="catalog-import-close" type="button" aria-label="Hide catalogue import">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+              </button>
+            </div>
             <div class="card-body">
               <div class="csv-box">
                 <div class="import-wizard">
@@ -19475,6 +19544,16 @@ async function importCatalogPackage(){
     if($('importPackageBtn') && (!App.catalogImportPreview || Number(App.catalogImportPreview.failed||0)>0)) $('importPackageBtn').disabled=true;
   }
 }
+function setCatalogImportVisible(show){
+  const card=$('catalogImportCard');
+  const trigger=$('catalogImportOpenBtn');
+  if(!card)return;
+  card.hidden=!show;
+  trigger?.setAttribute('aria-expanded',show?'true':'false');
+  if(show)card.scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('catalogImportOpenBtn')?.addEventListener('click',()=>setCatalogImportVisible(true));
+$('catalogImportCloseBtn')?.addEventListener('click',()=>setCatalogImportVisible(false));
 $('previewPackageBtn')?.addEventListener('click',previewCatalogPackage);
 $('importPackageBtn')?.addEventListener('click',importCatalogPackage);
 $('catalogPackageFile')?.addEventListener('change',()=>{
