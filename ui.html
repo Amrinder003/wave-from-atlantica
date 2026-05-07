@@ -959,12 +959,13 @@ a{color:inherit;text-decoration:none}
 
 /* ── FAVOURITES PAGE ── */
 .account-summary{display:grid;gap:12px;padding:15px 16px;border-radius:22px;background:#fff;border:1px solid var(--bd);box-shadow:0 16px 30px rgba(71,42,22,.05)}
-.account-summary-top{display:flex;align-items:center;gap:12px}
+.account-summary-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px}
 .account-summary-avatar{width:56px;height:56px;border-radius:18px;background:var(--Ap);display:grid;place-items:center;font-size:22px;font-weight:800;color:var(--A2);overflow:hidden;flex-shrink:0}
 .account-summary-avatar img{width:100%;height:100%;display:block;object-fit:cover}
-.account-summary-copy{display:grid;gap:3px;min-width:0;flex:1}
+.account-summary-copy{display:grid;gap:3px;min-width:0}
 .account-summary-name{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;line-height:1.15;color:var(--ink);word-break:break-word}
 .account-summary-email{font-size:13px;color:var(--ink3);line-height:1.55;word-break:break-word}
+.account-summary-badges{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
 .account-inline-note{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:18px;background:var(--Yp);border:1px solid rgba(217,119,6,.16)}
 .account-inline-note-title{font-size:12px;font-weight:800;color:var(--Y);text-transform:uppercase;letter-spacing:.06em}
 .account-inline-note-copy{font-size:13px;color:var(--ink2);line-height:1.6;margin-top:4px}
@@ -977,7 +978,9 @@ a{color:inherit;text-decoration:none}
 .account-delete-note{padding:11px 12px;border-radius:16px;background:var(--Rp);border:1px solid rgba(225,29,72,.15);color:var(--R);font-size:12px;line-height:1.55;font-weight:700}
 #adminAccountManage input[readonly]{background:var(--sf2);color:var(--ink3);cursor:default}
 @media(max-width:640px){
-  .account-summary-top{align-items:flex-start;flex-wrap:wrap}
+  .account-summary-top{grid-template-columns:48px minmax(0,1fr);align-items:center;gap:10px 12px}
+  .account-summary-avatar{width:48px;height:48px;border-radius:14px}
+  .account-summary-badges{grid-column:2;justify-content:flex-start}
   .account-inline-note{display:grid}
   .account-inline-note .btn{width:100%;justify-content:center}
 }
@@ -4120,6 +4123,88 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   border-color:#f5b1bd!important;
   color:var(--R)!important;
 }
+#pg-admin #sub-account>.card{
+  border-radius:14px!important;
+  border:1px solid #dbe7e1!important;
+  background:#fff!important;
+  box-shadow:0 12px 30px rgba(15,23,42,.05)!important;
+  overflow:hidden!important;
+}
+#pg-admin #sub-account>.card>.card-head{
+  padding:16px 18px!important;
+  align-items:center!important;
+  gap:10px!important;
+  background:linear-gradient(135deg,#ffffff 0%,#f7fbf9 64%,#eef8f4 100%)!important;
+  border-bottom:1px solid #edf3f0!important;
+}
+#pg-admin #sub-account .account-shell{
+  gap:14px!important;
+}
+#pg-admin #sub-account .account-summary,
+#pg-admin #sub-account .account-section{
+  border-radius:14px!important;
+  border-color:#dbe7e1!important;
+  background:#fff!important;
+  box-shadow:0 10px 24px rgba(15,23,42,.045)!important;
+}
+#pg-admin #sub-account .account-summary-top{
+  grid-template-columns:56px minmax(0,1fr) max-content!important;
+  align-items:center!important;
+}
+#pg-admin #sub-account .account-summary-avatar{
+  width:56px!important;
+  height:56px!important;
+  border-radius:16px!important;
+  background:linear-gradient(180deg,#f8fffc,#edf7f2)!important;
+  border:1px solid #d6e6df!important;
+  color:var(--A2)!important;
+}
+#pg-admin #sub-account .account-summary-copy{
+  min-width:0!important;
+}
+#pg-admin #sub-account .account-summary-name{
+  font-size:18px!important;
+  line-height:1.18!important;
+  letter-spacing:-.02em!important;
+}
+#pg-admin #sub-account .account-summary-email{
+  color:#5f6f68!important;
+  font-size:13px!important;
+}
+#pg-admin #sub-account .account-summary-badges{
+  min-width:max-content;
+}
+#pg-admin #sub-account .account-summary-badges .badge{
+  margin:0!important;
+}
+#pg-admin #sub-account .account-inline-note{
+  border-radius:12px!important;
+  background:#f8fbfa!important;
+  border-color:#dbe7e1!important;
+}
+#pg-admin #sub-account .account-inline-note-title{
+  color:var(--A2)!important;
+}
+#pg-admin #sub-account .account-section{
+  padding:16px!important;
+}
+#pg-admin #sub-account .account-section-title{
+  font-size:16px!important;
+  line-height:1.25!important;
+}
+#pg-admin #sub-account .account-section-copy{
+  color:#66766f!important;
+}
+#pg-admin #sub-account #adminAuthFields{
+  align-items:end;
+}
+#pg-admin #sub-account #adminGuestActions{
+  margin-top:-2px;
+}
+#pg-admin #sub-account .danger-zone{
+  border-color:#f5c4cc!important;
+  background:linear-gradient(180deg,#fff8f9 0%,#fff 100%)!important;
+}
 #authBg .auth-tab{
   background:#fff!important;
   color:var(--ink2)!important;
@@ -4170,6 +4255,75 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   }
   #profileBg .profile-panel{
     width:min(450px,calc(100vw - 24px))!important;
+  }
+  #pg-admin #sub-account>.card>.card-head{
+    padding:14px 15px!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    justify-items:start!important;
+  }
+  #pg-admin #sub-account,
+  #pg-admin #sub-account>.card{
+    width:100%!important;
+    max-width:min(100%,366px)!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+  }
+  #pg-admin #sub-account #authBadge{
+    justify-self:start!important;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  #pg-admin #sub-account .account-summary{
+    padding:14px!important;
+  }
+  #pg-admin #sub-account .account-summary-top{
+    grid-template-columns:48px minmax(0,1fr)!important;
+    gap:10px 12px!important;
+    align-items:center!important;
+  }
+  #pg-admin #sub-account .account-summary-avatar{
+    width:48px!important;
+    height:48px!important;
+    border-radius:14px!important;
+  }
+  #pg-admin #sub-account .account-summary-badges{
+    grid-column:2!important;
+    justify-content:flex-start!important;
+    min-width:0!important;
+  }
+  #pg-admin #sub-account .account-summary-name,
+  #pg-admin #sub-account .account-summary-email{
+    overflow-wrap:anywhere;
+  }
+  #pg-admin #sub-account .account-manage{
+    gap:12px!important;
+  }
+  #pg-admin #sub-account .account-section{
+    padding:14px!important;
+  }
+  #pg-admin #sub-account #adminAuthFields,
+  #pg-admin #sub-account .fg2{
+    grid-template-columns:1fr!important;
+  }
+  #pg-admin #sub-account .btn-row{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+  }
+  #pg-admin #sub-account .btn-row .btn,
+  #pg-admin #sub-account .account-inline-note .btn{
+    width:100%!important;
+    justify-content:center!important;
+  }
+}
+@media(max-width:420px){
+  #pg-admin #sub-account #authBadge{
+    max-width:100%;
+  }
+  #pg-admin #sub-account .account-summary-badges{
+    grid-column:1/-1!important;
   }
 }
 
@@ -7758,11 +7912,6 @@ select.btn{
         <div class="card">
           <div class="card-head"><div class="card-title">Account</div><span id="authBadge" class="badge y">Not logged in</span></div>
           <div class="card-body account-shell">
-            <div class="account-note">
-              <div class="account-note-kicker">Account Access</div>
-              <div class="account-note-title">Use one account to manage your businesses.</div>
-              <div class="account-note-copy">Sign in to manage your business pages, resend verification emails, and keep account access secure.</div>
-            </div>
             <div id="adminAuthFields" class="fg2">
               <div class="fld"><label>Email</label><input id="authEmail" type="email" autocomplete="email"/></div>
               <div class="fld"><label>Password</label><input id="authPass" type="password" autocomplete="current-password"/></div>
@@ -7779,8 +7928,10 @@ select.btn{
                   <div id="adminAccountName" class="account-summary-name">Guest</div>
                   <div id="adminAccountEmail" class="account-summary-email"></div>
                 </div>
-                <span id="adminAccountRoleBadge" class="badge">Customer</span>
-                <span id="adminAccountVerifyBadge" class="badge g">Verified</span>
+                <div class="account-summary-badges">
+                  <span id="adminAccountRoleBadge" class="badge">Customer</span>
+                  <span id="adminAccountVerifyBadge" class="badge g">Verified</span>
+                </div>
               </div>
               <div id="adminAccountVerifyNote" class="account-inline-note" style="display:none">
                 <div>
