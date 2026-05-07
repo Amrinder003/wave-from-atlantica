@@ -5731,11 +5731,11 @@ select.btn{
 #pg-admin .owner-listings-panel{
   position:relative;
 }
-#pg-admin .owner-listings-panel:not([open])>.owner-listings-body{
-  display:block!important;
-}
 #pg-admin .owner-listings-summary{
   display:none;
+}
+#pg-admin .owner-listings-body-shell{
+  display:block;
 }
 #pg-admin .owner-control-head{
   display:flex;
@@ -6016,19 +6016,24 @@ select.btn{
     overflow:hidden!important;
   }
   #pg-admin .owner-listings-summary{
-    min-height:54px;
+    width:100%;
+    min-height:58px;
     padding:12px 14px;
     display:flex;
     align-items:center;
     justify-content:space-between;
     gap:12px;
-    list-style:none;
     cursor:pointer;
-    background:linear-gradient(180deg,#fff,#f7fbf9);
+    border:0;
+    background:linear-gradient(135deg,#ffffff 0%,#f7fbf9 62%,#eef8f4 100%);
     color:var(--ink);
+    text-align:left;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+    transition:background .16s ease;
   }
-  #pg-admin .owner-listings-summary::-webkit-details-marker{
-    display:none;
+  #pg-admin .owner-listings-summary:active{
+    background:linear-gradient(135deg,#f7fbf9 0%,#eef8f4 100%);
   }
   #pg-admin .owner-listings-summary span:first-child{
     display:grid;
@@ -6046,26 +6051,52 @@ select.btn{
     line-height:1.35;
     color:#66766f;
   }
-  #pg-admin .owner-listings-chevron{
-    width:30px;
-    height:30px;
+  #pg-admin .owner-listings-icon{
+    width:34px;
+    height:34px;
     border-radius:999px;
     display:grid;
     place-items:center;
     flex:0 0 auto;
-    background:#eef7f4;
+    background:#e9f6f2;
+    border:1px solid #d3e7df;
     color:var(--A2);
-    font-size:18px;
-    transition:transform .16s ease;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.86),0 8px 18px rgba(15,118,110,.07);
+    transition:transform .22s cubic-bezier(.2,.8,.2,1),background .16s ease,color .16s ease;
   }
-  #pg-admin .owner-listings-panel[open] .owner-listings-chevron{
+  #pg-admin .owner-listings-icon svg{
+    width:18px;
+    height:18px;
+    display:block;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:2.2;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+  }
+  #pg-admin .owner-listings-panel:not(.is-collapsed) .owner-listings-icon{
     transform:rotate(180deg);
+    background:var(--A);
+    border-color:var(--A);
+    color:#fff;
   }
-  #pg-admin .owner-listings-panel:not([open])>.owner-listings-body{
-    display:none!important;
+  #pg-admin .owner-listings-body-shell{
+    display:grid;
+    grid-template-rows:1fr;
+    opacity:1;
+    overflow:hidden;
+    transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1),opacity .2s ease;
+    will-change:grid-template-rows,opacity;
+  }
+  #pg-admin .owner-listings-panel.is-collapsed .owner-listings-body-shell{
+    grid-template-rows:0fr;
+    opacity:0;
   }
   #pg-admin .owner-listings-body{
+    min-height:0;
+    overflow:hidden;
     border-top:1px solid #e4eee9;
+    -webkit-overflow-scrolling:touch;
   }
   #pg-admin .owner-control-head{
     margin-bottom:10px;
@@ -6795,44 +6826,48 @@ select.btn{
             </div>
           </div>
           <div class="card owner-control-card">
-            <details class="owner-listings-panel">
-              <summary class="owner-listings-summary">
+            <div class="owner-listings-panel is-collapsed" id="ownerListingsPanel">
+              <button class="owner-listings-summary" id="ownerListingsToggle" type="button" aria-expanded="false" aria-controls="ownerListingsBody">
                 <span>
                   <strong>Listings</strong>
                   <small>Filters, exports, and review notes</small>
                 </span>
-                <span class="owner-listings-chevron" aria-hidden="true">⌄</span>
-              </summary>
-              <div class="card-body owner-listings-body">
-                <div class="owner-control-head">
-                  <div>
-                    <div class="owner-control-title">Listings</div>
-                    <div id="ownerReviewGuideCard" class="review-note owner-review-note" style="display:block">
-                      <strong>Review</strong>
-                      New businesses stay private until Atlantic Ordinate approves them.
-                    </div>
-                    <div class="owner-guide">
-                      <button class="owner-guide-trigger" type="button">How it works</button>
-                      <div class="owner-guide-popover">
-                        <div><strong>Create</strong><span>Add the business details customers see.</span></div>
-                        <div><strong>Offerings</strong><span>Build the catalog for browsing and chat.</span></div>
-                        <div><strong>Review</strong><span>Open the public page after approval.</span></div>
+                <span class="owner-listings-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false"><path d="m6 9 6 6 6-6"></path></svg>
+                </span>
+              </button>
+              <div class="owner-listings-body-shell" id="ownerListingsBody">
+                <div class="card-body owner-listings-body">
+                  <div class="owner-control-head">
+                    <div>
+                      <div class="owner-control-title">Listings</div>
+                      <div id="ownerReviewGuideCard" class="review-note owner-review-note" style="display:block">
+                        <strong>Review</strong>
+                        New businesses stay private until Atlantic Ordinate approves them.
+                      </div>
+                      <div class="owner-guide">
+                        <button class="owner-guide-trigger" type="button">How it works</button>
+                        <div class="owner-guide-popover">
+                          <div><strong>Create</strong><span>Add the business details customers see.</span></div>
+                          <div><strong>Offerings</strong><span>Build the catalog for browsing and chat.</span></div>
+                          <div><strong>Review</strong><span>Open the public page after approval.</span></div>
+                        </div>
                       </div>
                     </div>
+                    <div class="owner-control-actions">
+                      <button id="ownerExportShopsBtn" class="btn btn-o btn-sm">Export Businesses</button>
+                      <button id="ownerExportProductsBtn" class="btn btn-o btn-sm">Export Offerings</button>
+                    </div>
                   </div>
-                  <div class="owner-control-actions">
-                    <button id="ownerExportShopsBtn" class="btn btn-o btn-sm">Export Businesses</button>
-                    <button id="ownerExportProductsBtn" class="btn btn-o btn-sm">Export Offerings</button>
+                  <div class="owner-filter-bar">
+                    <div class="fld"><label>Country</label><input id="ownerFilterCountry" value="Canada" placeholder="Canada" readonly title="Canada only for launch"/></div>
+                    <div class="fld"><label>Region</label><input id="ownerFilterRegion" placeholder="Nova Scotia"/></div>
+                    <div class="fld"><label>City</label><input id="ownerFilterCity" placeholder="Halifax"/></div>
+                    <div class="fld"><label>Quality</label><select id="ownerFilterQuality"><option value="">All businesses</option><option value="complete">Complete only</option><option value="incomplete">Needs attention</option></select></div>
                   </div>
-                </div>
-                <div class="owner-filter-bar">
-                  <div class="fld"><label>Country</label><input id="ownerFilterCountry" value="Canada" placeholder="Canada" readonly title="Canada only for launch"/></div>
-                  <div class="fld"><label>Region</label><input id="ownerFilterRegion" placeholder="Nova Scotia"/></div>
-                  <div class="fld"><label>City</label><input id="ownerFilterCity" placeholder="Halifax"/></div>
-                  <div class="fld"><label>Quality</label><select id="ownerFilterQuality"><option value="">All businesses</option><option value="complete">Complete only</option><option value="incomplete">Needs attention</option></select></div>
                 </div>
               </div>
-            </details>
+            </div>
           </div>
           <div id="businessClaimCard" class="card" style="display:none">
             <div class="card-head">
@@ -17017,6 +17052,18 @@ $('ownerGeocodeShopsBtn')?.addEventListener('click',async()=>{
 $('ownerFilterQuality')?.addEventListener('change',()=>loadMyShops());
 $('ownerExportShopsBtn')?.addEventListener('click',async()=>{try{await downloadAdminExport('/admin/export/businesses.csv','businesses_export.csv');}catch(e){toast('Export failed',e.message,'err');}});
 $('ownerExportProductsBtn')?.addEventListener('click',async()=>{try{await downloadAdminExport('/admin/export/offerings.csv','offerings_export.csv');}catch(e){toast('Export failed',e.message,'err');}});
+function setOwnerListingsPanel(open){
+  const panel=$('ownerListingsPanel');
+  const toggle=$('ownerListingsToggle');
+  if(!panel) return;
+  const expanded=!!open;
+  panel.classList.toggle('is-collapsed',!expanded);
+  toggle?.setAttribute('aria-expanded',expanded?'true':'false');
+}
+$('ownerListingsToggle')?.addEventListener('click',()=>{
+  const panel=$('ownerListingsPanel');
+  setOwnerListingsPanel(panel?.classList.contains('is-collapsed'));
+});
 App.adminShopId=null;
 App.adminShopData=null;
 App.adminProducts=[];
