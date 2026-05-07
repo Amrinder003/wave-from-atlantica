@@ -6491,6 +6491,9 @@ select.btn{
   justify-content:flex-end!important;
   gap:8px!important;
 }
+#pg-admin #shopDetailView .mobile-section-toggle{
+  display:none;
+}
 #pg-admin #shopDetailView .workspace-actions .btn,
 #pg-admin #shopDetailView .owner-side-actions .btn,
 #pg-admin #shopDetailView .product-manager-tools .btn,
@@ -6787,6 +6790,8 @@ select.btn{
   }
   #pg-admin #shopDetailView .workspace-hero{
     padding:16px!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
   }
   #pg-admin #shopDetailView .workspace-identity{
     align-items:flex-start;
@@ -6847,6 +6852,112 @@ select.btn{
   }
   #pg-admin #shopDetailView #adminPBadge{
     justify-self:start;
+  }
+  #pg-admin #shopDetailView .mobile-section-toggle{
+    width:100%;
+    min-height:54px;
+    padding:11px 13px;
+    display:flex!important;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    border:1px solid #dbe7e1;
+    border-radius:14px;
+    background:linear-gradient(135deg,#ffffff 0%,#f7fbf9 65%,#eef8f4 100%);
+    color:var(--ink);
+    text-align:left;
+    box-shadow:0 10px 24px rgba(15,23,42,.045);
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+  }
+  #pg-admin #shopDetailView .mobile-section-toggle span:first-child{
+    display:grid;
+    gap:2px;
+    min-width:0;
+  }
+  #pg-admin #shopDetailView .mobile-section-toggle strong{
+    font-family:'Sora',sans-serif;
+    font-size:14px;
+    line-height:1.2;
+    color:var(--ink);
+  }
+  #pg-admin #shopDetailView .mobile-section-toggle small{
+    color:#66766f;
+    font-size:11px;
+    line-height:1.35;
+  }
+  #pg-admin #shopDetailView .mobile-section-toggle-icon{
+    width:34px;
+    height:34px;
+    border-radius:999px;
+    display:grid!important;
+    place-items:center;
+    flex:0 0 auto;
+    background:#e9f6f2;
+    border:1px solid #d3e7df;
+    color:var(--A2);
+    transition:transform .24s cubic-bezier(.2,.8,.2,1),background .16s ease,color .16s ease;
+  }
+  #pg-admin #shopDetailView .mobile-section-toggle-icon svg{
+    width:18px;
+    height:18px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:2.2;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+  }
+  #pg-admin #shopDetailView .mobile-section-toggle.is-open .mobile-section-toggle-icon{
+    transform:rotate(180deg);
+    background:var(--A);
+    border-color:var(--A);
+    color:#fff;
+  }
+  #pg-admin #shopDetailView .workspace-actions.mobile-collapsible,
+  #pg-admin #shopDetailView .product-manager-tools.mobile-collapsible{
+    max-height:760px;
+    opacity:1;
+    visibility:visible;
+    overflow:hidden;
+    transition:max-height .28s cubic-bezier(.2,.8,.2,1),opacity .2s ease,visibility .2s ease;
+    will-change:max-height,opacity;
+    -webkit-overflow-scrolling:touch;
+  }
+  #pg-admin #shopDetailView .workspace-actions.mobile-collapsible.is-collapsed,
+  #pg-admin #shopDetailView .product-manager-tools.mobile-collapsible.is-collapsed{
+    max-height:0!important;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+  }
+  #pg-admin #shopDetailView .workspace-actions.mobile-collapsible{
+    margin-top:-4px;
+  }
+  #pg-admin #shopDetailView .product-manager-tools.mobile-collapsible{
+    padding-top:2px;
+    overscroll-behavior:contain;
+  }
+  #pg-admin #shopDetailView .owner-detail-tags{
+    flex-wrap:nowrap!important;
+    overflow-x:auto;
+    padding-bottom:12px!important;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  #pg-admin #shopDetailView .owner-detail-tags::-webkit-scrollbar{
+    display:none;
+  }
+  #pg-admin #shopDetailView .owner-detail-tag{
+    width:auto!important;
+    flex:0 0 auto;
+    white-space:nowrap;
+  }
+  #pg-admin #shopDetailView .owner-detail-overview{
+    max-height:118px;
+    overflow:auto;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
   }
   #pg-admin #shopDetailView .owner-mobile-tools-toggle{
     width:100%;
@@ -6934,7 +7045,13 @@ select.btn{
     grid-template-columns:1fr!important;
   }
   #pg-admin #shopDetailView .workspace-stats{
-    grid-template-columns:1fr!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #pg-admin #shopDetailView .workspace-stat-rating{
+    grid-column:1/-1!important;
+  }
+  #pg-admin #shopDetailView .workspace-stat{
+    min-height:64px;
   }
 }
 
@@ -7194,6 +7311,55 @@ select.btn{
   #pg-admin #shopDetailView .catalog-filter-menu{
     position:static;
     margin-top:6px;
+    max-height:min(42vh,320px);
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  #pg-admin #shopDetailView #adminPGrid{
+    gap:10px!important;
+  }
+  #pg-admin #shopDetailView .admin-pc{
+    border-radius:13px!important;
+  }
+  #pg-admin #shopDetailView .admin-pc-photo{
+    aspect-ratio:16/9!important;
+  }
+  #pg-admin #shopDetailView .admin-pc-body{
+    padding:12px!important;
+  }
+  #pg-admin #shopDetailView .admin-pc-head{
+    align-items:flex-start;
+  }
+  #pg-admin #shopDetailView .admin-pc-name{
+    font-size:14px!important;
+    line-height:1.24!important;
+  }
+  #pg-admin #shopDetailView .admin-pc-price,
+  #pg-admin #shopDetailView .admin-pc-noprice{
+    font-size:12px!important;
+  }
+  #pg-admin #shopDetailView .admin-pc-meta,
+  #pg-admin #shopDetailView .admin-pc-variants{
+    flex-wrap:nowrap!important;
+    overflow-x:auto;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  #pg-admin #shopDetailView .admin-pc-meta::-webkit-scrollbar,
+  #pg-admin #shopDetailView .admin-pc-variants::-webkit-scrollbar{
+    display:none;
+  }
+  #pg-admin #shopDetailView .admin-pc-chip,
+  #pg-admin #shopDetailView .admin-pc-vchip{
+    flex:0 0 auto;
+    white-space:nowrap;
+  }
+  #pg-admin #shopDetailView .admin-pc-desc{
+    -webkit-line-clamp:2!important;
+    font-size:12px!important;
+  }
+  #pg-admin #shopDetailView .admin-pc-actions{
+    min-height:34px;
   }
   #pg-admin #shopDetailView .catalog-import-toggle-row{
     margin-top:0;
@@ -7781,7 +7947,16 @@ select.btn{
                   <div id="workspaceDesc" class="workspace-desc">Open one of your businesses to manage it here.</div>
                 </div>
               </div>
-              <div class="workspace-actions">
+              <button id="workspaceActionsToggle" class="mobile-section-toggle workspace-actions-toggle" type="button" aria-expanded="false" aria-controls="workspaceActionsPanel">
+                <span>
+                  <strong>Page actions</strong>
+                  <small>Edit, preview, or go back</small>
+                </span>
+                <span class="mobile-section-toggle-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false"><path d="m6 9 6 6 6-6"></path></svg>
+                </span>
+              </button>
+              <div id="workspaceActionsPanel" class="workspace-actions mobile-collapsible is-collapsed">
                 <button id="detailEditShopBtn" class="btn btn-o btn-sm">Edit Business</button>
                 <button id="detailOpenLiveShopBtn" class="btn btn-o btn-sm">Open Live Page</button>
                 <button id="detailBackBtn" class="btn btn-g btn-sm">Back to Businesses</button>
@@ -7883,7 +8058,16 @@ select.btn{
                   <div class="card-title">Offerings</div>
                   <div class="owner-products-sub">Everything listed under this business appears here. Open an offering to edit it, or use the search to find something quickly.</div>
                 </div>
-                <div class="product-manager-tools">
+                <button id="catalogueToolsToggle" class="mobile-section-toggle catalogue-tools-toggle" type="button" aria-expanded="false" aria-controls="productManagerTools">
+                  <span>
+                    <strong>Catalogue tools</strong>
+                    <small>Search, filters, add, and bulk edit</small>
+                  </span>
+                  <span class="mobile-section-toggle-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false"><path d="m6 9 6 6 6-6"></path></svg>
+                  </span>
+                </button>
+                <div id="productManagerTools" class="product-manager-tools mobile-collapsible is-collapsed">
                   <button id="detailAddProductBtn" class="btn btn-A btn-sm">+ Add Offering</button>
                   <button id="adminBulkToggleBtn" class="btn btn-g btn-sm">Bulk Edit</button>
                   <select id="adminProdHealth" class="btn btn-o btn-sm" style="padding:7px 10px">
@@ -18019,6 +18203,33 @@ $('ownerWorkspaceToolsToggle')?.addEventListener('click',()=>{
   const tools=$('ownerWorkspaceTools');
   setOwnerWorkspaceTools(tools?.classList.contains('is-collapsed'));
 });
+function setWorkspaceActionsPanel(open){
+  const panel=$('workspaceActionsPanel');
+  const toggle=$('workspaceActionsToggle');
+  if(!panel) return;
+  const expanded=!!open;
+  panel.classList.toggle('is-collapsed',!expanded);
+  toggle?.classList.toggle('is-open',expanded);
+  toggle?.setAttribute('aria-expanded',expanded?'true':'false');
+}
+$('workspaceActionsToggle')?.addEventListener('click',()=>{
+  const panel=$('workspaceActionsPanel');
+  setWorkspaceActionsPanel(panel?.classList.contains('is-collapsed'));
+});
+function setCatalogueToolsPanel(open){
+  const panel=$('productManagerTools');
+  const toggle=$('catalogueToolsToggle');
+  if(!panel) return;
+  const expanded=!!open;
+  panel.classList.toggle('is-collapsed',!expanded);
+  toggle?.classList.toggle('is-open',expanded);
+  toggle?.setAttribute('aria-expanded',expanded?'true':'false');
+  if(!expanded) closeAdminCatalogueSelects();
+}
+$('catalogueToolsToggle')?.addEventListener('click',()=>{
+  const panel=$('productManagerTools');
+  setCatalogueToolsPanel(panel?.classList.contains('is-collapsed'));
+});
 App.adminShopId=null;
 App.adminShopData=null;
 App.adminProducts=[];
@@ -18719,6 +18930,8 @@ async function loadAdminShop(shopId,{refreshOwnerList=false}={}){
     renderBusinessListingUi(s);
     renderAdminProds(App.adminProducts);
     setOwnerWorkspaceTools(false);
+    setWorkspaceActionsPanel(false);
+    setCatalogueToolsPanel(false);
     setFieldHint('myShopsStatus',`Opened ${s.name||shopId}.`,'ok');
     setS('shopStatus',`Loaded ${shopId}`,'ok');
     switchAdminSub('shops',{refreshShops:refreshOwnerList});
