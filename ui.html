@@ -5728,6 +5728,15 @@ select.btn{
 #pg-admin .owner-control-card{
   overflow:visible!important;
 }
+#pg-admin .owner-listings-panel{
+  position:relative;
+}
+#pg-admin .owner-listings-panel:not([open])>.owner-listings-body{
+  display:block!important;
+}
+#pg-admin .owner-listings-summary{
+  display:none;
+}
 #pg-admin .owner-control-head{
   display:flex;
   align-items:center;
@@ -6001,6 +6010,65 @@ select.btn{
   #pg-admin .owner-review-note{
     width:100%;
     border-radius:10px!important;
+  }
+  #pg-admin .owner-control-card{
+    border-radius:14px!important;
+    overflow:hidden!important;
+  }
+  #pg-admin .owner-listings-summary{
+    min-height:54px;
+    padding:12px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    list-style:none;
+    cursor:pointer;
+    background:linear-gradient(180deg,#fff,#f7fbf9);
+    color:var(--ink);
+  }
+  #pg-admin .owner-listings-summary::-webkit-details-marker{
+    display:none;
+  }
+  #pg-admin .owner-listings-summary span:first-child{
+    display:grid;
+    gap:2px;
+    min-width:0;
+  }
+  #pg-admin .owner-listings-summary strong{
+    font-family:'Sora',sans-serif;
+    font-size:15px;
+    line-height:1.2;
+    color:var(--ink);
+  }
+  #pg-admin .owner-listings-summary small{
+    font-size:11px;
+    line-height:1.35;
+    color:#66766f;
+  }
+  #pg-admin .owner-listings-chevron{
+    width:30px;
+    height:30px;
+    border-radius:999px;
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    background:#eef7f4;
+    color:var(--A2);
+    font-size:18px;
+    transition:transform .16s ease;
+  }
+  #pg-admin .owner-listings-panel[open] .owner-listings-chevron{
+    transform:rotate(180deg);
+  }
+  #pg-admin .owner-listings-panel:not([open])>.owner-listings-body{
+    display:none!important;
+  }
+  #pg-admin .owner-listings-body{
+    border-top:1px solid #e4eee9;
+  }
+  #pg-admin .owner-control-head{
+    margin-bottom:10px;
   }
   #pg-admin .owner-shop-card{
     padding:14px!important;
@@ -6723,41 +6791,48 @@ select.btn{
               <div class="workspace-actions">
                 <button id="ownerCreateShopBtn" class="btn btn-A btn-sm">+ Create Business</button>
                 <button id="ownerClaimBusinessBtn" class="btn btn-o btn-sm">Claim Existing Business</button>
-                <button id="ownerGeocodeShopsBtn" class="btn btn-o btn-sm">Refresh Map</button>
-                <button id="refreshMyShops" class="btn btn-o btn-sm">Refresh</button>
               </div>
             </div>
           </div>
           <div class="card owner-control-card">
-            <div class="card-body">
-              <div class="owner-control-head">
-                <div>
-                  <div class="owner-control-title">Listings</div>
-                  <div id="ownerReviewGuideCard" class="review-note owner-review-note" style="display:block">
-                    <strong>Review</strong>
-                    New businesses stay private until Atlantic Ordinate approves them.
-                  </div>
-                  <div class="owner-guide">
-                    <button class="owner-guide-trigger" type="button">How it works</button>
-                    <div class="owner-guide-popover">
-                      <div><strong>Create</strong><span>Add the business details customers see.</span></div>
-                      <div><strong>Offerings</strong><span>Build the catalog for browsing and chat.</span></div>
-                      <div><strong>Review</strong><span>Open the public page after approval.</span></div>
+            <details class="owner-listings-panel">
+              <summary class="owner-listings-summary">
+                <span>
+                  <strong>Listings</strong>
+                  <small>Filters, exports, and review notes</small>
+                </span>
+                <span class="owner-listings-chevron" aria-hidden="true">⌄</span>
+              </summary>
+              <div class="card-body owner-listings-body">
+                <div class="owner-control-head">
+                  <div>
+                    <div class="owner-control-title">Listings</div>
+                    <div id="ownerReviewGuideCard" class="review-note owner-review-note" style="display:block">
+                      <strong>Review</strong>
+                      New businesses stay private until Atlantic Ordinate approves them.
+                    </div>
+                    <div class="owner-guide">
+                      <button class="owner-guide-trigger" type="button">How it works</button>
+                      <div class="owner-guide-popover">
+                        <div><strong>Create</strong><span>Add the business details customers see.</span></div>
+                        <div><strong>Offerings</strong><span>Build the catalog for browsing and chat.</span></div>
+                        <div><strong>Review</strong><span>Open the public page after approval.</span></div>
+                      </div>
                     </div>
                   </div>
+                  <div class="owner-control-actions">
+                    <button id="ownerExportShopsBtn" class="btn btn-o btn-sm">Export Businesses</button>
+                    <button id="ownerExportProductsBtn" class="btn btn-o btn-sm">Export Offerings</button>
+                  </div>
                 </div>
-                <div class="owner-control-actions">
-                  <button id="ownerExportShopsBtn" class="btn btn-o btn-sm">Export Businesses</button>
-                  <button id="ownerExportProductsBtn" class="btn btn-o btn-sm">Export Offerings</button>
+                <div class="owner-filter-bar">
+                  <div class="fld"><label>Country</label><input id="ownerFilterCountry" value="Canada" placeholder="Canada" readonly title="Canada only for launch"/></div>
+                  <div class="fld"><label>Region</label><input id="ownerFilterRegion" placeholder="Nova Scotia"/></div>
+                  <div class="fld"><label>City</label><input id="ownerFilterCity" placeholder="Halifax"/></div>
+                  <div class="fld"><label>Quality</label><select id="ownerFilterQuality"><option value="">All businesses</option><option value="complete">Complete only</option><option value="incomplete">Needs attention</option></select></div>
                 </div>
               </div>
-              <div class="owner-filter-bar">
-                <div class="fld"><label>Country</label><input id="ownerFilterCountry" value="Canada" placeholder="Canada" readonly title="Canada only for launch"/></div>
-                <div class="fld"><label>Region</label><input id="ownerFilterRegion" placeholder="Nova Scotia"/></div>
-                <div class="fld"><label>City</label><input id="ownerFilterCity" placeholder="Halifax"/></div>
-                <div class="fld"><label>Quality</label><select id="ownerFilterQuality"><option value="">All businesses</option><option value="complete">Complete only</option><option value="incomplete">Needs attention</option></select></div>
-              </div>
-            </div>
+            </details>
           </div>
           <div id="businessClaimCard" class="card" style="display:none">
             <div class="card-head">
@@ -16922,7 +16997,7 @@ async function loadMyShops(){
     setFieldHint('myShopsStatus',`${shops.length} business${shops.length===1?'':'es'} ready to manage.`,'ok');
   }catch(e){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Error</div><div class="et">${esc(e.message)}</div></div>`;setFieldHint('myShopsStatus','Could not load your businesses.','err');}
 }
-$('refreshMyShops').addEventListener('click',loadMyShops);
+$('refreshMyShops')?.addEventListener('click',loadMyShops);
 $('ownerGeocodeShopsBtn')?.addEventListener('click',async()=>{
   try{
     setBtnBusy('ownerGeocodeShopsBtn',true,'Refreshing...');
