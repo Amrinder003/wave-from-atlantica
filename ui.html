@@ -6303,23 +6303,20 @@ select.btn{
   font-weight:800;
 }
 #pg-admin #ownerShopGrid .owner-shop-card-go::after{
-  content:"›";
-  width:30px;
-  height:30px;
-  display:grid;
-  place-items:center;
+  content:"";
+  width:9px;
+  height:9px;
+  display:block;
   flex:0 0 auto;
-  border-radius:999px;
-  background:#eef7f4;
+  border-right:2px solid currentColor;
+  border-bottom:2px solid currentColor;
   color:var(--A2);
-  font-size:22px;
-  line-height:1;
-  transition:transform .14s ease,background .14s ease,color .14s ease;
+  transform:rotate(-45deg);
+  transition:transform .14s ease,color .14s ease;
 }
 #pg-admin #ownerShopGrid .owner-shop-card:hover .owner-shop-card-go::after{
-  transform:translateX(2px);
-  background:var(--A);
-  color:#fff;
+  transform:translateX(2px) rotate(-45deg);
+  color:var(--A2);
 }
 #pg-admin #ownerShopGrid .owner-shop-card-arrow{
   display:none!important;
@@ -6361,6 +6358,515 @@ select.btn{
   }
   #pg-admin .owner-control-card{
     overflow:visible!important;
+  }
+}
+
+/* Open business workspace redesign */
+#pg-admin #ownerShopGrid .owner-shop-card-go::after{
+  content:""!important;
+  width:9px!important;
+  height:9px!important;
+  border-right:2px solid currentColor!important;
+  border-bottom:2px solid currentColor!important;
+  transform:rotate(-45deg)!important;
+  border-radius:0!important;
+  background:transparent!important;
+  font-size:0!important;
+}
+#pg-admin #ownerShopGrid .owner-shop-card:hover .owner-shop-card-go::after{
+  transform:translateX(2px) rotate(-45deg)!important;
+  background:transparent!important;
+  color:var(--A2)!important;
+}
+#pg-admin #shopDetailView.on{
+  grid-template-columns:minmax(0,1fr) minmax(300px,340px)!important;
+  gap:14px!important;
+  align-items:start!important;
+}
+#pg-admin #shopDetailView>.card:first-child{
+  grid-column:1/-1!important;
+  grid-row:1!important;
+  overflow:hidden!important;
+  border-radius:16px!important;
+  background:#fff!important;
+  border:1px solid #dbe7e1!important;
+  box-shadow:0 12px 30px rgba(15,23,42,.05)!important;
+}
+#pg-admin #shopDetailView .owner-detail-shell{
+  display:contents!important;
+}
+#pg-admin #shopDetailView .owner-detail-card{
+  grid-column:1!important;
+  grid-row:2!important;
+}
+#pg-admin #shopDetailView .owner-products-card{
+  grid-column:1!important;
+  grid-row:3!important;
+}
+#pg-admin #shopDetailView>.card:not(:first-child):not(.owner-products-card){
+  grid-column:1/-1!important;
+  grid-row:4!important;
+}
+#pg-admin #shopDetailView .owner-side-stack{
+  grid-column:2!important;
+  grid-row:2 / span 2!important;
+  position:sticky;
+  top:calc(var(--nh,72px) + var(--sh,48px) + 16px);
+  max-height:calc(100vh - var(--nh,72px) - var(--sh,48px) - 28px);
+  overflow:auto;
+  display:grid!important;
+  gap:10px!important;
+  padding-right:2px;
+  scrollbar-width:thin;
+  scrollbar-color:#b8d8ce transparent;
+  -webkit-overflow-scrolling:touch;
+}
+#pg-admin #shopDetailView .owner-mobile-tools-toggle{
+  display:none;
+}
+#pg-admin #shopDetailView .workspace-hero{
+  align-items:flex-start!important;
+  gap:16px!important;
+  padding:20px 22px 12px!important;
+  background:
+    linear-gradient(135deg,#ffffff 0%,#f7fbf9 58%,#eef8f4 100%)!important;
+  border-bottom:0!important;
+}
+#pg-admin #shopDetailView .workspace-copy{
+  min-width:0;
+}
+#pg-admin #shopDetailView .workspace-kicker,
+#pg-admin #shopDetailView .owner-products-topline,
+#pg-admin #shopDetailView .owner-side-label{
+  color:var(--A2)!important;
+  letter-spacing:.07em!important;
+}
+#pg-admin #shopDetailView .workspace-title{
+  max-width:none!important;
+  font-size:28px!important;
+  line-height:1.12!important;
+  letter-spacing:-.03em!important;
+  color:var(--ink)!important;
+}
+#pg-admin #shopDetailView .workspace-desc{
+  max-width:72ch!important;
+  color:#5f6f68!important;
+  font-size:13px!important;
+  line-height:1.55!important;
+}
+#pg-admin #shopDetailView .workspace-actions{
+  flex:0 0 auto;
+  justify-content:flex-end!important;
+  gap:8px!important;
+}
+#pg-admin #shopDetailView .workspace-actions .btn,
+#pg-admin #shopDetailView .owner-side-actions .btn,
+#pg-admin #shopDetailView .product-manager-tools .btn,
+#pg-admin #shopDetailView .product-manager-tools select{
+  border-radius:10px!important;
+}
+#pg-admin #shopDetailView .workspace-stats{
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:8px!important;
+  padding:0 18px 18px!important;
+}
+#pg-admin #shopDetailView .workspace-stat{
+  min-height:68px;
+  padding:11px 12px!important;
+  border-radius:12px!important;
+  background:#f7fbf9!important;
+  border:1px solid #dfece6!important;
+  box-shadow:none!important;
+}
+#pg-admin #shopDetailView .workspace-stat-label{
+  color:#697970!important;
+  letter-spacing:.03em!important;
+}
+#pg-admin #shopDetailView .workspace-stat-value{
+  color:var(--A2)!important;
+  font-size:18px!important;
+  line-height:1.1!important;
+}
+#pg-admin #shopDetailView .owner-detail-card,
+#pg-admin #shopDetailView .owner-products-card,
+#pg-admin #shopDetailView>.card:not(:first-child):not(.owner-products-card),
+#pg-admin #shopDetailView .owner-side-card{
+  border-radius:16px!important;
+  background:#fff!important;
+  border:1px solid #dbe7e1!important;
+  box-shadow:0 10px 26px rgba(15,23,42,.045)!important;
+}
+#pg-admin #shopDetailView .owner-detail-card{
+  overflow:hidden!important;
+}
+#pg-admin #shopDetailView .owner-detail-card::after{
+  display:none!important;
+}
+#pg-admin #shopDetailView .owner-detail-card-top{
+  padding:18px 18px 8px!important;
+  align-items:flex-start!important;
+}
+#pg-admin #shopDetailView .owner-detail-name{
+  max-width:none!important;
+  font-size:24px!important;
+  line-height:1.15!important;
+  letter-spacing:-.025em!important;
+  color:var(--ink)!important;
+}
+#pg-admin #shopDetailView .owner-detail-meta{
+  margin-top:6px!important;
+  color:#66766f!important;
+  font-size:12px!important;
+  line-height:1.5!important;
+}
+#pg-admin #shopDetailView .owner-detail-tags{
+  padding:0 18px 12px!important;
+  gap:6px!important;
+}
+#pg-admin #shopDetailView .owner-detail-tag{
+  min-height:26px;
+  padding:5px 9px!important;
+  background:#f0f8f5!important;
+  border-color:#d4e9e1!important;
+  color:var(--A2)!important;
+  font-size:10px!important;
+  font-weight:800!important;
+}
+#pg-admin #shopDetailView .owner-detail-overview{
+  padding:0 18px 18px!important;
+  color:#52635c!important;
+  font-size:13px!important;
+  line-height:1.7!important;
+  max-width:78ch!important;
+}
+#pg-admin #shopDetailView #shopStats{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:8px!important;
+  min-width:290px;
+}
+#pg-admin #shopDetailView #shopStats .sbox{
+  padding:9px 10px!important;
+  border-radius:10px!important;
+  background:#f7fbf9!important;
+  border-color:#dfece6!important;
+}
+#pg-admin #shopDetailView #shopStats .sbox-l{
+  color:#697970!important;
+  letter-spacing:.03em!important;
+}
+#pg-admin #shopDetailView #shopStats .sbox-v{
+  color:var(--A2)!important;
+  font-size:17px!important;
+}
+#pg-admin #shopDetailView .owner-side-card{
+  padding:14px!important;
+  border-radius:14px!important;
+}
+#pg-admin #shopDetailView .owner-side-title{
+  font-size:15px!important;
+  line-height:1.25!important;
+  letter-spacing:-.015em!important;
+}
+#pg-admin #shopDetailView .owner-side-copy{
+  color:#5f6f68!important;
+  font-size:12px!important;
+  line-height:1.55!important;
+}
+#pg-admin #shopDetailView .owner-side-actions{
+  grid-template-columns:1fr!important;
+  gap:8px!important;
+  margin-top:12px!important;
+}
+#pg-admin #shopDetailView .owner-checklist{
+  gap:8px!important;
+}
+#pg-admin #shopDetailView .owner-check{
+  padding:9px!important;
+  border-radius:12px!important;
+  background:#f8fbfa!important;
+  border-color:#dfece6!important;
+}
+#pg-admin #shopDetailView .owner-check-mark{
+  background:#e9f6f2!important;
+  color:var(--A2)!important;
+}
+#pg-admin #shopDetailView .owner-check-copy{
+  color:#5f6f68!important;
+}
+#pg-admin #shopDetailView .owner-products-card .card-head{
+  padding:16px 16px 10px!important;
+  border-bottom:1px solid #edf3f0!important;
+}
+#pg-admin #shopDetailView .owner-products-card .card-body{
+  padding:14px 16px 16px!important;
+}
+#pg-admin #shopDetailView .product-manager-head{
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+}
+#pg-admin #shopDetailView .owner-products-sub{
+  max-width:58ch!important;
+  color:#5f6f68!important;
+  font-size:12px!important;
+  line-height:1.55!important;
+}
+#pg-admin #shopDetailView .product-manager-tools{
+  justify-content:flex-end!important;
+  gap:8px!important;
+}
+#pg-admin #shopDetailView .product-manager-tools .mini-search{
+  min-width:230px;
+  border-radius:10px!important;
+  background:#fff!important;
+}
+#pg-admin #shopDetailView #adminPBadge{
+  min-width:34px;
+  justify-content:center;
+  background:#e9f6f2!important;
+  border-color:#cfe7de!important;
+  color:var(--A2)!important;
+}
+#pg-admin #shopDetailView #adminPGrid{
+  grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))!important;
+  gap:12px!important;
+}
+#pg-admin #shopDetailView .admin-pc{
+  border-radius:14px!important;
+  background:#fff!important;
+  border-color:#dbe7e1!important;
+  box-shadow:0 10px 24px rgba(15,23,42,.045)!important;
+}
+#pg-admin #shopDetailView .admin-pc:hover{
+  border-color:#b8d8ce!important;
+  box-shadow:0 16px 32px rgba(15,118,110,.08)!important;
+}
+#pg-admin #shopDetailView .admin-pc-photo{
+  aspect-ratio:16/9!important;
+  background:#f6faf8!important;
+}
+#pg-admin #shopDetailView .admin-pc-body{
+  padding:13px!important;
+  gap:8px!important;
+}
+#pg-admin #shopDetailView .admin-pc-name{
+  font-size:15px!important;
+  line-height:1.25!important;
+  letter-spacing:-.015em!important;
+}
+#pg-admin #shopDetailView .admin-pc-desc{
+  min-height:0!important;
+  color:#5f6f68!important;
+  -webkit-line-clamp:2!important;
+}
+#pg-admin #shopDetailView .admin-pc-chip{
+  background:#f7fbf9!important;
+  border-color:#dfece6!important;
+  color:#52635c!important;
+  letter-spacing:0!important;
+  text-transform:none!important;
+}
+#pg-admin #shopDetailView .admin-pc-link{
+  color:var(--A2)!important;
+}
+#pg-admin #shopDetailView .bulk-edit-bar.on{
+  padding:12px!important;
+  border-radius:14px!important;
+  background:#f7fbf9!important;
+  border:1px solid #dfece6!important;
+}
+#pg-admin #shopDetailView .csv-box{
+  background:#fff!important;
+}
+@media(max-width:1180px){
+  #pg-admin #shopDetailView.on{
+    grid-template-columns:1fr!important;
+  }
+  #pg-admin #shopDetailView .owner-detail-card{
+    grid-column:1!important;
+    grid-row:2!important;
+  }
+  #pg-admin #shopDetailView .owner-products-card{
+    grid-column:1!important;
+    grid-row:3!important;
+  }
+  #pg-admin #shopDetailView .owner-mobile-tools-toggle{
+    grid-column:1!important;
+    grid-row:4!important;
+  }
+  #pg-admin #shopDetailView .owner-side-stack{
+    grid-column:1!important;
+    grid-row:5!important;
+    position:static;
+    max-height:none;
+    overflow:visible;
+    padding-right:0;
+  }
+  #pg-admin #shopDetailView>.card:not(:first-child):not(.owner-products-card){
+    grid-column:1!important;
+    grid-row:6!important;
+  }
+  #pg-admin #shopDetailView .workspace-stats{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+}
+@media(max-width:760px){
+  #pg-admin #shopDetailView{
+    gap:10px!important;
+  }
+  #pg-admin #shopDetailView .owner-mobile-tools-toggle{
+    grid-row:3!important;
+  }
+  #pg-admin #shopDetailView .owner-side-stack{
+    grid-row:4!important;
+  }
+  #pg-admin #shopDetailView .owner-products-card{
+    grid-row:5!important;
+  }
+  #pg-admin #shopDetailView>.card:not(:first-child):not(.owner-products-card){
+    grid-row:6!important;
+  }
+  #pg-admin #shopDetailView .workspace-hero{
+    padding:16px!important;
+  }
+  #pg-admin #shopDetailView .workspace-title{
+    font-size:22px!important;
+  }
+  #pg-admin #shopDetailView .workspace-desc{
+    font-size:12px!important;
+  }
+  #pg-admin #shopDetailView .workspace-actions{
+    width:100%;
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+  }
+  #pg-admin #shopDetailView .workspace-actions .btn{
+    width:100%!important;
+    justify-content:center!important;
+  }
+  #pg-admin #shopDetailView .workspace-stats{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    padding:0 14px 14px!important;
+  }
+  #pg-admin #shopDetailView .owner-detail-card-top{
+    display:grid!important;
+    padding:15px 14px 8px!important;
+  }
+  #pg-admin #shopDetailView #shopStats{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    min-width:0;
+    width:100%;
+  }
+  #pg-admin #shopDetailView .owner-detail-tags{
+    padding:0 14px 10px!important;
+  }
+  #pg-admin #shopDetailView .owner-detail-overview{
+    padding:0 14px 14px!important;
+  }
+  #pg-admin #shopDetailView .product-manager-head{
+    display:grid!important;
+  }
+  #pg-admin #shopDetailView .product-manager-tools{
+    width:100%;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+  }
+  #pg-admin #shopDetailView .product-manager-tools .mini-search,
+  #pg-admin #shopDetailView .product-manager-tools select,
+  #pg-admin #shopDetailView .product-manager-tools .btn{
+    width:100%!important;
+    min-width:0;
+  }
+  #pg-admin #shopDetailView #adminPBadge{
+    justify-self:start;
+  }
+  #pg-admin #shopDetailView .owner-mobile-tools-toggle{
+    width:100%;
+    min-height:58px;
+    padding:12px 14px;
+    display:flex!important;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    border:1px solid #dbe7e1;
+    border-radius:14px;
+    background:linear-gradient(135deg,#ffffff 0%,#f7fbf9 62%,#eef8f4 100%);
+    color:var(--ink);
+    text-align:left;
+    box-shadow:0 10px 24px rgba(15,23,42,.045);
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+  }
+  #pg-admin #shopDetailView .owner-mobile-tools-toggle span:first-child{
+    display:grid;
+    gap:2px;
+    min-width:0;
+  }
+  #pg-admin #shopDetailView .owner-mobile-tools-toggle strong{
+    font-family:'Sora',sans-serif;
+    font-size:15px;
+    line-height:1.2;
+    color:var(--ink);
+  }
+  #pg-admin #shopDetailView .owner-mobile-tools-toggle small{
+    color:#66766f;
+    font-size:11px;
+    line-height:1.35;
+  }
+  #pg-admin #shopDetailView .owner-mobile-tools-icon{
+    width:34px;
+    height:34px;
+    border-radius:999px;
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    background:#e9f6f2;
+    border:1px solid #d3e7df;
+    color:var(--A2);
+    transition:transform .24s cubic-bezier(.2,.8,.2,1),background .16s ease,color .16s ease;
+  }
+  #pg-admin #shopDetailView .owner-mobile-tools-icon svg{
+    width:18px;
+    height:18px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:2.2;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+  }
+  #pg-admin #shopDetailView .owner-mobile-tools-toggle.is-open .owner-mobile-tools-icon{
+    transform:rotate(180deg);
+    background:var(--A);
+    border-color:var(--A);
+    color:#fff;
+  }
+  #pg-admin #shopDetailView .owner-side-stack{
+    max-height:1800px;
+    overflow:hidden;
+    opacity:1;
+    transition:max-height .28s cubic-bezier(.2,.8,.2,1),opacity .2s ease;
+    will-change:max-height,opacity;
+    touch-action:pan-y;
+    -webkit-overflow-scrolling:touch;
+  }
+  #pg-admin #shopDetailView .owner-side-stack.is-collapsed{
+    max-height:0!important;
+    opacity:0;
+  }
+  #pg-admin #shopDetailView .owner-side-card{
+    padding:12px!important;
+  }
+  #pg-admin #shopDetailView .bulk-edit-bar.on{
+    grid-template-columns:1fr!important;
+  }
+}
+@media(max-width:520px){
+  #pg-admin #shopDetailView .workspace-actions{
+    grid-template-columns:1fr!important;
+  }
+  #pg-admin #shopDetailView .workspace-stats{
+    grid-template-columns:1fr 1fr!important;
   }
 }
 </style>
@@ -6880,8 +7386,8 @@ select.btn{
                   </div>
                   <div class="owner-filter-bar">
                     <div class="fld"><label>Country</label><input id="ownerFilterCountry" value="Canada" placeholder="Canada" readonly title="Canada only for launch"/></div>
-                    <div class="fld"><label>Region</label><input id="ownerFilterRegion" placeholder="Nova Scotia"/></div>
-                    <div class="fld"><label>City</label><input id="ownerFilterCity" placeholder="Halifax"/></div>
+                    <div class="fld"><label>Region</label><input id="ownerFilterRegion"/></div>
+                    <div class="fld"><label>City</label><input id="ownerFilterCity"/></div>
                     <div class="fld"><label>Quality</label><select id="ownerFilterQuality"><option value="">All businesses</option><option value="complete">Complete only</option><option value="incomplete">Needs attention</option></select></div>
                   </div>
                 </div>
@@ -6938,7 +7444,7 @@ select.btn{
                 <div id="workspaceDesc" class="workspace-desc">Open one of your businesses to manage it here.</div>
               </div>
               <div class="workspace-actions">
-                <button id="detailBackBtn" class="btn btn-g btn-sm">← Back to Businesses</button>
+                <button id="detailBackBtn" class="btn btn-g btn-sm">Back to Businesses</button>
                 <button id="detailEditShopBtn" class="btn btn-o btn-sm">Edit Business</button>
                 <button id="detailOpenLiveShopBtn" class="btn btn-o btn-sm">Open Live Page</button>
                 <button id="detailAddProductBtn" class="btn btn-A btn-sm">+ Add Offering</button>
@@ -6958,7 +7464,7 @@ select.btn{
               <div class="owner-detail-card-top">
                 <div>
                   <div id="ownerDetailName" class="owner-detail-name">Business Name</div>
-                  <div id="ownerDetailMeta" class="owner-detail-meta">Address · Category</div>
+                  <div id="ownerDetailMeta" class="owner-detail-meta">Address - Category</div>
                 </div>
                 <div id="shopStats" class="stat-bar" style="display:none"></div>
               </div>
@@ -6969,7 +7475,16 @@ select.btn{
               </div>
               <div id="ownerDetailOverview" class="owner-detail-overview">Business overview appears here.</div>
             </div>
-            <div class="owner-side-stack">
+            <button class="owner-mobile-tools-toggle" id="ownerWorkspaceToolsToggle" type="button" aria-expanded="false" aria-controls="ownerWorkspaceTools">
+              <span>
+                <strong>Status and tools</strong>
+                <small>Review, management, quality, and requests</small>
+              </span>
+              <span class="owner-mobile-tools-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="m6 9 6 6 6-6"></path></svg>
+              </span>
+            </button>
+            <div class="owner-side-stack is-collapsed" id="ownerWorkspaceTools">
               <div class="owner-side-card">
                 <div class="owner-side-label">Listing Status</div>
                 <div id="ownerListingStateTitle" class="owner-side-title">Business not loaded</div>
@@ -17083,6 +17598,19 @@ $('ownerListingsToggle')?.addEventListener('click',()=>{
   const panel=$('ownerListingsPanel');
   setOwnerListingsPanel(panel?.classList.contains('is-collapsed'));
 });
+function setOwnerWorkspaceTools(open){
+  const tools=$('ownerWorkspaceTools');
+  const toggle=$('ownerWorkspaceToolsToggle');
+  if(!tools) return;
+  const expanded=!!open;
+  tools.classList.toggle('is-collapsed',!expanded);
+  toggle?.classList.toggle('is-open',expanded);
+  toggle?.setAttribute('aria-expanded',expanded?'true':'false');
+}
+$('ownerWorkspaceToolsToggle')?.addEventListener('click',()=>{
+  const tools=$('ownerWorkspaceTools');
+  setOwnerWorkspaceTools(tools?.classList.contains('is-collapsed'));
+});
 App.adminShopId=null;
 App.adminShopData=null;
 App.adminProducts=[];
@@ -17780,6 +18308,7 @@ async function loadAdminShop(shopId,{refreshOwnerList=false}={}){
     refreshWorkspaceHeader(s,st);
     renderBusinessListingUi(s);
     renderAdminProds(App.adminProducts);
+    setOwnerWorkspaceTools(false);
     setFieldHint('myShopsStatus',`Opened ${s.name||shopId}.`,'ok');
     setS('shopStatus',`Loaded ${shopId}`,'ok');
     switchAdminSub('shops',{refreshShops:refreshOwnerList});
