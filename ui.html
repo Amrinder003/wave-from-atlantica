@@ -6869,6 +6869,306 @@ select.btn{
     grid-template-columns:1fr 1fr!important;
   }
 }
+
+/* Workspace redesign correction pass */
+#pg-admin #shopDetailView .workspace-actions{
+  align-items:center!important;
+}
+#pg-admin #shopDetailView .workspace-actions #detailAddProductBtn{
+  order:1;
+}
+#pg-admin #shopDetailView .workspace-actions #detailEditShopBtn{
+  order:2;
+}
+#pg-admin #shopDetailView .workspace-actions #detailOpenLiveShopBtn{
+  order:3;
+}
+#pg-admin #shopDetailView .workspace-actions #detailBackBtn{
+  order:4;
+}
+#pg-admin #shopDetailView .owner-detail-card{
+  display:grid!important;
+  gap:0!important;
+}
+#pg-admin #shopDetailView .owner-detail-card-top{
+  border-bottom:1px solid #edf3f0!important;
+}
+#pg-admin #shopDetailView .owner-detail-name{
+  font-size:18px!important;
+}
+#pg-admin #shopDetailView .owner-detail-meta{
+  max-width:58ch;
+}
+#pg-admin #shopDetailView .owner-detail-overview{
+  border-bottom:1px solid #edf3f0;
+}
+#pg-admin #shopDetailView .owner-detail-facts{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:0;
+  padding:6px;
+  margin:0 14px 14px;
+  border:1px solid #dfece6;
+  border-radius:14px;
+  background:#f7fbf9;
+}
+#pg-admin #shopDetailView .owner-detail-fact{
+  min-width:0;
+  padding:11px 12px;
+  border-radius:10px;
+  display:grid;
+  gap:4px;
+}
+#pg-admin #shopDetailView .owner-detail-fact span,
+#pg-admin #shopDetailView .owner-management-row span{
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:#71827a;
+}
+#pg-admin #shopDetailView .owner-detail-fact strong,
+#pg-admin #shopDetailView .owner-management-row strong{
+  min-width:0;
+  color:#26332f;
+  font-size:12px;
+  font-weight:650;
+  line-height:1.45;
+  overflow-wrap:anywhere;
+}
+#pg-admin #shopDetailView .owner-management-row{
+  display:grid;
+  gap:4px;
+  padding:10px 0;
+  border-top:1px solid #edf3f0;
+}
+#pg-admin #shopDetailView .owner-management-row:first-child{
+  border-top:0;
+  padding-top:0;
+}
+#pg-admin #shopDetailView .owner-management-row:last-child{
+  padding-bottom:0;
+}
+#pg-admin #shopDetailView .owner-side-card .tp-row{
+  display:grid!important;
+  gap:4px!important;
+  padding:10px 0!important;
+  border-top:1px solid #edf3f0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+#pg-admin #shopDetailView .owner-side-card .tp-row:first-child{
+  border-top:0!important;
+  padding-top:0!important;
+}
+#pg-admin #shopDetailView .owner-side-card .tp-row>div{
+  color:#71827a!important;
+  font-size:10px!important;
+  font-weight:800!important;
+  letter-spacing:.04em!important;
+  text-transform:uppercase!important;
+}
+#pg-admin #shopDetailView .owner-side-card .tp-row>b{
+  color:#26332f!important;
+  font-size:12px!important;
+  font-weight:650!important;
+  line-height:1.45!important;
+  overflow-wrap:anywhere;
+}
+#pg-admin #shopDetailView .owner-side-actions{
+  display:flex!important;
+  flex-wrap:wrap;
+}
+#pg-admin #shopDetailView .owner-side-actions .btn{
+  flex:1 1 140px;
+}
+#pg-admin #shopDetailView #adminPGrid{
+  grid-template-columns:1fr!important;
+}
+#pg-admin #shopDetailView .admin-pc-record{
+  display:grid!important;
+  grid-template-columns:132px minmax(0,1fr)!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+#pg-admin #shopDetailView .admin-pc-record .admin-pc-photo{
+  width:100%!important;
+  height:100%!important;
+  min-height:158px!important;
+  aspect-ratio:auto!important;
+  border-right:1px solid #edf3f0;
+  background:#f6faf8!important;
+}
+#pg-admin #shopDetailView .admin-pc-record .admin-pc-photo img{
+  padding:8px!important;
+  object-fit:cover!important;
+  background:#fff!important;
+}
+#pg-admin #shopDetailView .admin-pc-record .pc-nophoto{
+  width:100%;
+  height:100%;
+  display:grid;
+  place-items:center;
+  color:#71827a;
+  font-size:12px;
+  font-weight:800;
+  background:#f4faf7;
+}
+#pg-admin #shopDetailView .admin-pc-record .admin-pc-body{
+  padding:14px 15px!important;
+  display:grid!important;
+  gap:9px!important;
+}
+#pg-admin #shopDetailView .admin-pc-topline{
+  order:1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+#pg-admin #shopDetailView .admin-pc-status{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:4px 9px;
+  border-radius:999px;
+  background:#e9f6f2;
+  border:1px solid #cfe7de;
+  color:var(--A2);
+  font-size:10px;
+  font-weight:850;
+}
+#pg-admin #shopDetailView .admin-pc-id{
+  min-width:0;
+  max-width:50%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#71827a;
+  font-size:10px;
+  font-weight:750;
+}
+#pg-admin #shopDetailView .admin-pc-head{
+  order:2;
+  align-items:flex-start!important;
+}
+#pg-admin #shopDetailView .admin-pc-desc{
+  order:3;
+  padding:0!important;
+  color:#52635c!important;
+  line-height:1.55!important;
+}
+#pg-admin #shopDetailView .admin-pc-meta{
+  order:4;
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:6px!important;
+}
+#pg-admin #shopDetailView .admin-pc-meta .admin-pc-chip{
+  min-width:0;
+  justify-content:center;
+  border-radius:10px!important;
+  padding:7px 8px!important;
+  text-align:center;
+  line-height:1.25!important;
+  white-space:normal!important;
+}
+#pg-admin #shopDetailView .admin-pc-record .owner-flag-list{
+  order:5;
+}
+#pg-admin #shopDetailView .admin-pc-variants{
+  order:6;
+}
+#pg-admin #shopDetailView .admin-pc-attr{
+  order:7;
+  padding:9px 10px;
+  border-radius:10px;
+  background:#f7fbf9;
+  border:1px solid #dfece6;
+}
+#pg-admin #shopDetailView .admin-pc-actions{
+  order:8;
+  justify-content:flex-end!important;
+  padding-top:4px!important;
+}
+#pg-admin #shopDetailView .admin-pc-actions button{
+  appearance:none;
+  border:1px solid #cfe1da;
+  border-radius:10px;
+  min-height:34px;
+  padding:7px 12px;
+  background:#fff;
+  color:var(--A2);
+  font-size:12px;
+  font-weight:850;
+  cursor:pointer;
+}
+#pg-admin #shopDetailView .admin-pc-actions .admin-pc-edit{
+  background:var(--A);
+  border-color:var(--A);
+  color:#fff;
+}
+#pg-admin #shopDetailView input[type=file]{
+  color:#52635c!important;
+  background:#fff!important;
+  border:1px solid #d4e4dd!important;
+  border-radius:10px!important;
+}
+#pg-admin #shopDetailView input[type=file]::file-selector-button{
+  min-height:34px;
+  margin:-6px 10px -6px -10px;
+  padding:7px 12px;
+  border:0;
+  border-right:1px solid #cfe1da;
+  background:#e9f6f2;
+  color:var(--A2);
+  font-weight:850;
+  cursor:pointer;
+}
+#pg-admin #shopDetailView input[type=file]:hover::file-selector-button{
+  background:var(--A);
+  color:#fff;
+}
+@media(max-width:1180px){
+  #pg-admin #shopDetailView .owner-detail-facts{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:760px){
+  #pg-admin #shopDetailView .workspace-actions #detailAddProductBtn,
+  #pg-admin #shopDetailView .workspace-actions #detailEditShopBtn,
+  #pg-admin #shopDetailView .workspace-actions #detailOpenLiveShopBtn,
+  #pg-admin #shopDetailView .workspace-actions #detailBackBtn{
+    order:0;
+  }
+  #pg-admin #shopDetailView .owner-detail-facts{
+    grid-template-columns:1fr;
+    margin:0 12px 12px;
+  }
+  #pg-admin #shopDetailView .admin-pc-record{
+    grid-template-columns:96px minmax(0,1fr)!important;
+  }
+  #pg-admin #shopDetailView .admin-pc-record .admin-pc-photo{
+    min-height:150px!important;
+  }
+  #pg-admin #shopDetailView .admin-pc-meta{
+    grid-template-columns:1fr 1fr!important;
+  }
+  #pg-admin #shopDetailView .admin-pc-actions{
+    display:grid!important;
+    grid-template-columns:1fr 1fr;
+  }
+}
+@media(max-width:460px){
+  #pg-admin #shopDetailView .admin-pc-record{
+    grid-template-columns:1fr!important;
+  }
+  #pg-admin #shopDetailView .admin-pc-record .admin-pc-photo{
+    min-height:180px!important;
+    border-right:0;
+    border-bottom:1px solid #edf3f0;
+  }
+}
 </style>
 </head>
 <body>
@@ -7474,6 +7774,7 @@ select.btn{
                 <div class="owner-detail-tag">Chat Ready</div>
               </div>
               <div id="ownerDetailOverview" class="owner-detail-overview">Business overview appears here.</div>
+              <div id="ownerDetailFacts" class="owner-detail-facts"></div>
             </div>
             <button class="owner-mobile-tools-toggle" id="ownerWorkspaceToolsToggle" type="button" aria-expanded="false" aria-controls="ownerWorkspaceTools">
               <span>
@@ -7496,14 +7797,11 @@ select.btn{
                 <div class="owner-side-actions">
                   <button id="detailSubmitReviewBtn" class="btn btn-A btn-sm">Submit for Review</button>
                   <button id="detailMoveDraftBtn" class="btn btn-o btn-sm" style="display:none">Move to Draft</button>
-                  <button id="detailAddProductBtnSide" class="btn btn-A btn-sm">+ Add Offering</button>
-                  <button id="detailEditShopBtnSide" class="btn btn-o btn-sm">Edit Business Details</button>
-                  <button id="detailOpenLiveShopBtnSide" class="btn btn-g btn-sm">Open Live Page</button>
                 </div>
               </div>
               <div class="owner-side-card">
                 <div class="owner-side-label">Management</div>
-                <div class="owner-side-title">Who manages this page</div>
+                <div class="owner-side-title">Page ownership</div>
                 <div id="ownerManagementDetails" class="tp-list" style="margin-top:12px"></div>
               </div>
               <div id="ownerAuditCard" class="owner-side-card" style="display:none">
@@ -14430,7 +14728,8 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
 
   if(mode==='admin'){
     const flags=p.quality_flags||[];
-    const art=document.createElement('article');art.className='admin-pc';
+    const ratingLabel=(p.avg_rating>0)?`${p.avg_rating.toFixed(1)} rating${p.review_count?` / ${p.review_count} review${p.review_count===1?'':'s'}`:''}`:'No reviews';
+    const art=document.createElement('article');art.className='admin-pc admin-pc-record';
     art.__waveCardProduct=p;
     art.__waveCardOpts={mode,showShop,sid, sname};
     if(accentColor){ art.classList.add('has-color'); art.style.setProperty('--variant-accent',accentColor); }
@@ -14438,29 +14737,30 @@ function makeCard(p,{mode='browse',showShop=false,sid=null,sname=null}={}){
     art.innerHTML=`
       <div class="admin-pc-photo">
         ${main?`<img src="${esc(main)}" alt="${esc(p.name)}" loading="lazy"/>`:`<div class="pc-nophoto">📦</div>`}
-        <div class="admin-pc-badge">${esc(availability)}</div>
-        <div class="admin-pc-count">${n?`${n} image${n===1?'':'s'}`:'No images'}</div>
         ${App.adminBulkMode?`<button class="admin-pc-check" data-admin-select="1" title="${isSelected?'Deselect':'Select'}">${isSelected?'✓':''}</button>`:''}
       </div>
       <div class="admin-pc-body">
+        <div class="admin-pc-topline">
+          <span class="admin-pc-status">${esc(availability)}</span>
+          <span class="admin-pc-id">${esc(p.product_id||'No ID')}</span>
+        </div>
         <div class="admin-pc-head">
           <div class="admin-pc-name">${esc(p.name)}</div>
           ${String(adminPrice).trim()?`<div class="${String(p.price||'').trim()?'admin-pc-price':'admin-pc-noprice'}">${esc(adminPrice)}</div>`:''}
         </div>
         <div class="admin-pc-meta">
-          <div class="admin-pc-chip">${esc(p.product_id||'No ID')}</div>
           <div class="admin-pc-chip">${n?`Photos ${n}`:'Add Photos'}</div>
           <div class="admin-pc-chip">${esc(progressChip)}</div>
           <div class="admin-pc-chip">${p.product_views||0} views</div>
-          ${(p.avg_rating>0)?`<div class="admin-pc-chip">Rating ${p.avg_rating.toFixed(1)}${p.review_count?` (${p.review_count})`:''}</div>`:`<div class="admin-pc-chip">No Reviews</div>`}
+          <div class="admin-pc-chip">${esc(ratingLabel)}</div>
         </div>
         <div class="owner-flag-list">${flags.length?flags.map(flag=>`<span class="owner-flag">${esc(flag)}</span>`).join(''):'<span class="owner-good">Listing ready</span>'}</div>
         ${variantPreview}
         ${attrPreview?`<div class="admin-pc-attr">${esc(attrPreview)}</div>`:''}
         <div class="admin-pc-desc">${desc}</div>
         <div class="admin-pc-actions">
-          <div class="admin-pc-link">Open and edit offering</div>
-          <div class="admin-pc-edit">Manage</div>
+          <button class="admin-pc-link" type="button">Preview</button>
+          <button class="admin-pc-edit" type="button">Edit offering</button>
         </div>
       </div>`;
     const noPhoto=art.querySelector('.pc-nophoto');
@@ -17621,11 +17921,21 @@ function refreshWorkspaceHeader(shop=null,stats={}){
   const ratingNum=Number(stats?.avg_rating);
   const nouns=offeringNouns(shop||{});
   const offeringCount=stats.offering_count??stats.product_count??0;
-  const location=[shop?.address||shop?.service_area||'',shop?.category||'',shop?.hours||''].filter(Boolean);
+  const locationText=shop?.formatted_address||shop?.address||shop?.service_area||'No location yet';
+  const fulfillment=[
+    shop?.supports_pickup!==false ? 'Pickup' : '',
+    shop?.supports_delivery ? 'Delivery' : '',
+    shop?.supports_walk_in!==false ? 'Walk-in' : ''
+  ].filter(Boolean).join(', ') || 'Not set';
+  const contact=[
+    shop?.phone_public && shop?.phone ? shop.phone : '',
+    shop?.whatsapp ? 'WhatsApp' : '',
+    shop?.website ? 'Website' : ''
+  ].filter(Boolean).join(' / ') || (shop?.phone ? 'Review phone added' : 'No public contact yet');
   const listingMeta=businessListingMeta(shop||{});
   $('workspaceTitle').textContent=shop?.name||'Select a business to manage';
   $('workspaceDesc').textContent=shop
-    ? `${location.slice(0,2).join(' - ')||'No location yet'}. ${listingMeta.live?'This listing is live for customers.':'This listing is private until it is approved.'} Manage ${nouns.plural} and verification from one place.`
+    ? `${listingMeta.live?'Live customer page.':'Private until approved.'} Manage the public profile, ${nouns.plural}, review status, and customer activity from one place.`
     : 'Open one of your businesses to manage its page and offerings.';
   $('wkStatus').textContent=shop?listingMeta.label:'No business loaded';
   $('wkProducts').textContent=String(offeringCount);
@@ -17633,11 +17943,10 @@ function refreshWorkspaceHeader(shop=null,stats={}){
   if($('wkShopViews')) $('wkShopViews').textContent=String(stats.shop_views_30d??0);
   if($('wkProductViews')) $('wkProductViews').textContent=String(stats.product_views_30d??0);
   $('wkRating').textContent=Number.isFinite(ratingNum)?ratingNum.toFixed(1):'0.0';
-  if($('ownerDetailName')) $('ownerDetailName').textContent=shop?.name||'Business Name';
-  if($('ownerDetailMeta')) $('ownerDetailMeta').textContent=shop ? (location.join(' - ')||'No location yet') : 'Location - Category';
+  if($('ownerDetailName')) $('ownerDetailName').textContent='Public profile';
+  if($('ownerDetailMeta')) $('ownerDetailMeta').textContent=shop ? 'Customer-facing details shown on the live business page.' : 'Customer-facing details will appear here.';
   if($('ownerDetailOverview')) $('ownerDetailOverview').textContent=shop?.overview||'Add a stronger business overview so customers and the assistant both have better context.';
   if($('detailAddProductBtn')) $('detailAddProductBtn').textContent=`+ Add ${nouns.label}`;
-  if($('detailAddProductBtnSide')) $('detailAddProductBtnSide').textContent=`+ Add ${nouns.label}`;
   if($('ownerDetailTags')){
     const tags = shop
       ? [
@@ -17651,6 +17960,26 @@ function refreshWorkspaceHeader(shop=null,stats={}){
         ]
       : ['Business Page','Products','Chat Ready'];
     $('ownerDetailTags').innerHTML = tags.map(t=>`<div class="owner-detail-tag">${esc(t)}</div>`).join('');
+  }
+  if($('ownerDetailFacts')){
+    const facts=shop
+      ? [
+          ['Location',locationText],
+          ['Category',shop.category||'Not set'],
+          ['Hours',shop.hours||'Not set'],
+          ['Contact',contact],
+          ['Fulfillment',fulfillment],
+          ['Currency',shop.currency_code||'Not set']
+        ]
+      : [
+          ['Location','No business loaded'],
+          ['Category','Not set'],
+          ['Hours','Not set'],
+          ['Contact','Not set'],
+          ['Fulfillment','Not set'],
+          ['Currency','Not set']
+        ];
+    $('ownerDetailFacts').innerHTML=facts.map(([label,value])=>`<div class="owner-detail-fact"><span>${esc(label)}</span><strong>${esc(String(value||''))}</strong></div>`).join('');
   }
   renderOwnerManagementDetails(shop||null);
 }
@@ -17672,7 +18001,7 @@ function renderOwnerManagementDetails(shop=null){
     ['Claimed at',normalized.claimed_at||'Not claimed yet'],
     ['Last verified',normalized.verified_at||'Not recorded'],
   ];
-  host.innerHTML=rows.map(([label,value])=>`<div class="tp-row"><div>${esc(label)}</div><b>${esc(String(value||''))}</b></div>`).join('');
+  host.innerHTML=rows.map(([label,value])=>`<div class="owner-management-row"><span>${esc(label)}</span><strong>${esc(String(value||''))}</strong></div>`).join('');
 }
 function renderBusinessListingUi(shop={}){
   const normalized=normalizeBusinessRecord(shop||{});
@@ -17705,7 +18034,6 @@ function renderBusinessListingUi(shop={}){
   if($('detailMoveDraftBtn')) $('detailMoveDraftBtn').style.display=(isEdit && meta.canMoveDraft)?'':'none';
   if($('shopMoveDraftBtn')) $('shopMoveDraftBtn').style.display=(isEdit && meta.canMoveDraft)?'':'none';
   if($('detailOpenLiveShopBtn')) $('detailOpenLiveShopBtn').disabled=!meta.live;
-  if($('detailOpenLiveShopBtnSide')) $('detailOpenLiveShopBtnSide').disabled=!meta.live;
   const submitTitle=canSubmit ? 'Submit for review' : (isEdit ? 'Complete the requirements first' : 'Create the business first');
   if($('detailSubmitReviewBtn')) $('detailSubmitReviewBtn').title=submitTitle;
   if($('shopSubmitReviewBtn')) $('shopSubmitReviewBtn').title=submitTitle;
@@ -18561,8 +18889,8 @@ $('closeClaimWorkspaceBtn')?.addEventListener('click',()=>{
 $('detailBackBtn').addEventListener('click',()=>showShopManagerView('landing'));
 $('detailEditShopBtn').addEventListener('click',openEditShopView);
 $('detailAddProductBtn').addEventListener('click',()=>openProductForm());
-$('detailEditShopBtnSide').addEventListener('click',openEditShopView);
-$('detailAddProductBtnSide').addEventListener('click',()=>openProductForm());
+$('detailEditShopBtnSide')?.addEventListener('click',openEditShopView);
+$('detailAddProductBtnSide')?.addEventListener('click',()=>openProductForm());
 $('detailSubmitReviewBtn')?.addEventListener('click',submitBusinessForReview);
 $('detailMoveDraftBtn')?.addEventListener('click',moveBusinessToDraft);
 $('shopSubmitReviewBtn')?.addEventListener('click',submitBusinessForReview);
@@ -18573,7 +18901,7 @@ $('addVariantColorBtn')?.addEventListener('click',()=>appendVariantOption('Color
 $('addProdLinkBtn')?.addEventListener('click',addProductExternalLink);
 $('refreshVariantMatrixBtn')?.addEventListener('click',()=>{renderVariantMatrixBuilder(App.productVariantMatrixDraft,collectVariantData());markProductFormDirty();});
 $('detailOpenLiveShopBtn').addEventListener('click',openAdminLiveBusiness);
-$('detailOpenLiveShopBtnSide').addEventListener('click',openAdminLiveBusiness);
+$('detailOpenLiveShopBtnSide')?.addEventListener('click',openAdminLiveBusiness);
 $('shopFormBackBtn').addEventListener('click',()=>showShopManagerView(App.adminShopId?'detail':'landing'));
 $('productFormBackBtn').addEventListener('click',()=>showShopManagerView('detail'));
 $('shopFloatingBackBtn').addEventListener('click',()=>showShopManagerView(App.adminShopId?'detail':'landing'));
