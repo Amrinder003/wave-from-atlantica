@@ -198,6 +198,8 @@ SMTP_FROM_NAME_FROM_RAW, SMTP_FROM_EMAIL_PARSED = parseaddr(SMTP_FROM_EMAIL_RAW)
 SMTP_FROM_EMAIL   = (SMTP_FROM_EMAIL_PARSED or SMTP_FROM_EMAIL_RAW).strip()
 SMTP_FROM_NAME    = (os.environ.get("SMTP_FROM_NAME", "").strip() or SMTP_FROM_NAME_FROM_RAW or "Atlantic Ordinate").strip()
 SMTP_USE_TLS      = os.environ.get("SMTP_USE_TLS", "true").strip().lower() not in {"0", "false", "no"}
+SMTP_USE_SSL      = os.environ.get("SMTP_USE_SSL", "").strip().lower() in {"1", "true", "yes"} or SMTP_PORT == 465
+SMTP_TIMEOUT_SECONDS = int(os.environ.get("SMTP_TIMEOUT_SECONDS", "25") or 25)
 RESEND_API_KEY    = os.environ.get("RESEND_API_KEY", "").strip()
 RESEND_API_URL    = os.environ.get("RESEND_API_URL", "https://api.resend.com/emails").strip()
 REVIEW_NOTIFICATION_EMAILS = [
@@ -2049,21 +2051,47 @@ def send_email_message_detailed(to_email: str, subject: str, text_body: str) -> 
         return False, "SMTP_HOST is not configured."
     if SMTP_USERNAME and not SMTP_PASSWORD:
         return False, "SMTP_PASSWORD is missing for the configured SMTP username."
+    stage = "connecting to SMTP server"
     try:
         msg = EmailMessage()
         msg["Subject"] = subject
         msg["From"] = email_from_header()
         msg["To"] = recipient
         msg.set_content(text_body)
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as smtp:
-            if SMTP_USE_TLS:
+        smtp_cls = smtplib.SMTP_SSL if SMTP_USE_SSL else smtplib.SMTP
+        with smtp_cls(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as smtp:
+            if SMTP_USE_TLS and not SMTP_USE_SSL:
+                stage = "starting SMTP TLS"
                 smtp.starttls()
             if SMTP_USERNAME:
+                stage = "logging in to SMTP"
                 smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+            stage = "sending SMTP message"
             smtp.send_message(msg)
         return True, ""
+    except TimeoutError:
+        security = "implicit SSL" if SMTP_USE_SSL else ("STARTTLS" if SMTP_USE_TLS else "plain SMTP")
+        message = (
+            f"SMTP timed out while {stage} using {SMTP_HOST}:{SMTP_PORT} ({security}). "
+            "Try Porkbun port 50587 with STARTTLS, or port 465 with SMTP_USE_SSL=true. "
+            "If both time out on Railway, use Resend API for app emails."
+        )
+        print(f"[Notification Warning] Email send failed for {recipient}: {message}")
+        return False, message
+    except smtplib.SMTPAuthenticationError:
+        message = "SMTP authentication failed. Check the mailbox username and mailbox password."
+        print(f"[Notification Warning] Email send failed for {recipient}: {message}")
+        return False, message
+    except smtplib.SMTPConnectError as e:
+        message = f"SMTP connection failed while {stage}: {str(e).strip() or 'connection error'}"
+        print(f"[Notification Warning] Email send failed for {recipient}: {message}")
+        return False, message
+    except smtplib.SMTPException as e:
+        message = f"SMTP error while {stage}: {str(e).strip() or e.__class__.__name__}"
+        print(f"[Notification Warning] Email send failed for {recipient}: {message}")
+        return False, message
     except Exception as e:
-        message = str(e or "").strip() or "Unknown SMTP error."
+        message = f"SMTP error while {stage}: {str(e or '').strip() or 'Unknown SMTP error.'}"
         print(f"[Notification Warning] Email send failed for {recipient}: {message}")
         return False, message
 
@@ -2120,6 +2148,8 @@ def review_notification_status_payload() -> Dict[str, Any]:
         "from_email": SMTP_FROM_EMAIL,
         "from_name": SMTP_FROM_NAME,
         "tls_enabled": SMTP_USE_TLS,
+        "ssl_enabled": SMTP_USE_SSL,
+        "timeout_seconds": SMTP_TIMEOUT_SECONDS,
         "recipient_count": len(recipients),
         "recipients": recipients,
         "ready": smtp_ready and bool(recipients),
