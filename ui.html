@@ -19630,11 +19630,14 @@ function buildClaimSearchSeed(){
 }
 function openClaimWorkspace({seed=''}={}){
   if(!tok()){
+    showPage('admin');
     switchAdminSub('account');
     setS('authStatus','Sign in or create an account to claim an existing business page.','');
+    openAuthModal('login');
     toast('Sign in to claim a business','','err');
     return false;
   }
+  showPage('admin');
   const activeSub=document.querySelector('.asub.on')?.id||'';
   if(activeSub!=='sub-shops'){
     switchAdminSub('shops',{refreshShops:false});
