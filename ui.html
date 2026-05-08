@@ -9408,8 +9408,8 @@ select.btn{
               <div id="reviewMetricManagedCount" class="review-metric-v">0</div>
             </div>
             <div class="review-metric">
-              <div class="review-metric-k">Notifications</div>
-              <div id="reviewMetricNotifyState" class="review-metric-v review-metric-text">Unknown</div>
+              <div class="review-metric-k">Account Deletes</div>
+              <div id="reviewMetricDeleteCount" class="review-metric-v">0</div>
             </div>
           </div>
         </div>
@@ -9452,6 +9452,19 @@ select.btn{
           <div class="card-body">
             <div id="adminManagedBusinessesList" class="review-queue"><div class="review-queue-empty">No platform-managed listings.</div></div>
             <div id="adminManagedBusinessesStatus" class="stxt"></div>
+          </div>
+        </div>
+        <div id="adminAccountDeletionRequestsCard" class="card review-section-card" style="display:none">
+          <div class="card-head">
+            <div>
+              <div class="owner-products-topline">Sensitive Queue</div>
+              <div class="card-title">Account Deletion Requests</div>
+              <div class="owner-products-sub">Only requests submitted from Account settings appear here. Load one to unlock the deletion processor.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="adminAccountDeletionRequestsList" class="review-queue"><div class="review-queue-empty">No account deletion requests waiting for review.</div></div>
+            <div id="adminAccountDeletionRequestsStatus" class="stxt"></div>
           </div>
         </div>
           </div>
@@ -9990,6 +10003,8 @@ const App = {
   adminReviewShops: [],
   adminReviewClaims: [],
   adminManagedShops: [],
+  adminAccountDeletionRequests: [],
+  adminAccountDeletionPreview: null,
   adminReviewNotifyStatus: null,
   ownerBusinessClaims: [],
   claimSearchResults: [],
@@ -14734,11 +14749,12 @@ function syncReviewNavBadge(){
   }
   const businessCount=Array.isArray(App.adminReviewShops)?App.adminReviewShops.length:0;
   const claimCount=Array.isArray(App.adminReviewClaims)?App.adminReviewClaims.length:0;
-  const total=businessCount+claimCount;
+  const deleteCount=Array.isArray(App.adminAccountDeletionRequests)?App.adminAccountDeletionRequests.length:0;
+  const total=businessCount+claimCount+deleteCount;
   badge.textContent=String(total);
   badge.style.display=total>0?'inline-flex':'none';
   const label=total>0
-    ? `Review Center, ${businessCount} business review${businessCount===1?'':'s'} and ${claimCount} ownership claim${claimCount===1?'':'s'} pending`
+    ? `Review Center, ${businessCount} business review${businessCount===1?'':'s'}, ${claimCount} ownership claim${claimCount===1?'':'s'}, and ${deleteCount} account deletion request${deleteCount===1?'':'s'} pending`
     : 'Review Center';
   btn.title=label;
   btn.setAttribute('aria-label',label);
@@ -14759,6 +14775,7 @@ function syncReviewerUi(user=App.user){
   }
   renderReviewNotificationStatus();
   renderAdminManagedBusinesses();
+  renderAdminAccountDeletionRequests();
   syncReviewNavBadge();
 }
 function profileInitial(user=App.user){
@@ -15040,8 +15057,9 @@ async function requestAccountDeletion(){
     if(confirmInput) confirmInput.value='';
     if(reasonInput) reasonInput.value='';
     const ownerNote=d.owned_business_count ? ` You own ${d.owned_business_count} business listing${d.owned_business_count===1?'':'s'}, so ownership must be reviewed before deletion.` : '';
-    setS('accountDeleteStatus',`${d.message || 'Account deletion request sent.'}${ownerNote}`,'ok');
-    toast('Deletion request sent',ownerNote.trim()||'We will review it before making changes.');
+    const notifyNote=d.notification_sent===false ? ' Review email is not configured, but the request is recorded in Review Center.' : '';
+    setS('accountDeleteStatus',`${d.message || 'Account deletion request recorded.'}${ownerNote}${notifyNote}`,'ok');
+    toast('Deletion request recorded',ownerNote.trim()||'We will review it before making changes.');
   }catch(e){
     setS('accountDeleteStatus',e.message,'err');
     toast('Request failed',e.message,'err');
@@ -18089,6 +18107,7 @@ function switchAdminSub(sub,{refreshShops=true}={}){
     loadAdminReviewQueue();
     loadAdminClaimReviewQueue();
     loadAdminManagedBusinesses();
+    loadAdminAccountDeletionRequests();
   }
 }
 document.querySelectorAll('.anav-btn[data-sub]').forEach(b=>b.addEventListener('click',()=>{
@@ -18915,10 +18934,12 @@ async function loadMyShops(){
     App.adminReviewShops=[];
     App.adminReviewClaims=[];
     App.adminManagedShops=[];
+    App.adminAccountDeletionRequests=[];
     App.ownerBusinessClaims=[];
     App.claimSearchResults=[];
     renderAdminReviewQueue();
     renderAdminManagedBusinesses();
+    renderAdminAccountDeletionRequests();
     renderOwnerBusinessClaims();
     renderClaimSearchResults();
     closeClaimWorkspace();
@@ -18950,7 +18971,7 @@ async function loadMyShops(){
       setFieldHint('myShopsStatus','You do not have a business yet.','');
       $('createFirstShopBtn')?.addEventListener('click',openCreateShopView);
       renderAdminReviewQueue();
-      if(isAdmin) await Promise.all([loadAdminReviewQueue(),loadAdminClaimReviewQueue(),loadAdminManagedBusinesses()]);
+      if(isAdmin) await Promise.all([loadAdminReviewQueue(),loadAdminClaimReviewQueue(),loadAdminManagedBusinesses(),loadAdminAccountDeletionRequests()]);
       return;
     }
     shops.forEach(s=>{
@@ -18970,7 +18991,7 @@ async function loadMyShops(){
       grid.appendChild(card);
     });
     renderAdminReviewQueue();
-    if(isAdmin) await Promise.all([loadAdminReviewQueue(),loadAdminClaimReviewQueue(),loadAdminManagedBusinesses()]);
+    if(isAdmin) await Promise.all([loadAdminReviewQueue(),loadAdminClaimReviewQueue(),loadAdminManagedBusinesses(),loadAdminAccountDeletionRequests()]);
     setFieldHint('myShopsStatus',`${shops.length} business${shops.length===1?'':'es'} ready to manage.`,'ok');
   }catch(e){$('ownerShopGrid').innerHTML=`<div class="empty"><div class="ei">Error</div><div class="et">${esc(e.message)}</div></div>`;setFieldHint('myShopsStatus','Could not load your businesses.','err');}
 }
@@ -19278,13 +19299,11 @@ function updateReviewCenterSummary(){
   const launchCount=Array.isArray(App.adminReviewShops)?App.adminReviewShops.length:0;
   const claimCount=Array.isArray(App.adminReviewClaims)?App.adminReviewClaims.length:0;
   const managedCount=Array.isArray(App.adminManagedShops)?App.adminManagedShops.length:0;
+  const deleteCount=Array.isArray(App.adminAccountDeletionRequests)?App.adminAccountDeletionRequests.length:0;
   if($('reviewMetricBusinessCount')) $('reviewMetricBusinessCount').textContent=String(launchCount);
   if($('reviewMetricClaimCount')) $('reviewMetricClaimCount').textContent=String(claimCount);
   if($('reviewMetricManagedCount')) $('reviewMetricManagedCount').textContent=String(managedCount);
-  if($('reviewMetricNotifyState')){
-    const s=App.adminReviewNotifyStatus||{};
-    $('reviewMetricNotifyState').textContent=('ready' in s) ? (s.ready?'Ready':'Needs setup') : (isReviewerAccount()?'Unknown':'Staff only');
-  }
+  if($('reviewMetricDeleteCount')) $('reviewMetricDeleteCount').textContent=String(deleteCount);
 }
 function reviewFactRows(rows=[]){
   return `<div class="review-card-facts">${rows.map(([k,v])=>`<div class="review-card-fact"><div class="review-card-fact-k">${esc(k)}</div><div class="review-card-fact-v">${esc(String(v||'Not provided'))}</div></div>`).join('')}</div>`;
@@ -19462,6 +19481,64 @@ async function executeAdminAccountDeletion(){
     toast('Deletion failed',e.message,'err');
   }finally{
     setBtnBusy('adminExecuteAccountDeleteBtn',false);
+  }
+}
+function renderAdminAccountDeletionRequests(){
+  const card=$('adminAccountDeletionRequestsCard');
+  const list=$('adminAccountDeletionRequestsList');
+  if(!card || !list) return;
+  const isAdmin=isReviewerAccount();
+  if(!isAdmin){
+    card.style.display='none';
+    list.innerHTML='<div class="review-queue-empty">No account deletion requests waiting for review.</div>';
+    updateReviewCenterSummary();
+    return;
+  }
+  card.style.display='';
+  const requests=Array.isArray(App.adminAccountDeletionRequests)?App.adminAccountDeletionRequests:[];
+  if(!requests.length){
+    list.innerHTML='<div class="review-queue-empty">No account deletion requests waiting for review.</div>';
+    updateReviewCenterSummary();
+    return;
+  }
+  list.innerHTML='';
+  requests.forEach(snap=>{
+    const req=snap.account_deletion_request||{};
+    const owned=Array.isArray(snap.owned_businesses)?snap.owned_businesses:[];
+    const counts=snap.counts||{};
+    const item=document.createElement('div');
+    item.className='review-queue-item review-delete-request-card';
+    const title=snap.email||snap.user_id||'Account deletion request';
+    item.innerHTML=`<div class="review-queue-head"><div class="review-card-ident"><div class="review-card-avatar"><div class="biz-avatar-fallback">${esc((snap.email||'U')[0]?.toUpperCase()||'U')}</div></div><div class="review-card-main"><div class="review-queue-title">${esc(title)}</div><div class="review-queue-meta">Requested ${esc(req.requested_at||'recently')}${req.request_id?` - ${esc(req.request_id)}`:''}</div></div></div><span class="listing-pill rejected">Requested</span></div>${reviewFactRows([['User ID',snap.user_id||'Not available'],['Role',snap.role||'customer'],['Owned businesses',counts.owned_businesses??owned.length],['Reason',req.reason||'Not provided']])}<div class="review-queue-actions"><button class="btn btn-r btn-sm" type="button" data-load-delete-request="${esc(snap.user_id||'')}">Load Request</button></div>`;
+    item.querySelector('[data-load-delete-request]')?.addEventListener('click',()=>{
+      if($('adminDeleteUserId')) $('adminDeleteUserId').value=snap.user_id||'';
+      if($('adminDeleteEmail')) $('adminDeleteEmail').value=snap.email||'';
+      renderAdminAccountDeletionSummary({snapshot:snap});
+      setFieldHint('adminAccountDeleteStatus','Pending deletion request loaded. Review the impact, then type the confirmation phrase to delete.','ok');
+      $('adminAccountDeleteCard')?.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+    list.appendChild(item);
+  });
+  updateReviewCenterSummary();
+}
+async function loadAdminAccountDeletionRequests(){
+  if(!isReviewerAccount()){
+    App.adminAccountDeletionRequests=[];
+    renderAdminAccountDeletionRequests();
+    syncReviewNavBadge();
+    return;
+  }
+  try{
+    const d=await api('/admin/review/account-deletion-requests',{auth:true});
+    App.adminAccountDeletionRequests=Array.isArray(d.requests)?d.requests:[];
+    renderAdminAccountDeletionRequests();
+    setFieldHint('adminAccountDeletionRequestsStatus',`${App.adminAccountDeletionRequests.length} account deletion request${App.adminAccountDeletionRequests.length===1?'':'s'} waiting for review.`,App.adminAccountDeletionRequests.length?'':'ok');
+    syncReviewNavBadge();
+  }catch(e){
+    App.adminAccountDeletionRequests=[];
+    renderAdminAccountDeletionRequests();
+    setFieldHint('adminAccountDeletionRequestsStatus',e.message,'err');
+    syncReviewNavBadge();
   }
 }
 function renderAdminReviewQueue(){
@@ -20270,7 +20347,7 @@ $('createShopBtn').addEventListener('click',submitShopForm);
 $('saveShopBtn').addEventListener('click',saveShop);
 $('claimSearchBtn')?.addEventListener('click',()=>searchClaimableBusinesses());
 $('claimSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchClaimableBusinesses();}});
-$('refreshReviewCenterBtn')?.addEventListener('click',()=>{loadAdminReviewQueue();loadAdminClaimReviewQueue();loadAdminManagedBusinesses();});
+$('refreshReviewCenterBtn')?.addEventListener('click',()=>{loadAdminReviewQueue();loadAdminClaimReviewQueue();loadAdminManagedBusinesses();loadAdminAccountDeletionRequests();});
 $('refreshReviewNotifyBtn')?.addEventListener('click',loadReviewNotificationStatus);
 $('adminPreviewAccountDeleteBtn')?.addEventListener('click',previewAdminAccountDeletion);
 $('adminExecuteAccountDeleteBtn')?.addEventListener('click',executeAdminAccountDeletion);

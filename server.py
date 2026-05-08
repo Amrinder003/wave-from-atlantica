@@ -1876,6 +1876,46 @@ def load_auth_user_by_id(user_id: str) -> Dict[str, Any]:
     payload["id"] = payload.get("id") or uid
     return payload
 
+def list_auth_users_for_review(max_pages: int = 20, per_page: int = 100) -> List[Dict[str, Any]]:
+    users: List[Dict[str, Any]] = []
+    admin_api = auth_admin_api()
+    if admin_api and hasattr(admin_api, "list_users"):
+        for page in range(1, max_pages + 1):
+            try:
+                res = admin_api.list_users(page=page, per_page=per_page)
+            except TypeError:
+                res = admin_api.list_users()
+            except Exception as e:
+                print(f"[Auth List Warning] admin.list_users failed: {e}")
+                break
+            raw_users = getattr(res, "users", None)
+            if raw_users is None and isinstance(res, dict):
+                raw_users = res.get("users") or []
+            batch = [auth_user_payload_dict(user) for user in (raw_users or [])]
+            users.extend(batch)
+            if len(batch) < per_page:
+                return users
+            if page == 1 and not batch:
+                return users
+        if users:
+            return users
+    for page in range(1, max_pages + 1):
+        res = requests.get(
+            f"{SUPABASE_URL.rstrip('/')}/auth/v1/admin/users",
+            headers=supabase_auth_headers(SUPABASE_KEY),
+            params={"page": page, "per_page": per_page},
+            timeout=20,
+        )
+        if res.status_code >= 400:
+            raise HTTPException(400, "Could not load auth users for deletion review.")
+        data = res.json() or {}
+        raw_users = data.get("users") if isinstance(data, dict) else []
+        batch = [auth_user_payload_dict(user) for user in (raw_users or [])]
+        users.extend(batch)
+        if len(batch) < per_page:
+            break
+    return users
+
 def delete_supabase_auth_user(user_id: str) -> None:
     uid = str(user_id or "").strip()
     if not uid:
@@ -6856,6 +6896,13 @@ def request_account_deletion(body: AccountDeletionRequestReq, request: Request, 
         f"- {row.get('name') or 'Untitled Business'} ({row.get('shop_id') or 'no id'})"
         for row in owned_businesses
     ]
+    try:
+        mark_account_deletion_requested(user, reason, requested_at, request_id, len(owned_businesses))
+    except HTTPException as e:
+        raise HTTPException(503, f"Deletion request could not be recorded for Review Center: {e.detail}")
+    except Exception as e:
+        print(f"[Account Delete Warning] could not record deletion request for {user.id}: {e}")
+        raise HTTPException(503, "Deletion request could not be recorded for Review Center.")
     report = send_review_notification_report(
         "Account deletion request",
         [
@@ -6873,20 +6920,13 @@ def request_account_deletion(body: AccountDeletionRequestReq, request: Request, 
             "Do not delete this user until business ownership, reviews, orders, favourites, and uploaded images have been reviewed.",
         ],
     )
-    if int(report.get("sent_count") or 0) <= 0:
-        raise HTTPException(503, "Account deletion requests are not configured yet. Contact support directly.")
-    try:
-        mark_account_deletion_requested(user, reason, requested_at, request_id, len(owned_businesses))
-    except HTTPException as e:
-        raise HTTPException(503, f"Deletion request notification was sent, but the request could not be recorded for Review Center: {e.detail}")
-    except Exception as e:
-        print(f"[Account Delete Warning] could not record deletion request for {user.id}: {e}")
-        raise HTTPException(503, "Deletion request notification was sent, but the request could not be recorded for Review Center.")
+    notification_sent = int(report.get("sent_count") or 0) > 0
     return {
         "ok": True,
-        "message": "Account deletion request sent. We will review it before making irreversible changes.",
+        "message": "Account deletion request recorded. We will review it before making irreversible changes.",
         "owned_business_count": len(owned_businesses),
         "request_id": request_id,
+        "notification_sent": notification_sent,
     }
 
 @app.put("/auth/profile")
@@ -8916,6 +8956,36 @@ def admin_process_account_deletion(target_user_id: str, body: AdminAccountDeleti
     except Exception as e:
         print(f"[Account Delete Warning] deletion notification failed for {uid}: {e}")
     return {"ok": True, "dry_run": False, "message": "Account deleted from Supabase auth and app database.", **result}
+
+@app.get("/admin/review/account-deletion-requests")
+def admin_review_account_deletion_requests(authorization: Optional[str] = Header(None)):
+    admin_user, admin_prof = get_user(authorization)
+    admin_prof = safe_ensure_profile_row(admin_user, admin_prof)
+    require_admin_role(admin_prof)
+    requests_out: List[Dict[str, Any]] = []
+    for auth_user in list_auth_users_for_review():
+        marker = account_deletion_request_marker(auth_user)
+        if not marker.get("pending"):
+            continue
+        uid = str(auth_user.get("id") or "").strip()
+        if not uid:
+            continue
+        email = auth_user_email(auth_user)
+        try:
+            snapshot = account_deletion_snapshot(uid, email, auth_user)
+        except Exception as e:
+            print(f"[Account Delete Review Warning] could not build snapshot for {uid}: {e}")
+            snapshot = {
+                "user_id": uid,
+                "email": email,
+                "role": "unknown",
+                "account_deletion_request": marker,
+                "owned_businesses": [],
+                "counts": {},
+            }
+        requests_out.append(snapshot)
+    requests_out.sort(key=lambda row: str((row.get("account_deletion_request") or {}).get("requested_at") or ""), reverse=True)
+    return {"ok": True, "requests": requests_out}
 
 @app.delete("/admin/business/{shop_id}")
 @app.delete("/admin/shop/{shop_id}")
