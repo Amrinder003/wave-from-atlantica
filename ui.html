@@ -3848,6 +3848,49 @@ body,.page,.home-wrap,.admin-wrap,.shop-page-wrap,.fav-page{color:var(--ink)!imp
   -webkit-text-fill-color:#a8b5ae!important;
   font-weight:400!important;
 }
+#businessClaimCard .claim-search-input,
+#businessClaimCard .claim-selection-panel textarea{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  width:100%!important;
+  background:#fbfffd!important;
+  color:var(--ink)!important;
+  -webkit-text-fill-color:var(--ink)!important;
+  border:1px solid #cfe2da!important;
+  border-radius:14px!important;
+  box-shadow:0 1px 0 rgba(15,23,42,.03), inset 0 1px 2px rgba(15,23,42,.035)!important;
+  outline:none!important;
+}
+#businessClaimCard .claim-search-input{
+  min-height:46px!important;
+  padding:11px 14px!important;
+  font-size:14px!important;
+}
+#businessClaimCard .claim-selection-panel textarea{
+  min-height:118px!important;
+  padding:11px 13px!important;
+  font-size:13px!important;
+  line-height:1.55!important;
+  resize:vertical!important;
+}
+#businessClaimCard .claim-search-input:focus,
+#businessClaimCard .claim-selection-panel textarea:focus{
+  background:#fff!important;
+  border-color:var(--A)!important;
+  box-shadow:0 0 0 3px rgba(15,118,110,.12), inset 0 1px 2px rgba(15,23,42,.03)!important;
+}
+#businessClaimCard .claim-search-input::placeholder,
+#businessClaimCard .claim-selection-panel textarea::placeholder{
+  color:#a9b7b0!important;
+  -webkit-text-fill-color:#a9b7b0!important;
+  font-weight:400!important;
+  opacity:.58!important;
+}
+#businessClaimCard .claim-search-input:-webkit-autofill,
+#businessClaimCard .claim-selection-panel textarea:-webkit-autofill{
+  box-shadow:0 0 0 1000px #fbfffd inset!important;
+  -webkit-text-fill-color:var(--ink)!important;
+}
 #authBg .auth-mini-link{
   color:var(--A2)!important;
 }
