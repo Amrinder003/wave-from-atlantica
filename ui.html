@@ -1391,7 +1391,7 @@ a{color:inherit;text-decoration:none}
 .review-queue-empty{font-size:12px;color:var(--ink3)}
 .claim-search-shell{display:grid;gap:12px}
 .claim-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
-.claim-search-input{width:100%;min-width:0}
+.claim-search-input{width:100%;min-width:0;border-radius:14px!important;border:1px solid #d8e5df!important;background:#fff!important;box-shadow:inset 0 1px 0 rgba(15,23,42,.03)}
 .claim-section-title{margin:16px 0 10px;font-size:12px;font-weight:800;letter-spacing:.02em;color:var(--A2);text-transform:uppercase}
 .claim-result-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .claim-result-ident{display:flex;gap:12px;align-items:flex-start}
@@ -1411,6 +1411,12 @@ a{color:inherit;text-decoration:none}
 .claim-modal-close{width:38px;height:38px;border-radius:999px;border:1px solid var(--bd);background:#fff;color:var(--ink);display:grid;place-items:center;cursor:pointer;box-shadow:var(--s1);line-height:1}
 .claim-modal-close span{font-size:24px;line-height:1}
 .claim-modal-close:hover{border-color:var(--A);color:var(--A2);background:#f6fbf8}
+.claim-selection-panel{padding:12px;border-radius:16px;border:1px solid #cfe5dc;background:#f8fcfa;display:grid;gap:10px}
+.claim-selection-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.claim-selection-title{font-size:13px;font-weight:900;color:var(--ink)}
+.claim-selection-copy{font-size:12px;line-height:1.5;color:var(--ink3)}
+.claim-selection-panel textarea{min-height:118px;border-radius:14px!important;border:1px solid #d8e5df!important;background:#fff!important;resize:vertical}
+#businessClaimCard input::placeholder,#businessClaimCard textarea::placeholder{color:#91a29a!important;font-weight:400!important;opacity:.62!important}
 .claim-help-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 14px}
 .claim-help-card{padding:12px;border-radius:18px;background:#f8faf8;border:1px solid var(--bd);display:grid;gap:5px}
 .claim-help-k{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:var(--A2)}
@@ -8592,11 +8598,6 @@ select.btn{
                     <input id="claimSearchInput" class="claim-search-input" placeholder="Search by business name, phone, city, or address"/>
                     <button id="claimSearchBtn" class="btn btn-o btn-sm" type="button">Search</button>
                   </div>
-                  <div class="fld">
-                    <label>Ownership Note</label>
-                    <textarea id="claimRequestNote" placeholder="Explain why this page belongs to you. Include your role, a website, public phone, registry reference, licence note, or any quick proof staff can verify."></textarea>
-                    <div class="fld-hint">Used by staff when reviewing the claim.</div>
-                  </div>
                 </div>
                 <div id="claimSearchStatus" class="stxt"></div>
                 <div id="claimSearchResults" class="review-queue"><div class="review-queue-empty">Search for the existing business page first.</div></div>
@@ -9866,6 +9867,7 @@ const App = {
   adminReviewNotifyStatus: null,
   ownerBusinessClaims: [],
   claimSearchResults: [],
+  claimSelectedShopId: '',
   recoveryToken: '',
   sessionExpiredNoticeShown: false,
   locationSupport: null,
@@ -19352,27 +19354,53 @@ function renderClaimSearchResults(){
   const claimsByShop=new Map((App.ownerBusinessClaims||[]).filter(claim=>claim.status==='pending').map(claim=>[claim.shop_id,claim]));
   const rows=(App.claimSearchResults||[]).map(normalizeBusinessRecord);
   if(!rows.length){
+    App.claimSelectedShopId='';
     list.innerHTML='<div class="review-queue-empty">Search for the existing business page first.</div>';
     return;
+  }
+  if(App.claimSelectedShopId && !rows.some(row=>row.shop_id===App.claimSelectedShopId)){
+    App.claimSelectedShopId='';
   }
   list.innerHTML='';
   rows.forEach(shop=>{
     const pendingClaim=claimsByShop.get(shop.shop_id||'');
     const claimable=shop.claim_available===true || shop.is_platform_managed===true || shop.business_transparency?.claim_available===true;
     const hasAnyPending=!!(shop.has_pending_claim || pendingClaim);
+    const selected=claimable && !hasAnyPending && App.claimSelectedShopId===shop.shop_id;
     const reasons=Array.isArray(shop.duplicate_reasons)?shop.duplicate_reasons.filter(Boolean).slice(0,3):[];
     const actionHtml=!claimable
       ? '<span class="listing-pill verified">Already claimed</span>'
       : (hasAnyPending
           ? `<button class="btn btn-A btn-sm" type="button" data-claim-request="${esc(shop.shop_id||'')}" disabled>${pendingClaim?'Requested':'Pending claim'}</button>`
-          : `<button class="btn btn-A btn-sm" type="button" data-claim-request="${esc(shop.shop_id||'')}">Request Access</button>`);
+          : (selected
+              ? '<button class="btn btn-g btn-sm" type="button" disabled>Selected</button>'
+              : `<button class="btn btn-A btn-sm" type="button" data-claim-select="${esc(shop.shop_id||'')}">Select Business</button>`));
+    const selectionHtml=selected
+      ? `<div class="claim-selection-panel"><div class="claim-selection-head"><div><div class="claim-selection-title">Request access to ${esc(shop.name||'this business')}</div><div class="claim-selection-copy">Add proof for this business only. The note is cleared when you select a different business.</div></div><button class="btn btn-g btn-sm" type="button" data-claim-cancel="${esc(shop.shop_id||'')}">Cancel</button></div><div class="fld"><label>Ownership Note</label><textarea id="claimRequestNote" placeholder="Explain your role and add a website, public phone, registry reference, licence note, or another detail staff can verify."></textarea><div class="fld-hint">This note will be attached only to the selected business.</div></div><div class="review-queue-actions"><button class="btn btn-A btn-sm" type="button" data-claim-submit="${esc(shop.shop_id||'')}">Request Access</button></div></div>`
+      : '';
     const item=document.createElement('div');
     item.className='review-queue-item';
-    item.innerHTML=`<div class="claim-result-head"><div class="claim-result-ident"><div class="claim-result-avatar">${businessAvatarHtml(shop,shop.name||'Business')}</div><div><div class="claim-result-title">${esc(shop.name||'Untitled Business')}</div><div class="claim-result-meta">${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}${shop.category?` - ${esc(shop.category)}`:''}</div></div></div>${businessListingPillHtml(shop,'Live')}</div>${reasons.length?`<div class="claim-result-note"><strong>Why this looks like the same business</strong> ${esc(reasons.join(' · '))}</div>`:''}<div class="review-queue-actions">${actionHtml}<button class="btn btn-g btn-sm" type="button" data-claim-open="${esc(shop.shop_id||'')}">View Live Page</button></div>`;
-    item.querySelector('[data-claim-request]')?.addEventListener('click',()=>requestBusinessClaim(shop.shop_id||''));
+    item.innerHTML=`<div class="claim-result-head"><div class="claim-result-ident"><div class="claim-result-avatar">${businessAvatarHtml(shop,shop.name||'Business')}</div><div><div class="claim-result-title">${esc(shop.name||'Untitled Business')}</div><div class="claim-result-meta">${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}${shop.category?` - ${esc(shop.category)}`:''}</div></div></div>${businessListingPillHtml(shop,'Live')}</div>${reasons.length?`<div class="claim-result-note"><strong>Why this looks like the same business</strong> ${esc(reasons.join(' · '))}</div>`:''}<div class="review-queue-actions">${actionHtml}<button class="btn btn-g btn-sm" type="button" data-claim-open="${esc(shop.shop_id||'')}">View Live Page</button></div>${selectionHtml}`;
+    item.querySelector('[data-claim-select]')?.addEventListener('click',()=>selectBusinessForClaim(shop.shop_id||''));
+    item.querySelector('[data-claim-cancel]')?.addEventListener('click',clearClaimSelection);
+    item.querySelector('[data-claim-submit]')?.addEventListener('click',()=>requestBusinessClaim(shop.shop_id||''));
     item.querySelector('[data-claim-open]')?.addEventListener('click',()=>openShopPage(shop.shop_slug||shop.shop_id||''));
     list.appendChild(item);
   });
+  if(App.claimSelectedShopId) setTimeout(()=>{$('claimRequestNote')?.focus();},0);
+}
+function clearClaimSelection(){
+  App.claimSelectedShopId='';
+  if($('claimRequestNote')) $('claimRequestNote').value='';
+  renderClaimSearchResults();
+}
+function selectBusinessForClaim(shopId=''){
+  const id=String(shopId||'').trim();
+  if(!id) return;
+  App.claimSelectedShopId=id;
+  if($('claimRequestNote')) $('claimRequestNote').value='';
+  setFieldHint('claimSearchStatus','Add an ownership note for the selected business, then request access.','');
+  renderClaimSearchResults();
 }
 function renderOwnerBusinessClaims(){
   const list=$('myBusinessClaimsList');
@@ -19420,6 +19448,8 @@ async function searchClaimableBusinesses(seed=''){
   const input=$('claimSearchInput');
   const query=String(seed||input?.value||'').trim();
   if(input && seed) input.value=query;
+  App.claimSelectedShopId='';
+  if($('claimRequestNote')) $('claimRequestNote').value='';
   if(query.length<2){
     App.claimSearchResults=[];
     renderClaimSearchResults();
@@ -19435,6 +19465,7 @@ async function searchClaimableBusinesses(seed=''){
     setFieldHint('claimSearchStatus',App.claimSearchResults.length?`${App.claimSearchResults.length} possible match${App.claimSearchResults.length===1?'':'es'} found.`:'No matching live business pages found.',App.claimSearchResults.length?'ok':'');
   }catch(e){
     App.claimSearchResults=[];
+    App.claimSelectedShopId='';
     renderClaimSearchResults();
     setFieldHint('claimSearchStatus',e.message,'err');
   }finally{
@@ -19442,10 +19473,16 @@ async function searchClaimableBusinesses(seed=''){
   }
 }
 async function requestBusinessClaim(shopId=''){
+  shopId=String(shopId||App.claimSelectedShopId||'').trim();
   if(!shopId) return;
+  if(shopId!==App.claimSelectedShopId){
+    App.claimSelectedShopId=shopId;
+    renderClaimSearchResults();
+  }
   const note=$('claimRequestNote')?.value.trim()||'';
   if(note.length<8){
     setFieldHint('claimSearchStatus','Add a short ownership note before requesting access.','err');
+    $('claimRequestNote')?.focus();
     return;
   }
   try{
@@ -19453,6 +19490,8 @@ async function requestBusinessClaim(shopId=''){
     await api(`/admin/business/${encodeURIComponent(shopId)}/claim`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});
     toast('Claim requested','Your request was sent for review.');
     setFieldHint('claimSearchStatus','Claim request sent. We will review it before transferring the page.','ok');
+    App.claimSelectedShopId='';
+    if($('claimRequestNote')) $('claimRequestNote').value='';
     await loadOwnerBusinessClaims();
   }catch(e){
     setFieldHint('claimSearchStatus',e.message,'err');
@@ -19636,16 +19675,13 @@ async function rejectBusinessClaim(claimId=''){
     toast('Claim update failed',e.message,'err');
   }
 }
-function buildClaimSearchSeed(){
-  const name=$('shopName')?.value.trim()||'';
-  const street=$('shopStreet1')?.value.trim()||'';
-  const city=$('shopCity')?.value.trim()||'';
-  const region=$('shopRegion')?.value.trim()||'';
-  return [name,street,city,region].filter(Boolean).join(' ').trim();
-}
 function closeClaimWorkspace(){
   const card=$('businessClaimCard');
   if(!card) return;
+  App.claimSelectedShopId='';
+  App.claimSearchResults=[];
+  if($('claimSearchInput')) $('claimSearchInput').value='';
+  if($('claimRequestNote')) $('claimRequestNote').value='';
   card.style.display='none';
   card.setAttribute('aria-hidden','true');
 }
@@ -19674,8 +19710,13 @@ function openClaimWorkspace({seed=''}={}){
     card.setAttribute('aria-hidden','false');
     card.querySelector('.claim-modal-panel')?.scrollTo({top:0,behavior:'auto'});
   }
-  const query=String(seed||buildClaimSearchSeed()||'').trim();
+  App.claimSelectedShopId='';
+  if($('claimRequestNote')) $('claimRequestNote').value='';
+  const query=String(seed||'').trim();
   if($('claimSearchInput')) $('claimSearchInput').value=query;
+  App.claimSearchResults=[];
+  renderClaimSearchResults();
+  setFieldHint('claimSearchStatus',query.length>=2?'':'Search for the existing business page first.','');
   loadOwnerBusinessClaims();
   setTimeout(()=>{$('claimSearchInput')?.focus();},80);
   if(query.length>=2) searchClaimableBusinesses(query);
