@@ -1405,6 +1405,12 @@ a{color:inherit;text-decoration:none}
 .claim-review-row{padding:10px 11px;border-radius:14px;background:rgba(255,255,255,.72);border:1px solid rgba(191,174,149,.28)}
 .claim-review-k{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:var(--ink4)}
 .claim-review-v{margin-top:4px;font-size:12px;line-height:1.45;font-weight:800;color:var(--ink)}
+.claim-modal{position:fixed;inset:0;z-index:1400;padding:clamp(14px,3vw,34px);background:rgba(15,23,42,.42);display:grid;place-items:center;overflow:auto}
+.claim-modal-panel{width:min(980px,100%);max-height:min(88vh,920px);overflow:auto;border-radius:18px!important;box-shadow:0 28px 80px rgba(15,23,42,.24)!important}
+.claim-modal-panel>.card-head{position:sticky;top:0;z-index:2;background:#fff!important}
+.claim-modal-close{width:38px;height:38px;border-radius:999px;border:1px solid var(--bd);background:#fff;color:var(--ink);display:grid;place-items:center;cursor:pointer;box-shadow:var(--s1);line-height:1}
+.claim-modal-close span{font-size:24px;line-height:1}
+.claim-modal-close:hover{border-color:var(--A);color:var(--A2);background:#f6fbf8}
 .claim-help-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 14px}
 .claim-help-card{padding:12px;border-radius:18px;background:#f8faf8;border:1px solid var(--bd);display:grid;gap:5px}
 .claim-help-k{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:var(--A2)}
@@ -8515,7 +8521,7 @@ select.btn{
               </div>
               <div class="workspace-actions">
                 <button id="ownerCreateShopBtn" class="btn btn-A btn-sm">+ Create Business</button>
-                <button id="ownerClaimBusinessBtn" class="btn btn-o btn-sm">Claim Existing Business</button>
+                <button id="ownerClaimBusinessBtn" class="btn btn-o btn-sm">Claim Business</button>
               </div>
             </div>
           </div>
@@ -8563,39 +8569,41 @@ select.btn{
               </div>
             </div>
           </div>
-          <div id="businessClaimCard" class="card" style="display:none">
-            <div class="card-head">
-              <div>
-                <div class="owner-products-topline">Ownership Transfer</div>
-                <div class="card-title">Claim an Existing Business Page</div>
-              </div>
-              <div class="claim-card-actions">
-                <button id="closeClaimWorkspaceBtn" class="btn btn-g btn-sm" type="button">Hide</button>
-              </div>
-            </div>
-            <div class="card-body">
-              <div class="fld-hint" style="margin-bottom:10px">Use this when your business is already listed on Atlantic Ordinate and you need access to manage it. Staff review the proof before transferring the page to your account.</div>
-              <div class="claim-help-grid">
-                <div class="claim-help-card"><div class="claim-help-k">1. Find Page</div><div class="claim-help-v">Search by business name, phone, city, or address.</div></div>
-                <div class="claim-help-card"><div class="claim-help-k">2. Add Proof</div><div class="claim-help-v">Explain your role and add a website, registry, phone, or licence reference.</div></div>
-                <div class="claim-help-card"><div class="claim-help-k">3. Review</div><div class="claim-help-v">If approved, the existing page moves into your business workspace.</div></div>
-              </div>
-              <div class="claim-search-shell">
-                <div class="claim-search-row">
-                  <input id="claimSearchInput" class="claim-search-input" placeholder="Search by business name, phone, city, or address"/>
-                  <button id="claimSearchBtn" class="btn btn-o btn-sm" type="button">Search</button>
+          <div id="businessClaimCard" class="claim-modal" style="display:none" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="businessClaimTitle">
+            <div class="card claim-modal-panel">
+              <div class="card-head">
+                <div>
+                  <div class="owner-products-topline">Ownership Transfer</div>
+                  <div id="businessClaimTitle" class="card-title">Claim an Existing Business Page</div>
                 </div>
-                <div class="fld">
-                  <label>Ownership Note</label>
-                  <textarea id="claimRequestNote" placeholder="Explain why this page belongs to you. Include your role, a website, public phone, registry reference, licence note, or any quick proof staff can verify."></textarea>
-                  <div class="fld-hint">Used by staff when reviewing the claim.</div>
+                <div class="claim-card-actions">
+                  <button id="closeClaimWorkspaceBtn" class="claim-modal-close" type="button" aria-label="Close claim business window"><span aria-hidden="true">&times;</span></button>
                 </div>
               </div>
-              <div id="claimSearchStatus" class="stxt"></div>
-              <div id="claimSearchResults" class="review-queue"><div class="review-queue-empty">Search for the existing business page first.</div></div>
-              <div class="claim-section-title">My Claim Requests</div>
-              <div id="myBusinessClaimsList" class="review-queue"><div class="review-queue-empty">No claim requests yet.</div></div>
-              <div id="myBusinessClaimsStatus" class="stxt"></div>
+              <div class="card-body">
+                <div class="fld-hint" style="margin-bottom:10px">Use this when your business is already listed on Atlantic Ordinate and you need access to manage it. Staff review the proof before transferring the page to your account.</div>
+                <div class="claim-help-grid">
+                  <div class="claim-help-card"><div class="claim-help-k">1. Find Page</div><div class="claim-help-v">Search by business name, phone, city, or address.</div></div>
+                  <div class="claim-help-card"><div class="claim-help-k">2. Add Proof</div><div class="claim-help-v">Explain your role and add a website, registry, phone, or licence reference.</div></div>
+                  <div class="claim-help-card"><div class="claim-help-k">3. Review</div><div class="claim-help-v">If approved, the existing page moves into your business workspace.</div></div>
+                </div>
+                <div class="claim-search-shell">
+                  <div class="claim-search-row">
+                    <input id="claimSearchInput" class="claim-search-input" placeholder="Search by business name, phone, city, or address"/>
+                    <button id="claimSearchBtn" class="btn btn-o btn-sm" type="button">Search</button>
+                  </div>
+                  <div class="fld">
+                    <label>Ownership Note</label>
+                    <textarea id="claimRequestNote" placeholder="Explain why this page belongs to you. Include your role, a website, public phone, registry reference, licence note, or any quick proof staff can verify."></textarea>
+                    <div class="fld-hint">Used by staff when reviewing the claim.</div>
+                  </div>
+                </div>
+                <div id="claimSearchStatus" class="stxt"></div>
+                <div id="claimSearchResults" class="review-queue"><div class="review-queue-empty">Search for the existing business page first.</div></div>
+                <div class="claim-section-title">My Claim Requests</div>
+                <div id="myBusinessClaimsList" class="review-queue"><div class="review-queue-empty">No claim requests yet.</div></div>
+                <div id="myBusinessClaimsStatus" class="stxt"></div>
+              </div>
             </div>
           </div>
           <div id="ownerShopGrid" class="owner-shop-grid">
@@ -10175,6 +10183,7 @@ function normalizeBusinessRecord(row={}){
   out.ownership_status=String(out.ownership_status||'').trim();
   out.is_platform_managed=out.is_platform_managed===true || out.ownership_status==='platform_managed' || out.listing_source==='platform_import' || out.owner_contact_name.toLowerCase()==='platform imported listing';
   out.is_claimed=out.is_claimed===true || (!out.is_platform_managed && (out.ownership_status==='' || out.ownership_status==='claimed'));
+  out.claim_available=out.claim_available===true || out.is_platform_managed===true;
   out.phone=(out.phone||'').trim();
   out.website=normalizeWebsiteUrl(out.website||'');
   out.whatsapp=(out.whatsapp||'').trim();
@@ -18790,7 +18799,7 @@ async function loadMyShops(){
     renderAdminManagedBusinesses();
     renderOwnerBusinessClaims();
     renderClaimSearchResults();
-    if($('businessClaimCard')) $('businessClaimCard').style.display='none';
+    closeClaimWorkspace();
     setFieldHint('myShopsStatus','Sign in to create or manage businesses.','');
     return;
   }
@@ -19349,11 +19358,17 @@ function renderClaimSearchResults(){
   list.innerHTML='';
   rows.forEach(shop=>{
     const pendingClaim=claimsByShop.get(shop.shop_id||'');
-    const disabled=!!(shop.has_pending_claim || pendingClaim);
+    const claimable=shop.claim_available===true || shop.is_platform_managed===true || shop.business_transparency?.claim_available===true;
+    const hasAnyPending=!!(shop.has_pending_claim || pendingClaim);
     const reasons=Array.isArray(shop.duplicate_reasons)?shop.duplicate_reasons.filter(Boolean).slice(0,3):[];
+    const actionHtml=!claimable
+      ? '<span class="listing-pill verified">Already claimed</span>'
+      : (hasAnyPending
+          ? `<button class="btn btn-A btn-sm" type="button" data-claim-request="${esc(shop.shop_id||'')}" disabled>${pendingClaim?'Requested':'Pending claim'}</button>`
+          : `<button class="btn btn-A btn-sm" type="button" data-claim-request="${esc(shop.shop_id||'')}">Request Access</button>`);
     const item=document.createElement('div');
     item.className='review-queue-item';
-    item.innerHTML=`<div class="claim-result-head"><div class="claim-result-ident"><div class="claim-result-avatar">${businessAvatarHtml(shop,shop.name||'Business')}</div><div><div class="claim-result-title">${esc(shop.name||'Untitled Business')}</div><div class="claim-result-meta">${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}${shop.category?` - ${esc(shop.category)}`:''}</div></div></div>${businessListingPillHtml(shop,'Live')}</div>${reasons.length?`<div class="claim-result-note"><strong>Why this looks like the same business</strong> ${esc(reasons.join(' · '))}</div>`:''}<div class="review-queue-actions"><button class="btn btn-A btn-sm" type="button" data-claim-request="${esc(shop.shop_id||'')}" ${disabled?'disabled':''}>${disabled?'Requested':'Request Access'}</button><button class="btn btn-g btn-sm" type="button" data-claim-open="${esc(shop.shop_id||'')}">View Live Page</button></div>`;
+    item.innerHTML=`<div class="claim-result-head"><div class="claim-result-ident"><div class="claim-result-avatar">${businessAvatarHtml(shop,shop.name||'Business')}</div><div><div class="claim-result-title">${esc(shop.name||'Untitled Business')}</div><div class="claim-result-meta">${esc(shop.formatted_address||shop.service_area||shop.address||'No location yet')}${shop.category?` - ${esc(shop.category)}`:''}</div></div></div>${businessListingPillHtml(shop,'Live')}</div>${reasons.length?`<div class="claim-result-note"><strong>Why this looks like the same business</strong> ${esc(reasons.join(' · '))}</div>`:''}<div class="review-queue-actions">${actionHtml}<button class="btn btn-g btn-sm" type="button" data-claim-open="${esc(shop.shop_id||'')}">View Live Page</button></div>`;
     item.querySelector('[data-claim-request]')?.addEventListener('click',()=>requestBusinessClaim(shop.shop_id||''));
     item.querySelector('[data-claim-open]')?.addEventListener('click',()=>openShopPage(shop.shop_slug||shop.shop_id||''));
     list.appendChild(item);
@@ -19628,6 +19643,12 @@ function buildClaimSearchSeed(){
   const region=$('shopRegion')?.value.trim()||'';
   return [name,street,city,region].filter(Boolean).join(' ').trim();
 }
+function closeClaimWorkspace(){
+  const card=$('businessClaimCard');
+  if(!card) return;
+  card.style.display='none';
+  card.setAttribute('aria-hidden','true');
+}
 function openClaimWorkspace({seed=''}={}){
   if(!tok()){
     showPage('admin');
@@ -19648,11 +19669,14 @@ function openClaimWorkspace({seed=''}={}){
   if(document.querySelector('.asub.on')?.id!=='sub-shops') return false;
   if((document.querySelector('[data-shop-view].on')?.dataset.shopView||'')!=='landing') return false;
   const card=$('businessClaimCard');
-  if(card) card.style.display='';
+  if(card){
+    card.style.display='grid';
+    card.setAttribute('aria-hidden','false');
+    card.querySelector('.claim-modal-panel')?.scrollTo({top:0,behavior:'auto'});
+  }
   const query=String(seed||buildClaimSearchSeed()||'').trim();
   if($('claimSearchInput')) $('claimSearchInput').value=query;
   loadOwnerBusinessClaims();
-  card?.scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(()=>{$('claimSearchInput')?.focus();},80);
   if(query.length>=2) searchClaimableBusinesses(query);
   return true;
@@ -19971,8 +19995,10 @@ function openAdminLiveBusiness(){
 $('ownerCreateShopBtn').addEventListener('click',openCreateShopView);
 $('createManagedBusinessBtn')?.addEventListener('click',openCreateManagedBusinessView);
 $('ownerClaimBusinessBtn')?.addEventListener('click',()=>openClaimWorkspace());
-$('closeClaimWorkspaceBtn')?.addEventListener('click',()=>{
-  if($('businessClaimCard')) $('businessClaimCard').style.display='none';
+$('closeClaimWorkspaceBtn')?.addEventListener('click',closeClaimWorkspace);
+$('businessClaimCard')?.addEventListener('click',e=>{if(e.target===$('businessClaimCard')) closeClaimWorkspace();});
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && $('businessClaimCard')?.style.display!=='none') closeClaimWorkspace();
 });
 $('detailBackBtn').addEventListener('click',()=>showShopManagerView('landing'));
 $('detailEditShopBtn').addEventListener('click',openEditShopView);

@@ -8276,6 +8276,8 @@ def admin_business_claim_candidates(q: str = Query(""), limit: int = Query(BUSIN
     for row in rows:
         shop = normalize_shop_record(row)
         pending = pending_by_shop.get(str(shop.get("shop_id", "")), [])
+        shop["claim_available"] = shop_is_platform_managed(shop)
+        shop["claim_state"] = "claimable" if shop["claim_available"] else "claimed"
         shop["has_pending_claim"] = bool(pending)
         shop["has_my_pending_claim"] = any(str(claim.get("claimant_user_id", "")) == str(user.id) for claim in pending)
         out.append(shop)
@@ -8295,6 +8297,8 @@ def admin_create_business_claim(shop_id: str, body: BusinessClaimReq, authorizat
         raise HTTPException(400, "This business is already in your account.")
     if shop.get("listing_status") not in PUBLIC_LISTING_STATUSES:
         raise HTTPException(400, "Only live business pages can be claimed.")
+    if not shop_is_platform_managed(shop):
+        raise HTTPException(400, "This business is already claimed and cannot receive an access request.")
     note = normalize_business_claim_note(body.note)
     if len(note) < BUSINESS_CLAIM_NOTE_MIN_LEN:
         raise HTTPException(400, "Add a short ownership note before requesting access.")

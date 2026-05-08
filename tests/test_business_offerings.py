@@ -1054,6 +1054,57 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_claim_candidates_mark_claimed_and_claimable_businesses(self):
+        claimed_shop = next(row for row in self.fake_supabase.tables["shops"] if row["shop_id"] == "svc-1")
+        claimed_shop.update(
+            {
+                "listing_status": "verified",
+                "owner_contact_name": "Owner",
+                "listing_source": "owner_created",
+                "ownership_status": "claimed",
+                "verified_at": "2026-04-13T00:00:00+00:00",
+            }
+        )
+        managed_shop = self._add_platform_managed_shop()
+        managed_shop["listing_status"] = "verified"
+        managed_shop["verified_at"] = "2026-04-14T00:00:00+00:00"
+
+        with self._patch_get_user(self.user):
+            response = self.client.get("/admin/business-claim/candidates?q=Halifax", headers=self._user_headers())
+
+        self.assertEqual(response.status_code, 200)
+        businesses = {row["business_id"]: row for row in response.json()["businesses"]}
+        self.assertFalse(businesses["svc-1"]["claim_available"])
+        self.assertEqual(businesses["svc-1"]["claim_state"], "claimed")
+        self.assertTrue(businesses["import-1"]["claim_available"])
+        self.assertEqual(businesses["import-1"]["claim_state"], "claimable")
+
+    def test_user_cannot_request_access_to_already_claimed_business(self):
+        with self._patch_get_user(self.user):
+            response = self.client.post(
+                "/admin/business/svc-1/claim",
+                headers=self._user_headers(),
+                json={"note": "I want access to this existing page."},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("already claimed", response.json()["detail"])
+        self.assertEqual(self.fake_supabase.tables["business_claims"], [])
+
+    def test_user_can_request_access_to_platform_managed_business(self):
+        self._add_platform_managed_shop()
+
+        with self._patch_get_user(self.user):
+            response = self.client.post(
+                "/admin/business/import-1/claim",
+                headers=self._user_headers(),
+                json={"note": "I own this business and can verify by website and phone."},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["claim"]["business_id"], "import-1")
+        self.assertEqual(len(self.fake_supabase.tables["business_claims"]), 1)
+
     def test_admin_claim_queue_includes_transfer_context(self):
         self._add_platform_managed_shop()
         self.fake_supabase.tables["business_claims"].append(
