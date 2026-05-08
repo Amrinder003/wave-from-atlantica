@@ -54,6 +54,7 @@ except ImportError:
 SERVER_DIR        = os.path.dirname(os.path.abspath(__file__))
 SHOPS_DIR         = os.path.join(SERVER_DIR, "shops")
 VENDOR_DIR        = os.path.join(SERVER_DIR, "vendor")
+ACCOUNT_DELETION_REQUESTS_FILE = os.environ.get("ACCOUNT_DELETION_REQUESTS_FILE", os.path.join(SERVER_DIR, "account_deletion_requests.json"))
 os.makedirs(SHOPS_DIR, exist_ok=True)
 
 PAGE_SIZE         = 24                   
@@ -1818,6 +1819,74 @@ def account_deletion_request_marker(user_obj: Any) -> Dict[str, Any]:
         "reason": str(req.get("reason") or "").strip(),
         "owned_business_count": int(req.get("owned_business_count") or 0),
     }
+
+def load_account_deletion_request_store() -> Dict[str, Any]:
+    try:
+        with open(ACCOUNT_DELETION_REQUESTS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f) or {}
+        if isinstance(data, dict):
+            return data
+    except FileNotFoundError:
+        return {}
+    except Exception as e:
+        print(f"[Account Delete Warning] could not read deletion request store: {e}")
+    return {}
+
+def save_account_deletion_request_store(data: Dict[str, Any]) -> None:
+    try:
+        with open(ACCOUNT_DELETION_REQUESTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, sort_keys=True)
+    except Exception as e:
+        print(f"[Account Delete Warning] could not write deletion request store: {e}")
+        raise HTTPException(503, "Could not record the deletion request for Review Center.")
+
+def account_deletion_request_for_user(user_id: str, email: str = "") -> Dict[str, Any]:
+    uid = str(user_id or "").strip()
+    req = load_account_deletion_request_store().get(uid) or {}
+    if not isinstance(req, dict):
+        return {}
+    if email and clean_email(req.get("email", "")) and clean_email(req.get("email", "")) != clean_email(email):
+        return {}
+    return dict(req)
+
+def upsert_account_deletion_request_store(user_id: str, email: str, reason: str, requested_at: str, request_id: str, owned_business_count: int, display_name: str = "") -> None:
+    uid = str(user_id or "").strip()
+    if not uid:
+        raise HTTPException(400, "User ID is required.")
+    data = load_account_deletion_request_store()
+    data[uid] = {
+        "pending": True,
+        "request_id": request_id,
+        "requested_at": requested_at,
+        "user_id": uid,
+        "email": clean_email(email),
+        "display_name": str(display_name or "").strip(),
+        "reason": str(reason or "").strip(),
+        "owned_business_count": int(owned_business_count or 0),
+    }
+    save_account_deletion_request_store(data)
+
+def clear_account_deletion_request_store(user_id: str) -> None:
+    uid = str(user_id or "").strip()
+    if not uid:
+        return
+    data = load_account_deletion_request_store()
+    if uid in data:
+        data.pop(uid, None)
+        save_account_deletion_request_store(data)
+
+def merged_account_deletion_request_marker(auth_user: Any, user_id: str = "", email: str = "") -> Dict[str, Any]:
+    auth_marker = account_deletion_request_marker(auth_user)
+    file_marker = account_deletion_request_for_user(user_id or (auth_user.get("id") if isinstance(auth_user, dict) else ""), email)
+    if file_marker.get("pending"):
+        return {
+            "pending": True,
+            "request_id": str(file_marker.get("request_id") or auth_marker.get("request_id") or "").strip(),
+            "requested_at": str(file_marker.get("requested_at") or auth_marker.get("requested_at") or "").strip(),
+            "reason": str(file_marker.get("reason") or auth_marker.get("reason") or "").strip(),
+            "owned_business_count": int(file_marker.get("owned_business_count") or auth_marker.get("owned_business_count") or 0),
+        }
+    return auth_marker
 
 def update_auth_user_metadata_by_id(user_id: str, metadata: Dict[str, Any]) -> None:
     uid = str(user_id or "").strip()
@@ -6892,12 +6961,17 @@ def request_account_deletion(body: AccountDeletionRequestReq, request: Request, 
     owned_businesses = sb.table("shops").select("shop_id, name").eq("owner_user_id", user.id).limit(20).execute().data or []
     requested_at = datetime.now(timezone.utc).isoformat()
     request_id = uuid.uuid4().hex[:12]
+    display_name = prof.get("display_name", "") or getattr(user, "email", "")
     business_lines = [
         f"- {row.get('name') or 'Untitled Business'} ({row.get('shop_id') or 'no id'})"
         for row in owned_businesses
     ]
     try:
-        mark_account_deletion_requested(user, reason, requested_at, request_id, len(owned_businesses))
+        upsert_account_deletion_request_store(user.id, email, reason, requested_at, request_id, len(owned_businesses), display_name)
+        try:
+            mark_account_deletion_requested(user, reason, requested_at, request_id, len(owned_businesses))
+        except Exception as meta_err:
+            print(f"[Account Delete Warning] deletion request recorded in app queue, but auth metadata update failed for {user.id}: {meta_err}")
     except HTTPException as e:
         raise HTTPException(503, f"Deletion request could not be recorded for Review Center: {e.detail}")
     except Exception as e:
@@ -6911,7 +6985,7 @@ def request_account_deletion(body: AccountDeletionRequestReq, request: Request, 
             f"Request ID: {request_id}",
             f"User ID: {user.id}",
             f"Email: {email}",
-            f"Display name: {prof.get('display_name', '') or getattr(user, 'email', '')}",
+            f"Display name: {display_name}",
             f"Email verified: {bool(getattr(user, 'email_confirmed_at', None))}",
             f"Owned businesses: {len(owned_businesses)}",
             *(business_lines or ["- None"]),
@@ -8868,7 +8942,7 @@ def account_deletion_snapshot(target_user_id: str, target_email: str = "", auth_
         "display_name": profile.get("display_name", ""),
         "role": profile.get("role", "customer") or "customer",
         "avatar_url": profile.get("avatar_url", ""),
-        "account_deletion_request": account_deletion_request_marker(auth_payload),
+        "account_deletion_request": merged_account_deletion_request_marker(auth_payload, uid, email),
         "owned_businesses": [{"shop_id": row.get("shop_id", ""), "name": row.get("name", "")} for row in owned_businesses],
         "counts": counts,
     }
@@ -8955,6 +9029,7 @@ def admin_process_account_deletion(target_user_id: str, body: AdminAccountDeleti
         )
     except Exception as e:
         print(f"[Account Delete Warning] deletion notification failed for {uid}: {e}")
+    clear_account_deletion_request_store(uid)
     return {"ok": True, "dry_run": False, "message": "Account deleted from Supabase auth and app database.", **result}
 
 @app.get("/admin/review/account-deletion-requests")
@@ -8963,13 +9038,45 @@ def admin_review_account_deletion_requests(authorization: Optional[str] = Header
     admin_prof = safe_ensure_profile_row(admin_user, admin_prof)
     require_admin_role(admin_prof)
     requests_out: List[Dict[str, Any]] = []
+    seen: set = set()
+    for uid, req in load_account_deletion_request_store().items():
+        if not isinstance(req, dict) or not req.get("pending"):
+            continue
+        uid = str(uid or req.get("user_id") or "").strip()
+        if not uid:
+            continue
+        seen.add(uid)
+        email = clean_email(req.get("email", ""))
+        try:
+            auth_user = load_auth_user_by_id(uid)
+            email = auth_user_email(auth_user) or email
+            snapshot = account_deletion_snapshot(uid, email, auth_user)
+        except Exception as e:
+            print(f"[Account Delete Review Warning] could not build stored request snapshot for {uid}: {e}")
+            snapshot = {
+                "user_id": uid,
+                "email": email,
+                "display_name": req.get("display_name", ""),
+                "role": "unknown",
+                "account_deletion_request": {
+                    "pending": True,
+                    "request_id": str(req.get("request_id") or "").strip(),
+                    "requested_at": str(req.get("requested_at") or "").strip(),
+                    "reason": str(req.get("reason") or "").strip(),
+                    "owned_business_count": int(req.get("owned_business_count") or 0),
+                },
+                "owned_businesses": [],
+                "counts": {},
+            }
+        requests_out.append(snapshot)
     for auth_user in list_auth_users_for_review():
         marker = account_deletion_request_marker(auth_user)
         if not marker.get("pending"):
             continue
         uid = str(auth_user.get("id") or "").strip()
-        if not uid:
+        if not uid or uid in seen:
             continue
+        seen.add(uid)
         email = auth_user_email(auth_user)
         try:
             snapshot = account_deletion_snapshot(uid, email, auth_user)
