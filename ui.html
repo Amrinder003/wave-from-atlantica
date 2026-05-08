@@ -8326,12 +8326,6 @@ select.btn{
         <div class="shop-sidebar-lbl">Business Snapshot</div>
         <div id="shopSideStats" class="shop-side-stats"></div>
       </div>
-      <div class="shop-sidebar-sec" data-mobile-group="info">
-        <details id="shopTransparencyBox" class="shop-transparency">
-          <summary>Business Transparency</summary>
-          <div id="shopTransparencyBody" class="shop-transparency-body"></div>
-        </details>
-      </div>
       <div class="shop-sidebar-sec" data-mobile-group="filters">
         <div class="shop-sidebar-lbl">Availability</div>
         <div id="stockFilterList">
@@ -17158,19 +17152,8 @@ function renderBusinessTransparency(shop={}){
   const box=$('shopTransparencyBox');
   const body=$('shopTransparencyBody');
   if(!box || !body) return;
-  const t=businessTransparencyForDisplay(shop);
-  const rows=[
-    ['Managed by',t.managed_by],
-    ['Claim status',t.claim_status],
-    ['Review',t.last_reviewed?`${t.review_status} on ${t.last_reviewed}`:t.review_status],
-    ['Account details',t.account_note],
-  ].filter(([,value])=>String(value||'').trim());
-  body.innerHTML=rows.map(([key,value])=>`<div class="shop-transparency-row"><div class="shop-transparency-k">${esc(key)}</div><div class="shop-transparency-v">${esc(value)}</div></div>`).join('')
-    + `<div class="shop-transparency-copy">${esc(t.summary)}</div>`
-    + (t.claim_available?'<div class="shop-transparency-actions"><button id="shopTransparencyClaimBtn" class="btn btn-o btn-sm" type="button">Claim this business</button></div>':'');
-  $('shopTransparencyClaimBtn')?.addEventListener('click',()=>{
-    openClaimWorkspace({seed:shop?.name||shop?.shop_slug||shop?.shop_id||''});
-  });
+  body.innerHTML='';
+  box.style.display='none';
 }
 function renderShopLoadError(message='Business is temporarily unavailable.'){
   const detail=compactText(message||'Business is temporarily unavailable.',180);
@@ -19115,7 +19098,14 @@ function renderOwnerManagementDetails(shop=null){
   }
   const normalized=normalizeBusinessRecord(shop||{});
   const managedBy=normalized.managed_by_label || (normalized.is_platform_managed ? 'Atlantic Ordinate staff' : (normalized.owner_contact_name || 'Business owner account'));
-  const account=normalized.management_account_email || normalized.owner_email || normalized.management_account_id || normalized.owner_user_id || 'Account reference unavailable';
+  const currentUserId=String(App.user?.user_id||'').trim();
+  const currentUserEmail=String(App.user?.email||'').trim().toLowerCase();
+  const ownerId=String(normalized.owner_user_id||normalized.management_account_id||'').trim();
+  const ownerEmail=String(normalized.management_account_email||normalized.owner_email||'').trim();
+  const isOwnAccount=(currentUserId && ownerId && currentUserId===ownerId) || (currentUserEmail && ownerEmail && currentUserEmail===ownerEmail.toLowerCase());
+  const account=isReviewerAccount()
+    ? (ownerEmail || (ownerId ? `User ID: ${ownerId}` : 'Account reference unavailable'))
+    : (isOwnAccount ? 'Your account' : 'Business owner account');
   const rows=[
     ['Managed by',managedBy],
     ['Ownership state',normalized.is_platform_managed?'Staff-managed until claim approval':'Owner claimed'],
