@@ -179,12 +179,14 @@ class FakeQuery:
             payloads = self.payload if isinstance(self.payload, list) else [self.payload]
             inserted = []
             for payload in payloads:
+                self.db.reject_missing_columns(self.table_name, payload)
                 row = copy.deepcopy(payload)
                 rows.append(row)
                 inserted.append(copy.deepcopy(row))
             return SimpleNamespace(data=inserted)
         if self.mode == "update":
             updated = []
+            self.db.reject_missing_columns(self.table_name, self.payload or {})
             for row in rows:
                 if all(check(row) for check in self.filters):
                     row.update(copy.deepcopy(self.payload or {}))
@@ -206,11 +208,18 @@ class FakeQuery:
 class FakeSupabase:
     def __init__(self, tables):
         self.tables = copy.deepcopy(tables)
+        self.missing_columns = {}
         self.auth = SimpleNamespace(get_user=lambda token: SimpleNamespace(user=SimpleNamespace(id="owner-1", email_confirmed_at="2026-04-13T00:00:00Z")))
         self.storage = FakeStorage()
 
     def table(self, table_name):
         return FakeQuery(self, table_name)
+
+    def reject_missing_columns(self, table_name, payload):
+        missing = set(self.missing_columns.get(table_name, set()))
+        for key in payload or {}:
+            if key in missing:
+                raise Exception(f"Could not find the '{key}' column of '{table_name}' in the schema cache")
 
     def _shop_for_row(self, row):
         shop_id = row.get("shop_id")
@@ -982,6 +991,37 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertTrue(public_business["business_transparency"]["claim_available"])
         self.assertNotIn("ownership_status", public_business)
         self.assertNotIn("listing_source", public_business)
+
+    def test_admin_can_create_platform_managed_business_with_legacy_ownership_schema(self):
+        self.fake_supabase.missing_columns["shops"] = {"listing_source", "ownership_status", "claimed_at"}
+
+        with self._patch_get_user(self.admin), \
+            patch.object(server, "gen_shop_id", lambda name: "managed-repair-1001"), \
+            patch.object(server, "unique_shop_slug", lambda name, ignore_shop_id="": "managed-repair"):
+            response = self.client.post(
+                "/admin/managed-businesses",
+                headers=self._admin_headers(),
+                json=self._managed_business_payload(),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["business_id"], "managed-repair-1001")
+        self.assertEqual(data["listing_status"], "verified")
+        self.assertEqual(data["listing_source"], "platform_import")
+        self.assertEqual(data["ownership_status"], "platform_managed")
+        self.assertTrue(data["is_platform_managed"])
+
+        inserted = next(row for row in self.fake_supabase.tables["shops"] if row["shop_id"] == "managed-repair-1001")
+        self.assertEqual(inserted["owner_contact_name"], server.PLATFORM_MANAGED_OWNER_CONTACT)
+        self.assertNotIn("listing_source", inserted)
+        self.assertNotIn("ownership_status", inserted)
+        self.assertNotIn("claimed_at", inserted)
+
+        with self._patch_get_user(self.admin):
+            managed_response = self.client.get("/admin/managed-businesses", headers=self._admin_headers())
+
+        self.assertEqual([row["business_id"] for row in managed_response.json()["businesses"]], ["managed-repair-1001"])
 
     def test_non_admin_cannot_create_platform_managed_business(self):
         with self._patch_get_user(self.user):

@@ -6817,11 +6817,52 @@ select.btn{
 }
 #pg-admin #sub-review .review-managed-grid{
   display:grid!important;
-  grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))!important;
-  gap:12px!important;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))!important;
+  gap:14px!important;
 }
 #pg-admin #sub-review .review-managed-grid .owner-shop-card{
   min-height:0!important;
+  align-content:start!important;
+  gap:12px!important;
+}
+#pg-admin #sub-review .review-managed-grid .owner-shop-card-top{
+  align-items:flex-start!important;
+  gap:12px!important;
+}
+#pg-admin #sub-review .review-managed-grid .owner-shop-card-ident{
+  min-width:0!important;
+  align-items:flex-start!important;
+}
+#pg-admin #sub-review .review-managed-grid .owner-shop-card-avatar{
+  flex:0 0 48px!important;
+}
+#pg-admin #sub-review .review-managed-grid .owner-shop-card-title-wrap{
+  min-width:0!important;
+}
+#pg-admin #sub-review .review-managed-grid .owner-shop-card-name{
+  display:-webkit-box!important;
+  -webkit-line-clamp:2!important;
+  -webkit-box-orient:vertical!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:normal!important;
+}
+#pg-admin #sub-review .review-managed-grid .owner-shop-card-meta{
+  display:-webkit-box!important;
+  -webkit-line-clamp:2!important;
+  -webkit-box-orient:vertical!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:normal!important;
+}
+#pg-admin #sub-review .review-managed-grid .owner-shop-card-count{
+  min-width:66px!important;
+  justify-items:center!important;
+  text-align:center!important;
+}
+#pg-admin #sub-review .review-managed-grid .owner-shop-card-overview{
+  min-height:50px!important;
+  -webkit-line-clamp:3!important;
 }
 #pg-admin #sub-review .review-managed-grid .listing-pill,
 #pg-admin #sub-review .review-managed-grid .owner-flag,
@@ -6851,14 +6892,22 @@ select.btn{
 #pg-admin #sub-review .review-managed-grid .owner-shop-card-stats{
   grid-template-columns:repeat(2,minmax(0,1fr))!important;
 }
+#pg-admin #sub-review .review-managed-grid .owner-shop-card-stat{
+  min-width:0!important;
+}
 #pg-admin #sub-review .review-managed-grid .owner-shop-card-go{
   border-top:1px solid #edf3f0!important;
   gap:10px!important;
+  align-items:center!important;
+  min-height:38px!important;
+  padding-top:9px!important;
 }
 #pg-admin #sub-review .review-managed-grid .owner-shop-card-go>span{
   display:inline-flex;
   align-items:center;
   gap:7px;
+  min-width:0;
+  white-space:nowrap;
 }
 #pg-admin #sub-review .review-managed-grid .owner-shop-card-go>span::after{
   content:"";
@@ -6872,27 +6921,6 @@ select.btn{
 #pg-admin #sub-review .review-managed-card:hover .owner-shop-card-go>span::after{
   transform:translateX(2px) rotate(-45deg);
 }
-#pg-admin #sub-review .review-card-live-btn{
-  min-height:30px;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid #cfe1da;
-  background:#f7fbf9;
-  color:var(--A2);
-  font-size:11px;
-  font-weight:800;
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-  touch-action:manipulation;
-  transition:background .16s ease,border-color .16s ease,transform .16s ease;
-}
-#pg-admin #sub-review .review-card-live-btn:hover{
-  background:#ecf8f4;
-  border-color:#a9d7ca;
-}
-#pg-admin #sub-review .review-card-live-btn:active{
-  transform:scale(.97);
-}
 #pg-admin #sub-review .review-tool-card .tp-list{
   gap:8px!important;
 }
@@ -6900,14 +6928,6 @@ select.btn{
   border-radius:10px!important;
   background:#f8fbfa!important;
   border-color:#dfece6!important;
-}
-#pg-admin #sub-review #adminAccountDeleteCard{
-  border-color:#f5c4cc!important;
-  background:linear-gradient(180deg,#fff8f9 0%,#fff 100%)!important;
-}
-#pg-admin #sub-review #adminAccountDeleteCard .owner-check{
-  margin:10px 0;
-  align-items:flex-start!important;
 }
 @media(max-width:1180px){
   #pg-admin #sub-review .review-layout{
@@ -9330,7 +9350,7 @@ select.btn{
             <button id="reviewToolsToggle" class="mobile-section-toggle review-tools-toggle" type="button" aria-expanded="false" aria-controls="reviewToolsPanel">
               <span>
                 <strong>Review tools</strong>
-                <small>Notifications and account deletion processor</small>
+                <small>Notification setup status</small>
               </span>
               <span class="mobile-section-toggle-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false"><path d="m6 9 6 6 6-6"></path></svg>
@@ -9348,31 +9368,8 @@ select.btn{
             <div id="reviewNotifySummary" class="tp-list"></div>
             <div class="btn-row" style="margin-top:12px">
               <button id="refreshReviewNotifyBtn" class="btn btn-o btn-sm" type="button">Refresh Status</button>
-              <button id="sendReviewNotifyTestBtn" class="btn btn-A btn-sm" type="button">Send Test Email</button>
             </div>
             <div id="reviewNotifyStatus" class="stxt"></div>
-          </div>
-        </div>
-        <div id="adminAccountDeleteCard" class="card review-tool-card danger-zone" style="display:none">
-          <div class="card-head">
-            <div>
-              <div class="owner-products-topline">Sensitive</div>
-              <div class="card-title">Account Deletion Processor</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="fg2">
-              <div class="fld"><label>User ID</label><input id="adminDeleteUserId" placeholder="Supabase user UUID"/></div>
-              <div class="fld"><label>Account Email</label><input id="adminDeleteEmail" type="email" placeholder="user@example.com"/></div>
-            </div>
-            <div class="fld"><label>Confirmation phrase</label><input id="adminDeleteConfirmPhrase" autocomplete="off" placeholder="DELETE user@example.com"/></div>
-            <label class="owner-check"><input id="adminDeleteOwnedBusinesses" type="checkbox"/><span><strong>Delete owned businesses too</strong><br/><span class="fld-hint">Also removes their offerings, images, analytics, reviews, favourites, and business requests.</span></span></label>
-            <div class="btn-row">
-              <button id="adminPreviewAccountDeleteBtn" class="btn btn-o btn-sm" type="button">Preview Impact</button>
-              <button id="adminExecuteAccountDeleteBtn" class="btn btn-r btn-sm" type="button">Permanently Delete Account</button>
-            </div>
-            <div id="adminAccountDeleteSummary" class="tp-list"></div>
-            <div id="adminAccountDeleteStatus" class="stxt"></div>
           </div>
         </div>
             </div>
@@ -14608,9 +14605,7 @@ function syncReviewNavBadge(){
 }
 function syncReviewerUi(user=App.user){
   const reviewerAccess=$('adminReviewerAccess');
-  const accountDeleteCard=$('adminAccountDeleteCard');
   if(reviewerAccess) reviewerAccess.style.display=isReviewerAccount(user)?'flex':'none';
-  if(accountDeleteCard) accountDeleteCard.style.display=isReviewerAccount(user)?'':'none';
   if(!isReviewerAccount(user) && document.querySelector('.asub.on')?.id==='sub-review'){
     switchAdminSub(user?'shops':'account',{refreshShops:false});
   }
@@ -19196,22 +19191,6 @@ async function loadReviewNotificationStatus(){
     setFieldHint('reviewNotifyStatus',e.message,'err');
   }
 }
-async function sendReviewNotificationTest(){
-  if(!isReviewerAccount()) return;
-  try{
-    setBtnBusy('sendReviewNotifyTestBtn',true,'Sending...');
-    setFieldHint('reviewNotifyStatus','Sending test notification...');
-    const d=await api('/admin/review/test-notification',{method:'POST',auth:true});
-    await loadReviewNotificationStatus();
-    toast('Test email sent',`${d.sent_count||0} notification${(d.sent_count||0)===1?'':'s'} delivered`);
-    setFieldHint('reviewNotifyStatus',`Test email sent to ${d.sent_count||0} recipient${(d.sent_count||0)===1?'':'s'}.`,'ok');
-  }catch(e){
-    setFieldHint('reviewNotifyStatus',e.message,'err');
-    toast('Test email failed',e.message,'err');
-  }finally{
-    setBtnBusy('sendReviewNotifyTestBtn',false);
-  }
-}
 function adminAccountDeletionRequestBody(dryRun=true){
   const userId=String($('adminDeleteUserId')?.value||'').trim();
   const email=String($('adminDeleteEmail')?.value||'').trim();
@@ -19565,7 +19544,7 @@ function renderAdminManagedBusinesses(){
     item.tabIndex=0;
     item.setAttribute('role','button');
     item.setAttribute('aria-label',`Manage ${shop.name||'listing'}`);
-    item.innerHTML=`<div class="owner-shop-card-top"><div class="owner-shop-card-ident"><div class="owner-shop-card-avatar">${businessAvatarHtml(shop,shop.name||'Business')}</div><div class="owner-shop-card-title-wrap"><div class="owner-shop-card-name">${esc(shop.name||'Untitled Business')}</div><div class="owner-shop-card-meta">${esc(locationText)}${shop.category?` <span>${esc(shop.category)}</span>`:''}</div></div></div><div class="owner-shop-card-count"><strong>${pendingCount}</strong><span>claims</span></div></div><div class="owner-shop-card-overview">${esc(overviewText)}</div><div class="owner-flag-list">${businessListingPillHtml(shop,meta.label)}<span class="owner-flag">Staff-managed</span>${pendingCount?`<span class="owner-open-chip">${pendingCount} pending claim${pendingCount===1?'':'s'}</span>`:'<span class="owner-good">Claimable</span>'}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-v">${offeringCount}</div><div class="owner-shop-card-stat-k">${esc(nouns.plural)}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-v">${pendingCount}</div><div class="owner-shop-card-stat-k">Claims</div></div></div><div class="owner-shop-card-go"><span>Manage listing</span><button class="review-card-live-btn" type="button" data-managed-live="${esc(shop.shop_slug||shop.shop_id||'')}">Live page</button></div>`;
+    item.innerHTML=`<div class="owner-shop-card-top"><div class="owner-shop-card-ident"><div class="owner-shop-card-avatar">${businessAvatarHtml(shop,shop.name||'Business')}</div><div class="owner-shop-card-title-wrap"><div class="owner-shop-card-name">${esc(shop.name||'Untitled Business')}</div><div class="owner-shop-card-meta">${esc(locationText)}${shop.category?` <span>${esc(shop.category)}</span>`:''}</div></div></div><div class="owner-shop-card-count"><strong>${pendingCount}</strong><span>claims</span></div></div><div class="owner-shop-card-overview">${esc(overviewText)}</div><div class="owner-flag-list">${businessListingPillHtml(shop,meta.label)}<span class="owner-flag">Staff-managed</span>${pendingCount?`<span class="owner-open-chip">${pendingCount} pending claim${pendingCount===1?'':'s'}</span>`:'<span class="owner-good">Claimable</span>'}</div><div class="owner-shop-card-stats"><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-v">${offeringCount}</div><div class="owner-shop-card-stat-k">${esc(nouns.plural)}</div></div><div class="owner-shop-card-stat"><div class="owner-shop-card-stat-v">${pendingCount}</div><div class="owner-shop-card-stat-k">Claims</div></div></div><div class="owner-shop-card-go"><span>Manage listing</span></div>`;
     item.addEventListener('click',e=>{
       if(e.target.closest('button')) return;
       openManagedBusiness(shop.shop_id||'');
@@ -19573,7 +19552,6 @@ function renderAdminManagedBusinesses(){
     item.addEventListener('keydown',e=>{
       if(e.key==='Enter' || e.key===' '){e.preventDefault();openManagedBusiness(shop.shop_id||'');}
     });
-    item.querySelector('[data-managed-live]')?.addEventListener('click',()=>openShopPage(shop.shop_slug||shop.shop_id||''));
     list.appendChild(item);
   });
   updateReviewCenterSummary();
@@ -20022,7 +20000,6 @@ $('claimSearchBtn')?.addEventListener('click',()=>searchClaimableBusinesses());
 $('claimSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchClaimableBusinesses();}});
 $('refreshReviewCenterBtn')?.addEventListener('click',()=>{loadAdminReviewQueue();loadAdminClaimReviewQueue();loadAdminManagedBusinesses();});
 $('refreshReviewNotifyBtn')?.addEventListener('click',loadReviewNotificationStatus);
-$('sendReviewNotifyTestBtn')?.addEventListener('click',sendReviewNotificationTest);
 $('adminPreviewAccountDeleteBtn')?.addEventListener('click',previewAdminAccountDeletion);
 $('adminExecuteAccountDeleteBtn')?.addEventListener('click',executeAdminAccountDeletion);
 $('deleteShopBtn').addEventListener('click',deleteShop);

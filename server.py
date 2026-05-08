@@ -7690,7 +7690,6 @@ def create_shop(body: CreateShopReq, authorization: Optional[str] = Header(None)
         claimed_at=now_iso,
     )
     strict_cols = shop_create_strict_columns(shop)
-    strict_cols.extend(SHOP_OWNERSHIP_WRITE_COLUMNS)
     payload, unsupported_cols = shop_write_payload_with_fallback(sid, payload, False, strict_cols)
     if unsupported_cols:
         print(f"[Shop Schema Warning] {sid}: saved without optional columns {unsupported_cols}")
@@ -7746,7 +7745,6 @@ def create_managed_shop(body: CreateManagedShopReq, authorization: Optional[str]
         verification_submitted_at=now_iso if listing_status == LISTING_STATUS_VERIFIED else None,
     )
     strict_cols = shop_create_strict_columns(shop)
-    strict_cols.extend(SHOP_OWNERSHIP_WRITE_COLUMNS)
     payload, unsupported_cols = shop_write_payload_with_fallback(sid, payload, False, strict_cols)
     if unsupported_cols:
         print(f"[Managed Shop Schema Warning] {sid}: saved without optional columns {unsupported_cols}")
