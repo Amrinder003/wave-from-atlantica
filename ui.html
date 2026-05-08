@@ -19975,10 +19975,17 @@ async function approveReviewBusiness(shopId=''){
   if(!shopId) return;
   try{
     setFieldHint('adminReviewQueueStatus','Approving business...');
-    await api(`/admin/review/business/${encodeURIComponent(shopId)}/approve`,{method:'POST',auth:true});
+    const d=await api(`/admin/review/business/${encodeURIComponent(shopId)}/approve`,{method:'POST',auth:true});
     if(App.adminShopId===shopId) await loadAdminShop(shopId);
     await loadMyShops();
-    toast('Business approved','The listing is now live.');
+    const ownerEmail=String(d.owner_email||'').trim();
+    if(d.email_sent){
+      toast('Business approved',ownerEmail?`Approval email sent to ${ownerEmail}.`:'The listing is now live.');
+    }else{
+      const emailError=String(d.email_error||'Owner email was not found.').trim();
+      setFieldHint('adminReviewQueueStatus',`Business approved, but the email did not send: ${emailError}`,'err');
+      toast('Business approved',`Email did not send: ${emailError}`,'err');
+    }
   }catch(e){
     setFieldHint('adminReviewQueueStatus',e.message,'err');
     toast('Approval failed',e.message,'err');
@@ -19990,10 +19997,17 @@ async function rejectReviewBusiness(shopId=''){
   if(reason===null) return;
   try{
     setFieldHint('adminReviewQueueStatus','Updating review...');
-    await api(`/admin/review/business/${encodeURIComponent(shopId)}/reject`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({reason})});
+    const d=await api(`/admin/review/business/${encodeURIComponent(shopId)}/reject`,{method:'POST',auth:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({reason})});
     if(App.adminShopId===shopId) await loadAdminShop(shopId);
     await loadMyShops();
-    toast('Business sent back','The owner can revise and resubmit it.');
+    const ownerEmail=String(d.owner_email||'').trim();
+    if(d.email_sent){
+      toast('Business sent back',ownerEmail?`Review email sent to ${ownerEmail}.`:'The owner can revise and resubmit it.');
+    }else{
+      const emailError=String(d.email_error||'Owner email was not found.').trim();
+      setFieldHint('adminReviewQueueStatus',`Business sent back, but the email did not send: ${emailError}`,'err');
+      toast('Review saved',`Email did not send: ${emailError}`,'err');
+    }
   }catch(e){
     setFieldHint('adminReviewQueueStatus',e.message,'err');
     toast('Review update failed',e.message,'err');

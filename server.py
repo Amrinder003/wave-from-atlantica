@@ -17,6 +17,7 @@ import smtplib
 from typing import Any, Dict, List, Optional, Tuple
 from io import BytesIO, StringIO
 from email.message import EmailMessage
+from email.utils import formataddr, parseaddr
 from urllib.parse import urlparse
 import zipfile
 import xml.etree.ElementTree as ET
@@ -186,11 +187,19 @@ APP_BASE_URL      = os.environ.get("APP_BASE_URL", "http://localhost:8001").stri
 CORS_ORIGINS      = [o.strip() for o in os.environ.get("CORS_ORIGINS", APP_BASE_URL).split(",") if o.strip()]
 SMTP_HOST         = os.environ.get("SMTP_HOST", "").strip()
 SMTP_PORT         = int(os.environ.get("SMTP_PORT", "587") or 587)
-SMTP_USERNAME     = os.environ.get("SMTP_USERNAME", "").strip()
-SMTP_PASSWORD     = os.environ.get("SMTP_PASSWORD", "").strip()
-SMTP_FROM_EMAIL   = os.environ.get("SMTP_FROM_EMAIL", "").strip()
-SMTP_FROM_NAME    = os.environ.get("SMTP_FROM_NAME", "Atlantic Ordinate").strip()
+SMTP_USERNAME     = (os.environ.get("SMTP_USERNAME", "").strip() or os.environ.get("SMTP_USER", "").strip())
+SMTP_PASSWORD     = (os.environ.get("SMTP_PASSWORD", "").strip() or os.environ.get("SMTP_PASS", "").strip())
+SMTP_FROM_EMAIL_RAW = os.environ.get("SMTP_FROM_EMAIL", "").strip()
+if not SMTP_FROM_EMAIL_RAW and "@" in SMTP_USERNAME:
+    SMTP_FROM_EMAIL_RAW = SMTP_USERNAME
+if not SMTP_FROM_EMAIL_RAW:
+    SMTP_FROM_EMAIL_RAW = os.environ.get("EMAIL_FROM", "").strip()
+SMTP_FROM_NAME_FROM_RAW, SMTP_FROM_EMAIL_PARSED = parseaddr(SMTP_FROM_EMAIL_RAW)
+SMTP_FROM_EMAIL   = (SMTP_FROM_EMAIL_PARSED or SMTP_FROM_EMAIL_RAW).strip()
+SMTP_FROM_NAME    = (os.environ.get("SMTP_FROM_NAME", "").strip() or SMTP_FROM_NAME_FROM_RAW or "Atlantic Ordinate").strip()
 SMTP_USE_TLS      = os.environ.get("SMTP_USE_TLS", "true").strip().lower() not in {"0", "false", "no"}
+RESEND_API_KEY    = os.environ.get("RESEND_API_KEY", "").strip()
+RESEND_API_URL    = os.environ.get("RESEND_API_URL", "https://api.resend.com/emails").strip()
 REVIEW_NOTIFICATION_EMAILS = [
     re.sub(r"\s+", "", item).strip().lower()
     for item in os.environ.get("REVIEW_NOTIFICATION_EMAILS", "").split(",")
@@ -1743,7 +1752,7 @@ def supabase_refresh_session(refresh_token: str) -> Dict[str, Any]:
     return data
 
 def notifications_enabled() -> bool:
-    return bool(SMTP_HOST and SMTP_FROM_EMAIL and (not SMTP_USERNAME or SMTP_PASSWORD))
+    return bool(SMTP_FROM_EMAIL and ((SMTP_HOST and (not SMTP_USERNAME or SMTP_PASSWORD)) or RESEND_API_KEY))
 
 def clean_email(value: str) -> str:
     return re.sub(r"\s+", "", str(value or "").strip()).lower()
@@ -2005,40 +2014,45 @@ def delete_supabase_auth_user(user_id: str) -> None:
         raise HTTPException(400, detail)
 
 def send_email_message(to_email: str, subject: str, text_body: str) -> bool:
-    recipient = clean_email(to_email)
-    if not recipient or not notifications_enabled():
-        return False
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = subject
-        msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>" if SMTP_FROM_NAME else SMTP_FROM_EMAIL
-        msg["To"] = recipient
-        msg.set_content(text_body)
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as smtp:
-            if SMTP_USE_TLS:
-                smtp.starttls()
-            if SMTP_USERNAME:
-                smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
-            smtp.send_message(msg)
-        return True
-    except Exception as e:
-        print(f"[Notification Warning] Email send failed for {recipient}: {e}")
-        return False
+    ok, _ = send_email_message_detailed(to_email, subject, text_body)
+    return ok
+
+def email_from_header() -> str:
+    return formataddr((SMTP_FROM_NAME, SMTP_FROM_EMAIL)) if SMTP_FROM_NAME else SMTP_FROM_EMAIL
 
 def send_email_message_detailed(to_email: str, subject: str, text_body: str) -> Tuple[bool, str]:
     recipient = clean_email(to_email)
     if not recipient:
         return False, "Recipient email is empty."
-    if not SMTP_HOST:
-        return False, "SMTP_HOST is not configured."
     if not SMTP_FROM_EMAIL:
         return False, "SMTP_FROM_EMAIL is not configured."
+    if RESEND_API_KEY:
+        try:
+            res = requests.post(
+                RESEND_API_URL,
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                json={"from": email_from_header(), "to": [recipient], "subject": subject, "text": text_body},
+                timeout=20,
+            )
+            if res.status_code >= 400:
+                try:
+                    detail = res.json().get("message") or res.json().get("error") or res.text
+                except Exception:
+                    detail = res.text or "Resend email request failed."
+                return False, str(detail or "Resend email request failed.")
+            return True, ""
+        except Exception as e:
+            message = str(e or "").strip() or "Unknown Resend error."
+            print(f"[Notification Warning] Resend email failed for {recipient}: {message}")
+            return False, message
+    if not SMTP_HOST:
+        return False, "SMTP_HOST is not configured."
     if SMTP_USERNAME and not SMTP_PASSWORD:
         return False, "SMTP_PASSWORD is missing for the configured SMTP username."
     try:
         msg = EmailMessage()
         msg["Subject"] = subject
-        msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>" if SMTP_FROM_NAME else SMTP_FROM_EMAIL
+        msg["From"] = email_from_header()
         msg["To"] = recipient
         msg.set_content(text_body)
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as smtp:
@@ -2097,6 +2111,8 @@ def review_notification_status_payload() -> Dict[str, Any]:
     return {
         "ok": True,
         "smtp_ready": smtp_ready,
+        "provider": "resend" if RESEND_API_KEY else "smtp",
+        "resend_ready": bool(RESEND_API_KEY and SMTP_FROM_EMAIL),
         "smtp_host_set": bool(SMTP_HOST),
         "smtp_port": SMTP_PORT if SMTP_HOST else None,
         "smtp_username_set": bool(SMTP_USERNAME),
@@ -2111,6 +2127,115 @@ def review_notification_status_payload() -> Dict[str, Any]:
         "last_sent_count": LAST_REVIEW_NOTIFICATION_RESULT.get("sent_count", 0),
         "last_errors": LAST_REVIEW_NOTIFICATION_RESULT.get("errors", []),
     }
+
+def send_user_notice_report(to_email: str, subject: str, lines: List[str]) -> Dict[str, Any]:
+    body = "\n".join([str(line or "") for line in lines])
+    ok, error = send_email_message_detailed(to_email, subject, body)
+    if not ok:
+        print(f"[User Email Warning] {subject} to {clean_email(to_email)} failed: {error}")
+    return {
+        "sent": ok,
+        "to": clean_email(to_email),
+        "subject": subject,
+        "error": error,
+    }
+
+def send_user_notice(to_email: str, subject: str, lines: List[str]) -> bool:
+    return bool(send_user_notice_report(to_email, subject, lines).get("sent"))
+
+def business_owner_email(shop: Dict[str, Any], fallback: str = "") -> str:
+    fallback_email = clean_email(fallback)
+    owner_id = str((shop or {}).get("owner_user_id", "") or "").strip()
+    if owner_id:
+        try:
+            return load_auth_email_map([owner_id]).get(owner_id, "") or fallback_email
+        except Exception as e:
+            print(f"[User Email Warning] could not load owner email for {owner_id}: {e}")
+    return fallback_email
+
+def send_account_deletion_request_received_email(to_email: str, request_id: str) -> bool:
+    return send_user_notice(
+        to_email,
+        "We received your Atlantic Ordinate account deletion request",
+        [
+            "Hello,",
+            "",
+            "We received your account deletion request.",
+            "",
+            "Our team will review your account, business ownership, reviews, requests, favourites, and uploaded images before making irreversible changes. Your account is expected to be deleted within 24-48 hours after review.",
+            "",
+            f"Request ID: {request_id}",
+            "",
+            "If you did not request this, contact support immediately.",
+            "",
+            "Atlantic Ordinate Support",
+        ],
+    )
+
+def send_account_deleted_email(to_email: str) -> bool:
+    return send_user_notice(
+        to_email,
+        "Your Atlantic Ordinate account has been deleted",
+        [
+            "Hello,",
+            "",
+            "Your Atlantic Ordinate account has been deleted as requested.",
+            "",
+            "If you believe this was done in error, contact support as soon as possible.",
+            "",
+            "Atlantic Ordinate Support",
+        ],
+    )
+
+def send_business_review_submitted_email(to_email: str, shop: Dict[str, Any]) -> bool:
+    return send_user_notice(
+        to_email,
+        f"We received your business review request: {shop.get('name', 'Business')}",
+        [
+            "Hello,",
+            "",
+            f"We received your business review request for {shop.get('name', 'your business')}.",
+            "",
+            "The page will stay private while Atlantic Ordinate reviews the details. We will email you when the business is approved or if it needs changes.",
+            "",
+            "Atlantic Ordinate Support",
+        ],
+    )
+
+def business_review_decision_email_payload(shop: Dict[str, Any], approved: bool, reason: str = "") -> Tuple[str, List[str]]:
+    business_name = shop.get("name", "your business")
+    if approved:
+        subject = f"Your business is live: {business_name}"
+        lines = [
+            "Hello,",
+            "",
+            f"Good news. {business_name} has been approved and is now live on Atlantic Ordinate.",
+            "",
+            f"Open the app: {app_route_url('/ui')}",
+            "",
+            "Atlantic Ordinate Support",
+        ]
+    else:
+        subject = f"Your business needs changes: {business_name}"
+        lines = [
+            "Hello,",
+            "",
+            f"{business_name} needs a few changes before it can go live on Atlantic Ordinate.",
+            "",
+            f"Reason: {reason or 'Please review the business details and submit again.'}",
+            "",
+            "Update the business from My Businesses and submit it for review again when ready.",
+            "",
+            "Atlantic Ordinate Support",
+        ]
+    return subject, lines
+
+def send_business_review_decision_email_report(to_email: str, shop: Dict[str, Any], approved: bool, reason: str = "") -> Dict[str, Any]:
+    subject, lines = business_review_decision_email_payload(shop, approved, reason)
+    return send_user_notice_report(to_email, subject, lines)
+
+def send_business_review_decision_email(to_email: str, shop: Dict[str, Any], approved: bool, reason: str = "") -> bool:
+    return bool(send_business_review_decision_email_report(to_email, shop, approved, reason).get("sent"))
 
 def request_track_payload(request_id: str, phone: str) -> str:
     rid = str(request_id or "").strip()
@@ -6995,12 +7120,14 @@ def request_account_deletion(body: AccountDeletionRequestReq, request: Request, 
         ],
     )
     notification_sent = int(report.get("sent_count") or 0) > 0
+    user_notification_sent = send_account_deletion_request_received_email(email, request_id)
     return {
         "ok": True,
         "message": "Account deletion request recorded. We will review it before making irreversible changes.",
         "owned_business_count": len(owned_businesses),
         "request_id": request_id,
         "notification_sent": notification_sent,
+        "user_notification_sent": user_notification_sent,
     }
 
 @app.put("/auth/profile")
@@ -8283,6 +8410,7 @@ def admin_submit_shop_for_review(shop_id: str, authorization: Optional[str] = He
         )
     except Exception as notify_err:
         print(f"[Review Notification Warning] Business review email failed for {shop_id}: {notify_err}")
+    send_business_review_submitted_email(clean_email(getattr(user, "email", "") or ""), shop)
     record_business_audit_event(
         shop_id,
         "business_submitted_for_review",
@@ -8416,6 +8544,10 @@ def admin_approve_business(shop_id: str, authorization: Optional[str] = Header(N
     user, prof = get_user(authorization)
     prof = safe_ensure_profile_row(user, prof)
     require_admin_role(prof)
+    rows = supabase.table("shops").select("*").eq("shop_id", shop_id).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Business not found")
+    shop = normalize_shop_record(rows[0])
     now_iso = datetime.now(timezone.utc).isoformat()
     payload = {
         "listing_status": LISTING_STATUS_VERIFIED,
@@ -8426,7 +8558,19 @@ def admin_approve_business(shop_id: str, authorization: Optional[str] = Header(N
     if unsupported_cols:
         print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
     record_business_audit_event(shop_id, "business_review_approved", user, prof, "Business review approved.", {"verified_at": now_iso})
-    return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_VERIFIED, "verified_at": now_iso}
+    owner_email = business_owner_email(shop)
+    email_report = {"sent": False, "to": owner_email, "error": "Business owner email was not found."}
+    if owner_email:
+        email_report = send_business_review_decision_email_report(owner_email, shop, True)
+    return {
+        "ok": True,
+        "business_id": shop_id,
+        "listing_status": LISTING_STATUS_VERIFIED,
+        "verified_at": now_iso,
+        "owner_email": owner_email,
+        "email_sent": bool(email_report.get("sent")),
+        "email_error": "" if email_report.get("sent") else str(email_report.get("error") or "Business owner email was not found."),
+    }
 
 @app.post("/admin/review/business/{shop_id}/reject")
 @app.post("/admin/review/shop/{shop_id}/reject")
@@ -8434,6 +8578,10 @@ def admin_reject_business(shop_id: str, body: ReviewDecisionReq, authorization: 
     user, prof = get_user(authorization)
     prof = safe_ensure_profile_row(user, prof)
     require_admin_role(prof)
+    rows = supabase.table("shops").select("*").eq("shop_id", shop_id).limit(1).execute().data or []
+    if not rows:
+        raise HTTPException(404, "Business not found")
+    shop = normalize_shop_record(rows[0])
     reason = re.sub(r"\s+", " ", str(body.reason or "")).strip()
     if len(reason) < 5:
         raise HTTPException(400, "Add a short reason before rejecting the business.")
@@ -8445,7 +8593,19 @@ def admin_reject_business(shop_id: str, body: ReviewDecisionReq, authorization: 
     if unsupported_cols:
         print(f"[Shop Schema Warning] {shop_id}: saved without optional columns {unsupported_cols}")
     record_business_audit_event(shop_id, "business_review_rejected", user, prof, "Business review rejected.", {"reason": reason[:500]})
-    return {"ok": True, "business_id": shop_id, "listing_status": LISTING_STATUS_REJECTED, "reason": reason[:500]}
+    owner_email = business_owner_email(shop)
+    email_report = {"sent": False, "to": owner_email, "error": "Business owner email was not found."}
+    if owner_email:
+        email_report = send_business_review_decision_email_report(owner_email, shop, False, reason[:500])
+    return {
+        "ok": True,
+        "business_id": shop_id,
+        "listing_status": LISTING_STATUS_REJECTED,
+        "reason": reason[:500],
+        "owner_email": owner_email,
+        "email_sent": bool(email_report.get("sent")),
+        "email_error": "" if email_report.get("sent") else str(email_report.get("error") or "Business owner email was not found."),
+    }
 
 @app.get("/admin/business-claim/candidates")
 @app.get("/admin/business-claims/candidates")
@@ -9029,6 +9189,7 @@ def admin_process_account_deletion(target_user_id: str, body: AdminAccountDeleti
         )
     except Exception as e:
         print(f"[Account Delete Warning] deletion notification failed for {uid}: {e}")
+    send_account_deleted_email(target_email)
     clear_account_deletion_request_store(uid)
     return {"ok": True, "dry_run": False, "message": "Account deleted from Supabase auth and app database.", **result}
 
