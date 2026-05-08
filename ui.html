@@ -7353,6 +7353,18 @@ select.btn{
   font-size:12px!important;
   line-height:1.55!important;
 }
+#pg-admin #shopDetailView .owner-side-card.owner-danger-card{
+  border-color:#fecdd3!important;
+  background:linear-gradient(180deg,#fff8f9 0%,#ffffff 100%)!important;
+}
+#pg-admin #shopDetailView .owner-danger-card .owner-side-label,
+#pg-admin #shopDetailView .owner-danger-card .owner-side-title{
+  color:#be123c!important;
+}
+#pg-admin #shopDetailView .owner-danger-card .btn-r{
+  width:100%;
+  justify-content:center;
+}
 #pg-admin #shopDetailView .owner-side-actions{
   grid-template-columns:1fr!important;
   gap:8px!important;
@@ -8733,6 +8745,15 @@ select.btn{
                 <div class="owner-side-label">Management</div>
                 <div class="owner-side-title">Who manages this page</div>
                 <div id="ownerManagementDetails" class="tp-list" style="margin-top:12px"></div>
+              </div>
+              <div class="owner-side-card owner-danger-card">
+                <div class="owner-side-label">Danger Zone</div>
+                <div class="owner-side-title">Delete this business</div>
+                <div class="owner-side-copy">Remove this business page and all offerings after confirmation.</div>
+                <div class="owner-side-actions">
+                  <button id="detailDeleteShopBtn" class="btn btn-r btn-sm" type="button">Delete Business</button>
+                </div>
+                <div id="detailDeleteStatus" class="stxt"></div>
               </div>
               <div id="ownerAuditCard" class="owner-side-card" style="display:none">
                 <div class="owner-side-label">Audit History</div>
@@ -20014,7 +20035,36 @@ async function deleteShop(){
   const shopId=$('shopId').value.trim();if(!shopId)return toast('No business loaded','','err');
   const shopName=$('shopName').value.trim()||shopId;
   if(!confirm(`Delete "${shopName}" and all of its offerings? This cannot be undone.`))return;
-  try{await api(`/admin/business/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});toast('Business deleted',shopId);setS('shopStatus','');updateShopDraftState(false);$('shopStats').style.display='none';App.adminShopId=null;App.adminShopData=null;App.adminProducts=[];refreshWorkspaceHeader();renderBusinessAuditEvents([]);renderAdminProds([]);clearProdForm();await loadMyShops();markPublicCatalogDirty();switchAdminSub('shops',{refreshShops:false});showShopManagerView('landing');}catch(e){setS('shopStatus',e.message,'err');toast('Delete failed',e.message,'err');}
+  try{
+    setBtnBusy('deleteShopBtn',true,'Deleting...');
+    setBtnBusy('detailDeleteShopBtn',true,'Deleting...');
+    setS('shopStatus','Deleting business...');
+    setFieldHint('detailDeleteStatus','Deleting business...');
+    await api(`/admin/business/${encodeURIComponent(shopId)}`,{method:'DELETE',auth:true});
+    toast('Business deleted',shopId);
+    setS('shopStatus','');
+    setFieldHint('detailDeleteStatus','');
+    updateShopDraftState(false);
+    $('shopStats').style.display='none';
+    App.adminShopId=null;
+    App.adminShopData=null;
+    App.adminProducts=[];
+    refreshWorkspaceHeader();
+    renderBusinessAuditEvents([]);
+    renderAdminProds([]);
+    clearProdForm();
+    await loadMyShops();
+    markPublicCatalogDirty();
+    switchAdminSub('shops',{refreshShops:false});
+    showShopManagerView('landing');
+  }catch(e){
+    setS('shopStatus',e.message,'err');
+    setFieldHint('detailDeleteStatus',e.message,'err');
+    toast('Delete failed',e.message,'err');
+  }finally{
+    setBtnBusy('deleteShopBtn',false);
+    setBtnBusy('detailDeleteShopBtn',false);
+  }
 }
 async function submitBusinessForReview(){
   if(!tok()) return toast('Login required','','err');
@@ -20082,6 +20132,7 @@ $('detailEditShopBtn').addEventListener('click',openEditShopView);
 $('detailAddProductBtn').addEventListener('click',()=>openProductForm());
 $('detailSubmitReviewBtn')?.addEventListener('click',submitBusinessForReview);
 $('detailMoveDraftBtn')?.addEventListener('click',moveBusinessToDraft);
+$('detailDeleteShopBtn')?.addEventListener('click',deleteShop);
 $('shopSubmitReviewBtn')?.addEventListener('click',submitBusinessForReview);
 $('shopMoveDraftBtn')?.addEventListener('click',moveBusinessToDraft);
 $('addVariantBtn')?.addEventListener('click',()=>appendVariantOption('Other'));
