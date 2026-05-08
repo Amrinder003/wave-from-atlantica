@@ -8643,7 +8643,7 @@ select.btn{
                   </div>
                 </div>
                 <div id="claimSearchStatus" class="stxt"></div>
-                <div id="claimSearchResults" class="review-queue"><div class="review-queue-empty">Search for the existing business page first.</div></div>
+                <div id="claimSearchResults" class="review-queue"></div>
                 <div class="claim-section-title">My Claim Requests</div>
                 <div id="myBusinessClaimsList" class="review-queue"><div class="review-queue-empty">No claim requests yet.</div></div>
                 <div id="myBusinessClaimsStatus" class="stxt"></div>
@@ -10226,8 +10226,11 @@ function normalizeBusinessRecord(row={}){
   out.owner_email=(out.owner_email||'').trim();
   out.listing_source=String(out.listing_source||'').trim();
   out.ownership_status=String(out.ownership_status||'').trim();
-  out.is_platform_managed=out.is_platform_managed===true || out.ownership_status==='platform_managed' || out.listing_source==='platform_import' || out.owner_contact_name.toLowerCase()==='platform imported listing';
-  out.is_claimed=out.is_claimed===true || (!out.is_platform_managed && (out.ownership_status==='' || out.ownership_status==='claimed'));
+  const platformManagedMarker=out.listing_source==='platform_import' || out.owner_contact_name.toLowerCase()==='platform imported listing';
+  out.is_platform_managed=out.ownership_status==='claimed'
+    ? false
+    : (out.is_platform_managed===true || out.ownership_status==='platform_managed' || platformManagedMarker);
+  out.is_claimed=out.ownership_status==='claimed' || out.is_claimed===true || (!out.is_platform_managed && out.ownership_status==='');
   out.claim_available=out.claim_available===true || out.is_platform_managed===true;
   out.phone=(out.phone||'').trim();
   out.website=normalizeWebsiteUrl(out.website||'');
@@ -19398,7 +19401,7 @@ function renderClaimSearchResults(){
   const rows=(App.claimSearchResults||[]).map(normalizeBusinessRecord);
   if(!rows.length){
     App.claimSelectedShopId='';
-    list.innerHTML='<div class="review-queue-empty">Search for the existing business page first.</div>';
+    list.innerHTML='';
     return;
   }
   if(App.claimSelectedShopId && !rows.some(row=>row.shop_id===App.claimSelectedShopId)){
@@ -19759,7 +19762,7 @@ function openClaimWorkspace({seed=''}={}){
   if($('claimSearchInput')) $('claimSearchInput').value=query;
   App.claimSearchResults=[];
   renderClaimSearchResults();
-  setFieldHint('claimSearchStatus',query.length>=2?'':'Search for the existing business page first.','');
+  setFieldHint('claimSearchStatus','');
   loadOwnerBusinessClaims();
   setTimeout(()=>{$('claimSearchInput')?.focus();},80);
   if(query.length>=2) searchClaimableBusinesses(query);

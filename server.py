@@ -7874,6 +7874,18 @@ def admin_get_shop(shop_id: str, authorization: Optional[str] = Header(None)):
     check_shop_owner(user.id, shop_id)
     
     shop = normalize_shop_record(supabase.table("shops").select("*").eq("shop_id", shop_id).execute().data[0])
+    try:
+        approved_owner_claim = bool(supabase.table("business_claims").select("claim_id").eq("shop_id", shop_id).eq("claimant_user_id", user.id).eq("status", CLAIM_STATUS_APPROVED).limit(1).execute().data or [])
+    except Exception:
+        approved_owner_claim = False
+    if approved_owner_claim and str(shop.get("owner_user_id", "")) == str(user.id):
+        owner_label = normalize_display_name((prof or {}).get("display_name", ""), getattr(user, "email", ""))
+        shop["listing_source"] = LISTING_SOURCE_OWNER_CREATED
+        shop["ownership_status"] = OWNERSHIP_STATUS_CLAIMED
+        shop["is_platform_managed"] = False
+        shop["is_claimed"] = True
+        if not shop.get("owner_contact_name") or str(shop.get("owner_contact_name", "")).strip().lower() == PLATFORM_MANAGED_OWNER_CONTACT.lower():
+            shop["owner_contact_name"] = owner_label
     owner_rows, all_rows = load_shop_trust_rows(user.id)
     trust_snapshot = build_shop_trust_snapshot(shop, user, owner_rows, all_rows, ignore_shop_id=shop_id)
     prods = supabase.table("products").select("*").eq("shop_id", shop_id).order("updated_at", desc=True).execute().data
@@ -8392,13 +8404,15 @@ def admin_approve_business_claim(claim_id: str, authorization: Optional[str] = H
     shop = normalize_shop_record(shop_rows[0])
     previous_owner_user_id = str(shop.get("owner_user_id", "") or "").strip()
     now_iso = datetime.now(timezone.utc).isoformat()
+    claimant_contact = claim.get("claimant_display_name") or claim.get("claimant_email") or ""
     shop_payload = {
         "owner_user_id": claim.get("claimant_user_id"),
+        "listing_source": LISTING_SOURCE_OWNER_CREATED,
         "ownership_status": OWNERSHIP_STATUS_CLAIMED,
         "claimed_at": now_iso,
     }
-    if shop_is_platform_managed(shop) and str(shop.get("owner_contact_name", "")).strip().lower() == PLATFORM_MANAGED_OWNER_CONTACT.lower():
-        shop_payload["owner_contact_name"] = claim.get("claimant_display_name") or claim.get("claimant_email") or ""
+    if claimant_contact:
+        shop_payload["owner_contact_name"] = claimant_contact
     shop_payload, unsupported_cols = shop_write_payload_with_fallback(shop_id, shop_payload, True, [])
     if unsupported_cols:
         print(f"[Shop Schema Warning] {shop_id}: claim transfer saved without optional columns {unsupported_cols}")

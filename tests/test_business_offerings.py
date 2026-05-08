@@ -1160,6 +1160,7 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         shop = next(row for row in self.fake_supabase.tables["shops"] if row["shop_id"] == "import-1")
         self.assertEqual(shop["owner_user_id"], "user-1")
+        self.assertEqual(shop["listing_source"], "owner_created")
         self.assertEqual(shop["ownership_status"], "claimed")
         self.assertEqual(shop["owner_contact_name"], "Verified User")
         self.assertEqual(detail_response.status_code, 404)
@@ -1168,6 +1169,45 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertEqual([row["event_type"] for row in audit_rows], ["ownership_claim_approved"])
         self.assertEqual(audit_rows[0]["metadata"]["previous_owner_user_id"], "imports-1")
         self.assertEqual(audit_rows[0]["metadata"]["new_owner_user_id"], "user-1")
+
+        with self._patch_get_user(self.user):
+            owner_detail_response = self.client.get("/admin/business/import-1", headers=self._user_headers())
+
+        self.assertEqual(owner_detail_response.status_code, 200)
+        owner_business = owner_detail_response.json()["data"]["business"]
+        self.assertFalse(owner_business["is_platform_managed"])
+        self.assertEqual(owner_business["ownership_status"], "claimed")
+        self.assertEqual(owner_business["managed_by_label"], "Verified User")
+        self.assertEqual(owner_business["management_account_id"], "user-1")
+
+    def test_claimed_business_detail_repairs_stale_platform_metadata_for_approved_owner(self):
+        shop = self._add_platform_managed_shop()
+        shop["owner_user_id"] = "user-1"
+        shop["ownership_status"] = "platform_managed"
+        shop["listing_source"] = "platform_import"
+        shop["owner_contact_name"] = server.PLATFORM_MANAGED_OWNER_CONTACT
+        self.fake_supabase.tables["business_claims"].append(
+            {
+                "claim_id": "claim-1",
+                "shop_id": "import-1",
+                "claimant_user_id": "user-1",
+                "claimant_display_name": "Verified User",
+                "claimant_email": "verified@example.com",
+                "note": "I own this business.",
+                "status": "approved",
+                "review_note": "Approved.",
+            }
+        )
+
+        with self._patch_get_user(self.user):
+            response = self.client.get("/admin/business/import-1", headers=self._user_headers())
+
+        self.assertEqual(response.status_code, 200)
+        business = response.json()["data"]["business"]
+        self.assertFalse(business["is_platform_managed"])
+        self.assertEqual(business["ownership_status"], "claimed")
+        self.assertEqual(business["managed_by_label"], "Verified User")
+        self.assertEqual(business["management_account_id"], "user-1")
 
     def test_delete_business_cleans_related_rows(self):
         self.fake_supabase.tables["favourites"].append(
