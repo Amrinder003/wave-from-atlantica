@@ -6984,6 +6984,48 @@ select.btn{
   background:#f8fbfa!important;
   border-color:#dfece6!important;
 }
+#pg-admin #sub-review #adminAccountDeleteCard{
+  border-color:#fecdd3!important;
+  background:linear-gradient(180deg,#fff8f9 0%,#ffffff 100%)!important;
+}
+#pg-admin #sub-review #adminAccountDeleteCard .owner-products-topline,
+#pg-admin #sub-review #adminAccountDeleteCard .card-title{
+  color:#be123c!important;
+}
+#pg-admin #sub-review .review-delete-copy{
+  margin-bottom:10px;
+  color:#5f6f68;
+  font-size:12px;
+  line-height:1.55;
+}
+#pg-admin #sub-review .review-delete-gate{
+  margin:10px 0;
+  padding:10px 11px;
+  border-radius:12px;
+  border:1px solid #f5c4cc;
+  background:#fff5f6;
+  color:#9f1239;
+  font-size:12px;
+  line-height:1.45;
+  font-weight:750;
+}
+#pg-admin #sub-review .review-delete-gate.ready{
+  border-color:#a7e8c3;
+  background:#ecfdf3;
+  color:#15803d;
+}
+#pg-admin #sub-review .review-delete-execute{
+  display:none;
+  gap:10px;
+  margin-top:10px;
+}
+#pg-admin #sub-review .review-delete-execute.on{
+  display:grid;
+}
+#pg-admin #sub-review #adminAccountDeleteCard .owner-check{
+  margin:10px 0;
+  align-items:flex-start!important;
+}
 @media(max-width:1180px){
   #pg-admin #sub-review .review-layout{
     grid-template-columns:1fr;
@@ -9417,7 +9459,7 @@ select.btn{
             <button id="reviewToolsToggle" class="mobile-section-toggle review-tools-toggle" type="button" aria-expanded="false" aria-controls="reviewToolsPanel">
               <span>
                 <strong>Review tools</strong>
-                <small>Notification setup status</small>
+                <small>Notifications and requested account deletion</small>
               </span>
               <span class="mobile-section-toggle-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false"><path d="m6 9 6 6 6-6"></path></svg>
@@ -9437,6 +9479,32 @@ select.btn{
               <button id="refreshReviewNotifyBtn" class="btn btn-o btn-sm" type="button">Refresh Status</button>
             </div>
             <div id="reviewNotifyStatus" class="stxt"></div>
+          </div>
+        </div>
+        <div id="adminAccountDeleteCard" class="card review-tool-card danger-zone" style="display:none">
+          <div class="card-head">
+            <div>
+              <div class="owner-products-topline">Requested Deletion</div>
+              <div class="card-title">Account Deletion Processor</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="review-delete-copy">Use only after a user has submitted a deletion request from Account settings. Load the request first; deletion stays locked until the server confirms a pending request exists.</div>
+            <div class="fg2">
+              <div class="fld"><label>User ID from request</label><input id="adminDeleteUserId" placeholder="Supabase user UUID"/></div>
+              <div class="fld"><label>Account Email</label><input id="adminDeleteEmail" type="email" placeholder="user@example.com"/></div>
+            </div>
+            <div class="btn-row" style="margin-top:10px">
+              <button id="adminPreviewAccountDeleteBtn" class="btn btn-o btn-sm" type="button">Load Request</button>
+            </div>
+            <div id="adminAccountDeleteGate" class="review-delete-gate">No deletion request loaded. The delete controls are locked.</div>
+            <div id="adminAccountDeleteSummary" class="tp-list"></div>
+            <div id="adminAccountDeleteExecute" class="review-delete-execute">
+              <label class="owner-check"><input id="adminDeleteOwnedBusinesses" type="checkbox" disabled/><span><strong>Delete owned businesses too</strong><br/><span class="fld-hint">Required only when the preview shows owned businesses that should be removed with the account.</span></span></label>
+              <div class="fld"><label>Confirmation phrase</label><input id="adminDeleteConfirmPhrase" autocomplete="off" placeholder="Load a pending request first" disabled/></div>
+              <button id="adminExecuteAccountDeleteBtn" class="btn btn-r btn-sm" type="button" disabled>Permanently Delete Requested Account</button>
+            </div>
+            <div id="adminAccountDeleteStatus" class="stxt"></div>
           </div>
         </div>
             </div>
@@ -14677,7 +14745,9 @@ function syncReviewNavBadge(){
 }
 function syncReviewerUi(user=App.user){
   const reviewerAccess=$('adminReviewerAccess');
+  const accountDeleteCard=$('adminAccountDeleteCard');
   if(reviewerAccess) reviewerAccess.style.display=isReviewerAccount(user)?'flex':'none';
+  if(accountDeleteCard) accountDeleteCard.style.display=isReviewerAccount(user)?'':'none';
   if(!isReviewerAccount(user) && document.querySelector('.asub.on')?.id==='sub-review'){
     switchAdminSub(user?'shops':'account',{refreshShops:false});
   }
@@ -19276,20 +19346,58 @@ function adminAccountDeletionRequestBody(dryRun=true){
     }
   };
 }
+function syncAdminAccountDeletionControls(){
+  const snap=App.adminAccountDeletionPreview||{};
+  const req=snap.account_deletion_request||{};
+  const pending=!!req.pending;
+  const gate=$('adminAccountDeleteGate');
+  const execute=$('adminAccountDeleteExecute');
+  const phrase=$('adminDeleteConfirmPhrase');
+  const owned=$('adminDeleteOwnedBusinesses');
+  const btn=$('adminExecuteAccountDeleteBtn');
+  if(gate){
+    gate.classList.toggle('ready',pending);
+    gate.textContent=pending
+      ? `Pending deletion request verified${req.request_id?` (${req.request_id})`:''}. Review the impact before deleting.`
+      : 'No pending deletion request loaded. The delete controls are locked.';
+  }
+  execute?.classList.toggle('on',pending);
+  if(phrase){
+    phrase.disabled=!pending;
+    phrase.placeholder=pending ? `DELETE ${snap.email||'user@example.com'}` : 'Load a pending request first';
+  }
+  if(owned) owned.disabled=!pending;
+  if(btn) btn.disabled=!pending;
+}
+function resetAdminAccountDeletionPreview(){
+  App.adminAccountDeletionPreview=null;
+  if($('adminAccountDeleteSummary')) $('adminAccountDeleteSummary').innerHTML='';
+  if($('adminDeleteConfirmPhrase')) $('adminDeleteConfirmPhrase').value='';
+  if($('adminDeleteOwnedBusinesses')) $('adminDeleteOwnedBusinesses').checked=false;
+  syncAdminAccountDeletionControls();
+}
 function renderAdminAccountDeletionSummary(data={}){
   const host=$('adminAccountDeleteSummary');
   if(!host) return;
   const snap=data.snapshot||data;
   if(!snap || !snap.user_id){
+    App.adminAccountDeletionPreview=null;
     host.innerHTML='';
+    syncAdminAccountDeletionControls();
     return;
   }
+  App.adminAccountDeletionPreview=snap;
   const counts=snap.counts||{};
   const owned=Array.isArray(snap.owned_businesses)?snap.owned_businesses:[];
+  const req=snap.account_deletion_request||{};
   const rows=[
     ['User ID',snap.user_id||''],
     ['Email',snap.email||''],
     ['Role',snap.role||'customer'],
+    ['Request status',req.pending?'Pending deletion request':'No pending request'],
+    ['Request ID',req.request_id||'Not available'],
+    ['Requested at',req.requested_at||'Not available'],
+    ['Request reason',req.reason||'Not provided'],
     ['Profile rows',counts.profile_rows??0],
     ['Owned businesses',counts.owned_businesses??owned.length],
     ['Owned offerings',counts.owned_products??0],
@@ -19303,6 +19411,7 @@ function renderAdminAccountDeletionSummary(data={}){
     ? `<div class="tp-row"><div>Businesses</div><b>${owned.map(row=>esc(row.name||row.shop_id||'Untitled')).join('<br/>')}</b></div>`
     : '';
   host.innerHTML=rows.map(([label,value])=>`<div class="tp-row"><div>${esc(label)}</div><b>${esc(String(value))}</b></div>`).join('')+businessHtml;
+  syncAdminAccountDeletionControls();
 }
 async function previewAdminAccountDeletion(){
   if(!isReviewerAccount()) return;
@@ -19317,8 +19426,10 @@ async function previewAdminAccountDeletion(){
       body:JSON.stringify(body)
     });
     renderAdminAccountDeletionSummary(d);
-    setFieldHint('adminAccountDeleteStatus','Preview loaded. Nothing has been deleted.','ok');
+    const pending=!!(d.snapshot?.account_deletion_request?.pending);
+    setFieldHint('adminAccountDeleteStatus',pending?'Pending request loaded. Review the impact, then type the confirmation phrase to delete.':'No pending deletion request was found for this user. Ask the user to request deletion from Account settings first.',pending?'ok':'err');
   }catch(e){
+    resetAdminAccountDeletionPreview();
     setFieldHint('adminAccountDeleteStatus',e.message,'err');
   }finally{
     setBtnBusy('adminPreviewAccountDeleteBtn',false);
@@ -19327,6 +19438,9 @@ async function previewAdminAccountDeletion(){
 async function executeAdminAccountDeletion(){
   if(!isReviewerAccount()) return;
   try{
+    if(!App.adminAccountDeletionPreview?.account_deletion_request?.pending){
+      return setFieldHint('adminAccountDeleteStatus','Load a pending deletion request before deleting an account.','err');
+    }
     const {userId,body}=adminAccountDeletionRequestBody(false);
     const expected=`DELETE ${body.confirm_email}`;
     if(body.confirm_text!==expected) return setFieldHint('adminAccountDeleteStatus',`Type the exact phrase: ${expected}`,'err');
@@ -19342,6 +19456,7 @@ async function executeAdminAccountDeletion(){
     renderAdminAccountDeletionSummary(d);
     setFieldHint('adminAccountDeleteStatus',d.message||'Account deleted.','ok');
     toast('Account deleted',body.confirm_email);
+    resetAdminAccountDeletionPreview();
   }catch(e){
     setFieldHint('adminAccountDeleteStatus',e.message,'err');
     toast('Deletion failed',e.message,'err');
@@ -20159,6 +20274,11 @@ $('refreshReviewCenterBtn')?.addEventListener('click',()=>{loadAdminReviewQueue(
 $('refreshReviewNotifyBtn')?.addEventListener('click',loadReviewNotificationStatus);
 $('adminPreviewAccountDeleteBtn')?.addEventListener('click',previewAdminAccountDeletion);
 $('adminExecuteAccountDeleteBtn')?.addEventListener('click',executeAdminAccountDeletion);
+['adminDeleteUserId','adminDeleteEmail'].forEach(id=>$(id)?.addEventListener('input',()=>{
+  resetAdminAccountDeletionPreview();
+  setFieldHint('adminAccountDeleteStatus','Load the deletion request before deleting an account.');
+}));
+syncAdminAccountDeletionControls();
 $('deleteShopBtn').addEventListener('click',deleteShop);
 initShopWizard();
 initProductWizard();

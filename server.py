@@ -1795,7 +1795,61 @@ def auth_user_payload_dict(user_obj: Any) -> Dict[str, Any]:
         "id": str(getattr(user_obj, "id", "") or ""),
         "email": auth_user_email(user_obj),
         "email_confirmed_at": getattr(user_obj, "email_confirmed_at", None),
+        "user_metadata": getattr(user_obj, "user_metadata", {}) or {},
+        "app_metadata": getattr(user_obj, "app_metadata", {}) or {},
     }
+
+def auth_user_metadata(user_obj: Any) -> Dict[str, Any]:
+    if isinstance(user_obj, dict):
+        meta = user_obj.get("user_metadata") or user_obj.get("raw_user_meta_data") or {}
+    else:
+        meta = getattr(user_obj, "user_metadata", {}) or getattr(user_obj, "raw_user_meta_data", {}) or {}
+    return dict(meta) if isinstance(meta, dict) else {}
+
+def account_deletion_request_marker(user_obj: Any) -> Dict[str, Any]:
+    req = auth_user_metadata(user_obj).get("account_deletion_request") or {}
+    if not isinstance(req, dict):
+        req = {}
+    requested_at = str(req.get("requested_at") or "").strip()
+    return {
+        "pending": bool(req.get("pending") and requested_at),
+        "request_id": str(req.get("request_id") or "").strip(),
+        "requested_at": requested_at,
+        "reason": str(req.get("reason") or "").strip(),
+        "owned_business_count": int(req.get("owned_business_count") or 0),
+    }
+
+def update_auth_user_metadata_by_id(user_id: str, metadata: Dict[str, Any]) -> None:
+    uid = str(user_id or "").strip()
+    if not uid:
+        raise HTTPException(400, "User ID is required.")
+    payload = {"user_metadata": metadata}
+    admin_api = auth_admin_api()
+    if admin_api and hasattr(admin_api, "update_user_by_id"):
+        try:
+            admin_api.update_user_by_id(uid, payload)
+            return
+        except Exception as e:
+            print(f"[Auth Metadata Warning] admin.update_user_by_id failed for {uid}: {e}")
+    res = requests.put(f"{SUPABASE_URL.rstrip('/')}/auth/v1/admin/users/{uid}", headers=supabase_auth_headers(SUPABASE_KEY), json=payload, timeout=20)
+    if res.status_code >= 400:
+        try:
+            detail = res.json().get("msg") or res.json().get("error_description") or res.json().get("message")
+        except Exception:
+            detail = res.text or "Could not update auth user metadata."
+        raise HTTPException(400, detail)
+
+def mark_account_deletion_requested(user_obj: Any, reason: str, requested_at: str, request_id: str, owned_business_count: int) -> None:
+    uid = str(getattr(user_obj, "id", "") or (user_obj.get("id") if isinstance(user_obj, dict) else "") or "").strip()
+    metadata = auth_user_metadata(user_obj)
+    metadata["account_deletion_request"] = {
+        "pending": True,
+        "request_id": request_id,
+        "requested_at": requested_at,
+        "reason": reason,
+        "owned_business_count": int(owned_business_count or 0),
+    }
+    update_auth_user_metadata_by_id(uid, metadata)
 
 def load_auth_user_by_id(user_id: str) -> Dict[str, Any]:
     uid = str(user_id or "").strip()
@@ -6797,6 +6851,7 @@ def request_account_deletion(body: AccountDeletionRequestReq, request: Request, 
     sb = require_supabase()
     owned_businesses = sb.table("shops").select("shop_id, name").eq("owner_user_id", user.id).limit(20).execute().data or []
     requested_at = datetime.now(timezone.utc).isoformat()
+    request_id = uuid.uuid4().hex[:12]
     business_lines = [
         f"- {row.get('name') or 'Untitled Business'} ({row.get('shop_id') or 'no id'})"
         for row in owned_businesses
@@ -6806,6 +6861,7 @@ def request_account_deletion(body: AccountDeletionRequestReq, request: Request, 
         [
             "A signed-in user requested account deletion.",
             f"Requested at: {requested_at}",
+            f"Request ID: {request_id}",
             f"User ID: {user.id}",
             f"Email: {email}",
             f"Display name: {prof.get('display_name', '') or getattr(user, 'email', '')}",
@@ -6819,10 +6875,18 @@ def request_account_deletion(body: AccountDeletionRequestReq, request: Request, 
     )
     if int(report.get("sent_count") or 0) <= 0:
         raise HTTPException(503, "Account deletion requests are not configured yet. Contact support directly.")
+    try:
+        mark_account_deletion_requested(user, reason, requested_at, request_id, len(owned_businesses))
+    except HTTPException as e:
+        raise HTTPException(503, f"Deletion request notification was sent, but the request could not be recorded for Review Center: {e.detail}")
+    except Exception as e:
+        print(f"[Account Delete Warning] could not record deletion request for {user.id}: {e}")
+        raise HTTPException(503, "Deletion request notification was sent, but the request could not be recorded for Review Center.")
     return {
         "ok": True,
         "message": "Account deletion request sent. We will review it before making irreversible changes.",
         "owned_business_count": len(owned_businesses),
+        "request_id": request_id,
     }
 
 @app.put("/auth/profile")
@@ -8737,10 +8801,11 @@ def safe_table_count_in(table_name: str, column_name: str, values: List[Any]) ->
         print(f"[Account Delete Preview Warning] could not count {table_name}.{column_name}: {e}")
         return None
 
-def account_deletion_snapshot(target_user_id: str, target_email: str = "") -> Dict[str, Any]:
+def account_deletion_snapshot(target_user_id: str, target_email: str = "", auth_user: Any = None) -> Dict[str, Any]:
     sb = require_supabase()
     uid = str(target_user_id or "").strip()
     email = clean_email(target_email)
+    auth_payload = auth_user if auth_user is not None else load_auth_user_by_id(uid)
     profile_rows = sb.table("profiles").select("*").eq("id", uid).limit(1).execute().data or []
     profile = profile_rows[0] if profile_rows else {}
     owned_businesses = sb.table("shops").select("shop_id, name, profile_image_url").eq("owner_user_id", uid).execute().data or []
@@ -8763,6 +8828,7 @@ def account_deletion_snapshot(target_user_id: str, target_email: str = "") -> Di
         "display_name": profile.get("display_name", ""),
         "role": profile.get("role", "customer") or "customer",
         "avatar_url": profile.get("avatar_url", ""),
+        "account_deletion_request": account_deletion_request_marker(auth_payload),
         "owned_businesses": [{"shop_id": row.get("shop_id", ""), "name": row.get("name", "")} for row in owned_businesses],
         "counts": counts,
     }
@@ -8821,13 +8887,16 @@ def admin_process_account_deletion(target_user_id: str, body: AdminAccountDeleti
     supplied_email = clean_email(body.confirm_email)
     if supplied_email and supplied_email != target_email:
         raise HTTPException(400, "The confirmation email does not match this auth user.")
-    snapshot = account_deletion_snapshot(uid, target_email)
+    snapshot = account_deletion_snapshot(uid, target_email, target_auth_user)
     target_role = str(snapshot.get("role", "") or "").strip().lower()
     admin_role = str((admin_prof or {}).get("role", "") or "").strip().lower()
     if target_role in {"admin", "superadmin"} and admin_role != "superadmin":
         raise HTTPException(403, "Only a superadmin can delete another admin account.")
     if body.dry_run:
         return {"ok": True, "dry_run": True, "snapshot": snapshot}
+    pending_request = snapshot.get("account_deletion_request") or {}
+    if not pending_request.get("pending"):
+        raise HTTPException(400, "No pending account deletion request was found for this user. Ask the user to submit a deletion request from Account settings before deleting the account.")
     expected_phrase = f"DELETE {target_email}"
     if not target_email or supplied_email != target_email or str(body.confirm_text or "").strip() != expected_phrase:
         raise HTTPException(400, f"Type the exact confirmation phrase: {expected_phrase}")
