@@ -10582,7 +10582,12 @@ function resolveSrv(v=''){
   if(!raw) return origin;
   try{
     const url=new URL(raw, window.location.origin);
-    if((/^(localhost|127\.0\.0\.1)$/i.test(url.hostname)) && !/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname)){
+    const localHost=/^(localhost|127\.0\.0\.1)$/i;
+    const currentHost=window.location.hostname||'';
+    if(localHost.test(url.hostname) && !localHost.test(currentHost)){
+      return origin;
+    }
+    if(/^https?:$/i.test(window.location.protocol) && !localHost.test(currentHost) && url.hostname!==currentHost){
       return origin;
     }
     return norm(url.origin);
@@ -14530,6 +14535,7 @@ function formatDate(ts){
 /* ═════════════════════════════════════════════
    API
 ═════════════════════════════════════════════ */
+const API_TIMEOUT_MS=12000;
 async function api(path,opts={}){
   const method=String(opts.method||'GET').toUpperCase();
   const baseHeaders={...(opts.headers||{})};
@@ -14537,7 +14543,17 @@ async function api(path,opts={}){
   const fallbackBase=resolveSrv(window.location.origin);
   async function fetchJson(base,retryAuth=true){
     const headers=withCsrfHeader(baseHeaders,method);
-    const r=await fetch(`${base}${path}`,{...opts,method,headers,credentials:'include'});
+    if(!opts.auth && /^\/(?:public|chat)\b/.test(String(path||'')) && !headers['X-Public-Anonymous']) headers['X-Public-Anonymous']='1';
+    const timeoutMs=Math.max(2500,Number(opts.timeout_ms||opts.timeout||API_TIMEOUT_MS)||API_TIMEOUT_MS);
+    const controller=opts.signal ? null : new AbortController();
+    const timer=controller ? setTimeout(()=>controller.abort(),timeoutMs) : null;
+    const {timeout,timeout_ms,signal,...fetchOpts}=opts;
+    let r;
+    try{
+      r=await fetch(`${base}${path}`,{...fetchOpts,method,headers,credentials:'include',signal:signal||controller?.signal});
+    }finally{
+      if(timer) clearTimeout(timer);
+    }
     let d;try{d=await r.json();}catch{d=null;}
     if(r.status===401 && opts.auth && retryAuth && !String(path||'').startsWith('/auth/refresh')){
       const refreshed=await refreshBrowserSession(base);
@@ -14556,18 +14572,18 @@ async function api(path,opts={}){
     App.srv=primaryBase;save();
     return d;
   }catch(e){
-    if(e.name==='TypeError' && primaryBase!==fallbackBase){
+    if((e.name==='TypeError'||e.name==='AbortError') && primaryBase!==fallbackBase){
       try{
         const {r,d}=await fetchJson(fallbackBase,true);
         if(!r.ok)throw new Error(d?.detail||d?.message||`Error ${r.status}`);
         App.srv=fallbackBase;save();
         return d;
       }catch(e2){
-        if(e2.name==='TypeError')throw new Error('Cannot reach the service right now. Please try again.');
+        if(e2.name==='TypeError'||e2.name==='AbortError')throw new Error('Cannot reach the service right now. Please try again.');
         throw e2;
       }
     }
-    if(e.name==='TypeError')throw new Error('Cannot reach the service right now. Please try again.');
+    if(e.name==='TypeError'||e.name==='AbortError')throw new Error('Cannot reach the service right now. Please try again.');
     throw e;
   }
 }
@@ -17203,6 +17219,7 @@ $('srchClear').addEventListener('click',()=>{
    HOME — shops + featured products
 ═════════════════════════════════════════════ */
 const PUBLIC_HOME_CACHE_KEY='wave_public_home_cache_v1';
+const PUBLIC_FEATURED_CACHE_KEY='wave_public_featured_cache_v1';
 const PUBLIC_HOME_CACHE_MAX_AGE=5*60*1000;
 function readPublicHomeCache(query=''){
   try{
@@ -17216,14 +17233,29 @@ function writePublicHomeCache(query='',businesses=[]){
   try{localStorage.setItem(PUBLIC_HOME_CACHE_KEY,JSON.stringify({query,ts:Date.now(),businesses:(businesses||[]).slice(0,120)}));}
   catch{}
 }
+function readPublicFeaturedCache(query=''){
+  try{
+    const cached=JSON.parse(localStorage.getItem(PUBLIC_FEATURED_CACHE_KEY)||'null');
+    if(!cached || cached.query!==query || !cached.payload) return null;
+    if(Date.now()-Number(cached.ts||0)>PUBLIC_HOME_CACHE_MAX_AGE) return null;
+    return cached.payload;
+  }catch{return null;}
+}
+function writePublicFeaturedCache(query='',payload=null){
+  if(!payload) return;
+  try{localStorage.setItem(PUBLIC_FEATURED_CACHE_KEY,JSON.stringify({query,ts:Date.now(),payload}));}
+  catch{}
+}
 async function loadAllShops(){
   collectShopFilters();
   const query=buildShopFilterQuery();
   const cached=readPublicHomeCache(query);
+  let featuredStarted=false;
+  const startFeatured=()=>{ if(featuredStarted) return; featuredStarted=true; loadFeatured(); };
   if(cached && !(App.allShops||[]).length){
     App.allShops=cached.businesses||[];
     renderHomeShops();
-    loadFeatured();
+    startFeatured();
   }
   try{
     const d=normalizeCatalogPayload(await api(`/public/businesses${query}`));
@@ -17232,7 +17264,7 @@ async function loadAllShops(){
     writePublicHomeCache(query,App.allShops);
     App.publicCatalogDirty=false;
     renderHomeShops();
-    loadFeatured();
+    startFeatured();
   }
   catch(e){$('homeShopGrid').innerHTML=`<div class="empty"><div class="ei">Warning</div><div class="et">${esc(e.message)}</div></div>`;}
 }
@@ -17272,31 +17304,43 @@ function renderHomeShops(){
   });
   syncHomeMobileLayout();
 }
+function renderFeaturedPayload(payload={},cat='',paginationEl=null){
+  const d=normalizeCatalogPayload(payload||{});
+  assertPublicBrowseOk(d,'Offerings are temporarily unavailable.');
+  const prods=applyFavouriteStateToProducts(d.offerings||[]);
+  const total=Number(d.pagination?.total||0)||prods.length||0;
+  if(!(App.allShops||[]).length && total){
+    if($('heroProductCount')) $('heroProductCount').textContent=String(total);
+    if($('heroMobileProductCount')) $('heroMobileProductCount').textContent=String(total);
+  }
+  renderMarketAttributeFilter(cat,'featured',prods);
+  $('featuredSub').textContent=`${total} available${App.marketAttrFilter?.value?` matching ${App.marketAttrFilter.value}`:''}`;
+  fillGrid($('featuredGrid'),prods,{mode:'browse',showShop:true});
+  if(paginationEl) buildPagination(paginationEl,d.pagination,p=>loadFeatured(p));
+  syncHomeMobileLayout();
+}
 async function loadFeatured(page=1){
   const cat=App.activeCat;
   const paginationEl=$('featuredPagination');
   $('featuredTitle').textContent=cat?`${cat} Offerings`:'Available Offerings';
-  if($('featuredSub')) $('featuredSub').textContent='Loading available offerings...';
-  $('featuredGrid').innerHTML=`<div class="empty"><div class="ei">Loading</div><div class="et">Getting offerings...</div></div>`;
-  if(paginationEl) paginationEl.innerHTML='';
+  const attrParams=[];
+  if(App.marketAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.marketAttrFilter.key)}`);
+  if(App.marketAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.marketAttrFilter.value)}`);
+  const endpoint=withViewerCurrency(`/public/top-offerings?page=${page}&limit=24${cat?`&category=${encodeURIComponent(cat)}`:''}${attrParams.length?`&${attrParams.join('&')}`:''}`);
+  const cached=readPublicFeaturedCache(endpoint);
+  if(cached){
+    try{renderFeaturedPayload(cached,cat,paginationEl);}catch{}
+  }else{
+    if($('featuredSub')) $('featuredSub').textContent='Loading available offerings...';
+    $('featuredGrid').innerHTML=`<div class="empty"><div class="ei">Loading</div><div class="et">Getting offerings...</div></div>`;
+    if(paginationEl) paginationEl.innerHTML='';
+  }
   try{
-    const attrParams=[];
-    if(App.marketAttrFilter?.key) attrParams.push(`attr_key=${encodeURIComponent(App.marketAttrFilter.key)}`);
-    if(App.marketAttrFilter?.value) attrParams.push(`attr_value=${encodeURIComponent(App.marketAttrFilter.value)}`);
-    const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/top-offerings?page=${page}&limit=24${cat?`&category=${encodeURIComponent(cat)}`:''}${attrParams.length?`&${attrParams.join('&')}`:''}` ),{auth:!!tok()}));
-    assertPublicBrowseOk(d,'Offerings are temporarily unavailable.');
-    const prods=applyFavouriteStateToProducts(d.offerings||[]);
-    const total=Number(d.pagination?.total||0)||prods.length||0;
-    if(!(App.allShops||[]).length && total){
-      if($('heroProductCount')) $('heroProductCount').textContent=String(total);
-      if($('heroMobileProductCount')) $('heroMobileProductCount').textContent=String(total);
-    }
-    renderMarketAttributeFilter(cat,'featured',prods);
-    $('featuredSub').textContent=`${total} available${App.marketAttrFilter?.value?` matching ${App.marketAttrFilter.value}`:''}`;
-    fillGrid($('featuredGrid'),prods,{mode:'browse',showShop:true});
-    if(paginationEl) buildPagination(paginationEl,d.pagination,p=>loadFeatured(p));
-    syncHomeMobileLayout();
+    const d=normalizeCatalogPayload(await api(endpoint,{auth:!!tok()}));
+    writePublicFeaturedCache(endpoint,d);
+    renderFeaturedPayload(d,cat,paginationEl);
   }catch(e){
+    if(cached) return;
     if($('featuredSub')) $('featuredSub').textContent='Offerings unavailable';
     if(paginationEl) paginationEl.innerHTML='';
     $('featuredGrid').innerHTML=`<div class="empty"><div class="ei">Warning</div><div class="et">${esc(e.message)}</div></div>`;
@@ -21516,12 +21560,13 @@ async function init(){
   renderUserUI();renderFilePrev([]);renderChatSide([]);renderCQchips([]);renderChatPromptList();renderChatFacts();autoSizeChatInput();updateCartBadge();
   syncHomeMobileLayout();
   setShopMobileSheet('',false);
-  await Promise.allSettled([loadLocationSupport(),loadTimezoneSupport(),checkServer()]);
+  Promise.allSettled([loadLocationSupport(),loadTimezoneSupport()]).catch(()=>{});
+  checkServer().catch(()=>{});
   await migrateLegacyUserSession();
   try{const d=await api('/auth/me',{auth:true});saveUser(d);}
   catch{clearUser();}
   if(applyInternalReviewRouteState()) return;
-  await refreshViewerFavourites();
+  refreshViewerFavourites().catch(()=>{});
   if(deepLinkStartup){
     const handledDeepLink=await handlePathDeepLink('init');
     loadAllShops().catch(()=>{});
@@ -21532,16 +21577,16 @@ async function init(){
     if(!handledAuthRedirect) maybeOfferLocationOnLaunch().catch(()=>{});
     return;
   }
-  await loadAllShops();
-  if(App.user)await loadMyShops();
-  await refreshRequestNotification();
+  loadAllShops().catch(()=>{});
+  if(App.user) loadMyShops().catch(()=>{});
+  refreshRequestNotification().catch(()=>{});
   startRequestWatcher();
   if(App.shopId){
-    try{const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(App.shopId)}`),{auth:!!tok()}));assertPublicBrowseOk(d,'Business is temporarily unavailable.');App.shopData=d;App.chatShopId=d.shop?.shop_slug||d.shop?.shop_id||App.shopId;if(currentChatMode()!=='global'){$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}}catch{}
+    api(withViewerCurrency(`/public/business/${encodeURIComponent(App.shopId)}`),{auth:!!tok()}).then(raw=>{const d=normalizeCatalogPayload(raw);assertPublicBrowseOk(d,'Business is temporarily unavailable.');App.shopData=d;App.chatShopId=d.shop?.shop_slug||d.shop?.shop_id||App.shopId;if(currentChatMode()!=='global'){$('chatSN').textContent=d.shop?.name||App.shopId;renderCQchips(d.suggested_questions);renderChatPromptList(d.suggested_questions);renderChatFacts(d.shop,d.stats,d.pagination?.total ?? d.products?.length ?? 0);}}).catch(()=>{});
   }
   const handledDeepLink=await handlePathDeepLink('init');
   if(!handledDeepLink || !isPublicDeepLinkRoute()) applyPageQueryState();
-  if(!handledAuthRedirect) await maybeOfferLocationOnLaunch();
+  if(!handledAuthRedirect) maybeOfferLocationOnLaunch().catch(()=>{});
 }
 $('shopFilterApply')?.addEventListener('click',()=>{loadAllShops();toggleShopFilters(false);});
 $('shopFilterClear')?.addEventListener('click',()=>{clearShopFilters();loadAllShops();toggleShopFilters(false);});

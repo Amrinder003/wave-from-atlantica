@@ -180,8 +180,8 @@ LEAFLET_REQUIRED_ASSETS = ("leaflet.js", "leaflet.css")
 FX_API_BASE       = os.environ.get("FX_API_BASE", "https://api.frankfurter.dev/v2").strip().rstrip("/")
 FX_CACHE_SECONDS  = int(os.environ.get("FX_CACHE_SECONDS", "21600") or 21600)
 PRODUCT_SEARCH_INDEX_CACHE_SECONDS = int(os.environ.get("PRODUCT_SEARCH_INDEX_CACHE_SECONDS", "45") or 45)
-PUBLIC_BROWSE_CACHE_SECONDS = int(os.environ.get("PUBLIC_BROWSE_CACHE_SECONDS", "20") or 20)
-SHOP_STATS_CACHE_SECONDS = int(os.environ.get("SHOP_STATS_CACHE_SECONDS", "30") or 30)
+PUBLIC_BROWSE_CACHE_SECONDS = int(os.environ.get("PUBLIC_BROWSE_CACHE_SECONDS", "60") or 60)
+SHOP_STATS_CACHE_SECONDS = int(os.environ.get("SHOP_STATS_CACHE_SECONDS", "120") or 120)
 
 SUPABASE_URL      = os.environ.get("SUPABASE_URL", "").strip()
 SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
@@ -292,6 +292,8 @@ FX_CACHE: Dict[Tuple[str, str], Dict[str, Any]] = {}
 PRODUCT_SEARCH_INDEX_CACHE: Dict[str, Dict[str, Any]] = {}
 SHOP_STATS_CACHE: Dict[str, Dict[str, Any]] = {}
 PUBLIC_BUSINESS_LIST_CACHE: Dict[str, Dict[str, Any]] = {}
+PUBLIC_BUSINESS_DETAIL_CACHE: Dict[str, Dict[str, Any]] = {}
+PUBLIC_TOP_OFFERINGS_CACHE: Dict[str, Dict[str, Any]] = {}
 PUBLIC_MARKETPLACE_SNAPSHOT_CACHE: Dict[str, Dict[str, Any]] = {}
 PUBLIC_CACHE_SUPABASE_ID = id(supabase)
 PRODUCT_SEARCH_INDEX_COLUMNS = ",".join([
@@ -850,6 +852,8 @@ def get_user(auth: Optional[str], request: Optional[Request] = None):
 
 def optional_user_id(auth: Optional[str] = None, request: Optional[Request] = None) -> Optional[str]:
     try:
+        if not auth and request and str(request.headers.get("x-public-anonymous", "") or "").strip().lower() in {"1", "true", "yes"}:
+            return None
         if auth or session_cookie_present(request):
             user, _ = get_user(auth, request)
             return user.id
@@ -2909,6 +2913,8 @@ def ensure_public_cache_scope() -> None:
     PRODUCT_SEARCH_INDEX_CACHE.clear()
     SHOP_STATS_CACHE.clear()
     PUBLIC_BUSINESS_LIST_CACHE.clear()
+    PUBLIC_BUSINESS_DETAIL_CACHE.clear()
+    PUBLIC_TOP_OFFERINGS_CACHE.clear()
     PUBLIC_MARKETPLACE_SNAPSHOT_CACHE.clear()
 
 def invalidate_public_browse_cache(shop_id: str = "") -> None:
@@ -2921,6 +2927,8 @@ def invalidate_public_browse_cache(shop_id: str = "") -> None:
         PRODUCT_SEARCH_INDEX_CACHE.clear()
         SHOP_STATS_CACHE.clear()
     PUBLIC_BUSINESS_LIST_CACHE.clear()
+    PUBLIC_BUSINESS_DETAIL_CACHE.clear()
+    PUBLIC_TOP_OFFERINGS_CACHE.clear()
     PUBLIC_MARKETPLACE_SNAPSHOT_CACHE.clear()
 
 def load_shop_stats_bulk(shop_ids: List[str]) -> Dict[str, Dict[str, Any]]:
@@ -3109,6 +3117,8 @@ def invalidate_shop_product_search_cache(shop_id: str) -> None:
         PRODUCT_SEARCH_INDEX_CACHE.pop(sid, None)
         SHOP_STATS_CACHE.pop(sid, None)
     PUBLIC_BUSINESS_LIST_CACHE.clear()
+    PUBLIC_BUSINESS_DETAIL_CACHE.clear()
+    PUBLIC_TOP_OFFERINGS_CACHE.clear()
     PUBLIC_MARKETPLACE_SNAPSHOT_CACHE.clear()
 
 def get_shop_product_search_rows(shop_id: str) -> List[Dict[str, Any]]:
@@ -7821,14 +7831,41 @@ def public_address_search(request: Request, q: str = Query(..., min_length=3), c
 @app.get("/public/shop/{shop_ref}")
 def public_shop(shop_ref: str, request: Request, background_tasks: BackgroundTasks, sort: str = Query("default"), stock: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
     try:
-        shop_row = ensure_market_shop_access(resolve_shop_by_ref(shop_ref))
-        shop_id = shop_row["shop_id"]
-        user_id = optional_user_id(authorization, request)
-
+        ensure_public_cache_scope()
+        anonymous_public = str(request.headers.get("x-public-anonymous", "") or "").strip().lower() in {"1", "true", "yes"} and not authorization
+        can_cache = anonymous_public or not (authorization or session_cookie_present(request))
         sort_key = str(sort or "default").strip().lower()
         stock_key = str(stock or "").strip().lower()
         attr_key = str(attr_key or "").strip()
         attr_value = str(attr_value or "").strip()
+        should_track_view = page == 1 and sort_key in {"", "default"} and not stock_key and not attr_key and not attr_value
+        cache_key = json.dumps(
+            {
+                "shop_ref": str(shop_ref or "").strip(),
+                "sort": sort_key,
+                "stock": stock_key,
+                "attr_key": attr_key,
+                "attr_value": attr_value,
+                "currency": clean_currency(currency),
+                "page": int(page or 1),
+                "limit": int(limit or PAGE_SIZE),
+                "market_country": active_market_country_code(),
+            },
+            sort_keys=True,
+        )
+        if can_cache:
+            cached = PUBLIC_BUSINESS_DETAIL_CACHE.get(cache_key)
+            now = time.time()
+            if cached and now - float(cached.get("ts", 0) or 0) < PUBLIC_BROWSE_CACHE_SECONDS:
+                payload = public_cache_copy(cached.get("payload") or public_browse_error_payload("shop", Exception("empty cache"), page, limit))
+                if should_track_view and payload.get("shop_id"):
+                    background_tasks.add_task(track, str(payload.get("shop_id", "")), "shop_view")
+                return payload
+
+        shop_row = ensure_market_shop_access(resolve_shop_by_ref(shop_ref))
+        shop_id = shop_row["shop_id"]
+        user_id = optional_user_id(authorization, request) if not anonymous_public else None
+
         can_use_db_paging = not attr_key and not attr_value and sort_key in {"", "default"}
 
         if can_use_db_paging:
@@ -7871,18 +7908,21 @@ def public_shop(shop_ref: str, request: Request, background_tasks: BackgroundTas
             all_prods = sort_catalog_rows(all_prods, sort)
             paged = paginate_list(all_prods, page, limit)
 
-        if page == 1 and sort_key in {"", "default"} and not str(stock or "").strip() and not str(attr_key or "").strip() and not str(attr_value or "").strip():
+        if should_track_view:
             background_tasks.add_task(track, shop_id, "shop_view")
 
         ser_prods = serialize_products_bulk(paged["items"], user_id, {shop_id: shop_row}, currency)
 
-        return alias_catalog_response({
+        payload = alias_catalog_response({
             "ok": True, "shop_id": shop_id, "shop_slug": shop_row.get("shop_slug", ""), "shop": public_shop_payload(shop_row, include_transparency=True),
             "products": ser_prods,
             "pagination": paged["pagination"],
             "stats": shop_stats(shop_id),
             "suggested_questions": dedup([*default_catalog_prompts(shop_row, all_prods), "Show all images", *category_prompt_suggestions(shop_row.get("category", ""), shop_row.get("business_type", ""), all_prods)])[:6]
         })
+        if can_cache:
+            PUBLIC_BUSINESS_DETAIL_CACHE[cache_key] = {"ts": time.time(), "payload": public_cache_copy(payload)}
+        return payload
     except HTTPException:
         raise
     except Exception as exc:
@@ -7990,6 +8030,24 @@ def search_global(request: Request, q: str = Query(...), attr_key: str = Query("
 @app.get("/public/top-products")
 def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60), category: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query("")):
     try:
+        ensure_public_cache_scope()
+        cache_key = json.dumps(
+            {
+                "page": int(page or 1),
+                "limit": int(limit or PAGE_SIZE),
+                "category": category or "",
+                "attr_key": attr_key or "",
+                "attr_value": attr_value or "",
+                "currency": clean_currency(currency),
+                "market_country": active_market_country_code(),
+            },
+            sort_keys=True,
+        )
+        cached = PUBLIC_TOP_OFFERINGS_CACHE.get(cache_key)
+        now = time.time()
+        if cached and now - float(cached.get("ts", 0) or 0) < PUBLIC_BROWSE_CACHE_SECONDS:
+            return public_cache_copy(cached.get("payload") or alias_catalog_response({"ok": True, "products": [], "pagination": empty_public_page(page, limit)}))
+
         fields = "*, shops!inner(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2, listing_status)"
 
         def build_query(count: Optional[str] = None):
@@ -8037,7 +8095,9 @@ def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Quer
             prod["shop_category"] = r.get("shops", {}).get("category", "")
             prod["business_name"] = prod.get("shop_name", "")
             prod["business_category"] = prod.get("shop_category", "")
-        return alias_catalog_response({"ok": True, "products": results, "pagination": paged["pagination"]})
+        payload = alias_catalog_response({"ok": True, "products": results, "pagination": paged["pagination"]})
+        PUBLIC_TOP_OFFERINGS_CACHE[cache_key] = {"ts": now, "payload": public_cache_copy(payload)}
+        return payload
     except Exception as e:
         return public_browse_error_payload("top_offerings", e, page, limit)
 
