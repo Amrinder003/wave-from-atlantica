@@ -371,6 +371,44 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
                         "pickup_notes": "",
                         "created_at": "2026-04-11T00:00:00+00:00",
                     },
+                    {
+                        "shop_id": "drink-1",
+                        "shop_slug": "harbour-shakes",
+                        "owner_user_id": "owner-1",
+                        "name": "Harbour Shakes",
+                        "address": "40 Water St, Halifax",
+                        "formatted_address": "40 Water St, Halifax",
+                        "overview": "Fresh shakes, juices, and cold drinks.",
+                        "phone": "+1 902 555 0400",
+                        "hours": "Mon-Sat 09:00-19:00",
+                        "hours_structured": [
+                            {"day": "mon", "start": "09:00", "end": "19:00"},
+                            {"day": "tue", "start": "09:00", "end": "19:00"},
+                        ],
+                        "category": "Food",
+                        "business_type": "retail",
+                        "location_mode": "storefront",
+                        "service_area": "",
+                        "whatsapp": "",
+                        "country_code": "CA",
+                        "country_name": "Canada",
+                        "timezone_name": "America/Halifax",
+                        "region": "Nova Scotia",
+                        "city": "Halifax",
+                        "postal_code": "B3J 1N8",
+                        "street_line1": "40 Water St",
+                        "street_line2": "",
+                        "currency_code": "CAD",
+                        "latitude": 44.6480,
+                        "longitude": -63.5710,
+                        "supports_pickup": True,
+                        "supports_delivery": False,
+                        "supports_walk_in": True,
+                        "delivery_radius_km": None,
+                        "delivery_fee": None,
+                        "pickup_notes": "",
+                        "created_at": "2026-04-10T00:00:00+00:00",
+                    },
                 ],
                 "products": [
                     {
@@ -441,6 +479,75 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
                         "attribute_data": {"material": "Canvas", "style": "Walking"},
                         "images": [],
                         "updated_at": "2026-04-11T00:00:00+00:00",
+                    },
+                    {
+                        "shop_id": "drink-1",
+                        "product_id": "drink-mango",
+                        "product_slug": "mango-shake",
+                        "name": "Mango Shake",
+                        "overview": "Chilled mango shake.",
+                        "price": "CAD 3.00",
+                        "price_amount": 3.0,
+                        "currency_code": "CAD",
+                        "offering_type": "product",
+                        "price_mode": "fixed",
+                        "availability_mode": "available",
+                        "stock": "in",
+                        "stock_quantity": 10,
+                        "duration_minutes": None,
+                        "capacity": None,
+                        "variants": "",
+                        "variant_data": [],
+                        "variant_matrix": [],
+                        "attribute_data": {"type": "Drink", "flavor": "Mango"},
+                        "images": [],
+                        "updated_at": "2026-04-10T00:00:00+00:00",
+                    },
+                    {
+                        "shop_id": "drink-1",
+                        "product_id": "drink-banana",
+                        "product_slug": "banana-shake",
+                        "name": "Banana Shake",
+                        "overview": "Creamy banana shake.",
+                        "price": "CAD 4.00",
+                        "price_amount": 4.0,
+                        "currency_code": "CAD",
+                        "offering_type": "product",
+                        "price_mode": "fixed",
+                        "availability_mode": "available",
+                        "stock": "in",
+                        "stock_quantity": 9,
+                        "duration_minutes": None,
+                        "capacity": None,
+                        "variants": "",
+                        "variant_data": [],
+                        "variant_matrix": [],
+                        "attribute_data": {"type": "Drink", "flavor": "Banana"},
+                        "images": [],
+                        "updated_at": "2026-04-10T00:10:00+00:00",
+                    },
+                    {
+                        "shop_id": "drink-1",
+                        "product_id": "drink-premium-banana",
+                        "product_slug": "premium-banana-shake",
+                        "name": "Premium Banana Shake",
+                        "overview": "Banana shake with extra toppings.",
+                        "price": "CAD 6.00",
+                        "price_amount": 6.0,
+                        "currency_code": "CAD",
+                        "offering_type": "product",
+                        "price_mode": "fixed",
+                        "availability_mode": "available",
+                        "stock": "in",
+                        "stock_quantity": 7,
+                        "duration_minutes": None,
+                        "capacity": None,
+                        "variants": "",
+                        "variant_data": [],
+                        "variant_matrix": [],
+                        "attribute_data": {"type": "Drink", "flavor": "Banana"},
+                        "images": [],
+                        "updated_at": "2026-04-10T00:20:00+00:00",
                     },
                 ],
                 "profiles": [
@@ -728,8 +835,8 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
 
         self.assertEqual(data["assistant"], "Atlantica")
         self.assertEqual(data["mode"], "global")
-        self.assertEqual(data["context"]["summary"]["business_count"], 3)
-        self.assertEqual(data["context"]["summary"]["offering_count"], 3)
+        self.assertEqual(data["context"]["summary"]["business_count"], 4)
+        self.assertEqual(data["context"]["summary"]["offering_count"], 6)
         self.assertIn("Atlantica", data["answer"])
         self.assertIn("Atlantic Ordinate", data["answer"])
 
@@ -745,6 +852,43 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertGreaterEqual(len(data["offerings"]), 1)
         self.assertEqual(data["offerings"][0]["business_name"], "Budget Steps")
         self.assertEqual(data["offerings"][0]["price"], "CAD 49.00")
+
+    def test_global_chat_cheapest_banana_shake_uses_exact_subject(self):
+        response = self.client.get("/chat/global", params={"q": "Show me the cheapest banana shake"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertEqual(data["assistant"], "Atlantica")
+        self.assertEqual(data["mode"], "global")
+        self.assertIn("Banana Shake", data["answer"])
+        self.assertNotIn("Mango Shake", data["answer"])
+        offerings = data.get("offerings", [])
+        self.assertGreaterEqual(len(offerings), 1)
+        self.assertEqual(offerings[0]["name"], "Banana Shake")
+        self.assertEqual(offerings[0]["price"], "CAD 4.00")
+        self.assertTrue(all("Banana" in item["name"] for item in offerings))
+
+    def test_global_chat_show_all_drinks_matches_drink_synonyms(self):
+        response = self.client.get("/chat/global", params={"q": "Show all drinks"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        names = {item["name"] for item in data.get("offerings", [])}
+        self.assertIn("Mango Shake", names)
+        self.assertIn("Banana Shake", names)
+        self.assertIn("Premium Banana Shake", names)
+        self.assertTrue(all(item["business_name"] == "Harbour Shakes" for item in data.get("offerings", [])))
+
+    def test_global_chat_banana_shake_available_finds_existing_item(self):
+        response = self.client.get("/chat/global", params={"q": "Is banana shake available?"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertIn("Banana Shake", data["answer"])
+        self.assertNotIn("Mango Shake", data["answer"])
+        names = {item["name"] for item in data.get("offerings", [])}
+        self.assertIn("Banana Shake", names)
+        self.assertIn("Premium Banana Shake", names)
 
     def test_global_chat_about_specific_shop_returns_only_that_shop_and_highlight(self):
         response = self.client.get("/chat/global", params={"q": "Tell me about Alpha Shoes"})

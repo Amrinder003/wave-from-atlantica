@@ -2,12 +2,12 @@
 Wave API  v4.0 — Supabase Edition (Stable & Fixed Chat)
 """
 
-from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Response, Form
+from fastapi import FastAPI, Query, Header, HTTPException, UploadFile, File, Request, Response, Form, BackgroundTasks
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from pydantic import BaseModel, Field
-import os, re, json, time, uuid, shutil, math, base64, hashlib, hmac, secrets
+import os, re, json, time, uuid, shutil, math, base64, hashlib, hmac, secrets, copy
 import csv
 from contextvars import ContextVar
 from datetime import datetime, timezone, timedelta
@@ -180,6 +180,8 @@ LEAFLET_REQUIRED_ASSETS = ("leaflet.js", "leaflet.css")
 FX_API_BASE       = os.environ.get("FX_API_BASE", "https://api.frankfurter.dev/v2").strip().rstrip("/")
 FX_CACHE_SECONDS  = int(os.environ.get("FX_CACHE_SECONDS", "21600") or 21600)
 PRODUCT_SEARCH_INDEX_CACHE_SECONDS = int(os.environ.get("PRODUCT_SEARCH_INDEX_CACHE_SECONDS", "45") or 45)
+PUBLIC_BROWSE_CACHE_SECONDS = int(os.environ.get("PUBLIC_BROWSE_CACHE_SECONDS", "20") or 20)
+SHOP_STATS_CACHE_SECONDS = int(os.environ.get("SHOP_STATS_CACHE_SECONDS", "30") or 30)
 
 SUPABASE_URL      = os.environ.get("SUPABASE_URL", "").strip()
 SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
@@ -288,6 +290,10 @@ def make_supabase_client(key: str) -> Optional[Client]:
 supabase: Optional[Client] = make_supabase_client(SUPABASE_KEY)
 FX_CACHE: Dict[Tuple[str, str], Dict[str, Any]] = {}
 PRODUCT_SEARCH_INDEX_CACHE: Dict[str, Dict[str, Any]] = {}
+SHOP_STATS_CACHE: Dict[str, Dict[str, Any]] = {}
+PUBLIC_BUSINESS_LIST_CACHE: Dict[str, Dict[str, Any]] = {}
+PUBLIC_MARKETPLACE_SNAPSHOT_CACHE: Dict[str, Dict[str, Any]] = {}
+PUBLIC_CACHE_SUPABASE_ID = id(supabase)
 PRODUCT_SEARCH_INDEX_COLUMNS = ",".join([
     "product_id",
     "shop_id",
@@ -2485,6 +2491,7 @@ def shop_write_payload_with_fallback(shop_id: str, data: Dict[str, Any], existin
                 supabase.table("shops").update(payload).eq("shop_id", shop_id).execute()
             else:
                 supabase.table("shops").insert({"shop_id": shop_id, **payload}).execute()
+            invalidate_public_browse_cache(shop_id)
             return payload, unsupported
         except Exception as e:
             msg = str(e or "")
@@ -2508,7 +2515,7 @@ def product_write_payload_with_fallback(shop_id: str, product_id: str, data: Dic
                 supabase.table("products").update(payload).eq("shop_id", shop_id).eq("product_id", product_id).execute()
             else:
                 supabase.table("products").insert({**payload, "shop_id": shop_id, "product_id": product_id}).execute()
-            invalidate_shop_product_search_cache(shop_id)
+            invalidate_public_browse_cache(shop_id)
             return payload, unsupported
         except Exception as e:
             msg = str(e or "")
@@ -2872,35 +2879,145 @@ def load_product_metric_maps(rows: List[Dict[str, Any]]) -> Tuple[Dict[Tuple[str
 
     return review_map, view_map
 
-def shop_stats(shop_id: str) -> Dict:
-    sb = require_supabase()
-    prods = sb.table("products").select("images").eq("shop_id", shop_id).execute().data
-    normalized_images = [normalize_image_list(shop_id, p.get("images", [])) for p in prods]
-    with_imgs = sum(1 for images in normalized_images if images)
-    imgs = sum(len(images) for images in normalized_images)
-    
-    since = int(time.time()) - 86400 * 30
-    since_iso = datetime.fromtimestamp(since, tz=timezone.utc).isoformat()
-    
-    chats = sb.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "chat").gte("created_at", since_iso).execute().data
-    shop_views = sb.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "shop_view").gte("created_at", since_iso).execute().data
-    product_views = sb.table("analytics").select("id").eq("shop_id", shop_id).eq("event", "view").gte("created_at", since_iso).execute().data
-    rvs = sb.table("reviews").select("rating").eq("shop_id", shop_id).execute().data
-    
-    avg_r = sum(r["rating"] for r in rvs)/len(rvs) if rvs else 0
-    
+def chunked_values(values: List[str], chunk_size: int = 100) -> List[List[str]]:
+    items = [str(v or "").strip() for v in values if str(v or "").strip()]
+    return [items[i:i + chunk_size] for i in range(0, len(items), max(1, chunk_size))]
+
+def empty_shop_stats() -> Dict[str, Any]:
     return {
-        "product_count": len(prods),
-        "offering_count": len(prods),
-        "image_count": imgs,
-        "products_with_images": with_imgs,
-        "offerings_with_images": with_imgs,
-        "chat_hits_30d": len(chats), 
-        "shop_views_30d": len(shop_views),
-        "product_views_30d": len(product_views),
-        "offering_views_30d": len(product_views),
-        "avg_rating": round(avg_r, 1)
+        "product_count": 0,
+        "offering_count": 0,
+        "image_count": 0,
+        "products_with_images": 0,
+        "offerings_with_images": 0,
+        "chat_hits_30d": 0,
+        "shop_views_30d": 0,
+        "product_views_30d": 0,
+        "offering_views_30d": 0,
+        "avg_rating": 0,
     }
+
+def public_cache_copy(value: Any) -> Any:
+    return copy.deepcopy(value)
+
+def ensure_public_cache_scope() -> None:
+    global PUBLIC_CACHE_SUPABASE_ID
+    current_id = id(supabase)
+    if PUBLIC_CACHE_SUPABASE_ID == current_id:
+        return
+    PUBLIC_CACHE_SUPABASE_ID = current_id
+    PRODUCT_SEARCH_INDEX_CACHE.clear()
+    SHOP_STATS_CACHE.clear()
+    PUBLIC_BUSINESS_LIST_CACHE.clear()
+    PUBLIC_MARKETPLACE_SNAPSHOT_CACHE.clear()
+
+def invalidate_public_browse_cache(shop_id: str = "") -> None:
+    ensure_public_cache_scope()
+    sid = str(shop_id or "").strip()
+    if sid:
+        PRODUCT_SEARCH_INDEX_CACHE.pop(sid, None)
+        SHOP_STATS_CACHE.pop(sid, None)
+    else:
+        PRODUCT_SEARCH_INDEX_CACHE.clear()
+        SHOP_STATS_CACHE.clear()
+    PUBLIC_BUSINESS_LIST_CACHE.clear()
+    PUBLIC_MARKETPLACE_SNAPSHOT_CACHE.clear()
+
+def load_shop_stats_bulk(shop_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+    ensure_public_cache_scope()
+    ids = sorted({str(shop_id or "").strip() for shop_id in shop_ids if str(shop_id or "").strip()})
+    if not ids:
+        return {}
+
+    now = time.time()
+    out: Dict[str, Dict[str, Any]] = {}
+    missing: List[str] = []
+    for shop_id in ids:
+        cached = SHOP_STATS_CACHE.get(shop_id)
+        if cached and now - float(cached.get("ts", 0) or 0) < SHOP_STATS_CACHE_SECONDS:
+            out[shop_id] = dict(cached.get("stats") or empty_shop_stats())
+        else:
+            missing.append(shop_id)
+    if not missing:
+        return out
+
+    stats = {shop_id: empty_shop_stats() for shop_id in missing}
+    sb = require_supabase()
+
+    try:
+        for batch in chunked_values(missing):
+            product_rows = sb.table("products").select("shop_id, images").in_("shop_id", batch).execute().data or []
+            for product in product_rows:
+                shop_id = str(product.get("shop_id", "") or "").strip()
+                if shop_id not in stats:
+                    continue
+                images = normalize_image_list(shop_id, product.get("images", []))
+                stats[shop_id]["product_count"] += 1
+                stats[shop_id]["offering_count"] += 1
+                if images:
+                    stats[shop_id]["products_with_images"] += 1
+                    stats[shop_id]["offerings_with_images"] += 1
+                    stats[shop_id]["image_count"] += len(images)
+    except Exception as e:
+        print(f"[Shop Stats Warning] product stats: {e}")
+
+    since_iso = datetime.fromtimestamp(int(now) - 86400 * 30, tz=timezone.utc).isoformat()
+    try:
+        for batch in chunked_values(missing):
+            analytics_rows = (
+                sb.table("analytics")
+                .select("shop_id, event")
+                .in_("shop_id", batch)
+                .in_("event", ["chat", "shop_view", "view"])
+                .gte("created_at", since_iso)
+                .execute()
+                .data
+                or []
+            )
+            for event in analytics_rows:
+                shop_id = str(event.get("shop_id", "") or "").strip()
+                if shop_id not in stats:
+                    continue
+                event_name = str(event.get("event", "") or "")
+                if event_name == "chat":
+                    stats[shop_id]["chat_hits_30d"] += 1
+                elif event_name == "shop_view":
+                    stats[shop_id]["shop_views_30d"] += 1
+                elif event_name == "view":
+                    stats[shop_id]["product_views_30d"] += 1
+                    stats[shop_id]["offering_views_30d"] += 1
+    except Exception as e:
+        print(f"[Shop Stats Warning] analytics stats: {e}")
+
+    review_ratings: Dict[str, List[float]] = {shop_id: [] for shop_id in missing}
+    try:
+        for batch in chunked_values(missing):
+            review_rows = sb.table("reviews").select("shop_id, rating").in_("shop_id", batch).execute().data or []
+            for review in review_rows:
+                shop_id = str(review.get("shop_id", "") or "").strip()
+                if shop_id not in review_ratings:
+                    continue
+                try:
+                    review_ratings[shop_id].append(float(review.get("rating", 0) or 0))
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[Shop Stats Warning] review stats: {e}")
+
+    for shop_id, ratings in review_ratings.items():
+        if ratings:
+            stats[shop_id]["avg_rating"] = round(sum(ratings) / len(ratings), 1)
+
+    for shop_id, stat in stats.items():
+        SHOP_STATS_CACHE[shop_id] = {"ts": now, "stats": dict(stat)}
+        out[shop_id] = dict(stat)
+    return out
+
+def shop_stats(shop_id: str) -> Dict:
+    sid = str(shop_id or "").strip()
+    if not sid:
+        return empty_shop_stats()
+    return load_shop_stats_bulk([sid]).get(sid, empty_shop_stats())
 
 def track(shop_id: str, event: str, product_id: Optional[str] = None):
     if supabase is None:
@@ -2987,7 +3104,12 @@ def filter_catalog_rows_by_stock(rows: List[Dict[str, Any]], stock: str = "") ->
     return [row for row in (rows or []) if str(row.get("stock", "") or "").strip().lower() == stock_key]
 
 def invalidate_shop_product_search_cache(shop_id: str) -> None:
-    PRODUCT_SEARCH_INDEX_CACHE.pop(str(shop_id or "").strip(), None)
+    sid = str(shop_id or "").strip()
+    if sid:
+        PRODUCT_SEARCH_INDEX_CACHE.pop(sid, None)
+        SHOP_STATS_CACHE.pop(sid, None)
+    PUBLIC_BUSINESS_LIST_CACHE.clear()
+    PUBLIC_MARKETPLACE_SNAPSHOT_CACHE.clear()
 
 def get_shop_product_search_rows(shop_id: str) -> List[Dict[str, Any]]:
     shop_key = str(shop_id or "").strip()
@@ -4969,15 +5091,28 @@ def chat_item_line(item: Dict[str, Any], shop: Optional[Dict[str, Any]] = None) 
     summary = " | ".join(offering_summary_bits(item, shop)) or "Details available on request"
     return f"- **{item.get('name', 'Offering')}** - {summary}"
 
+def business_exact_product_matches(shop: dict, prod_rows: List[Dict], q: str, available_only: bool = False) -> List[Dict[str, Any]]:
+    shop_norm = normalize_shop_record(shop or {})
+    shop_id = str(shop_norm.get("shop_id", "") or "")
+    if not shop_id:
+        return []
+    return match_marketplace_exact_products(prod_rows, q, {shop_id: shop_norm}, [shop_norm], available_only=available_only)
+
+def business_product_subject_label(shop: dict, q: str) -> str:
+    return " ".join(marketplace_product_subject_tokens(q, [normalize_shop_record(shop or {})])) or "that request"
+
 def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     limit = extract_budget_limit(q)
     if limit is None:
         return None
     nouns = offering_nouns(shop, prod_rows)
     plural = nouns["plural"]
+    strict_subject = marketplace_has_product_subject(q, [normalize_shop_record(shop or {})])
+    exact_matches = business_exact_product_matches(shop, prod_rows, q, available_only=True)
+    pool = exact_matches or ([] if strict_subject else prod_rows)
 
     matches = []
-    for row in prod_rows:
+    for row in pool:
         value = parse_price_value(row.get("price", ""))
         if value is None or value > limit:
             continue
@@ -4989,8 +5124,9 @@ def answer_budget_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[D
     suggestions = dedup([default_catalog_question(shop, prod_rows), default_availability_question(shop, prod_rows), "Do you have anything cheaper?"])
 
     if not matches:
+        subject_part = f" for **{business_product_subject_label(shop, q)}**" if strict_subject else ""
         return {
-            "answer": f"I couldn't find any {plural} at {shop_label(shop)} priced below **{limit:g}**.",
+            "answer": f"I couldn't find any {plural}{subject_part} at {shop_label(shop)} priced below **{limit:g}**.",
             "products": [],
             "meta": {"llm_used": False, "reason": "budget_filter", "suggestions": suggestions},
         }
@@ -5068,15 +5204,19 @@ def answer_stock_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Di
     business_type = normalize_business_type(shop.get("business_type", ""), shop.get("category", ""))
     default_type = normalize_offering_type("", business_type, shop.get("category", ""))
     inventory_mode = any(tracks_inventory(row.get("offering_type", ""), business_type, shop.get("category", "")) for row in prod_rows) or default_type == "product"
+    strict_subject = marketplace_has_product_subject(q, [normalize_shop_record(shop or {})])
+    exact_matches = business_exact_product_matches(shop, prod_rows, q, available_only=True)
+    pool = exact_matches or ([] if strict_subject else prod_rows)
 
     matches = []
-    for row in prod_rows:
+    for row in pool:
         if not row_is_available_for_chat(row, shop):
             continue
         matches.append(enrich_chat_row(row, shop))
 
     if not matches:
-        empty_message = f"I don't see any in-stock {plural} at {shop_label(shop)} right now." if inventory_mode else f"I don't see any available {plural} at {shop_label(shop)} right now."
+        subject_part = f" for **{business_product_subject_label(shop, q)}**" if strict_subject else ""
+        empty_message = f"I don't see any in-stock {plural}{subject_part} at {shop_label(shop)} right now." if inventory_mode else f"I don't see any available {plural}{subject_part} at {shop_label(shop)} right now."
         return {
             "answer": empty_message,
             "products": [],
@@ -5102,8 +5242,11 @@ def answer_cheapest_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional
 
     nouns = offering_nouns(shop, prod_rows)
     plural = nouns["plural"]
+    strict_subject = marketplace_has_product_subject(q, [normalize_shop_record(shop or {})])
+    exact_matches = business_exact_product_matches(shop, prod_rows, q, available_only=True)
+    pool = exact_matches or ([] if strict_subject else prod_rows)
     ranked = []
-    for row in prod_rows:
+    for row in pool:
         value = parse_price_value(row.get("price", ""))
         if value is None:
             continue
@@ -5112,7 +5255,11 @@ def answer_cheapest_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional
         ranked.append(enriched)
 
     if not ranked:
-        return None
+        return {
+            "answer": f"I couldn't find a priced, available **{business_product_subject_label(shop, q)}** at {shop_label(shop)} right now.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "cheapest_filter_empty", "suggestions": [default_availability_question(shop, prod_rows), default_catalog_question(shop, prod_rows)]},
+        }
 
     ranked.sort(key=lambda item: (item["_price_value"], item["name"].lower()))
     top = take_chat_card_rows(ranked)
@@ -5223,9 +5370,15 @@ def answer_product_image_query(shop: dict, prod_rows: List[Dict], q: str) -> Opt
 def answer_price_lookup_query(shop: dict, prod_rows: List[Dict], q: str) -> Optional[Dict[str, Any]]:
     if not is_price_lookup_query(q):
         return None
-    picked = rank_products(prod_rows, q, shop.get("category", ""), shop.get("business_type", ""))
+    strict_subject = marketplace_has_product_subject(q, [normalize_shop_record(shop or {})])
+    exact_matches = business_exact_product_matches(shop, prod_rows, q)
+    picked = exact_matches or ([] if strict_subject else rank_products(prod_rows, q, shop.get("category", ""), shop.get("business_type", "")))
     if not picked:
-        return None
+        return {
+            "answer": f"I couldn't find a listed price for **{business_product_subject_label(shop, q)}** at {shop_label(shop)} right now.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "price_lookup_empty", "suggestions": [default_catalog_question(shop, prod_rows), default_availability_question(shop, prod_rows)]},
+        }
     top = picked[0]
     price = top.get("price") or "Price not listed"
     status = top.get("availability_label") or offering_status_label(top, shop)
@@ -5753,22 +5906,35 @@ def answer_business_shop_profile_query(shop: dict, prod_rows: List[Dict], q: str
         },
     }
 
-def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
-    nouns = offering_nouns(shop, prod_rows)
+def answer_catalog_query(shop: dict, prod_rows: List[Dict], q: str = "") -> Dict[str, Any]:
+    strict_subject = bool(q) and marketplace_has_product_subject(q, [normalize_shop_record(shop or {})])
+    exact_matches = business_exact_product_matches(shop, prod_rows, q) if q else []
+    display_rows = exact_matches or ([] if strict_subject else prod_rows)
+    nouns = offering_nouns(shop, display_rows or prod_rows)
     plural = nouns["plural"]
-    suggestions = build_chat_suggestions(default_catalog_question(shop, prod_rows), shop, prod_rows)
+    suggestions = build_chat_suggestions(default_catalog_question(shop, prod_rows), shop, display_rows or prod_rows)
     if not prod_rows:
         return {
             "answer": f"{shop_label(shop)} has not added any {plural} yet.",
             "products": [],
             "meta": {"llm_used": False, "reason": "catalog_empty", "suggestions": suggestions},
         }
+    if not display_rows:
+        return {
+            "answer": f"I couldn't find **{business_product_subject_label(shop, q)}** at {shop_label(shop)} yet.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "catalog_filtered_empty", "suggestions": suggestions},
+        }
 
-    top = select_chat_product_cards(prod_rows, shop)
+    top = select_chat_product_cards(display_rows, shop)
     category = (shop.get("category") or "").strip()
     intro = f"Here is what you can browse at {shop_label(shop)}:"
+    if strict_subject:
+        intro = f"Here are the matches I found for **{business_product_subject_label(shop, q)}** at {shop_label(shop)}:"
     if category:
         intro = f"Here is a quick look at the {category.lower()} {plural} available at {shop_label(shop)}:"
+        if strict_subject:
+            intro = f"Here are the {category.lower()} matches I found for **{business_product_subject_label(shop, q)}** at {shop_label(shop)}:"
     lines = [intro]
     for item in top:
         overview = (item.get("overview") or "").strip()
@@ -5776,8 +5942,8 @@ def answer_catalog_query(shop: dict, prod_rows: List[Dict]) -> Dict[str, Any]:
         if overview:
             detail += f"\n  {overview[:120]}"
         lines.append(detail)
-    if len(prod_rows) > len(top):
-        lines.append(f"\nThere are **{len(prod_rows)}** {plural} in total. I attached the strongest **{len(top)}** cards so you can narrow from there.")
+    if len(display_rows) > len(top):
+        lines.append(f"\nThere are **{len(display_rows)}** matching {plural} in total. I attached the strongest **{len(top)}** cards so you can narrow from there.")
     return {
         "answer": "\n".join(lines),
         "products": serialize_products_bulk(top, None, {shop.get("shop_id", ""): shop}),
@@ -5834,11 +6000,21 @@ def marketplace_summary(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, A
 def public_marketplace_snapshot(currency: str = "") -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
     if supabase is None:
         return [], {}, []
+    ensure_public_cache_scope()
+    cache_key = json.dumps({"currency": clean_currency(currency), "market_country": active_market_country_code()}, sort_keys=True)
+    cached = PUBLIC_MARKETPLACE_SNAPSHOT_CACHE.get(cache_key)
+    now = time.time()
+    if cached and now - float(cached.get("ts", 0) or 0) < PUBLIC_BROWSE_CACHE_SECONDS:
+        shops = public_cache_copy(cached.get("shops") or [])
+        shop_map = public_cache_copy(cached.get("shop_map") or {})
+        prod_rows = public_cache_copy(cached.get("prod_rows") or [])
+        return shops, shop_map, prod_rows
+
     shop_rows = supabase.table("shops").select("*").order("created_at", desc=True).execute().data or []
     shops: List[Dict[str, Any]] = []
     shop_map: Dict[str, Dict[str, Any]] = {}
     for row in shop_rows:
-        shop = ensure_shop_coordinates(normalize_shop_record(row or {}))
+        shop = normalize_shop_record(row or {})
         if not shop_matches_market_country(shop) or not shop_is_publicly_listable(shop):
             continue
         shops.append(shop)
@@ -5860,6 +6036,12 @@ def public_marketplace_snapshot(currency: str = "") -> Tuple[List[Dict[str, Any]
             "review_count": len(ratings),
             "product_views": view_map.get(key, 0),
         })
+    PUBLIC_MARKETPLACE_SNAPSHOT_CACHE[cache_key] = {
+        "ts": now,
+        "shops": public_cache_copy(shops),
+        "shop_map": public_cache_copy(shop_map),
+        "prod_rows": public_cache_copy(prod_rows),
+    }
     return shops, shop_map, prod_rows
 
 def marketplace_focus_tokens(q: str) -> List[str]:
@@ -5868,6 +6050,178 @@ def marketplace_focus_tokens(q: str) -> List[str]:
         for token in re.findall(r"[a-z0-9]+", norm_text(q))
         if token and token not in MARKETPLACE_CHAT_STOPWORDS
     ]
+
+MARKETPLACE_PRODUCT_QUERY_STOPWORDS = MARKETPLACE_CHAT_STOPWORDS | {
+    "about", "address", "all", "any", "app", "around", "atlantica", "atlantic", "available",
+    "availability", "below", "best", "browse", "business", "businesses", "buy",
+    "cad", "catalog", "categories", "category", "cheap", "cheaper", "cheapest", "contact", "costing", "currently", "each",
+    "every", "everything", "give", "highest", "in", "inventory", "least", "list", "lowest",
+    "home", "hour", "hours", "how", "location", "near", "now", "offering", "offerings", "open", "ordinate", "page", "phone", "platform", "priced", "product", "products",
+    "rating", "ratings", "review", "reviews", "sell", "selling", "sold", "sort", "star",
+    "stars", "stock", "store", "shop", "site", "top", "under", "usd", "website", "work", "works",
+}
+
+MARKETPLACE_BROAD_PRODUCT_EXPANSIONS = {
+    "drink": {"drink", "drinks", "beverage", "beverages", "shake", "shakes", "milkshake", "milkshakes", "smoothie", "smoothies", "juice", "juices", "tea", "coffee", "latte", "soda", "lemonade", "lassi", "frappe", "mocktail"},
+    "drinks": {"drink", "drinks", "beverage", "beverages", "shake", "shakes", "milkshake", "milkshakes", "smoothie", "smoothies", "juice", "juices", "tea", "coffee", "latte", "soda", "lemonade", "lassi", "frappe", "mocktail"},
+    "beverage": {"drink", "drinks", "beverage", "beverages", "shake", "shakes", "milkshake", "milkshakes", "smoothie", "smoothies", "juice", "juices", "tea", "coffee", "latte", "soda", "lemonade", "lassi", "frappe", "mocktail"},
+    "beverages": {"drink", "drinks", "beverage", "beverages", "shake", "shakes", "milkshake", "milkshakes", "smoothie", "smoothies", "juice", "juices", "tea", "coffee", "latte", "soda", "lemonade", "lassi", "frappe", "mocktail"},
+}
+
+MARKETPLACE_NARROW_PRODUCT_EXPANSIONS = {
+    "shake": {"shake", "shakes", "milkshake", "milkshakes"},
+    "shakes": {"shake", "shakes", "milkshake", "milkshakes"},
+    "milkshake": {"shake", "shakes", "milkshake", "milkshakes"},
+    "milkshakes": {"shake", "shakes", "milkshake", "milkshakes"},
+    "smoothie": {"smoothie", "smoothies"},
+    "smoothies": {"smoothie", "smoothies"},
+    "juice": {"juice", "juices"},
+    "juices": {"juice", "juices"},
+}
+
+def marketplace_token_variants(token: str) -> set:
+    token = norm_text(token)
+    variants = {token} if token else set()
+    if len(token) > 4 and token.endswith("ies"):
+        variants.add(token[:-3] + "y")
+    if len(token) > 4 and token.endswith("es"):
+        variants.add(token[:-2])
+    if len(token) > 3 and token.endswith("s"):
+        variants.add(token[:-1])
+    for item in list(variants):
+        if item in MARKETPLACE_BROAD_PRODUCT_EXPANSIONS:
+            variants.update(MARKETPLACE_BROAD_PRODUCT_EXPANSIONS[item])
+        elif item in MARKETPLACE_NARROW_PRODUCT_EXPANSIONS:
+            variants.update(MARKETPLACE_NARROW_PRODUCT_EXPANSIONS[item])
+    return {variant for variant in variants if variant}
+
+def marketplace_product_subject_tokens(q: str, shops: Optional[List[Dict[str, Any]]] = None) -> List[str]:
+    qn = norm_text(q)
+    shops = shops or []
+    for shop in shops:
+        for value in [shop.get("name", ""), shop.get("shop_slug", ""), shop.get("shop_id", "")]:
+            label = norm_text(re.sub(r"[-_]+", " ", str(value or "")))
+            if label:
+                qn = re.sub(rf"\b{re.escape(label)}\b", " ", qn)
+    qn = re.sub(r"\b(?:less than|more than|at least|or higher|or lower|price of|price for|cost of|cost for|how much|show me|find me|looking for|do you have|do they have|what are|what is|tell me)\b", " ", qn)
+    tokens: List[str] = []
+    seen = set()
+    for token in re.findall(r"[a-z0-9]+", qn):
+        if not token or token in MARKETPLACE_PRODUCT_QUERY_STOPWORDS:
+            continue
+        if re.fullmatch(r"\d+(?:\.\d+)?", token):
+            continue
+        if token not in seen:
+            seen.add(token)
+            tokens.append(token)
+    return tokens[:8]
+
+def marketplace_product_subject_groups(q: str, shops: Optional[List[Dict[str, Any]]] = None) -> List[set]:
+    groups: List[set] = []
+    seen = set()
+    for token in marketplace_product_subject_tokens(q, shops):
+        variants = marketplace_token_variants(token)
+        if not variants:
+            continue
+        signature = tuple(sorted(variants))
+        if signature in seen:
+            continue
+        seen.add(signature)
+        groups.append(variants)
+    return groups
+
+def marketplace_product_exact_blob(row: Dict[str, Any], shop: Dict[str, Any]) -> str:
+    business_type = shop.get("business_type", "")
+    category = shop.get("category", "")
+    offering_type = normalize_offering_type(row.get("offering_type", ""), business_type, category)
+    attr_text = product_attribute_text(row, category, offering_type, business_type)
+    return norm_text(" ".join([
+        str(row.get("name", "")),
+        str(row.get("overview", "")),
+        str(row.get("variants", "")),
+        str(row.get("product_slug", "")),
+        attr_text,
+        str(category),
+        str(business_type),
+        str(offering_type),
+        str(shop.get("name", "")),
+    ]))
+
+def score_marketplace_exact_product(row: Dict[str, Any], shop: Dict[str, Any], q: str, groups: List[set]) -> Optional[float]:
+    if not groups:
+        return None
+    blob = marketplace_product_exact_blob(row, shop)
+    hay_tokens = set(re.findall(r"[a-z0-9]+", blob))
+    score = 0.0
+    for group in groups:
+        if not (group & hay_tokens):
+            return None
+        score += 4.0
+    subject = " ".join(marketplace_product_subject_tokens(q))
+    name_n = norm_text(row.get("name", ""))
+    if subject and subject in name_n:
+        score += 8.0
+    elif subject and subject in blob:
+        score += 4.0
+    score += product_display_score(row, shop)[0] * 0.25
+    return score
+
+def match_marketplace_exact_products(
+    prod_rows: List[Dict[str, Any]],
+    q: str,
+    shop_map: Dict[str, Dict[str, Any]],
+    shops: Optional[List[Dict[str, Any]]] = None,
+    available_only: bool = False,
+) -> List[Dict[str, Any]]:
+    groups = marketplace_product_subject_groups(q, shops)
+    if not groups:
+        return []
+    scored: List[Tuple[float, Dict[str, Any]]] = []
+    for row in prod_rows:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        if available_only and not row_is_available_for_chat(row, shop):
+            continue
+        score = score_marketplace_exact_product(row, shop, q, groups)
+        if score is None:
+            continue
+        scored.append((score, {**row, "_exact_score": score}))
+    scored.sort(key=lambda item: (item[0], product_display_score(item[1], shop_map.get(str(item[1].get("shop_id", "")), {}))), reverse=True)
+    return [row for _, row in scored]
+
+def marketplace_has_product_subject(q: str, shops: Optional[List[Dict[str, Any]]] = None) -> bool:
+    return bool(marketplace_product_subject_groups(q, shops))
+
+def is_marketplace_product_lookup_query(q: str, shops: Optional[List[Dict[str, Any]]] = None, allow_soft_triggers: bool = True) -> bool:
+    subject_tokens = marketplace_product_subject_tokens(q, shops)
+    if not subject_tokens:
+        return False
+    qn = norm_text(q)
+    browse_triggers = [
+        "all",
+        "available",
+        "availability",
+        "browse",
+        "catalog",
+        "do they have",
+        "do you have",
+        "for sale",
+        "list",
+        "offer",
+        "sell",
+        "show",
+        "stock",
+        "where can i get",
+    ]
+    if any(trigger in qn for trigger in browse_triggers):
+        return True
+    soft_triggers = ["buy", "carry", "find", "have", "looking for", "need", "want"]
+    if allow_soft_triggers and any(trigger in qn for trigger in soft_triggers):
+        return True
+    if len(subject_tokens) <= 3 and not marketplace_shop_focus_intent(q):
+        return True
+    if len(subject_tokens) <= 3 and any(trigger in qn for trigger in ["about", "tell me", "what is", "what are"]):
+        return True
+    return False
 
 def marketplace_shop_offering_counts(prod_rows: List[Dict[str, Any]]) -> Dict[str, int]:
     counts: Dict[str, int] = {}
@@ -6144,6 +6498,9 @@ def rank_marketplace_products(prod_rows: List[Dict[str, Any]], q: str, shop_map:
     return [row for _, row in scored]
 
 def match_marketplace_products(prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], min_score: float = 1.05) -> List[Dict[str, Any]]:
+    exact = match_marketplace_exact_products(prod_rows, q, shop_map, list(shop_map.values()))
+    if exact:
+        return exact
     ranked = rank_marketplace_products(prod_rows, q, shop_map)
     if not norm_text(q):
         return ranked
@@ -6568,9 +6925,16 @@ def answer_marketplace_rating_query(shops: List[Dict[str, Any]], prod_rows: List
 def answer_marketplace_price_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Optional[Dict[str, Any]]:
     if not is_price_lookup_query(q):
         return None
-    matches = match_marketplace_products(prod_rows, q, shop_map)
+    strict_subject = marketplace_has_product_subject(q, shops)
+    exact_matches = match_marketplace_exact_products(prod_rows, q, shop_map, shops)
+    matches = exact_matches or ([] if strict_subject else match_marketplace_products(prod_rows, q, shop_map))
     if not matches:
-        return None
+        asked = " ".join(marketplace_product_subject_tokens(q, shops)) or "that item"
+        return {
+            "answer": f"I could not find a public price match for **{asked}** right now.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "market_price_empty", "suggestions": ["Show me drinks", "Find the cheapest option", "What can I buy on this app?"]},
+        }
     top = matches[:4]
     focus_shop = shops[0] if len(shops) == 1 else None
     lines = []
@@ -6598,8 +6962,10 @@ def answer_marketplace_budget_query(shops: List[Dict[str, Any]], prod_rows: List
     limit = extract_budget_limit(q)
     if limit is None:
         return None
-    ranked = match_marketplace_products(prod_rows, q, shop_map)
-    pool = ranked or rank_marketplace_products(prod_rows, "", shop_map)
+    strict_subject = marketplace_has_product_subject(q, shops)
+    exact_matches = match_marketplace_exact_products(prod_rows, q, shop_map, shops, available_only=True)
+    ranked = exact_matches or ([] if strict_subject else match_marketplace_products(prod_rows, q, shop_map))
+    pool = ranked or ([] if strict_subject else rank_marketplace_products(prod_rows, "", shop_map))
     matches: List[Dict[str, Any]] = []
     for row in pool:
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
@@ -6611,8 +6977,10 @@ def answer_marketplace_budget_query(shops: List[Dict[str, Any]], prod_rows: List
         matches.append({**row, "_price_value": value})
     matches.sort(key=lambda row: (row.get("_price_value", 0), str(row.get("name", "")).lower()))
     if not matches:
+        asked = " ".join(marketplace_product_subject_tokens(q, shops))
+        subject_part = f" for **{asked}**" if asked else ""
         return {
-            "answer": f"I could not find a public offering priced below **{limit:g}** right now.",
+            "answer": f"I could not find a public offering{subject_part} priced below **{limit:g}** right now.",
             "products": [],
             "meta": {"llm_used": False, "reason": "market_budget_empty", "suggestions": ["Find the cheapest option", "Show me businesses", "What can I buy on this app?"]},
         }
@@ -6637,8 +7005,10 @@ def answer_marketplace_budget_query(shops: List[Dict[str, Any]], prod_rows: List
 def answer_marketplace_cheapest_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Optional[Dict[str, Any]]:
     if not is_cheapest_query(q):
         return None
-    ranked = match_marketplace_products(prod_rows, q, shop_map)
-    pool = ranked or rank_marketplace_products(prod_rows, "", shop_map)
+    strict_subject = marketplace_has_product_subject(q, shops)
+    exact_matches = match_marketplace_exact_products(prod_rows, q, shop_map, shops, available_only=True)
+    ranked = exact_matches or ([] if strict_subject else match_marketplace_products(prod_rows, q, shop_map))
+    pool = ranked or ([] if strict_subject else rank_marketplace_products(prod_rows, "", shop_map))
     priced: List[Dict[str, Any]] = []
     for row in pool:
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
@@ -6650,7 +7020,12 @@ def answer_marketplace_cheapest_query(shops: List[Dict[str, Any]], prod_rows: Li
         priced.append({**row, "_price_value": value})
     priced.sort(key=lambda row: (row.get("_price_value", 0), str(row.get("name", "")).lower()))
     if not priced:
-        return None
+        asked = " ".join(marketplace_product_subject_tokens(q, shops)) or "matching offering"
+        return {
+            "answer": f"I could not find a priced, available **{asked}** right now.",
+            "products": [],
+            "meta": {"llm_used": False, "reason": "market_cheapest_empty", "suggestions": ["Show me drinks", "Show me businesses", "What can I buy on this app?"]},
+        }
     top = take_chat_card_rows(priced)
     focus_shop = shops[0] if len(shops) == 1 else None
     lines = [f"These are the lowest-priced matches I found at **{focus_shop.get('name')}**:" if focus_shop and focus_shop.get("name") else "These are the lowest-priced matches I found right now:"]
@@ -6666,16 +7041,20 @@ def answer_marketplace_cheapest_query(shops: List[Dict[str, Any]], prod_rows: Li
 def answer_marketplace_stock_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Optional[Dict[str, Any]]:
     if not is_stock_query(q):
         return None
-    ranked = match_marketplace_products(prod_rows, q, shop_map)
-    pool = ranked or rank_marketplace_products(prod_rows, "", shop_map)
+    strict_subject = marketplace_has_product_subject(q, shops)
+    exact_matches = match_marketplace_exact_products(prod_rows, q, shop_map, shops, available_only=True)
+    ranked = exact_matches or ([] if strict_subject else match_marketplace_products(prod_rows, q, shop_map))
+    pool = ranked or ([] if strict_subject else rank_marketplace_products(prod_rows, "", shop_map))
     matches: List[Dict[str, Any]] = []
     for row in pool:
         shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
         if row_is_available_for_chat(row, shop):
             matches.append(row)
     if not matches:
+        asked = " ".join(marketplace_product_subject_tokens(q, shops))
+        subject_part = f" for **{asked}**" if asked else ""
         return {
-            "answer": "I do not see any public offerings available for that request right now.",
+            "answer": f"I do not see any public offerings available{subject_part} right now.",
             "products": [],
             "meta": {"llm_used": False, "reason": "market_stock_empty", "suggestions": ["Show me businesses", "Find the cheapest option", "What can I buy on this app?"]},
         }
@@ -6698,10 +7077,13 @@ def answer_marketplace_stock_query(shops: List[Dict[str, Any]], prod_rows: List[
     }
 
 def answer_marketplace_catalog_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Dict[str, Any]:
-    ranked = match_marketplace_products(prod_rows, q, shop_map)
+    strict_subject = marketplace_has_product_subject(q, shops)
+    exact_matches = match_marketplace_exact_products(prod_rows, q, shop_map, shops)
+    ranked = exact_matches or ([] if strict_subject else match_marketplace_products(prod_rows, q, shop_map))
     if norm_text(q) and not ranked:
+        asked = " ".join(marketplace_product_subject_tokens(q, shops)) or "that"
         return {
-            "answer": "I could not find a direct marketplace match for that yet. Try a product type, business name, price range, or category.",
+            "answer": f"I could not find a direct marketplace match for **{asked}** yet. Try a product type, business name, price range, or category.",
             "products": [],
             "meta": {"llm_used": False, "reason": "market_catalog_empty", "suggestions": ["Show me businesses", "Find the cheapest option", "What can I buy on this app?"]},
         }
@@ -7283,6 +7665,7 @@ def post_review(shop_id: str = "", product_id: str = "", business_id: str = "", 
         supabase.table("reviews").update({"rating": body.rating, "body": body.body.strip(), "created_at": "now()"}).eq("id", existing[0]["id"]).execute()
     else:
         supabase.table("reviews").insert({"shop_id": shop_id, "product_id": product_id, "user_id": user.id, "rating": body.rating, "body": body.body.strip()}).execute()
+    invalidate_public_browse_cache(shop_id)
     return {"ok": True, "message": "Review saved", "business_id": shop_id, "offering_id": product_id}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -7301,14 +7684,33 @@ def public_shops(
     open_now: bool = Query(False),
 ):
     try:
+        ensure_public_cache_scope()
+        cache_key = json.dumps(
+            {
+                "category": category or "",
+                "country_code": country_code or "",
+                "region": region or "",
+                "city": city or "",
+                "postal_code": postal_code or "",
+                "open_day": open_day or "",
+                "open_time": open_time or "",
+                "open_now": bool(open_now),
+                "market_country": active_market_country_code(),
+            },
+            sort_keys=True,
+        )
+        cached = PUBLIC_BUSINESS_LIST_CACHE.get(cache_key)
+        now = time.time()
+        if cached and now - float(cached.get("ts", 0) or 0) < PUBLIC_BROWSE_CACHE_SECONDS:
+            return public_cache_copy(cached.get("payload") or alias_catalog_response({"ok": True, "shops": []}))
+
         target_country = enforce_public_country_code(country_code)
         q = supabase.table("shops").select("*").order("created_at", desc=True)
         if category: q = q.ilike("category", f"%{category}%")
-        rows = q.execute().data
+        rows = q.execute().data or []
         filtered = []
         for r in rows:
-            nr = ensure_shop_coordinates(r)
-            r.update(nr)
+            r = normalize_shop_record(r)
             if not shop_is_publicly_listable(r):
                 continue
             if target_country and clean_code(r.get("country_code", "")) != target_country:
@@ -7323,14 +7725,18 @@ def public_shops(
                 continue
             if open_now and not shop_is_open_now(r):
                 continue
-            try:
-                r["stats"] = shop_stats(r["shop_id"])
-            except Exception as e:
-                print(f"[Shop Stats Warning] {r.get('shop_id')}: {e}")
-                r["stats"] = {"product_count": 0, "image_count": 0, "products_with_images": 0, "chat_hits_30d": 0, "shop_views_30d": 0, "product_views_30d": 0, "avg_rating": 0}
             r["is_open_now"] = shop_is_open_now(r)
-            filtered.append(public_shop_payload(r))
-        return alias_catalog_response({"ok": True, "shops": filtered})
+            filtered.append(r)
+        stats_map = load_shop_stats_bulk([row.get("shop_id", "") for row in filtered])
+        payload = alias_catalog_response({
+            "ok": True,
+            "shops": [
+                public_shop_payload({**row, "stats": stats_map.get(str(row.get("shop_id", "")), empty_shop_stats())})
+                for row in filtered
+            ],
+        })
+        PUBLIC_BUSINESS_LIST_CACHE[cache_key] = {"ts": now, "payload": public_cache_copy(payload)}
+        return payload
     except Exception as e:
         return public_browse_error_payload("businesses", e)
 
@@ -7413,9 +7819,9 @@ def public_address_search(request: Request, q: str = Query(..., min_length=3), c
 
 @app.get("/public/business/{shop_ref}")
 @app.get("/public/shop/{shop_ref}")
-def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), stock: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
+def public_shop(shop_ref: str, request: Request, background_tasks: BackgroundTasks, sort: str = Query("default"), stock: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query(""), page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=100), authorization: Optional[str] = Header(None)):
     try:
-        shop_row = ensure_shop_coordinates(ensure_market_shop_access(resolve_shop_by_ref(shop_ref)))
+        shop_row = ensure_market_shop_access(resolve_shop_by_ref(shop_ref))
         shop_id = shop_row["shop_id"]
         user_id = optional_user_id(authorization, request)
 
@@ -7466,7 +7872,7 @@ def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), s
             paged = paginate_list(all_prods, page, limit)
 
         if page == 1 and sort_key in {"", "default"} and not str(stock or "").strip() and not str(attr_key or "").strip() and not str(attr_value or "").strip():
-            track(shop_id, "shop_view")
+            background_tasks.add_task(track, shop_id, "shop_view")
 
         ser_prods = serialize_products_bulk(paged["items"], user_id, {shop_id: shop_row}, currency)
 
@@ -7488,7 +7894,7 @@ def public_shop(shop_ref: str, request: Request, sort: str = Query("default"), s
 @app.get("/public/product/{shop_ref}/{product_ref}")
 def public_product(shop_ref: str, product_ref: str, request: Request, currency: str = Query(""), authorization: Optional[str] = Header(None)):
     try:
-        shop_row = ensure_shop_coordinates(ensure_market_shop_access(resolve_shop_by_ref(shop_ref)))
+        shop_row = ensure_market_shop_access(resolve_shop_by_ref(shop_ref))
         product_row = resolve_product_by_ref(shop_row["shop_id"], product_ref)
         user_id = optional_user_id(authorization, request)
         product = serialize_product(product_row, user_id, shop_row, currency)
@@ -7584,24 +7990,47 @@ def search_global(request: Request, q: str = Query(...), attr_key: str = Query("
 @app.get("/public/top-products")
 def top_products(request: Request, page: int = Query(1, ge=1), limit: int = Query(PAGE_SIZE, ge=1, le=60), category: str = Query(""), attr_key: str = Query(""), attr_value: str = Query(""), currency: str = Query("")):
     try:
-        q = supabase.table("products").select("*, shops!inner(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2, listing_status)").neq("stock", "out")
-        if category: q = q.ilike("shops.category", f"%{category}%")
-        rows = q.execute().data
-        normalized_rows = []
-        for row in rows:
-            shop = normalize_shop_record(row.get("shops", {}) or {})
-            if not shop_matches_market_country(shop) or not shop_is_publicly_listable(shop):
-                continue
-            normalized_rows.append({**row, "shops": shop})
-        rows = normalized_rows
-        if attr_key or attr_value:
-            rows = [row for row in rows if matches_attribute_filter(row, row.get("shops", {}).get("category", ""), attr_key, attr_value, row.get("shops", {}).get("business_type", ""))]
-        
-        paged = paginate_list(rows, page, limit)
+        fields = "*, shops!inner(name, shop_slug, category, business_type, location_mode, service_area, address, formatted_address, country_code, country_name, currency_code, region, city, postal_code, street_line1, street_line2, listing_status)"
+
+        def build_query(count: Optional[str] = None):
+            query = supabase.table("products").select(fields, count=count).neq("stock", "out")
+            query = query.eq("shops.listing_status", LISTING_STATUS_VERIFIED)
+            locked_country = active_market_country_code()
+            if locked_country:
+                query = query.eq("shops.country_code", locked_country)
+            if category:
+                query = query.ilike("shops.category", f"%{category}%")
+            return query.order("updated_at", desc=True)
+
+        if not attr_key and not attr_value:
+            request_start = (page - 1) * limit
+            request_end = request_start + limit - 1
+            res = build_query("exact").range(request_start, request_end).execute()
+            rows = res.data or []
+            total = int(res.count if res.count is not None else len(rows))
+            pagination = pagination_meta(total, page, limit)
+            if pagination["page"] != page and total:
+                page_start = (pagination["page"] - 1) * limit
+                page_end = page_start + limit - 1
+                rows = build_query().range(page_start, page_end).execute().data or []
+            paged = {"items": rows, "pagination": pagination}
+        else:
+            rows = build_query().execute().data or []
+            rows = [
+                row for row in rows
+                if matches_attribute_filter(row, row.get("shops", {}).get("category", ""), attr_key, attr_value, row.get("shops", {}).get("business_type", ""))
+            ]
+            paged = paginate_list(rows, page, limit)
+
         shop_map = {}
         for row in paged["items"]:
             if row.get("shop_id"):
-                shop_map[str(row.get("shop_id"))] = row.get("shops", {}) or {}
+                shop = normalize_shop_record(row.get("shops", {}) or {})
+                if not shop_matches_market_country(shop) or not shop_is_publicly_listable(shop):
+                    continue
+                shop_map[str(row.get("shop_id"))] = shop
+                row["shops"] = shop
+        paged["items"] = [row for row in paged["items"] if str(row.get("shop_id", "")) in shop_map]
         results = serialize_products_bulk(paged["items"], None, shop_map, currency)
         for r, prod in zip(paged["items"], results):
             prod["shop_name"] = r.get("shops", {}).get("name", "")
@@ -7700,7 +8129,7 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
             "meta": {"llm_used": False, "reason": "market_greeting", "suggestions": suggestions},
         })
 
-    if is_list_intent(q) or any(token in norm_text(q) for token in ["buy", "find", "looking for", "need", "want"]):
+    if is_list_intent(q) or is_marketplace_product_lookup_query(q, scope_shops) or any(token in norm_text(q) for token in ["buy", "find", "looking for", "need", "want"]):
         return respond(answer_marketplace_catalog_query(scope_shops, scope_prod_rows, q, scope_shop_map, currency))
 
     try:
@@ -7809,7 +8238,8 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
     picked = rank_products(prod_rows, q, shop.get("category", ""), shop.get("business_type", ""))
     response_cards: List[Dict[str, Any]] = []
     rag = {"chunks": [], "matches": []}
-    if HAS_RAG and not is_greeting(q):
+    deterministic_product_lookup = is_list_intent(q) or is_marketplace_product_lookup_query(q, [shop], allow_soft_triggers=False)
+    if HAS_RAG and not is_greeting(q) and not wants_all_images(q) and not deterministic_product_lookup:
         try:
             rag = _retrieve(shop_id, q, top_k=4) or {"chunks": [], "matches": []}
         except Exception as rag_err:
@@ -7834,8 +8264,8 @@ def chat_endpoint(request: Request, shop_id: str = Query(""), business_id: str =
         return respond({"answer": f"Hi! Welcome to **{shop['name']}**! Ask me about {nouns['plural']}, prices, availability, opening hours, or say '{default_catalog_question(shop, prod_rows).lower()}'.", "products": [], "meta": {"llm_used": False, "suggestions": suggestions}})
 
     # 3. Handle Full Catalog Requests safely
-    if is_list_intent(q):
-        return respond(answer_catalog_query(shop, prod_rows))
+    if deterministic_product_lookup:
+        return respond(answer_catalog_query(shop, prod_rows, q))
 
     try:
         system_prompt = (

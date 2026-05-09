@@ -17202,12 +17202,34 @@ $('srchClear').addEventListener('click',()=>{
 /* ═════════════════════════════════════════════
    HOME — shops + featured products
 ═════════════════════════════════════════════ */
+const PUBLIC_HOME_CACHE_KEY='wave_public_home_cache_v1';
+const PUBLIC_HOME_CACHE_MAX_AGE=5*60*1000;
+function readPublicHomeCache(query=''){
+  try{
+    const cached=JSON.parse(localStorage.getItem(PUBLIC_HOME_CACHE_KEY)||'null');
+    if(!cached || cached.query!==query || !Array.isArray(cached.businesses)) return null;
+    if(Date.now()-Number(cached.ts||0)>PUBLIC_HOME_CACHE_MAX_AGE) return null;
+    return cached;
+  }catch{return null;}
+}
+function writePublicHomeCache(query='',businesses=[]){
+  try{localStorage.setItem(PUBLIC_HOME_CACHE_KEY,JSON.stringify({query,ts:Date.now(),businesses:(businesses||[]).slice(0,120)}));}
+  catch{}
+}
 async function loadAllShops(){
   collectShopFilters();
+  const query=buildShopFilterQuery();
+  const cached=readPublicHomeCache(query);
+  if(cached && !(App.allShops||[]).length){
+    App.allShops=cached.businesses||[];
+    renderHomeShops();
+    loadFeatured();
+  }
   try{
-    const d=normalizeCatalogPayload(await api(`/public/businesses${buildShopFilterQuery()}`));
+    const d=normalizeCatalogPayload(await api(`/public/businesses${query}`));
     assertPublicBrowseOk(d,'Businesses are temporarily unavailable.');
     App.allShops=d.businesses||[];
+    writePublicHomeCache(query,App.allShops);
     App.publicCatalogDirty=false;
     renderHomeShops();
     loadFeatured();
@@ -21250,12 +21272,7 @@ async function handlePathDeepLink(source='init'){
         return true;
       }
     }
-    const d=normalizeCatalogPayload(await api(withViewerCurrency(`/public/business/${encodeURIComponent(shopRef)}`),{auth:!!tok()}));
-    assertPublicBrowseOk(d,'Business is temporarily unavailable.');
-    App.shopId=d.shop_slug||d.shop_id||shopRef;
-    App.shopData=d;
-    save();
-    await openShopPage(d.shop_slug||d.shop_id||shopRef);
+    await openShopPage(shopRef,1,'','',{preservePublicPath:true});
     return true;
   }catch{
     if(shopRef) await openShopPage(shopRef);
@@ -21486,6 +21503,7 @@ async function migrateLegacyUserSession(){
 
 async function init(){
   const handledAuthRedirect=await handleHashAuth(); // Catches Supabase email and reset links.
+  const deepLinkStartup=isPublicDeepLinkRoute();
   hydrateRequestLookupFromUrl();
   
   if($('srvUrl')) $('srvUrl').value=App.srv;
@@ -21498,14 +21516,22 @@ async function init(){
   renderUserUI();renderFilePrev([]);renderChatSide([]);renderCQchips([]);renderChatPromptList();renderChatFacts();autoSizeChatInput();updateCartBadge();
   syncHomeMobileLayout();
   setShopMobileSheet('',false);
-  await loadLocationSupport();
-  await loadTimezoneSupport();
-  await checkServer();
+  await Promise.allSettled([loadLocationSupport(),loadTimezoneSupport(),checkServer()]);
   await migrateLegacyUserSession();
   try{const d=await api('/auth/me',{auth:true});saveUser(d);}
   catch{clearUser();}
   if(applyInternalReviewRouteState()) return;
   await refreshViewerFavourites();
+  if(deepLinkStartup){
+    const handledDeepLink=await handlePathDeepLink('init');
+    loadAllShops().catch(()=>{});
+    if(App.user) loadMyShops().catch(()=>{});
+    refreshRequestNotification().catch(()=>{});
+    startRequestWatcher();
+    if(!handledDeepLink) applyPageQueryState();
+    if(!handledAuthRedirect) maybeOfferLocationOnLaunch().catch(()=>{});
+    return;
+  }
   await loadAllShops();
   if(App.user)await loadMyShops();
   await refreshRequestNotification();
