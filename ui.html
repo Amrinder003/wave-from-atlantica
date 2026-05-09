@@ -10141,6 +10141,7 @@ const App = {
   activeCat: '',
   homeMobileView: 'shops',
   publicCatalogDirty: false,
+  homeCatalogLoading: false,
   favouriteProductIds: {},
   adminProducts: [],
   adminReviewShops: [],
@@ -14616,10 +14617,27 @@ function showPage(pg,opts={}){
   if(pg!=='shop') setShopMobileSheet('',false);
   if(pg!=='shop') setShopSnapshotModal(false);
   window.scrollTo({top:0,behavior:'auto'});
-  if(pg==='home' && App.publicCatalogDirty) setTimeout(()=>loadAllShops(),0);
+  if(pg==='home') setTimeout(()=>ensureHomeCatalogLoaded(),0);
   if(pg==='home') setTimeout(()=>maybeOfferLocationOnLaunch().catch(()=>{}),0);
 }
-function goHome(){App.activeCat='';App.marketAttrFilter={key:'',value:'',category:''};highlightCat('');setPublicPath(appUiRootPath());showPage('home',{allowPublicRouteOverride:true});}
+function homeCatalogNeedsLoad(){
+  const shopText=($('homeShopGrid')?.textContent||'').trim();
+  const featuredText=($('featuredGrid')?.textContent||'').trim();
+  return !!App.publicCatalogDirty
+    || !shopText
+    || /Loading businesses/i.test(shopText)
+    || !featuredText
+    || /Getting offerings|Loading available offerings/i.test(featuredText);
+}
+function ensureHomeCatalogLoaded(force=false){
+  if(App.homeCatalogLoading) return;
+  if(!force && !homeCatalogNeedsLoad()) return;
+  App.homeCatalogLoading=true;
+  Promise.resolve(loadAllShops())
+    .catch(()=>{})
+    .finally(()=>{App.homeCatalogLoading=false;});
+}
+function goHome(){App.activeCat='';App.marketAttrFilter={key:'',value:'',category:''};highlightCat('');setPublicPath(appUiRootPath());showPage('home',{allowPublicRouteOverride:true});ensureHomeCatalogLoaded();}
 function isMobileHomeLayout(){return window.matchMedia('(max-width: 680px)').matches;}
 function isMobileShopLayout(){return window.matchMedia('(max-width: 860px)').matches;}
 function isHomeSearchActive(){
@@ -14658,6 +14676,7 @@ function setHomeMobileView(view='products'){
 function focusHomeSection(view='shops'){
   setPublicPath(appUiRootPath());
   showPage('home',{allowPublicRouteOverride:true});
+  ensureHomeCatalogLoaded();
   setHomeMobileView(view);
   const target=view==='products' ? $('featuredSection') : $('shopsSection');
   target?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -21519,7 +21538,8 @@ function applyInternalReviewRouteState(user=App.user){
   }
   if(user){
     try{history.replaceState({},'',appUiRootPath());}catch{}
-    showPage('home');
+    showPage('home',{allowPublicRouteOverride:true});
+    ensureHomeCatalogLoaded();
     return true;
   }
   showPage('admin');
@@ -21569,7 +21589,7 @@ async function init(){
   refreshViewerFavourites().catch(()=>{});
   if(deepLinkStartup){
     const handledDeepLink=await handlePathDeepLink('init');
-    loadAllShops().catch(()=>{});
+    ensureHomeCatalogLoaded();
     if(App.user) loadMyShops().catch(()=>{});
     refreshRequestNotification().catch(()=>{});
     startRequestWatcher();
@@ -21577,7 +21597,7 @@ async function init(){
     if(!handledAuthRedirect) maybeOfferLocationOnLaunch().catch(()=>{});
     return;
   }
-  loadAllShops().catch(()=>{});
+  ensureHomeCatalogLoaded();
   if(App.user) loadMyShops().catch(()=>{});
   refreshRequestNotification().catch(()=>{});
   startRequestWatcher();
