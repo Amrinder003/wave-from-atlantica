@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from io import BytesIO, StringIO
 from email.message import EmailMessage
 from email.utils import formataddr, parseaddr
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 import zipfile
 import xml.etree.ElementTree as ET
 from supabase import create_client, Client
@@ -177,6 +177,16 @@ OPENROUTER_URL    = "https://openrouter.ai/api/v1/chat/completions"
 MAPBOX_TOKEN      = os.environ.get("MAPBOX_TOKEN", "").strip()
 MAPBOX_GEOCODING_URL = "https://api.mapbox.com/geocoding/v5/mapbox.places/{query}.json"
 LEAFLET_REQUIRED_ASSETS = ("leaflet.js", "leaflet.css")
+CITY_PULSE_ENABLED = os.environ.get("CITY_PULSE_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
+CITY_PULSE_REFRESH_SECONDS = int(os.environ.get("CITY_PULSE_REFRESH_SECONDS", "18000") or 18000)
+CITY_PULSE_STALE_SECONDS = int(os.environ.get("CITY_PULSE_STALE_SECONDS", "86400") or 86400)
+CITY_PULSE_GDELT_URL = os.environ.get("CITY_PULSE_GDELT_URL", "https://api.gdeltproject.org/api/v2/doc/doc").strip()
+CITY_PULSE_GDELT_TIMESPAN = os.environ.get("CITY_PULSE_GDELT_TIMESPAN", "48h").strip() or "48h"
+CITY_PULSE_MAX_ARTICLES = max(8, min(int(os.environ.get("CITY_PULSE_MAX_ARTICLES", "40") or 40), 100))
+CITY_PULSE_MAX_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MAX_CARDS", "6") or 6), 10))
+CITY_PULSE_MIN_PIN_CONFIDENCE = float(os.environ.get("CITY_PULSE_MIN_PIN_CONFIDENCE", "0.55") or 0.55)
+CITY_PULSE_IPINFO_TOKEN = (os.environ.get("CITY_PULSE_IPINFO_TOKEN", "").strip() or os.environ.get("IPINFO_TOKEN", "").strip())
+CITY_PULSE_MODEL = os.environ.get("CITY_PULSE_MODEL", OPENROUTER_MODEL).strip() or OPENROUTER_MODEL
 FX_API_BASE       = os.environ.get("FX_API_BASE", "https://api.frankfurter.dev/v2").strip().rstrip("/")
 FX_CACHE_SECONDS  = int(os.environ.get("FX_CACHE_SECONDS", "21600") or 21600)
 PRODUCT_SEARCH_INDEX_CACHE_SECONDS = int(os.environ.get("PRODUCT_SEARCH_INDEX_CACHE_SECONDS", "45") or 45)
@@ -296,6 +306,7 @@ PUBLIC_BUSINESS_DETAIL_CACHE: Dict[str, Dict[str, Any]] = {}
 PUBLIC_TOP_OFFERINGS_CACHE: Dict[str, Dict[str, Any]] = {}
 PUBLIC_MARKETPLACE_SNAPSHOT_CACHE: Dict[str, Dict[str, Any]] = {}
 PUBLIC_CACHE_SUPABASE_ID = id(supabase)
+CITY_PULSE_REFRESHING: Dict[str, float] = {}
 PRODUCT_SEARCH_INDEX_COLUMNS = ",".join([
     "product_id",
     "shop_id",
@@ -2383,22 +2394,23 @@ def send_request_status_email(shop: Dict[str, Any], row: Dict[str, Any], status:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # LLM 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-def llm_chat(system: str, user: str, max_tokens: Optional[int] = None) -> Dict[str, Any]:
+def llm_chat(system: str, user: str, max_tokens: Optional[int] = None, model: str = "", temperature: Optional[float] = None) -> Dict[str, Any]:
     if not OPENROUTER_KEY:
         raise ValueError("Missing OPENROUTER_API_KEY in environment variables.")
 
     if max_tokens is None:
         max_tokens = OPENROUTER_MAX_TOKENS
+    selected_model = str(model or OPENROUTER_MODEL).strip() or OPENROUTER_MODEL
 
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     payload: Dict[str, Any] = {
-        "model": OPENROUTER_MODEL,
+        "model": selected_model,
         "messages": messages,
         "max_tokens": max_tokens,
-        "temperature": OPENROUTER_TEMPERATURE,
+        "temperature": OPENROUTER_TEMPERATURE if temperature is None else float(temperature),
     }
-    if OPENROUTER_FALLBACK_MODELS:
-        payload["models"] = [OPENROUTER_MODEL, *OPENROUTER_FALLBACK_MODELS]
+    if OPENROUTER_FALLBACK_MODELS and selected_model == OPENROUTER_MODEL:
+        payload["models"] = [selected_model, *OPENROUTER_FALLBACK_MODELS]
 
     r = requests.post(
         OPENROUTER_URL,
@@ -2417,7 +2429,7 @@ def llm_chat(system: str, user: str, max_tokens: Optional[int] = None) -> Dict[s
     finish_reason = str(choice.get("finish_reason") or "").strip().lower()
     return {
         "content": (choice.get("message", {}) or {}).get("content", "").strip(),
-        "model": data.get("model") or OPENROUTER_MODEL,
+        "model": data.get("model") or selected_model,
         "finish_reason": finish_reason,
         "truncated": finish_reason == "length",
     }
@@ -3532,6 +3544,675 @@ def fill_missing_shop_coordinates(row: Dict[str, Any], *, persist: bool = False,
 def ensure_shop_coordinates(row: Dict[str, Any]) -> Dict[str, Any]:
     out, _ = fill_missing_shop_coordinates(row, persist=True, warning_label="Map Backfill")
     return out
+
+def city_pulse_clean_label(value: Any, max_len: int = 90) -> str:
+    text = re.sub(r"\s+", " ", str(value or "").replace("\x00", " ")).strip()
+    return text[:max_len].strip()
+
+def city_pulse_key(city: str, region: str = "", country_code: str = "") -> str:
+    parts = [
+        clean_code(country_code),
+        normalize_name_fingerprint(region),
+        normalize_name_fingerprint(city),
+    ]
+    return ":".join([part for part in parts if part])
+
+def city_pulse_float(value: Any) -> Optional[float]:
+    try:
+        num = float(value)
+        return num if math.isfinite(num) else None
+    except Exception:
+        return None
+
+def city_pulse_parse_gdelt_datetime(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        if re.fullmatch(r"\d{14}", text):
+            return datetime.strptime(text, "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc).isoformat()
+        parsed = parse_datetime_value(text)
+        return parsed.isoformat() if parsed else ""
+    except Exception:
+        return ""
+
+def city_pulse_safe_sources(raw_sources: Any) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+    for src in raw_sources or []:
+        if not isinstance(src, dict):
+            continue
+        url = str(src.get("url") or "").strip()
+        if not url or not url.startswith(("http://", "https://")) or url in seen:
+            continue
+        seen.add(url)
+        out.append({
+            "title": city_pulse_clean_label(src.get("title"), 180),
+            "publisher": city_pulse_clean_label(src.get("publisher") or src.get("domain"), 80),
+            "url": url,
+            "published_at": city_pulse_parse_gdelt_datetime(src.get("published_at") or src.get("seendate") or ""),
+            "language": city_pulse_clean_label(src.get("language"), 24),
+            "source_country": city_pulse_clean_label(src.get("source_country") or src.get("sourcecountry"), 60),
+        })
+    return out
+
+def city_pulse_article_fingerprint(article: Dict[str, Any]) -> str:
+    title = normalize_name_fingerprint(article.get("title", ""))
+    url_host = urlparse(str(article.get("url") or "")).netloc.lower()
+    return hashlib.sha1(f"{title}|{url_host}".encode("utf-8")).hexdigest()[:18]
+
+def city_pulse_category_for_title(title: str) -> str:
+    text = norm_text(title)
+    if re.search(r"\b(police|stolen|theft|robbery|assault|charged|arrest|crime|shooting)\b", text):
+        return "public_safety"
+    if re.search(r"\b(fire|flood|storm|weather|warning|alert|evacuation|power outage)\b", text):
+        return "alert"
+    if re.search(r"\b(road|traffic|transit|bus|bridge|closure|crash|collision|accident)\b", text):
+        return "traffic"
+    if re.search(r"\b(festival|concert|market|parade|game|event|show|exhibition)\b", text):
+        return "event"
+    if re.search(r"\b(council|mayor|budget|development|school|hospital|housing|project)\b", text):
+        return "civic"
+    return "news"
+
+def city_pulse_hook_from_title(title: str, category: str = "") -> str:
+    clean = city_pulse_clean_label(title, 120)
+    words = [w for w in re.split(r"\s+", clean) if w]
+    if len(words) <= 4:
+        return clean or "Local update"
+    category_hooks = {
+        "public_safety": "Safety update",
+        "traffic": "Road update",
+        "event": "City event",
+        "alert": "Local alert",
+        "civic": "City decision",
+    }
+    return category_hooks.get(category, "Local update")
+
+def city_pulse_heuristic_cards(ctx: Dict[str, Any], articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    cards: List[Dict[str, Any]] = []
+    seen: set = set()
+    for article in articles:
+        title = city_pulse_clean_label(article.get("title"), 180)
+        if not title:
+            continue
+        fp = city_pulse_article_fingerprint(article)
+        if fp in seen:
+            continue
+        seen.add(fp)
+        category = city_pulse_category_for_title(title)
+        cards.append({
+            "hook_title": city_pulse_hook_from_title(title, category),
+            "headline": title,
+            "brief": "A local source is reporting this story. Open the source links for the full details.",
+            "category": category,
+            "importance_score": 0.55,
+            "location_label": city_pulse_clean_label(ctx.get("city"), 90),
+            "location_precision": "city",
+            "location_confidence": 0.35,
+            "published_at": article.get("published_at") or article.get("seendate") or "",
+            "source_ids": [article.get("id")],
+            "sources": city_pulse_safe_sources([article]),
+        })
+        if len(cards) >= CITY_PULSE_MAX_CARDS:
+            break
+    return cards
+
+def city_pulse_extract_json_object(text: str) -> Dict[str, Any]:
+    raw = str(text or "").strip()
+    raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.IGNORECASE).strip()
+    raw = re.sub(r"\s*```$", "", raw).strip()
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start >= 0 and end > start:
+        raw = raw[start:end + 1]
+    return json.loads(raw)
+
+def city_pulse_synthesize_cards(ctx: Dict[str, Any], articles: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], str]:
+    if not articles:
+        return [], ""
+    article_map = {str(article.get("id") or ""): article for article in articles}
+    if not OPENROUTER_KEY:
+        return city_pulse_heuristic_cards(ctx, articles), "heuristic"
+    compact_articles = [
+        {
+            "id": article.get("id"),
+            "title": city_pulse_clean_label(article.get("title"), 180),
+            "publisher": city_pulse_clean_label(article.get("publisher") or article.get("domain"), 80),
+            "published_at": article.get("published_at") or "",
+            "source_country": article.get("source_country") or "",
+            "url": article.get("url") or "",
+        }
+        for article in articles[:CITY_PULSE_MAX_ARTICLES]
+        if article.get("title") and article.get("url")
+    ]
+    system = """You create evidence-grounded City Pulse map cards from news article metadata.
+Use only the supplied article titles and metadata. Do not invent facts, locations, injuries, suspects, money amounts, or source claims.
+Merge duplicate coverage into one card. Prefer public safety, civic alerts, road/transit impacts, major events, and high-impact local civic news.
+If the exact incident place is not clear from the titles, set location_precision to "city", location_label to the city, and location_confidence below 0.5.
+Keep hook_title short and catchy, but not sensational. Return JSON only."""
+    user = json.dumps({
+        "city_context": {
+            "city": ctx.get("city", ""),
+            "region": ctx.get("region", ""),
+            "country_code": ctx.get("country_code", ""),
+            "country_name": ctx.get("country_name", ""),
+        },
+        "max_cards": CITY_PULSE_MAX_CARDS,
+        "schema": {
+            "cards": [{
+                "hook_title": "2-5 words",
+                "headline": "full source-grounded heading",
+                "brief": "one or two sentences, based only on the titles",
+                "category": "public_safety|traffic|event|alert|civic|news",
+                "importance_score": "0 to 1",
+                "location_label": "best place phrase or city",
+                "location_precision": "address|street|neighborhood|city",
+                "location_confidence": "0 to 1",
+                "published_at": "ISO timestamp if known",
+                "source_ids": ["article ids used"]
+            }]
+        },
+        "articles": compact_articles,
+    }, ensure_ascii=True)
+    try:
+        llm_res = llm_chat(system, user, max_tokens=1800, model=CITY_PULSE_MODEL, temperature=0.1)
+        parsed = city_pulse_extract_json_object(llm_res.get("content", ""))
+        cards: List[Dict[str, Any]] = []
+        used_urls: set = set()
+        for raw in parsed.get("cards") or []:
+            if not isinstance(raw, dict):
+                continue
+            source_ids = [str(x or "").strip() for x in raw.get("source_ids") or [] if str(x or "").strip()]
+            sources = []
+            fingerprints = []
+            for sid in source_ids:
+                article = article_map.get(sid)
+                if not article:
+                    continue
+                url = str(article.get("url") or "").strip()
+                if url in used_urls and len(source_ids) == 1:
+                    continue
+                used_urls.add(url)
+                sources.extend(city_pulse_safe_sources([article]))
+                fingerprints.append(city_pulse_article_fingerprint(article))
+            if not sources:
+                continue
+            category = city_pulse_clean_label(raw.get("category"), 24).lower() or city_pulse_category_for_title(raw.get("headline", ""))
+            if category not in {"public_safety", "traffic", "event", "alert", "civic", "news"}:
+                category = "news"
+            cards.append({
+                "hook_title": city_pulse_clean_label(raw.get("hook_title"), 42) or city_pulse_hook_from_title(raw.get("headline", ""), category),
+                "headline": city_pulse_clean_label(raw.get("headline"), 180) or sources[0].get("title", ""),
+                "brief": city_pulse_clean_label(raw.get("brief"), 340),
+                "category": category,
+                "importance_score": max(0.0, min(city_pulse_float(raw.get("importance_score")) or 0.5, 1.0)),
+                "location_label": city_pulse_clean_label(raw.get("location_label") or ctx.get("city"), 120),
+                "location_precision": city_pulse_clean_label(raw.get("location_precision") or "city", 24).lower(),
+                "location_confidence": max(0.0, min(city_pulse_float(raw.get("location_confidence")) or 0.0, 1.0)),
+                "published_at": city_pulse_parse_gdelt_datetime(raw.get("published_at") or sources[0].get("published_at")),
+                "sources": sources[:5],
+                "article_fingerprints": fingerprints[:8],
+            })
+            if len(cards) >= CITY_PULSE_MAX_CARDS:
+                break
+        if cards:
+            return cards, llm_res.get("model") or OPENROUTER_MODEL
+    except Exception as e:
+        print(f"[City Pulse LLM Warning] {e}")
+    return city_pulse_heuristic_cards(ctx, articles), "heuristic"
+
+def city_pulse_fetch_gdelt_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    city = city_pulse_clean_label(ctx.get("city"), 80)
+    region = city_pulse_clean_label(ctx.get("region"), 80)
+    country_name = city_pulse_clean_label(ctx.get("country_name"), 80)
+    if not city or not CITY_PULSE_GDELT_URL:
+        return [], {"provider": "gdelt", "query": ""}
+    topic_block = "(police OR fire OR theft OR stolen OR robbery OR assault OR arrest OR crash OR collision OR accident OR road OR closure OR transit OR alert OR warning OR weather OR council OR mayor OR festival OR concert OR event OR market OR hospital OR school OR housing)"
+    place_bits = [f'"{city}"']
+    if region:
+        place_bits.append(f'"{region}"')
+    elif country_name:
+        place_bits.append(f'"{country_name}"')
+    query = " ".join(place_bits + [topic_block])
+    params = {
+        "query": query,
+        "mode": "artlist",
+        "format": "json",
+        "maxrecords": CITY_PULSE_MAX_ARTICLES,
+        "sort": "hybridrel",
+        "timespan": CITY_PULSE_GDELT_TIMESPAN,
+    }
+    res = requests.get(CITY_PULSE_GDELT_URL, params=params, timeout=14)
+    res.raise_for_status()
+    data = res.json() or {}
+    articles: List[Dict[str, Any]] = []
+    seen: set = set()
+    for idx, raw in enumerate(data.get("articles") or []):
+        url = str(raw.get("url") or "").strip()
+        title = city_pulse_clean_label(raw.get("title"), 220)
+        if not url or not title:
+            continue
+        signature = (url.lower(), normalize_name_fingerprint(title))
+        if signature in seen:
+            continue
+        seen.add(signature)
+        articles.append({
+            "id": f"a{idx + 1}",
+            "url": url,
+            "title": title,
+            "publisher": city_pulse_clean_label(raw.get("domain"), 90),
+            "domain": city_pulse_clean_label(raw.get("domain"), 90),
+            "language": city_pulse_clean_label(raw.get("language"), 24),
+            "source_country": city_pulse_clean_label(raw.get("sourcecountry"), 60),
+            "published_at": city_pulse_parse_gdelt_datetime(raw.get("seendate")),
+            "seendate": raw.get("seendate") or "",
+        })
+    return articles, {"provider": "gdelt", "query": query, "timespan": CITY_PULSE_GDELT_TIMESPAN}
+
+def city_pulse_geocode_place(query: str, country_code: str = "") -> Dict[str, Any]:
+    if not MAPBOX_TOKEN or not str(query or "").strip():
+        return {}
+    url, params = mapbox_geocoding_request(
+        query,
+        country_code=country_code,
+        limit=1,
+        autocomplete=False,
+        types="poi,address,neighborhood,locality,place,district",
+    )
+    try:
+        res = requests.get(url, params=params, timeout=8)
+        res.raise_for_status()
+        feature = ((res.json() or {}).get("features") or [None])[0] or {}
+        center = feature.get("center") or [None, None]
+        return {
+            "latitude": city_pulse_float(center[1]),
+            "longitude": city_pulse_float(center[0]),
+            "place_name": feature.get("place_name", ""),
+            "place_type": ",".join(feature.get("place_type") or []),
+        }
+    except Exception as e:
+        print(f"[City Pulse Geocode Warning] {e}")
+        return {}
+
+def city_pulse_reverse_geocode(lat: Any, lng: Any) -> Dict[str, Any]:
+    lat_val = city_pulse_float(lat)
+    lng_val = city_pulse_float(lng)
+    if lat_val is None or lng_val is None or not MAPBOX_TOKEN:
+        return {}
+    url, params = mapbox_geocoding_request(
+        f"{lng_val},{lat_val}",
+        limit=5,
+        autocomplete=False,
+        types="place,locality,region,country",
+    )
+    try:
+        res = requests.get(url, params=params, timeout=8)
+        res.raise_for_status()
+        features = (res.json() or {}).get("features") or []
+        city = ""
+        region = ""
+        country_code = ""
+        country_name = ""
+        for feature in features:
+            place_types = set(feature.get("place_type") or [])
+            if not city and ({"place", "locality"} & place_types):
+                city = feature.get("text", "") or city
+            if not region and "region" in place_types:
+                region = feature.get("text", "") or region
+            if not country_name and "country" in place_types:
+                country_name = feature.get("text", "") or country_name
+                country_code = clean_code((feature.get("properties") or {}).get("short_code", "") or country_code)
+            for item in feature.get("context") or []:
+                item_id = str(item.get("id", ""))
+                if not city and (item_id.startswith("place.") or item_id.startswith("locality.")):
+                    city = item.get("text", "") or city
+                elif not region and item_id.startswith("region."):
+                    region = item.get("text", "") or region
+                elif item_id.startswith("country."):
+                    country_name = country_name or item.get("text", "")
+                    country_code = country_code or clean_code(item.get("short_code", ""))
+        return {
+            "city": city_pulse_clean_label(city, 80),
+            "region": city_pulse_clean_label(region, 80),
+            "country_code": clean_code(country_code),
+            "country_name": city_pulse_clean_label(country_name, 80),
+            "center_lat": lat_val,
+            "center_lng": lng_val,
+            "source": "map_center",
+        }
+    except Exception as e:
+        print(f"[City Pulse Reverse Geocode Warning] {e}")
+        return {}
+
+def city_pulse_context_from_ip(request: Request) -> Dict[str, Any]:
+    header_names = {
+        "city": ["cf-ipcity", "x-vercel-ip-city", "x-appengine-city", "x-geo-city", "x-forwarded-city"],
+        "region": ["cf-region", "x-vercel-ip-country-region", "x-appengine-region", "x-geo-region"],
+        "country_code": ["cf-ipcountry", "x-vercel-ip-country", "x-appengine-country", "x-geo-country"],
+    }
+    out: Dict[str, Any] = {}
+    for field, names in header_names.items():
+        for name in names:
+            raw = str(request.headers.get(name, "") or "").strip()
+            if raw:
+                out[field] = city_pulse_clean_label(unquote(raw.replace("+", " ")), 80)
+                break
+    if out.get("country_code"):
+        out["country_code"] = clean_code(out.get("country_code", ""))
+        out["country_name"] = country_meta(out["country_code"]).get("name", "")
+    if out.get("city"):
+        out["source"] = "geo_header"
+        return out
+    if CITY_PULSE_IPINFO_TOKEN:
+        ip = client_ip(request)
+        if ip and ip not in {"unknown", "127.0.0.1", "::1"} and not ip.startswith(("10.", "192.168.", "172.16.")):
+            try:
+                res = requests.get(f"https://ipinfo.io/{ip}/json", params={"token": CITY_PULSE_IPINFO_TOKEN}, timeout=5)
+                if res.ok:
+                    data = res.json() or {}
+                    loc = str(data.get("loc") or "").split(",")
+                    out.update({
+                        "city": city_pulse_clean_label(data.get("city"), 80),
+                        "region": city_pulse_clean_label(data.get("region"), 80),
+                        "country_code": clean_code(data.get("country")),
+                        "country_name": country_meta(data.get("country", "")).get("name", ""),
+                        "center_lat": city_pulse_float(loc[0]) if len(loc) == 2 else None,
+                        "center_lng": city_pulse_float(loc[1]) if len(loc) == 2 else None,
+                        "source": "ipinfo",
+                    })
+                    if out.get("city"):
+                        return out
+            except Exception as e:
+                print(f"[City Pulse IP Warning] {e}")
+    return {}
+
+def city_pulse_context_from_market() -> Dict[str, Any]:
+    if supabase is None:
+        return {}
+    try:
+        rows = supabase.table("shops").select("city,region,country_code,country_name,latitude,longitude,listing_status").limit(100).execute().data or []
+    except Exception:
+        return {}
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        shop = normalize_shop_record(row or {})
+        if not shop_is_publicly_listable(shop) or not shop_matches_market_country(shop):
+            continue
+        key = city_pulse_key(shop.get("city", ""), shop.get("region", ""), shop.get("country_code", ""))
+        if not key:
+            continue
+        entry = grouped.setdefault(key, {
+            "count": 0,
+            "city": shop.get("city", ""),
+            "region": shop.get("region", ""),
+            "country_code": shop.get("country_code", ""),
+            "country_name": shop.get("country_name", ""),
+            "lats": [],
+            "lngs": [],
+        })
+        entry["count"] += 1
+        lat = city_pulse_float(shop.get("latitude"))
+        lng = city_pulse_float(shop.get("longitude"))
+        if lat is not None and lng is not None:
+            entry["lats"].append(lat)
+            entry["lngs"].append(lng)
+    if not grouped:
+        return {}
+    best = sorted(grouped.values(), key=lambda item: item.get("count", 0), reverse=True)[0]
+    return {
+        "city": best.get("city", ""),
+        "region": best.get("region", ""),
+        "country_code": best.get("country_code", ""),
+        "country_name": best.get("country_name", ""),
+        "center_lat": sum(best["lats"]) / len(best["lats"]) if best.get("lats") else None,
+        "center_lng": sum(best["lngs"]) / len(best["lngs"]) if best.get("lngs") else None,
+        "source": "market_fallback",
+    }
+
+def city_pulse_resolve_context(request: Request, city: str = "", region: str = "", country_code: str = "", lat: Any = None, lng: Any = None) -> Dict[str, Any]:
+    ctx: Dict[str, Any] = {}
+    lat_val = city_pulse_float(lat)
+    lng_val = city_pulse_float(lng)
+    if city:
+        ctx = {
+            "city": city_pulse_clean_label(city, 80),
+            "region": city_pulse_clean_label(region, 80),
+            "country_code": clean_code(country_code) or active_market_country_code(),
+            "source": "query",
+        }
+    elif lat_val is not None and lng_val is not None:
+        ctx = city_pulse_reverse_geocode(lat_val, lng_val)
+    if not ctx.get("city"):
+        ctx = city_pulse_context_from_ip(request)
+    if not ctx.get("city"):
+        ctx = city_pulse_context_from_market()
+    if lat_val is not None and lng_val is not None:
+        ctx["center_lat"] = lat_val
+        ctx["center_lng"] = lng_val
+    ctx["country_code"] = clean_code(ctx.get("country_code") or active_market_country_code())
+    ctx["country_name"] = city_pulse_clean_label(ctx.get("country_name") or country_meta(ctx.get("country_code", "")).get("name", ""), 80)
+    ctx["region"] = city_pulse_clean_label(ctx.get("region"), 80)
+    ctx["city"] = city_pulse_clean_label(ctx.get("city"), 80)
+    ctx["city_key"] = city_pulse_key(ctx.get("city", ""), ctx.get("region", ""), ctx.get("country_code", ""))
+    return ctx
+
+def city_pulse_ensure_center(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    if city_pulse_float(ctx.get("center_lat")) is not None and city_pulse_float(ctx.get("center_lng")) is not None:
+        return ctx
+    query = ", ".join([part for part in [ctx.get("city", ""), ctx.get("region", ""), ctx.get("country_name", "")] if str(part or "").strip()])
+    geo = city_pulse_geocode_place(query, ctx.get("country_code", ""))
+    if geo.get("latitude") is not None and geo.get("longitude") is not None:
+        ctx["center_lat"] = geo.get("latitude")
+        ctx["center_lng"] = geo.get("longitude")
+    return ctx
+
+def city_pulse_prepare_cards_for_storage(ctx: Dict[str, Any], cards: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    ctx = city_pulse_ensure_center(ctx)
+    out: List[Dict[str, Any]] = []
+    for card in cards:
+        if not isinstance(card, dict):
+            continue
+        confidence = max(0.0, min(city_pulse_float(card.get("location_confidence")) or 0.0, 1.0))
+        label = city_pulse_clean_label(card.get("location_label") or ctx.get("city"), 120)
+        lat = None
+        lng = None
+        if label and confidence >= CITY_PULSE_MIN_PIN_CONFIDENCE:
+            query = ", ".join([part for part in [label, ctx.get("city", ""), ctx.get("region", ""), ctx.get("country_name", "")] if str(part or "").strip()])
+            geo = city_pulse_geocode_place(query, ctx.get("country_code", ""))
+            lat = geo.get("latitude")
+            lng = geo.get("longitude")
+        if lat is None or lng is None:
+            lat = city_pulse_float(ctx.get("center_lat"))
+            lng = city_pulse_float(ctx.get("center_lng"))
+            if confidence < CITY_PULSE_MIN_PIN_CONFIDENCE:
+                card["location_precision"] = "city"
+        sources = city_pulse_safe_sources(card.get("sources") or [])
+        if not sources:
+            continue
+        out.append({
+            **card,
+            "hook_title": city_pulse_clean_label(card.get("hook_title"), 42) or "Local update",
+            "headline": city_pulse_clean_label(card.get("headline"), 180) or sources[0].get("title", ""),
+            "brief": city_pulse_clean_label(card.get("brief"), 340) or "Open the source links for the full details.",
+            "category": city_pulse_clean_label(card.get("category"), 24).lower() or "news",
+            "location_label": label or city_pulse_clean_label(ctx.get("city"), 80),
+            "location_precision": city_pulse_clean_label(card.get("location_precision") or "city", 24).lower(),
+            "location_confidence": confidence,
+            "importance_score": max(0.0, min(city_pulse_float(card.get("importance_score")) or 0.5, 1.0)),
+            "latitude": lat,
+            "longitude": lng,
+            "published_at": city_pulse_parse_gdelt_datetime(card.get("published_at") or sources[0].get("published_at")),
+            "sources": sources[:5],
+            "article_fingerprints": list(dict.fromkeys([str(x) for x in card.get("article_fingerprints") or [] if str(x).strip()]))[:8],
+        })
+    out.sort(key=lambda item: (float(item.get("importance_score") or 0), item.get("published_at") or ""), reverse=True)
+    return out[:CITY_PULSE_MAX_CARDS]
+
+def city_pulse_store_batch(ctx: Dict[str, Any], cards: List[Dict[str, Any]], articles: List[Dict[str, Any]], provider_meta: Dict[str, Any], model_used: str = "", error: str = "") -> Optional[str]:
+    if supabase is None or not ctx.get("city_key"):
+        return None
+    sb = require_supabase()
+    now_dt = datetime.now(timezone.utc)
+    batch_id = f"pulse-{hashlib.sha1((ctx.get('city_key', '') + now_dt.isoformat()).encode('utf-8')).hexdigest()[:18]}"
+    prepared_cards = city_pulse_prepare_cards_for_storage(ctx, cards) if not error else []
+    fresh_seconds = CITY_PULSE_REFRESH_SECONDS if prepared_cards else min(CITY_PULSE_REFRESH_SECONDS, 1800)
+    batch_payload = {
+        "batch_id": batch_id,
+        "city_key": ctx.get("city_key", ""),
+        "city": ctx.get("city", ""),
+        "region": ctx.get("region", ""),
+        "country_code": ctx.get("country_code", ""),
+        "country_name": ctx.get("country_name", ""),
+        "center_lat": ctx.get("center_lat"),
+        "center_lng": ctx.get("center_lng"),
+        "provider": provider_meta.get("provider") or "gdelt",
+        "status": "error" if error else "ready",
+        "refreshed_at": now_dt.isoformat(),
+        "fresh_until": (now_dt + timedelta(seconds=fresh_seconds)).isoformat(),
+        "stale_until": (now_dt + timedelta(seconds=CITY_PULSE_STALE_SECONDS)).isoformat(),
+        "article_count": len(articles),
+        "card_count": len(prepared_cards),
+        "model_used": model_used or "",
+        "error_message": city_pulse_clean_label(error, 500),
+        "metadata": provider_meta or {},
+        "updated_at": now_dt.isoformat(),
+    }
+    sb.table("city_pulse_batches").insert(batch_payload).execute()
+    card_rows: List[Dict[str, Any]] = []
+    source_rows: List[Dict[str, Any]] = []
+    for rank, card in enumerate(prepared_cards, start=1):
+        card_id = f"pulse-card-{uuid.uuid4().hex[:18]}"
+        sources = card.get("sources") or []
+        card_rows.append({
+            "card_id": card_id,
+            "batch_id": batch_id,
+            "city_key": ctx.get("city_key", ""),
+            "rank": rank,
+            "category": card.get("category", "news"),
+            "hook_title": card.get("hook_title", ""),
+            "headline": card.get("headline", ""),
+            "brief": card.get("brief", ""),
+            "location_label": card.get("location_label", ""),
+            "latitude": card.get("latitude"),
+            "longitude": card.get("longitude"),
+            "location_precision": card.get("location_precision", "city"),
+            "location_confidence": card.get("location_confidence", 0),
+            "importance_score": card.get("importance_score", 0),
+            "published_at": card.get("published_at") or None,
+            "source_count": len(sources),
+            "sources": sources,
+            "article_fingerprints": card.get("article_fingerprints") or [],
+            "metadata": {"model_used": model_used or "", "location_policy": "exact pins require confidence threshold; city fallback is approximate"},
+            "visible": True,
+        })
+        for src in sources:
+            url = str(src.get("url") or "").strip()
+            if not url:
+                continue
+            source_rows.append({
+                "source_id": f"pulse-src-{uuid.uuid5(uuid.NAMESPACE_URL, card_id + url).hex[:18]}",
+                "card_id": card_id,
+                "batch_id": batch_id,
+                "publisher": src.get("publisher", ""),
+                "title": src.get("title", ""),
+                "url": url,
+                "published_at": src.get("published_at") or None,
+                "language": src.get("language", ""),
+                "source_country": src.get("source_country", ""),
+            })
+    if card_rows:
+        sb.table("city_pulse_cards").insert(card_rows).execute()
+    if source_rows:
+        sb.table("city_pulse_sources").insert(source_rows).execute()
+    return batch_id
+
+def refresh_city_pulse(ctx: Dict[str, Any]) -> None:
+    city_key = str(ctx.get("city_key") or "").strip()
+    if not CITY_PULSE_ENABLED or not city_key:
+        return
+    now = time.time()
+    if now - float(CITY_PULSE_REFRESHING.get(city_key, 0) or 0) < 900:
+        return
+    CITY_PULSE_REFRESHING[city_key] = now
+    try:
+        articles, provider_meta = city_pulse_fetch_gdelt_articles(ctx)
+        cards, model_used = city_pulse_synthesize_cards(ctx, articles)
+        city_pulse_store_batch(ctx, cards, articles, provider_meta, model_used=model_used)
+    except Exception as e:
+        print(f"[City Pulse Refresh Warning] {city_key}: {e}")
+        try:
+            city_pulse_store_batch(ctx, [], [], {"provider": "gdelt"}, error=str(e))
+        except Exception as store_err:
+            print(f"[City Pulse Store Warning] {store_err}")
+    finally:
+        CITY_PULSE_REFRESHING.pop(city_key, None)
+
+def city_pulse_serialize_card(row: Dict[str, Any], source_rows: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    sources = row.get("sources") if isinstance(row.get("sources"), list) else None
+    if sources is None:
+        sources = [
+            {
+                "publisher": src.get("publisher", ""),
+                "title": src.get("title", ""),
+                "url": src.get("url", ""),
+                "published_at": src.get("published_at", ""),
+                "language": src.get("language", ""),
+                "source_country": src.get("source_country", ""),
+            }
+            for src in source_rows or []
+        ]
+    return {
+        "card_id": row.get("card_id", ""),
+        "rank": row.get("rank", 0),
+        "category": row.get("category", "news"),
+        "hook_title": row.get("hook_title", ""),
+        "headline": row.get("headline", ""),
+        "brief": row.get("brief", ""),
+        "location_label": row.get("location_label", ""),
+        "latitude": city_pulse_float(row.get("latitude")),
+        "longitude": city_pulse_float(row.get("longitude")),
+        "location_precision": row.get("location_precision", "city"),
+        "location_confidence": city_pulse_float(row.get("location_confidence")) or 0,
+        "importance_score": city_pulse_float(row.get("importance_score")) or 0,
+        "published_at": row.get("published_at", ""),
+        "source_count": row.get("source_count") or len(sources),
+        "sources": city_pulse_safe_sources(sources),
+    }
+
+def city_pulse_latest_payload(ctx: Dict[str, Any], limit: int = CITY_PULSE_MAX_CARDS) -> Dict[str, Any]:
+    if supabase is None or not ctx.get("city_key"):
+        return {"batch": None, "cards": []}
+    sb = require_supabase()
+    batch_rows = (
+        sb.table("city_pulse_batches")
+        .select("*")
+        .eq("city_key", ctx.get("city_key"))
+        .eq("status", "ready")
+        .order("refreshed_at", desc=True)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not batch_rows:
+        return {"batch": None, "cards": []}
+    batch = batch_rows[0]
+    card_rows = (
+        sb.table("city_pulse_cards")
+        .select("*")
+        .eq("batch_id", batch.get("batch_id"))
+        .eq("visible", True)
+        .order("rank")
+        .limit(max(1, min(int(limit or CITY_PULSE_MAX_CARDS), CITY_PULSE_MAX_CARDS)))
+        .execute()
+        .data
+        or []
+    )
+    return {
+        "batch": batch,
+        "cards": [city_pulse_serialize_card(row) for row in card_rows],
+    }
 
 def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(row or {})
@@ -7614,6 +8295,8 @@ def health():
         "model": OPENROUTER_MODEL if OPENROUTER_KEY else None,
         "fallback_models": OPENROUTER_FALLBACK_MODELS,
         "temperature": OPENROUTER_TEMPERATURE if OPENROUTER_KEY else None,
+        "city_pulse_enabled": CITY_PULSE_ENABLED,
+        "city_pulse_model": CITY_PULSE_MODEL if OPENROUTER_KEY and CITY_PULSE_ENABLED else None,
         "rag_enabled": HAS_RAG,
         "supabase_configured": supabase is not None,
         "notifications_enabled": notifications_enabled(),
@@ -8072,7 +8755,76 @@ def public_map_support():
         "provider": "leaflet",
         "tile_provider": "openstreetmap",
         "geocoding_enabled": bool(MAPBOX_TOKEN),
+        "city_pulse_enabled": CITY_PULSE_ENABLED,
         "public_token": "",
+    }
+
+@app.get("/public/city-pulse")
+def public_city_pulse(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    city: str = Query(""),
+    region: str = Query(""),
+    country_code: str = Query(""),
+    lat: str = Query(""),
+    lng: str = Query(""),
+    limit: int = Query(CITY_PULSE_MAX_CARDS, ge=1, le=10),
+    refresh: bool = Query(True),
+):
+    enforce_rate_limit(request, "public_city_pulse", limit=90, window_seconds=300)
+    if not CITY_PULSE_ENABLED:
+        return {"ok": True, "enabled": False, "cards": [], "reason": "disabled"}
+    ctx = city_pulse_resolve_context(request, city=city, region=region, country_code=country_code, lat=lat, lng=lng)
+    if not ctx.get("city") or not ctx.get("city_key"):
+        return {"ok": True, "enabled": True, "city_resolved": False, "cards": [], "reason": "city_unknown"}
+    now_dt = datetime.now(timezone.utc)
+    payload: Dict[str, Any] = {"batch": None, "cards": []}
+    schema_ready = True
+    try:
+        payload = city_pulse_latest_payload(ctx, limit=limit)
+    except Exception as e:
+        schema_ready = False
+        print(f"[City Pulse Read Warning] {e}")
+    batch = payload.get("batch") or {}
+    fresh_until = parse_datetime_value(batch.get("fresh_until"))
+    stale_until = parse_datetime_value(batch.get("stale_until"))
+    is_fresh = bool(fresh_until and fresh_until > now_dt)
+    has_cards = bool(payload.get("cards"))
+    refresh_queued = False
+    if schema_ready and refresh and (not is_fresh) and not CITY_PULSE_REFRESHING.get(ctx["city_key"]):
+        background_tasks.add_task(refresh_city_pulse, dict(ctx))
+        refresh_queued = True
+    return {
+        "ok": True,
+        "enabled": True,
+        "schema_ready": schema_ready,
+        "city_resolved": True,
+        "city": {
+            "city_key": ctx.get("city_key", ""),
+            "city": ctx.get("city", ""),
+            "region": ctx.get("region", ""),
+            "country_code": ctx.get("country_code", ""),
+            "country_name": ctx.get("country_name", ""),
+            "source": ctx.get("source", ""),
+            "center_lat": city_pulse_float(ctx.get("center_lat")),
+            "center_lng": city_pulse_float(ctx.get("center_lng")),
+        },
+        "cards": payload.get("cards") or [],
+        "batch": {
+            "batch_id": batch.get("batch_id", ""),
+            "provider": batch.get("provider", "gdelt") if batch else "gdelt",
+            "refreshed_at": batch.get("refreshed_at", "") if batch else "",
+            "fresh_until": batch.get("fresh_until", "") if batch else "",
+            "stale_until": batch.get("stale_until", "") if batch else "",
+            "article_count": batch.get("article_count", 0) if batch else 0,
+            "card_count": batch.get("card_count", 0) if batch else 0,
+            "model_used": batch.get("model_used", "") if batch else "",
+            "fresh": is_fresh,
+            "stale": bool(stale_until and stale_until <= now_dt),
+        },
+        "refresh_queued": refresh_queued,
+        "refreshing": bool(refresh_queued or CITY_PULSE_REFRESHING.get(ctx["city_key"])),
+        "reason": "fresh" if is_fresh else ("stale_cache" if has_cards else "building"),
     }
 
 @app.get("/public/timezone-support")
