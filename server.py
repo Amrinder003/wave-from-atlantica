@@ -192,6 +192,30 @@ CITY_PULSE_ERROR_BACKOFF_SECONDS = int(os.environ.get("CITY_PULSE_ERROR_BACKOFF_
 CITY_PULSE_GOOGLE_NEWS_ENABLED = os.environ.get("CITY_PULSE_GOOGLE_NEWS_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
 CITY_PULSE_GOOGLE_NEWS_URL = os.environ.get("CITY_PULSE_GOOGLE_NEWS_URL", "https://news.google.com/rss/search").strip()
 CITY_PULSE_HTTP_HEADERS = {"User-Agent": os.environ.get("CITY_PULSE_USER_AGENT", "AtlanticOrdinateCityPulse/1.0").strip() or "AtlanticOrdinateCityPulse/1.0"}
+CITY_PULSE_MIN_ARTICLE_SCORE = int(os.environ.get("CITY_PULSE_MIN_ARTICLE_SCORE", "2") or 2)
+CITY_PULSE_MIN_CARD_SCORE = float(os.environ.get("CITY_PULSE_MIN_CARD_SCORE", "0.42") or 0.42)
+CITY_PULSE_HIGH_SIGNAL_TITLE_PATTERNS = (
+    r"\b(police|rcmp|charged|charges|arrest|stolen|theft|robbery|assault|missing|fire|crash|collision|closed|closure|warning|alert|evacuation)\b",
+    r"\b(council|mayor|budget|tax|housing|hospital|school|development|zoning|permit|water main|power outage|transit|roadwork)\b",
+    r"\b(festival|concert|market|parade|exhibition|fundraiser|community event|tournament|championship|final)\b",
+)
+CITY_PULSE_LOW_SIGNAL_TITLE_PATTERNS = (
+    r"\bobituar(?:y|ies)\b", r"\bfuneral\b", r"\btribute archive\b", r"\bcurrent weather\b",
+    r"\bweather forecast\b", r"\bhoroscope\b", r"\blottery\b", r"\bclassifieds\b",
+    r"\bjob listings?\b", r"\bsponsored\b", r"\bpromoted\b", r"\bopinion\b", r"\bcolumn\b",
+    r"\bwhat'?s on tv\b", r"\bstreaming\b", r"\bhoroscope\b", r"\breview:?\b",
+    r"\bsmall towns to retire\b", r"\bbest places to retire\b", r"\bmost affordable\b",
+    r"^\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+schedule\b",
+)
+CITY_PULSE_HIGH_SIGNAL_SOURCE_TERMS = (
+    "cbc", "ctv", "global news", "saltwire", "journal pioneer", "guardian", "radio-canada",
+    "city of", "town of", "municipality", "county", "police", "rcmp", "government",
+    "news", "times", "journal", "post", "press", "gazette", "herald", "tribune",
+)
+CITY_PULSE_LOW_SIGNAL_SOURCE_TERMS = (
+    "tribute archive", "legacy.com", "weather", "accuweather", "the weather network",
+    "sportskeeda", "yardbarker", "msn", "yahoo entertainment",
+)
 FX_API_BASE       = os.environ.get("FX_API_BASE", "https://api.frankfurter.dev/v2").strip().rstrip("/")
 FX_CACHE_SECONDS  = int(os.environ.get("FX_CACHE_SECONDS", "21600") or 21600)
 PRODUCT_SEARCH_INDEX_CACHE_SECONDS = int(os.environ.get("PRODUCT_SEARCH_INDEX_CACHE_SECONDS", "45") or 45)
@@ -3554,6 +3578,19 @@ def city_pulse_clean_label(value: Any, max_len: int = 90) -> str:
     text = re.sub(r"\s+", " ", str(value or "").replace("\x00", " ")).strip()
     return text[:max_len].strip()
 
+def city_pulse_clean_headline(value: Any, max_len: int = 180, publisher: str = "") -> str:
+    text = city_pulse_clean_label(value, max_len + 80)
+    if not text:
+        return ""
+    text = re.sub(r"\s+([,.;:!?])", r"\1", text)
+    text = re.sub(r"\(\s+", "(", text)
+    text = re.sub(r"\s+\)", ")", text)
+    text = re.sub(r"\s+[-|]\s+$", "", text).strip()
+    pub = city_pulse_clean_label(publisher, 90)
+    if pub:
+        text = re.sub(rf"\s+[-|]\s+{re.escape(pub)}$", "", text, flags=re.IGNORECASE).strip()
+    return city_pulse_clean_label(text, max_len)
+
 def city_pulse_key(city: str, region: str = "", country_code: str = "") -> str:
     parts = [
         clean_code(country_code),
@@ -3606,9 +3643,10 @@ def city_pulse_safe_sources(raw_sources: Any) -> List[Dict[str, Any]]:
         if not url or not url.startswith(("http://", "https://")) or url in seen:
             continue
         seen.add(url)
+        publisher = city_pulse_clean_label(src.get("publisher") or src.get("domain"), 80)
         out.append({
-            "title": city_pulse_clean_label(src.get("title"), 180),
-            "publisher": city_pulse_clean_label(src.get("publisher") or src.get("domain"), 80),
+            "title": city_pulse_clean_headline(src.get("title"), 180, publisher=publisher),
+            "publisher": publisher,
             "url": url,
             "published_at": city_pulse_parse_gdelt_datetime(src.get("published_at") or src.get("seendate") or ""),
             "language": city_pulse_clean_label(src.get("language"), 24),
@@ -3620,6 +3658,32 @@ def city_pulse_article_fingerprint(article: Dict[str, Any]) -> str:
     title = normalize_name_fingerprint(article.get("title", ""))
     url_host = urlparse(str(article.get("url") or "")).netloc.lower()
     return hashlib.sha1(f"{title}|{url_host}".encode("utf-8")).hexdigest()[:18]
+
+def city_pulse_source_authority(article: Dict[str, Any]) -> int:
+    publisher = norm_text(article.get("publisher", "") or article.get("domain", ""))
+    host = norm_text(urlparse(str(article.get("url") or "")).netloc.replace("www.", ""))
+    blob = f"{publisher} {host}".strip()
+    score = 0
+    if any(term in blob for term in CITY_PULSE_HIGH_SIGNAL_SOURCE_TERMS):
+        score += 3
+    if any(term in blob for term in CITY_PULSE_LOW_SIGNAL_SOURCE_TERMS):
+        score -= 4
+    if host.endswith((".gov", ".gc.ca")) or ".gov." in host:
+        score += 4
+    if "news.google." in host:
+        score -= 1
+    return score
+
+def city_pulse_article_low_signal(article: Dict[str, Any]) -> bool:
+    title = norm_text(article.get("title", ""))
+    publisher = norm_text(article.get("publisher", "") or article.get("domain", ""))
+    if not title:
+        return True
+    if any(re.search(pattern, title) for pattern in CITY_PULSE_LOW_SIGNAL_TITLE_PATTERNS):
+        return True
+    if any(term in publisher for term in CITY_PULSE_LOW_SIGNAL_SOURCE_TERMS):
+        return True
+    return False
 
 def city_pulse_category_for_title(title: str) -> str:
     text = norm_text(title)
@@ -3635,31 +3699,40 @@ def city_pulse_category_for_title(title: str) -> str:
         return "civic"
     return "news"
 
+def city_pulse_category_label(category: str) -> str:
+    return {
+        "public_safety": "Safety",
+        "traffic": "Traffic",
+        "event": "Event",
+        "alert": "Alert",
+        "civic": "Civic",
+        "news": "News",
+    }.get(str(category or "").lower(), "News")
+
+def city_pulse_primary_source_label(sources: List[Dict[str, Any]]) -> str:
+    for src in sources or []:
+        publisher = city_pulse_clean_label(src.get("publisher"), 60)
+        if publisher:
+            return publisher
+        host = urlparse(str(src.get("url") or "")).netloc.replace("www.", "")
+        if host:
+            return city_pulse_clean_label(host, 60)
+    return "Source"
+
 def city_pulse_article_useful(article: Dict[str, Any]) -> bool:
-    title = norm_text(article.get("title", ""))
-    publisher = norm_text(article.get("publisher", "") or article.get("domain", ""))
-    if not title:
-        return False
-    low_signal = [
-        r"\bobituary\b", r"\bfuneral\b", r"\btribute archive\b", r"\bcurrent weather\b",
-        r"\bweather forecast\b", r"\bhoroscope\b", r"\blottery\b", r"\bclassifieds\b",
-        r"\bjob listings?\b", r"^\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+schedule\b",
-    ]
-    if any(re.search(pattern, title) for pattern in low_signal):
-        return False
-    if any(term in publisher for term in ["tribute archive"]):
+    if city_pulse_article_low_signal(article):
         return False
     return True
 
 def city_pulse_article_rank(article: Dict[str, Any]) -> int:
     title = norm_text(article.get("title", ""))
-    score = 0
-    if re.search(r"\b(police|charged|charges|arrest|stolen|theft|robbery|assault|fire|crash|collision|closed|closure|warning|alert)\b", title):
-        score += 5
-    if re.search(r"\b(council|housing|hospital|school|mayor|budget|development|festival|concert|centennial|game)\b", title):
-        score += 3
-    if re.search(r"\b(weather|schedule|opinion|column)\b", title):
-        score -= 2
+    score = city_pulse_source_authority(article)
+    if any(re.search(pattern, title) for pattern in CITY_PULSE_HIGH_SIGNAL_TITLE_PATTERNS):
+        score += 6
+    if re.search(r"\b(live|breaking|update|public notice|advisory)\b", title):
+        score += 2
+    if city_pulse_article_low_signal(article):
+        score -= 8
     parsed = parse_datetime_value(article.get("published_at", ""))
     if parsed:
         age_hours = (datetime.now(timezone.utc) - parsed).total_seconds() / 3600
@@ -3667,6 +3740,8 @@ def city_pulse_article_rank(article: Dict[str, Any]) -> int:
             score += 2
         elif age_hours <= 96:
             score += 1
+        elif age_hours > 168:
+            score -= 2
     return score
 
 def city_pulse_filter_articles(articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -3678,13 +3753,16 @@ def city_pulse_filter_articles(articles: List[Dict[str, Any]]) -> List[Dict[str,
         signature = normalize_name_fingerprint(article.get("title", ""))[:90]
         if not signature or signature in seen:
             continue
+        article["quality_score"] = city_pulse_article_rank(article)
+        if int(article.get("quality_score") or 0) < CITY_PULSE_MIN_ARTICLE_SCORE:
+            continue
         seen.add(signature)
         out.append(article)
-    out.sort(key=city_pulse_article_rank, reverse=True)
+    out.sort(key=lambda item: int(item.get("quality_score") or city_pulse_article_rank(item)), reverse=True)
     return out
 
 def city_pulse_hook_from_title(title: str, category: str = "") -> str:
-    clean = city_pulse_clean_label(title, 120)
+    clean = city_pulse_clean_headline(title, 120)
     words = [w for w in re.split(r"\s+", clean) if w]
     if len(words) <= 4:
         return clean or "Local update"
@@ -3711,7 +3789,7 @@ def city_pulse_heuristic_cards(ctx: Dict[str, Any], articles: List[Dict[str, Any
         category = city_pulse_category_for_title(title)
         cards.append({
             "hook_title": city_pulse_hook_from_title(title, category),
-            "headline": title,
+            "headline": city_pulse_clean_headline(title, 180, publisher=article.get("publisher", "")),
             "brief": "A local source is reporting this story. Open the source links for the full details.",
             "category": category,
             "importance_score": 0.55,
@@ -3721,6 +3799,7 @@ def city_pulse_heuristic_cards(ctx: Dict[str, Any], articles: List[Dict[str, Any
             "published_at": article.get("published_at") or article.get("seendate") or "",
             "source_ids": [article.get("id")],
             "sources": city_pulse_safe_sources([article]),
+            "source_authority": city_pulse_source_authority(article),
         })
         if len(cards) >= CITY_PULSE_MAX_CARDS:
             break
@@ -3745,10 +3824,12 @@ def city_pulse_synthesize_cards(ctx: Dict[str, Any], articles: List[Dict[str, An
     compact_articles = [
         {
             "id": article.get("id"),
-            "title": city_pulse_clean_label(article.get("title"), 180),
+            "title": city_pulse_clean_headline(article.get("title"), 180, publisher=article.get("publisher", "")),
             "publisher": city_pulse_clean_label(article.get("publisher") or article.get("domain"), 80),
             "published_at": article.get("published_at") or "",
             "source_country": article.get("source_country") or "",
+            "quality_score": int(article.get("quality_score") or city_pulse_article_rank(article)),
+            "category_hint": city_pulse_category_for_title(article.get("title", "")),
             "url": article.get("url") or "",
         }
         for article in articles[:CITY_PULSE_MAX_ARTICLES]
@@ -3757,9 +3838,12 @@ def city_pulse_synthesize_cards(ctx: Dict[str, Any], articles: List[Dict[str, An
     system = """You create evidence-grounded City Pulse map cards from news article metadata.
 Use only the supplied article titles and metadata. Do not invent facts, locations, injuries, suspects, money amounts, or source claims.
 Merge duplicate coverage into one card. Prefer public safety, civic alerts, road/transit impacts, major events, and high-impact local civic news.
-Do not create cards for generic weather pages, obituaries, classifieds, generic sports schedules, or articles with no clear local public interest.
+Create fewer, stronger cards. Skip articles with weak local public interest even if there is room.
+Do not create cards for generic weather pages, obituaries, classifieds, generic sports schedules, opinion, lifestyle listicles, or articles with no clear public use.
 If the exact incident place is not clear from the titles, set location_precision to "city", location_label to the city, and location_confidence below 0.5.
-Keep hook_title short and catchy, but not sensational. Return JSON only."""
+Keep hook_title 2-4 words, plain, and map-friendly. Avoid clickbait and avoid adding details not present in source titles.
+The brief must say what happened and why it matters in 24 words or fewer.
+Return JSON only."""
     user = json.dumps({
         "city_context": {
             "city": ctx.get("city", ""),
@@ -3772,7 +3856,7 @@ Keep hook_title short and catchy, but not sensational. Return JSON only."""
             "cards": [{
                 "hook_title": "2-5 words",
                 "headline": "full source-grounded heading",
-                "brief": "one or two sentences, based only on the titles",
+                "brief": "24 words or fewer, based only on the titles",
                 "category": "public_safety|traffic|event|alert|civic|news",
                 "importance_score": "0 to 1",
                 "location_label": "best place phrase or city",
@@ -3810,9 +3894,11 @@ Keep hook_title short and catchy, but not sensational. Return JSON only."""
             category = city_pulse_clean_label(raw.get("category"), 24).lower() or city_pulse_category_for_title(raw.get("headline", ""))
             if category not in {"public_safety", "traffic", "event", "alert", "civic", "news"}:
                 category = "news"
+            headline = city_pulse_clean_headline(raw.get("headline"), 180, publisher=sources[0].get("publisher", "")) or sources[0].get("title", "")
+            hook = city_pulse_clean_label(raw.get("hook_title"), 42) or city_pulse_hook_from_title(headline, category)
             cards.append({
-                "hook_title": city_pulse_clean_label(raw.get("hook_title"), 42) or city_pulse_hook_from_title(raw.get("headline", ""), category),
-                "headline": city_pulse_clean_label(raw.get("headline"), 180) or sources[0].get("title", ""),
+                "hook_title": hook,
+                "headline": headline,
                 "brief": city_pulse_clean_label(raw.get("brief"), 340),
                 "category": category,
                 "importance_score": max(0.0, min(city_pulse_float(raw.get("importance_score")) or 0.5, 1.0)),
@@ -3822,6 +3908,7 @@ Keep hook_title short and catchy, but not sensational. Return JSON only."""
                 "published_at": city_pulse_parse_gdelt_datetime(raw.get("published_at") or sources[0].get("published_at")),
                 "sources": sources[:5],
                 "article_fingerprints": fingerprints[:8],
+                "source_authority": max([city_pulse_source_authority(src) for src in sources] or [0]),
             })
             if len(cards) >= CITY_PULSE_MAX_CARDS:
                 break
@@ -3861,7 +3948,8 @@ def city_pulse_fetch_gdelt_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str,
     seen: set = set()
     for idx, raw in enumerate(data.get("articles") or []):
         url = str(raw.get("url") or "").strip()
-        title = city_pulse_clean_label(raw.get("title"), 220)
+        publisher = city_pulse_clean_label(raw.get("domain"), 90)
+        title = city_pulse_clean_headline(raw.get("title"), 220, publisher=publisher)
         if not url or not title:
             continue
         signature = (url.lower(), normalize_name_fingerprint(title))
@@ -3872,8 +3960,8 @@ def city_pulse_fetch_gdelt_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str,
             "id": f"a{idx + 1}",
             "url": url,
             "title": title,
-            "publisher": city_pulse_clean_label(raw.get("domain"), 90),
-            "domain": city_pulse_clean_label(raw.get("domain"), 90),
+            "publisher": publisher,
+            "domain": publisher,
             "language": city_pulse_clean_label(raw.get("language"), 24),
             "source_country": city_pulse_clean_label(raw.get("sourcecountry"), 60),
             "published_at": city_pulse_parse_gdelt_datetime(raw.get("seendate")),
@@ -3902,11 +3990,11 @@ def city_pulse_fetch_google_news_articles(ctx: Dict[str, Any]) -> Tuple[List[Dic
     articles: List[Dict[str, Any]] = []
     seen: set = set()
     for idx, item in enumerate(root.findall(".//channel/item")):
-        title = city_pulse_clean_label(item.findtext("title"), 220)
         link = str(item.findtext("link") or "").strip()
         pub_date = city_pulse_parse_rss_datetime(item.findtext("pubDate"))
         source_el = item.find("source")
         publisher = city_pulse_clean_label(source_el.text if source_el is not None else "", 90)
+        title = city_pulse_clean_headline(item.findtext("title"), 220, publisher=publisher)
         if not title or not link:
             continue
         signature = (link.lower(), normalize_name_fingerprint(title))
@@ -3939,6 +4027,15 @@ def city_pulse_fetch_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]]
             provider = meta.get("provider", "provider")
             providers.append(provider)
             filtered = city_pulse_filter_articles(articles)
+            if not filtered and articles:
+                relaxed: List[Dict[str, Any]] = []
+                for article in articles:
+                    if not city_pulse_article_useful(article):
+                        continue
+                    article["quality_score"] = city_pulse_article_rank(article)
+                    if int(article.get("quality_score") or 0) >= 0:
+                        relaxed.append(article)
+                filtered = sorted(relaxed, key=lambda item: int(item.get("quality_score") or 0), reverse=True)[:8]
             for article in filtered:
                 url = str(article.get("url") or "").strip().lower()
                 if url and url in seen_urls:
@@ -4157,11 +4254,35 @@ def city_pulse_ensure_center(ctx: Dict[str, Any]) -> Dict[str, Any]:
         ctx["center_lng"] = geo.get("longitude")
     return ctx
 
+def city_pulse_card_quality_score(card: Dict[str, Any], sources: List[Dict[str, Any]]) -> float:
+    text = f"{card.get('hook_title', '')} {card.get('headline', '')} {card.get('brief', '')}"
+    title_blob = norm_text(text)
+    importance = max(0.0, min(city_pulse_float(card.get("importance_score")) or 0.0, 1.0))
+    source_authority = max([city_pulse_source_authority(src) for src in sources or []] or [0])
+    score = importance
+    score += min(0.22, max(0, source_authority) * 0.045)
+    if any(re.search(pattern, title_blob) for pattern in CITY_PULSE_HIGH_SIGNAL_TITLE_PATTERNS):
+        score += 0.18
+    if any(re.search(pattern, title_blob) for pattern in CITY_PULSE_LOW_SIGNAL_TITLE_PATTERNS):
+        score -= 0.36
+    category = str(card.get("category") or "").lower()
+    if category in {"public_safety", "traffic", "alert", "civic"}:
+        score += 0.08
+    if len(sources or []) > 1:
+        score += 0.04
+    return round(max(0.0, min(score, 1.0)), 3)
+
 def city_pulse_prepare_cards_for_storage(ctx: Dict[str, Any], cards: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     ctx = city_pulse_ensure_center(ctx)
     out: List[Dict[str, Any]] = []
     for card in cards:
         if not isinstance(card, dict):
+            continue
+        sources = city_pulse_safe_sources(card.get("sources") or [])
+        if not sources:
+            continue
+        quality_score = city_pulse_card_quality_score(card, sources)
+        if quality_score < CITY_PULSE_MIN_CARD_SCORE:
             continue
         confidence = max(0.0, min(city_pulse_float(card.get("location_confidence")) or 0.0, 1.0))
         label = city_pulse_clean_label(card.get("location_label") or ctx.get("city"), 120)
@@ -4177,26 +4298,30 @@ def city_pulse_prepare_cards_for_storage(ctx: Dict[str, Any], cards: List[Dict[s
             lng = city_pulse_float(ctx.get("center_lng"))
             if confidence < CITY_PULSE_MIN_PIN_CONFIDENCE:
                 card["location_precision"] = "city"
-        sources = city_pulse_safe_sources(card.get("sources") or [])
-        if not sources:
-            continue
+        category = city_pulse_clean_label(card.get("category"), 24).lower() or "news"
+        if category not in {"public_safety", "traffic", "event", "alert", "civic", "news"}:
+            category = "news"
+        approximate = str(card.get("location_precision") or "city").lower() == "city" or confidence < CITY_PULSE_MIN_PIN_CONFIDENCE
         out.append({
             **card,
             "hook_title": city_pulse_clean_label(card.get("hook_title"), 42) or "Local update",
-            "headline": city_pulse_clean_label(card.get("headline"), 180) or sources[0].get("title", ""),
+            "headline": city_pulse_clean_headline(card.get("headline"), 180, publisher=sources[0].get("publisher", "")) or sources[0].get("title", ""),
             "brief": city_pulse_clean_label(card.get("brief"), 340) or "Open the source links for the full details.",
-            "category": city_pulse_clean_label(card.get("category"), 24).lower() or "news",
+            "category": category,
             "location_label": label or city_pulse_clean_label(ctx.get("city"), 80),
             "location_precision": city_pulse_clean_label(card.get("location_precision") or "city", 24).lower(),
             "location_confidence": confidence,
             "importance_score": max(0.0, min(city_pulse_float(card.get("importance_score")) or 0.5, 1.0)),
+            "quality_score": quality_score,
+            "source_authority": max([city_pulse_source_authority(src) for src in sources] or [0]),
+            "location_approximate": approximate,
             "latitude": lat,
             "longitude": lng,
             "published_at": city_pulse_parse_gdelt_datetime(card.get("published_at") or sources[0].get("published_at")),
             "sources": sources[:5],
             "article_fingerprints": list(dict.fromkeys([str(x) for x in card.get("article_fingerprints") or [] if str(x).strip()]))[:8],
         })
-    out.sort(key=lambda item: (float(item.get("importance_score") or 0), item.get("published_at") or ""), reverse=True)
+    out.sort(key=lambda item: (float(item.get("quality_score") or 0), float(item.get("importance_score") or 0), item.get("published_at") or ""), reverse=True)
     return out[:CITY_PULSE_MAX_CARDS]
 
 def city_pulse_store_batch(ctx: Dict[str, Any], cards: List[Dict[str, Any]], articles: List[Dict[str, Any]], provider_meta: Dict[str, Any], model_used: str = "", error: str = "") -> Optional[str]:
@@ -4253,7 +4378,15 @@ def city_pulse_store_batch(ctx: Dict[str, Any], cards: List[Dict[str, Any]], art
             "source_count": len(sources),
             "sources": sources,
             "article_fingerprints": card.get("article_fingerprints") or [],
-            "metadata": {"model_used": model_used or "", "location_policy": "exact pins require confidence threshold; city fallback is approximate"},
+            "metadata": {
+                "model_used": model_used or "",
+                "location_policy": "exact pins require confidence threshold; city fallback is approximate",
+                "quality_score": card.get("quality_score", 0),
+                "source_authority": card.get("source_authority", 0),
+                "location_approximate": bool(card.get("location_approximate")),
+                "category_label": city_pulse_category_label(card.get("category", "news")),
+                "primary_source": city_pulse_primary_source_label(sources),
+            },
             "visible": True,
         })
         for src in sources:
@@ -4312,22 +4445,30 @@ def city_pulse_serialize_card(row: Dict[str, Any], source_rows: Optional[List[Di
             }
             for src in source_rows or []
         ]
+    safe_sources = city_pulse_safe_sources(sources)
+    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    location_confidence = city_pulse_float(row.get("location_confidence")) or 0
+    location_precision = row.get("location_precision", "city")
     return {
         "card_id": row.get("card_id", ""),
         "rank": row.get("rank", 0),
         "category": row.get("category", "news"),
+        "category_label": metadata.get("category_label") or city_pulse_category_label(row.get("category", "news")),
         "hook_title": row.get("hook_title", ""),
         "headline": row.get("headline", ""),
         "brief": row.get("brief", ""),
         "location_label": row.get("location_label", ""),
         "latitude": city_pulse_float(row.get("latitude")),
         "longitude": city_pulse_float(row.get("longitude")),
-        "location_precision": row.get("location_precision", "city"),
-        "location_confidence": city_pulse_float(row.get("location_confidence")) or 0,
+        "location_precision": location_precision,
+        "location_confidence": location_confidence,
+        "location_approximate": bool(metadata.get("location_approximate")) or str(location_precision or "city").lower() == "city" or location_confidence < CITY_PULSE_MIN_PIN_CONFIDENCE,
         "importance_score": city_pulse_float(row.get("importance_score")) or 0,
+        "quality_score": city_pulse_float(metadata.get("quality_score")) or city_pulse_float(row.get("importance_score")) or 0,
+        "source_label": metadata.get("primary_source") or city_pulse_primary_source_label(safe_sources),
         "published_at": row.get("published_at", ""),
-        "source_count": row.get("source_count") or len(sources),
-        "sources": city_pulse_safe_sources(sources),
+        "source_count": row.get("source_count") or len(safe_sources),
+        "sources": safe_sources,
     }
 
 def city_pulse_latest_payload(ctx: Dict[str, Any], limit: int = CITY_PULSE_MAX_CARDS) -> Dict[str, Any]:
