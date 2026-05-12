@@ -11953,7 +11953,7 @@ async function loadCityPulseForMap(opts={}){
       setTimeout(()=>loadCityPulseForMap({force:true}),9000);
     }
   }catch(e){
-    App.mapSheet.cityPulse.enabled=false;
+    App.mapSheet.cityPulse.enabled=true;
   }finally{
     App.mapSheet.cityPulse.loading=false;
   }

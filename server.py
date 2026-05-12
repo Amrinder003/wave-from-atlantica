@@ -17,7 +17,7 @@ import smtplib
 from typing import Any, Dict, List, Optional, Tuple
 from io import BytesIO, StringIO
 from email.message import EmailMessage
-from email.utils import formataddr, parseaddr
+from email.utils import formataddr, parseaddr, parsedate_to_datetime
 from urllib.parse import urlparse, unquote
 import zipfile
 import xml.etree.ElementTree as ET
@@ -182,11 +182,16 @@ CITY_PULSE_REFRESH_SECONDS = int(os.environ.get("CITY_PULSE_REFRESH_SECONDS", "1
 CITY_PULSE_STALE_SECONDS = int(os.environ.get("CITY_PULSE_STALE_SECONDS", "86400") or 86400)
 CITY_PULSE_GDELT_URL = os.environ.get("CITY_PULSE_GDELT_URL", "https://api.gdeltproject.org/api/v2/doc/doc").strip()
 CITY_PULSE_GDELT_TIMESPAN = os.environ.get("CITY_PULSE_GDELT_TIMESPAN", "48h").strip() or "48h"
+CITY_PULSE_GDELT_TIMEOUT_SECONDS = int(os.environ.get("CITY_PULSE_GDELT_TIMEOUT_SECONDS", "24") or 24)
 CITY_PULSE_MAX_ARTICLES = max(8, min(int(os.environ.get("CITY_PULSE_MAX_ARTICLES", "40") or 40), 100))
 CITY_PULSE_MAX_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MAX_CARDS", "6") or 6), 10))
 CITY_PULSE_MIN_PIN_CONFIDENCE = float(os.environ.get("CITY_PULSE_MIN_PIN_CONFIDENCE", "0.55") or 0.55)
 CITY_PULSE_IPINFO_TOKEN = (os.environ.get("CITY_PULSE_IPINFO_TOKEN", "").strip() or os.environ.get("IPINFO_TOKEN", "").strip())
 CITY_PULSE_MODEL = os.environ.get("CITY_PULSE_MODEL", OPENROUTER_MODEL).strip() or OPENROUTER_MODEL
+CITY_PULSE_ERROR_BACKOFF_SECONDS = int(os.environ.get("CITY_PULSE_ERROR_BACKOFF_SECONDS", "900") or 900)
+CITY_PULSE_GOOGLE_NEWS_ENABLED = os.environ.get("CITY_PULSE_GOOGLE_NEWS_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
+CITY_PULSE_GOOGLE_NEWS_URL = os.environ.get("CITY_PULSE_GOOGLE_NEWS_URL", "https://news.google.com/rss/search").strip()
+CITY_PULSE_HTTP_HEADERS = {"User-Agent": os.environ.get("CITY_PULSE_USER_AGENT", "AtlanticOrdinateCityPulse/1.0").strip() or "AtlanticOrdinateCityPulse/1.0"}
 FX_API_BASE       = os.environ.get("FX_API_BASE", "https://api.frankfurter.dev/v2").strip().rstrip("/")
 FX_CACHE_SECONDS  = int(os.environ.get("FX_CACHE_SECONDS", "21600") or 21600)
 PRODUCT_SEARCH_INDEX_CACHE_SECONDS = int(os.environ.get("PRODUCT_SEARCH_INDEX_CACHE_SECONDS", "45") or 45)
@@ -3576,6 +3581,21 @@ def city_pulse_parse_gdelt_datetime(value: Any) -> str:
     except Exception:
         return ""
 
+def city_pulse_parse_rss_datetime(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    parsed = parse_datetime_value(text)
+    if parsed:
+        return parsed.isoformat()
+    try:
+        dt = parsedate_to_datetime(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat()
+    except Exception:
+        return ""
+
 def city_pulse_safe_sources(raw_sources: Any) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     seen: set = set()
@@ -3614,6 +3634,54 @@ def city_pulse_category_for_title(title: str) -> str:
     if re.search(r"\b(council|mayor|budget|development|school|hospital|housing|project)\b", text):
         return "civic"
     return "news"
+
+def city_pulse_article_useful(article: Dict[str, Any]) -> bool:
+    title = norm_text(article.get("title", ""))
+    publisher = norm_text(article.get("publisher", "") or article.get("domain", ""))
+    if not title:
+        return False
+    low_signal = [
+        r"\bobituary\b", r"\bfuneral\b", r"\btribute archive\b", r"\bcurrent weather\b",
+        r"\bweather forecast\b", r"\bhoroscope\b", r"\blottery\b", r"\bclassifieds\b",
+        r"\bjob listings?\b", r"^\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+schedule\b",
+    ]
+    if any(re.search(pattern, title) for pattern in low_signal):
+        return False
+    if any(term in publisher for term in ["tribute archive"]):
+        return False
+    return True
+
+def city_pulse_article_rank(article: Dict[str, Any]) -> int:
+    title = norm_text(article.get("title", ""))
+    score = 0
+    if re.search(r"\b(police|charged|charges|arrest|stolen|theft|robbery|assault|fire|crash|collision|closed|closure|warning|alert)\b", title):
+        score += 5
+    if re.search(r"\b(council|housing|hospital|school|mayor|budget|development|festival|concert|centennial|game)\b", title):
+        score += 3
+    if re.search(r"\b(weather|schedule|opinion|column)\b", title):
+        score -= 2
+    parsed = parse_datetime_value(article.get("published_at", ""))
+    if parsed:
+        age_hours = (datetime.now(timezone.utc) - parsed).total_seconds() / 3600
+        if age_hours <= 24:
+            score += 2
+        elif age_hours <= 96:
+            score += 1
+    return score
+
+def city_pulse_filter_articles(articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    seen: set = set()
+    out: List[Dict[str, Any]] = []
+    for article in articles or []:
+        if not city_pulse_article_useful(article):
+            continue
+        signature = normalize_name_fingerprint(article.get("title", ""))[:90]
+        if not signature or signature in seen:
+            continue
+        seen.add(signature)
+        out.append(article)
+    out.sort(key=city_pulse_article_rank, reverse=True)
+    return out
 
 def city_pulse_hook_from_title(title: str, category: str = "") -> str:
     clean = city_pulse_clean_label(title, 120)
@@ -3689,6 +3757,7 @@ def city_pulse_synthesize_cards(ctx: Dict[str, Any], articles: List[Dict[str, An
     system = """You create evidence-grounded City Pulse map cards from news article metadata.
 Use only the supplied article titles and metadata. Do not invent facts, locations, injuries, suspects, money amounts, or source claims.
 Merge duplicate coverage into one card. Prefer public safety, civic alerts, road/transit impacts, major events, and high-impact local civic news.
+Do not create cards for generic weather pages, obituaries, classifieds, generic sports schedules, or articles with no clear local public interest.
 If the exact incident place is not clear from the titles, set location_precision to "city", location_label to the city, and location_confidence below 0.5.
 Keep hook_title short and catchy, but not sensational. Return JSON only."""
     user = json.dumps({
@@ -3768,24 +3837,26 @@ def city_pulse_fetch_gdelt_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str,
     country_name = city_pulse_clean_label(ctx.get("country_name"), 80)
     if not city or not CITY_PULSE_GDELT_URL:
         return [], {"provider": "gdelt", "query": ""}
-    topic_block = "(police OR fire OR theft OR stolen OR robbery OR assault OR arrest OR crash OR collision OR accident OR road OR closure OR transit OR alert OR warning OR weather OR council OR mayor OR festival OR concert OR event OR market OR hospital OR school OR housing)"
     place_bits = [f'"{city}"']
     if region:
         place_bits.append(f'"{region}"')
     elif country_name:
         place_bits.append(f'"{country_name}"')
-    query = " ".join(place_bits + [topic_block])
+    query = " ".join(place_bits)
     params = {
         "query": query,
         "mode": "artlist",
         "format": "json",
-        "maxrecords": CITY_PULSE_MAX_ARTICLES,
-        "sort": "hybridrel",
+        "maxrecords": min(CITY_PULSE_MAX_ARTICLES, 30),
+        "sort": "datedesc",
         "timespan": CITY_PULSE_GDELT_TIMESPAN,
     }
-    res = requests.get(CITY_PULSE_GDELT_URL, params=params, timeout=14)
+    res = requests.get(CITY_PULSE_GDELT_URL, params=params, timeout=CITY_PULSE_GDELT_TIMEOUT_SECONDS, headers=CITY_PULSE_HTTP_HEADERS)
     res.raise_for_status()
-    data = res.json() or {}
+    try:
+        data = res.json() or {}
+    except Exception:
+        raise ValueError(f"GDELT returned non-JSON response ({res.status_code})")
     articles: List[Dict[str, Any]] = []
     seen: set = set()
     for idx, raw in enumerate(data.get("articles") or []):
@@ -3809,6 +3880,85 @@ def city_pulse_fetch_gdelt_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str,
             "seendate": raw.get("seendate") or "",
         })
     return articles, {"provider": "gdelt", "query": query, "timespan": CITY_PULSE_GDELT_TIMESPAN}
+
+def city_pulse_fetch_google_news_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    if not CITY_PULSE_GOOGLE_NEWS_ENABLED or not CITY_PULSE_GOOGLE_NEWS_URL:
+        return [], {"provider": "google_news_rss", "query": ""}
+    city = city_pulse_clean_label(ctx.get("city"), 80)
+    region = city_pulse_clean_label(ctx.get("region"), 80)
+    country_code = clean_code(ctx.get("country_code", "")) or "CA"
+    if not city:
+        return [], {"provider": "google_news_rss", "query": ""}
+    query = " ".join([part for part in [f'"{city}"', f'"{region}"' if region else "", "when:7d"] if part]).strip()
+    params = {
+        "q": query,
+        "hl": f"en-{country_code}",
+        "gl": country_code,
+        "ceid": f"{country_code}:en",
+    }
+    res = requests.get(CITY_PULSE_GOOGLE_NEWS_URL, params=params, timeout=18, headers=CITY_PULSE_HTTP_HEADERS)
+    res.raise_for_status()
+    root = ET.fromstring(res.content)
+    articles: List[Dict[str, Any]] = []
+    seen: set = set()
+    for idx, item in enumerate(root.findall(".//channel/item")):
+        title = city_pulse_clean_label(item.findtext("title"), 220)
+        link = str(item.findtext("link") or "").strip()
+        pub_date = city_pulse_parse_rss_datetime(item.findtext("pubDate"))
+        source_el = item.find("source")
+        publisher = city_pulse_clean_label(source_el.text if source_el is not None else "", 90)
+        if not title or not link:
+            continue
+        signature = (link.lower(), normalize_name_fingerprint(title))
+        if signature in seen:
+            continue
+        seen.add(signature)
+        articles.append({
+            "id": f"rss{idx + 1}",
+            "url": link,
+            "title": title,
+            "publisher": publisher,
+            "domain": publisher,
+            "language": "en",
+            "source_country": country_code,
+            "published_at": pub_date,
+            "seendate": pub_date,
+        })
+        if len(articles) >= CITY_PULSE_MAX_ARTICLES:
+            break
+    return articles, {"provider": "google_news_rss", "query": query, "timespan": "7d"}
+
+def city_pulse_fetch_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    errors: List[str] = []
+    providers: List[str] = []
+    merged: List[Dict[str, Any]] = []
+    seen_urls: set = set()
+    for fetcher in (city_pulse_fetch_gdelt_articles, city_pulse_fetch_google_news_articles):
+        try:
+            articles, meta = fetcher(ctx)
+            provider = meta.get("provider", "provider")
+            providers.append(provider)
+            filtered = city_pulse_filter_articles(articles)
+            for article in filtered:
+                url = str(article.get("url") or "").strip().lower()
+                if url and url in seen_urls:
+                    continue
+                if url:
+                    seen_urls.add(url)
+                merged.append(article)
+            if not articles:
+                errors.append(f"{provider} returned no articles")
+            elif not filtered:
+                errors.append(f"{provider} returned only low-signal articles")
+            if len(merged) >= max(4, min(CITY_PULSE_MAX_ARTICLES, 10)):
+                break
+        except Exception as e:
+            errors.append(f"{fetcher.__name__}: {str(e)[:220]}")
+            print(f"[City Pulse Provider Warning] {errors[-1]}")
+    if merged:
+        merged = city_pulse_filter_articles(merged)[:CITY_PULSE_MAX_ARTICLES]
+        return merged, {"provider": "+".join(providers) if providers else "mixed", "errors": errors}
+    return [], {"provider": "none", "errors": errors}
 
 def city_pulse_geocode_place(query: str, country_code: str = "") -> Dict[str, Any]:
     if not MAPBOX_TOKEN or not str(query or "").strip():
@@ -4056,7 +4206,7 @@ def city_pulse_store_batch(ctx: Dict[str, Any], cards: List[Dict[str, Any]], art
     now_dt = datetime.now(timezone.utc)
     batch_id = f"pulse-{hashlib.sha1((ctx.get('city_key', '') + now_dt.isoformat()).encode('utf-8')).hexdigest()[:18]}"
     prepared_cards = city_pulse_prepare_cards_for_storage(ctx, cards) if not error else []
-    fresh_seconds = CITY_PULSE_REFRESH_SECONDS if prepared_cards else min(CITY_PULSE_REFRESH_SECONDS, 1800)
+    fresh_seconds = CITY_PULSE_REFRESH_SECONDS if prepared_cards else min(CITY_PULSE_REFRESH_SECONDS, CITY_PULSE_ERROR_BACKOFF_SECONDS)
     batch_payload = {
         "batch_id": batch_id,
         "city_key": ctx.get("city_key", ""),
@@ -4136,7 +4286,7 @@ def refresh_city_pulse(ctx: Dict[str, Any]) -> None:
         return
     CITY_PULSE_REFRESHING[city_key] = now
     try:
-        articles, provider_meta = city_pulse_fetch_gdelt_articles(ctx)
+        articles, provider_meta = city_pulse_fetch_articles(ctx)
         cards, model_used = city_pulse_synthesize_cards(ctx, articles)
         city_pulse_store_batch(ctx, cards, articles, provider_meta, model_used=model_used)
     except Exception as e:
@@ -4213,6 +4363,21 @@ def city_pulse_latest_payload(ctx: Dict[str, Any], limit: int = CITY_PULSE_MAX_C
         "batch": batch,
         "cards": [city_pulse_serialize_card(row) for row in card_rows],
     }
+
+def city_pulse_latest_batch_any(ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if supabase is None or not ctx.get("city_key"):
+        return None
+    rows = (
+        require_supabase().table("city_pulse_batches")
+        .select("*")
+        .eq("city_key", ctx.get("city_key"))
+        .order("refreshed_at", desc=True)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
 
 def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(row or {})
@@ -8780,18 +8945,23 @@ def public_city_pulse(
     now_dt = datetime.now(timezone.utc)
     payload: Dict[str, Any] = {"batch": None, "cards": []}
     schema_ready = True
+    latest_batch: Optional[Dict[str, Any]] = None
     try:
         payload = city_pulse_latest_payload(ctx, limit=limit)
+        latest_batch = city_pulse_latest_batch_any(ctx)
     except Exception as e:
         schema_ready = False
         print(f"[City Pulse Read Warning] {e}")
     batch = payload.get("batch") or {}
+    display_batch = batch or latest_batch or {}
     fresh_until = parse_datetime_value(batch.get("fresh_until"))
-    stale_until = parse_datetime_value(batch.get("stale_until"))
+    stale_until = parse_datetime_value(display_batch.get("stale_until"))
     is_fresh = bool(fresh_until and fresh_until > now_dt)
+    error_until = parse_datetime_value((latest_batch or {}).get("fresh_until")) if (latest_batch or {}).get("status") == "error" else None
+    error_backoff = bool(error_until and error_until > now_dt and not batch)
     has_cards = bool(payload.get("cards"))
     refresh_queued = False
-    if schema_ready and refresh and (not is_fresh) and not CITY_PULSE_REFRESHING.get(ctx["city_key"]):
+    if schema_ready and refresh and (not is_fresh) and not error_backoff and not CITY_PULSE_REFRESHING.get(ctx["city_key"]):
         background_tasks.add_task(refresh_city_pulse, dict(ctx))
         refresh_queued = True
     return {
@@ -8811,20 +8981,22 @@ def public_city_pulse(
         },
         "cards": payload.get("cards") or [],
         "batch": {
-            "batch_id": batch.get("batch_id", ""),
-            "provider": batch.get("provider", "gdelt") if batch else "gdelt",
-            "refreshed_at": batch.get("refreshed_at", "") if batch else "",
-            "fresh_until": batch.get("fresh_until", "") if batch else "",
-            "stale_until": batch.get("stale_until", "") if batch else "",
-            "article_count": batch.get("article_count", 0) if batch else 0,
-            "card_count": batch.get("card_count", 0) if batch else 0,
-            "model_used": batch.get("model_used", "") if batch else "",
+            "batch_id": display_batch.get("batch_id", ""),
+            "provider": display_batch.get("provider", "gdelt") if display_batch else "gdelt",
+            "status": display_batch.get("status", "") if display_batch else "",
+            "refreshed_at": display_batch.get("refreshed_at", "") if display_batch else "",
+            "fresh_until": display_batch.get("fresh_until", "") if display_batch else "",
+            "stale_until": display_batch.get("stale_until", "") if display_batch else "",
+            "article_count": display_batch.get("article_count", 0) if display_batch else 0,
+            "card_count": display_batch.get("card_count", 0) if display_batch else 0,
+            "model_used": display_batch.get("model_used", "") if display_batch else "",
+            "error_message": display_batch.get("error_message", "") if display_batch and display_batch.get("status") == "error" else "",
             "fresh": is_fresh,
             "stale": bool(stale_until and stale_until <= now_dt),
         },
         "refresh_queued": refresh_queued,
         "refreshing": bool(refresh_queued or CITY_PULSE_REFRESHING.get(ctx["city_key"])),
-        "reason": "fresh" if is_fresh else ("stale_cache" if has_cards else "building"),
+        "reason": "fresh" if is_fresh else ("stale_cache" if has_cards else ("refresh_error" if error_backoff else "building")),
     }
 
 @app.get("/public/timezone-support")
