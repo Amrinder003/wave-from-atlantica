@@ -4929,6 +4929,8 @@ def is_hours_query(q: str) -> bool:
 
 def is_contact_query(q: str) -> bool:
     qn = norm_text(q)
+    if re.search(r"\bphone\s+(charger|case|cover|cable|cord|adapter|accessory|accessories)\b", qn):
+        return False
     return any(t in qn for t in ["phone", "contact", "call", "whatsapp", "number"])
 
 def is_stock_query(q: str) -> bool:
@@ -4937,7 +4939,7 @@ def is_stock_query(q: str) -> bool:
 
 def is_cheapest_query(q: str) -> bool:
     qn = norm_text(q)
-    return any(t in qn for t in ["cheapest", "lowest price", "least expensive", "most affordable", "budget friendly"])
+    return any(t in qn for t in ["cheap", "cheaper", "cheapest", "affordable", "lowest price", "least expensive", "most affordable", "budget friendly", "inexpensive"])
 
 def is_recommendation_query(q: str) -> bool:
     qn = norm_text(q)
@@ -5980,6 +5982,8 @@ You may compare public offerings across businesses and explain how the app works
 Never invent businesses, offerings, prices, availability, hours, contact details, locations, policies, or app features.
 If the user asks for the cheapest option, compare only real prices from the supplied context.
 If the user asks what is available, rely only on offerings that are currently available in the supplied context.
+Interpret broad human requests by intent and meaning. For example, hunger or "something to eat" should be treated as a request for food-related businesses or offerings, not as a literal keyword check.
+Never expose internal search logic, matching rules, or "keyword not found" language to the user.
 Keep the answer warm, concise, practical, and human.
 Sound like a helpful marketplace guide, not a script.
 Do not overwhelm the user.
@@ -6066,7 +6070,7 @@ MARKETPLACE_PRODUCT_QUERY_STOPWORDS = MARKETPLACE_CHAT_STOPWORDS | {
     "availability", "below", "best", "browse", "business", "businesses", "buy",
     "cad", "catalog", "categories", "category", "cheap", "cheaper", "cheapest", "contact", "costing", "currently", "each",
     "every", "everything", "give", "highest", "in", "inventory", "least", "list", "lowest",
-    "home", "hour", "hours", "how", "location", "near", "now", "offering", "offerings", "open", "ordinate", "page", "phone", "platform", "priced", "product", "products",
+    "home", "hour", "hours", "how", "location", "near", "now", "offering", "offerings", "open", "ordinate", "page", "platform", "priced", "product", "products",
     "rating", "ratings", "review", "reviews", "sell", "selling", "sold", "sort", "star",
     "stars", "stock", "store", "shop", "site", "top", "under", "usd", "website", "work", "works",
 }
@@ -6087,6 +6091,72 @@ MARKETPLACE_NARROW_PRODUCT_EXPANSIONS = {
     "smoothies": {"smoothie", "smoothies"},
     "juice": {"juice", "juices"},
     "juices": {"juice", "juices"},
+}
+
+MARKETPLACE_ABSTRACT_PRODUCT_SUBJECTS = {
+    "eat", "eating", "hungry", "hunger",
+    "restaurant", "restaurants", "cafe", "cafes",
+    "bakery", "bakeries", "grocery", "groceries",
+}
+
+MARKETPLACE_INTENT_SIGNAL_TERMS = {
+    "food": {
+        "eat", "eating", "hungry", "hunger", "food", "foods", "meal", "meals",
+        "snack", "snacks", "drink", "drinks", "restaurant", "restaurants", "cafe", "cafes",
+        "coffee", "juice", "juices", "bakery", "bakeries", "grocery", "groceries", "dessert", "desserts",
+    },
+    "shopping": {
+        "buy", "purchase", "shop", "shopping", "need", "looking", "find", "show", "want",
+        "product", "products", "item", "items",
+    },
+    "services": {
+        "service", "services", "appointment", "appointments", "repair", "consult", "consultation",
+        "booking", "book", "lesson", "lessons", "class", "classes",
+    },
+    "business": {
+        "business", "businesses", "shop", "shops", "store", "stores", "restaurant", "restaurants",
+        "cafe", "cafes", "bakery", "bakeries", "grocery", "groceries",
+    },
+    "price": {
+        "cheap", "cheaper", "cheapest", "affordable", "budget", "price", "prices", "cost", "costs",
+        "under", "below", "inexpensive",
+    },
+    "availability": {
+        "available", "availability", "stock", "instock", "carry", "have",
+    },
+    "recommendation": {
+        "recommend", "recommendation", "suggest", "suggestion", "best", "popular", "choose", "pick",
+    },
+}
+
+MARKETPLACE_INTENT_SIGNAL_PHRASES = {
+    "food": {"something to eat", "want to eat", "feel hungry", "i am hungry", "i'm hungry"},
+    "shopping": {"looking for", "show me", "do you sell", "what can i buy"},
+    "business": {"near me", "around me", "find restaurants", "find cafes", "find stores"},
+    "price": {"low price", "lowest price", "something cheap", "budget friendly"},
+    "availability": {"do you have", "do they have", "in stock"},
+    "recommendation": {"help me choose", "good option", "top pick", "top picks"},
+}
+
+MARKETPLACE_INTENT_SEARCH_TERMS = {
+    "food": {
+        "food", "meal", "meals", "snack", "snacks", "drink", "drinks", "beverage", "beverages",
+        "shake", "shakes", "milkshake", "milkshakes", "smoothie", "smoothies", "juice", "juices",
+        "coffee", "tea", "latte", "soda", "lemonade", "dessert", "desserts", "cake", "cakes",
+        "sweet", "sweets", "pizza", "burger", "burgers", "sandwich", "sandwiches", "bakery", "restaurant",
+        "cafe", "grocery",
+    },
+    "services": {
+        "service", "services", "appointment", "appointments", "repair", "consult", "consultation",
+        "booking", "book", "lesson", "lessons", "class", "classes",
+    },
+}
+
+MARKETPLACE_INTENT_FOLLOWUPS = {
+    "food": "Are you looking for a full meal, a snack, a drink, or something sweet?",
+    "services": "What kind of service would help most: advice, booking, repair, or something else?",
+    "business": "Do you want me to narrow that by category, location, or what the business sells?",
+    "shopping": "Tell me the item or category you have in mind and I can narrow it down.",
 }
 
 def marketplace_token_variants(token: str) -> set:
@@ -6126,6 +6196,13 @@ def marketplace_product_subject_tokens(q: str, shops: Optional[List[Dict[str, An
             tokens.append(token)
     return tokens[:8]
 
+def marketplace_concrete_product_subject_tokens(q: str, shops: Optional[List[Dict[str, Any]]] = None) -> List[str]:
+    return [
+        token
+        for token in marketplace_product_subject_tokens(q, shops)
+        if token not in MARKETPLACE_ABSTRACT_PRODUCT_SUBJECTS
+    ]
+
 def marketplace_product_subject_groups(q: str, shops: Optional[List[Dict[str, Any]]] = None) -> List[set]:
     groups: List[set] = []
     seen = set()
@@ -6139,6 +6216,146 @@ def marketplace_product_subject_groups(q: str, shops: Optional[List[Dict[str, An
         seen.add(signature)
         groups.append(variants)
     return groups
+
+def marketplace_intent_profile(q: str) -> Dict[str, Any]:
+    qn = norm_text(q)
+    tokens = set(re.findall(r"[a-z0-9]+", qn))
+    intents: List[str] = []
+    signal_hits: Dict[str, List[str]] = {}
+    search_terms = set()
+
+    def add_intent(intent: str) -> None:
+        if intent not in intents:
+            intents.append(intent)
+        term_hits = sorted(tokens & MARKETPLACE_INTENT_SIGNAL_TERMS.get(intent, set()))
+        phrase_hits = sorted(phrase for phrase in MARKETPLACE_INTENT_SIGNAL_PHRASES.get(intent, set()) if phrase in qn)
+        if term_hits or phrase_hits:
+            signal_hits[intent] = dedup(term_hits + phrase_hits)
+        search_terms.update(MARKETPLACE_INTENT_SEARCH_TERMS.get(intent, set()))
+
+    if is_greeting(q):
+        add_intent("greeting")
+    for intent in ["food", "services", "business", "shopping", "price", "availability", "recommendation"]:
+        if (tokens & MARKETPLACE_INTENT_SIGNAL_TERMS.get(intent, set())) or any(
+            phrase in qn for phrase in MARKETPLACE_INTENT_SIGNAL_PHRASES.get(intent, set())
+        ):
+            add_intent(intent)
+    if is_budget_query(q) or is_cheapest_query(q) or is_price_lookup_query(q):
+        add_intent("price")
+    if is_stock_query(q):
+        add_intent("availability")
+    if is_recommendation_query(q):
+        add_intent("recommendation")
+
+    primary_order = ["greeting", "food", "services", "business", "shopping", "price", "availability", "recommendation"]
+    primary = next((intent for intent in primary_order if intent in intents), "unclear")
+    return {
+        "primary": primary,
+        "intents": intents,
+        "signal_hits": signal_hits,
+        "search_terms": sorted(search_terms),
+        "follow_up": MARKETPLACE_INTENT_FOLLOWUPS.get(primary, ""),
+    }
+
+def marketplace_semantic_blob(row: Dict[str, Any], shop: Dict[str, Any]) -> str:
+    return norm_text(" ".join([
+        marketplace_product_exact_blob(row, shop),
+        str(shop.get("overview", "")),
+        str(shop.get("address", "")),
+        str(shop.get("service_area", "")),
+    ]))
+
+def score_marketplace_semantic_product(row: Dict[str, Any], shop: Dict[str, Any], profile: Dict[str, Any]) -> float:
+    search_terms = set(profile.get("search_terms") or [])
+    if not search_terms:
+        return 0.0
+    blob = marketplace_semantic_blob(row, shop)
+    hay_tokens = set(re.findall(r"[a-z0-9]+", blob))
+    hits = search_terms & hay_tokens
+    if not hits:
+        return 0.0
+    score = len(hits) * 1.7
+    if profile.get("primary") == "food" and norm_text(shop.get("category", "")) in {"food", "restaurant", "cafe", "bakery", "grocery"}:
+        score += 2.4
+    if profile.get("primary") == "services" and normalize_offering_type(row.get("offering_type", ""), shop.get("business_type", ""), shop.get("category", "")) != "product":
+        score += 1.8
+    if row_is_available_for_chat(row, shop):
+        score += 0.45
+    score += product_display_score(row, shop)[0] * 0.18
+    return score
+
+def match_marketplace_semantic_products(
+    prod_rows: List[Dict[str, Any]],
+    q: str,
+    shop_map: Dict[str, Dict[str, Any]],
+    profile: Optional[Dict[str, Any]] = None,
+    available_only: bool = False,
+) -> List[Dict[str, Any]]:
+    profile = profile or marketplace_intent_profile(q)
+    if not profile.get("search_terms"):
+        return []
+    scored: List[Tuple[float, Dict[str, Any]]] = []
+    for row in prod_rows:
+        shop = normalize_shop_record(shop_map.get(str(row.get("shop_id", "")), {}) or {})
+        if available_only and not row_is_available_for_chat(row, shop):
+            continue
+        score = score_marketplace_semantic_product(row, shop, profile)
+        if score <= 0:
+            continue
+        scored.append((score, {**row, "_semantic_score": score}))
+    scored.sort(
+        key=lambda item: (
+            item[0],
+            product_display_score(item[1], shop_map.get(str(item[1].get("shop_id", "")), {})),
+        ),
+        reverse=True,
+    )
+    return [row for _, row in scored]
+
+def rank_marketplace_semantic_shops(
+    shops: List[Dict[str, Any]],
+    prod_rows: List[Dict[str, Any]],
+    q: str,
+    shop_map: Dict[str, Dict[str, Any]],
+    profile: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    profile = profile or marketplace_intent_profile(q)
+    search_terms = set(profile.get("search_terms") or [])
+    if not search_terms:
+        return []
+    rows_by_shop: Dict[str, List[Dict[str, Any]]] = {}
+    for row in prod_rows:
+        rows_by_shop.setdefault(str(row.get("shop_id", "")), []).append(row)
+
+    scored: List[Tuple[float, Dict[str, Any]]] = []
+    for shop in shops:
+        shop_norm = normalize_shop_record(shop or {})
+        shop_id = str(shop_norm.get("shop_id", ""))
+        shop_blob = norm_text(" ".join([
+            str(shop_norm.get("name", "")),
+            str(shop_norm.get("category", "")),
+            str(shop_norm.get("overview", "")),
+            str(shop_norm.get("address", "")),
+            str(shop_norm.get("service_area", "")),
+        ]))
+        shop_tokens = set(re.findall(r"[a-z0-9]+", shop_blob))
+        score = len(search_terms & shop_tokens) * 1.9
+        shop_rows = rows_by_shop.get(shop_id, [])
+        if shop_rows:
+            best_product_score = max(
+                (score_marketplace_semantic_product(row, shop_norm, profile) for row in shop_rows),
+                default=0.0,
+            )
+            score += best_product_score * 0.45
+        if profile.get("primary") == "food" and norm_text(shop_norm.get("category", "")) in {"food", "restaurant", "cafe", "bakery", "grocery"}:
+            score += 2.5
+        if score <= 0:
+            continue
+        if shop_is_open_now(shop_norm):
+            score += 0.2
+        scored.append((score, {**shop_norm, "_semantic_score": score}))
+    scored.sort(key=lambda item: (item[0], item[1].get("name", "").lower()), reverse=True)
+    return [shop for _, shop in scored]
 
 def marketplace_product_exact_blob(row: Dict[str, Any], shop: Dict[str, Any]) -> str:
     business_type = shop.get("business_type", "")
@@ -6199,7 +6416,7 @@ def match_marketplace_exact_products(
     return [row for _, row in scored]
 
 def marketplace_has_product_subject(q: str, shops: Optional[List[Dict[str, Any]]] = None) -> bool:
-    return bool(marketplace_product_subject_groups(q, shops))
+    return bool(marketplace_concrete_product_subject_tokens(q, shops))
 
 def is_marketplace_product_lookup_query(q: str, shops: Optional[List[Dict[str, Any]]] = None, allow_soft_triggers: bool = True) -> bool:
     subject_tokens = marketplace_product_subject_tokens(q, shops)
@@ -6511,6 +6728,9 @@ def match_marketplace_products(prod_rows: List[Dict[str, Any]], q: str, shop_map
     exact = match_marketplace_exact_products(prod_rows, q, shop_map, list(shop_map.values()))
     if exact:
         return exact
+    semantic = match_marketplace_semantic_products(prod_rows, q, shop_map)
+    if semantic:
+        return semantic
     ranked = rank_marketplace_products(prod_rows, q, shop_map)
     if not norm_text(q):
         return ranked
@@ -6539,11 +6759,19 @@ def marketplace_chat_item_line(item: Dict[str, Any], shop: Dict[str, Any]) -> st
 
 def marketplace_response_style_instructions(q: str, focus_shop: Optional[Dict[str, Any]] = None) -> str:
     qn = norm_text(q)
+    profile = marketplace_intent_profile(q)
     if focus_shop and focus_shop.get("name"):
         return (
             f"Stay focused on **{focus_shop.get('name')}** unless the user explicitly asks to compare other businesses. "
             "Keep the tone natural and conversational. "
             "For general business questions, give a short answer in 2 to 4 sentences and mention at most one standout offering unless the user asks for more."
+        )
+    if marketplace_prefers_receptionist_llm(q, profile):
+        follow_up = profile.get("follow_up") or "Ask one short clarifying follow-up if the request is broad."
+        return (
+            "Respond like a warm marketplace receptionist. Start by acknowledging the intent naturally, "
+            "ground the answer only in the supplied businesses and offerings, mention a few relevant options if available, "
+            f"and finish with this kind of concise follow-up: {follow_up}"
         )
     if is_recommendation_query(qn) or any(token in qn for token in ["compare", "difference", "best", "popular"]):
         return (
@@ -6637,13 +6865,18 @@ def answer_marketplace_business_list_query(shops: List[Dict[str, Any]], prod_row
     if not is_marketplace_business_list_query(q):
         return None
     counts = marketplace_shop_offering_counts(prod_rows)
-    ranked = rank_marketplace_shops(shops, q)
-    focus = marketplace_focus_tokens(q)
+    focus = [
+        token
+        for token in marketplace_focus_tokens(q)
+        if token not in {"business", "businesses", "shop", "shops", "store", "stores", "available", "availability", "open"}
+    ]
+    ranked = rank_marketplace_shops(shops, q if focus else "")
     if focus:
         ranked = [shop for shop in ranked if float(shop.get("_market_score", 0) or 0) >= 1.05]
     if not ranked:
         return {
-            "answer": "I could not find a business match for that yet. Try a business name, category, or product type.",
+            "answer": "I could not find a business that fits that request yet. Try a business name, category, product type, or tell me what you want help finding.",
+            "businesses": [],
             "products": [],
             "meta": {"llm_used": False, "reason": "business_list_empty", "suggestions": ["Show me shoes", "Which businesses are open now?", "What can I buy on this app?"]},
         }
@@ -6660,6 +6893,7 @@ def answer_marketplace_business_list_query(shops: List[Dict[str, Any]], prod_row
         lines.append(f"\nThere are **{len(ranked)}** matching businesses in total. Ask me to narrow it by product, price, or location.")
     return {
         "answer": "\n".join(lines),
+        "businesses": serialize_marketplace_businesses(top, prod_rows),
         "products": [],
         "meta": {"llm_used": False, "reason": "business_list", "suggestions": ["Which businesses are open now?", "Show me shoes", "Find the cheapest option"]},
     }
@@ -6786,6 +7020,7 @@ def answer_marketplace_open_now_query(shops: List[Dict[str, Any]], prod_rows: Li
     if not open_shops:
         return {
             "answer": "I do not see any businesses marked open right now.",
+            "businesses": [],
             "products": [],
             "meta": {"llm_used": False, "reason": "open_now_empty", "suggestions": ["Show me businesses", "Show me shoes", "What can I buy on this app?"]},
         }
@@ -6798,6 +7033,7 @@ def answer_marketplace_open_now_query(shops: List[Dict[str, Any]], prod_rows: Li
         lines.append(f"\nThere are **{len(open_shops)}** open businesses in total.")
     return {
         "answer": "\n".join(lines),
+        "businesses": serialize_marketplace_businesses(top, prod_rows),
         "products": [],
         "meta": {"llm_used": False, "reason": "open_now_businesses", "suggestions": ["Show me shoes", "Find the cheapest option", "What can I buy on this app?"]},
     }
@@ -7087,21 +7323,40 @@ def answer_marketplace_stock_query(shops: List[Dict[str, Any]], prod_rows: List[
     }
 
 def answer_marketplace_catalog_query(shops: List[Dict[str, Any]], prod_rows: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], currency: str = "") -> Dict[str, Any]:
-    strict_subject = marketplace_has_product_subject(q, shops)
+    profile = marketplace_intent_profile(q)
     exact_matches = match_marketplace_exact_products(prod_rows, q, shop_map, shops)
-    ranked = exact_matches or ([] if strict_subject else match_marketplace_products(prod_rows, q, shop_map))
+    ranked = exact_matches or match_marketplace_products(prod_rows, q, shop_map)
     if norm_text(q) and not ranked:
-        asked = " ".join(marketplace_product_subject_tokens(q, shops)) or "that"
+        asked = " ".join(marketplace_product_subject_tokens(q, shops)) or "that item"
+        if profile.get("primary") == "food":
+            answer = (
+                "I understand you are looking for something to eat. "
+                "I could not find a perfect food match in the current marketplace data yet, but I can still help you search by restaurant, cafe, snacks, drinks, juice, or grocery items. "
+                "What type of food are you looking for?"
+            )
+        else:
+            answer = (
+                f"I do not see an exact listing for **{asked}** yet. "
+                "If you want, I can still help you search by product type, shop, category, budget, or nearby alternatives."
+            )
         return {
-            "answer": f"I could not find a direct marketplace match for **{asked}** yet. Try a product type, business name, price range, or category.",
+            "answer": answer,
+            "businesses": [],
             "products": [],
             "meta": {"llm_used": False, "reason": "market_catalog_empty", "suggestions": ["Show me businesses", "Find the cheapest option", "What can I buy on this app?"]},
         }
     pool = ranked or rank_marketplace_products(prod_rows, "", shop_map)
     top = take_chat_card_rows(pool)
+    semantic_shops = rank_marketplace_semantic_shops(shops, prod_rows, q, shop_map, profile)[:4] if profile.get("search_terms") else []
     focus_shop = shops[0] if len(shops) == 1 else None
     business_count = len({str(row.get("shop_id", "")) for row in pool})
-    if focus_shop and focus_shop.get("name"):
+    asked = " ".join(marketplace_product_subject_tokens(q, shops)).strip()
+    using_close_matches = bool(asked and not exact_matches and ranked)
+    if using_close_matches and focus_shop and focus_shop.get("name"):
+        lines = [f"I could not find an exact listing for **{asked}** at **{focus_shop.get('name')}**, but here are the closest options I found:"]
+    elif using_close_matches:
+        lines = [f"I could not find an exact listing for **{asked}**, but here are the closest options I found:"]
+    elif focus_shop and focus_shop.get("name"):
         lines = [f"Here {'is' if len(pool) == 1 else 'are'} the best match{'es' if len(pool) != 1 else ''} I found at **{focus_shop.get('name')}**:"]
     else:
         lines = [f"I found **{len(pool)}** matching offering{'s' if len(pool) != 1 else ''} across **{business_count}** business{'es' if business_count != 1 else ''}:"]
@@ -7112,6 +7367,7 @@ def answer_marketplace_catalog_query(shops: List[Dict[str, Any]], prod_rows: Lis
         lines.append(f"\nI attached **{len(top)}** cards below. Ask me to narrow the list by budget, business, or product details.")
     return {
         "answer": "\n".join(lines),
+        "businesses": serialize_marketplace_businesses(semantic_shops, prod_rows) if semantic_shops else [],
         "products": serialize_marketplace_products(top, shop_map, currency),
         "meta": {"llm_used": False, "reason": "market_catalog", "suggestions": build_marketplace_chat_suggestions(q, top, shops, shop_map)},
     }
@@ -7222,10 +7478,57 @@ def find_marketplace_out_of_scope_bold_terms(answer: str, shops: List[Dict[str, 
         flagged.append(term)
     return flagged[:6]
 
+def marketplace_prefers_receptionist_llm(q: str, profile: Optional[Dict[str, Any]] = None) -> bool:
+    profile = profile or marketplace_intent_profile(q)
+    primary = profile.get("primary")
+    if primary not in {"food", "services", "business"}:
+        return False
+    if any(predicate(q) for predicate in [is_price_lookup_query, is_budget_query, is_cheapest_query, is_stock_query, is_rating_query, is_hours_query, is_contact_query]):
+        return False
+    qn = norm_text(q)
+    if is_list_intent(q) or any(trigger in qn for trigger in ["show me", "show all", "list ", "do you have", "do they have"]):
+        return False
+    subject_tokens = set(marketplace_product_subject_tokens(q))
+    if subject_tokens & MARKETPLACE_ABSTRACT_PRODUCT_SUBJECTS:
+        return True
+    return primary in {"food", "services"} and any(
+        phrase in qn
+        for phrase in MARKETPLACE_INTENT_SIGNAL_PHRASES.get(primary, set())
+    )
+
 def fallback_marketplace_answer(shops: List[Dict[str, Any]], picked: List[Dict[str, Any]], q: str, shop_map: Dict[str, Dict[str, Any]], focus_shop: Optional[Dict[str, Any]] = None) -> str:
+    profile = marketplace_intent_profile(q)
     if is_greeting(q):
         return (
             f"Hi, I'm **Atlantica**. I can help you search across **{len(shops)}** businesses, compare prices, and point you to the right business page."
+        )
+    if profile.get("primary") == "food":
+        if picked:
+            top = picked[0]
+            shop = normalize_shop_record(shop_map.get(str(top.get("shop_id", "")), {}) or {})
+            summary_bits = " | ".join(offering_summary_bits(top, shop)) or "Details available on request"
+            return (
+                "Sure, I can help you find something to eat. "
+                f"A good place to start is **{top.get('name', 'this offering')}** from **{shop.get('name', 'a listed business')}** - {summary_bits}. "
+                "Are you looking for a full meal, a snack, a drink, or something sweet?"
+            )
+        return (
+            "I understand you are looking for something to eat. "
+            "I could not find a perfect food match in the current marketplace data yet, but I can still help you search by restaurant, cafe, snacks, drinks, juice, or grocery items. "
+            "What type of food are you looking for?"
+        )
+    if profile.get("primary") == "services":
+        if picked:
+            top = picked[0]
+            shop = normalize_shop_record(shop_map.get(str(top.get("shop_id", "")), {}) or {})
+            summary_bits = " | ".join(offering_summary_bits(top, shop)) or "Details available on request"
+            return (
+                "I can help with that. "
+                f"One relevant service I found is **{top.get('name', 'this service')}** from **{shop.get('name', 'a listed business')}** - {summary_bits}. "
+                "Tell me what kind of help you need and I can narrow it down."
+            )
+        return (
+            "I can help you look for services. I do not have a strong match yet, but you can ask for repairs, appointments, classes, bookings, or a specific kind of help."
         )
     if focus_shop:
         opener = f"**{focus_shop.get('name', 'This business')}** is listed on Atlantica as a {str(focus_shop.get('category') or 'business').lower()} business."
@@ -7243,7 +7546,7 @@ def fallback_marketplace_answer(shops: List[Dict[str, Any]], picked: List[Dict[s
         shop = normalize_shop_record(shop_map.get(str(top.get("shop_id", "")), {}) or {})
         summary_bits = " | ".join(offering_summary_bits(top, shop)) or "Details available on request"
         return f"A strong marketplace match is **{top.get('name', 'Offering')}** from **{shop.get('name', 'Business')}** - {summary_bits}"
-    return "I could not find a clear marketplace match yet. Try a product type, business name, category, or budget."
+    return "I do not see an exact marketplace match yet, but I can still help you search by products, shops, food, drinks, services, or budget. What would you like to narrow down?"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ROUTES — System
@@ -8120,6 +8423,7 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
     scope_prod_rows = marketplace_rows_for_shop(prod_rows, str(focus_shop.get("shop_id", ""))) if focus_shop else prod_rows
     focus_businesses = serialize_marketplace_businesses([focus_shop], prod_rows) if focus_shop else []
     focus_highlight_rows = []
+    intent_profile = marketplace_intent_profile(q)
 
     def respond(payload: Dict[str, Any], force_focus_highlight: bool = False) -> Dict[str, Any]:
         body = dict(payload or {})
@@ -8178,6 +8482,8 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
 
     ranked = match_marketplace_products(scope_prod_rows, q, scope_shop_map)
     picked = ranked[:8] if ranked else rank_marketplace_products(scope_prod_rows, q, scope_shop_map)[:8]
+    semantic_business_rows = rank_marketplace_semantic_shops(scope_shops, scope_prod_rows, q, scope_shop_map, intent_profile)[:4] if intent_profile.get("search_terms") else []
+    semantic_business_cards = serialize_marketplace_businesses(semantic_business_rows, scope_prod_rows) if semantic_business_rows else []
     suggestions = build_marketplace_chat_suggestions(q, picked, scope_shops, scope_shop_map)
 
     if is_greeting(q):
@@ -8189,7 +8495,11 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
             "meta": {"llm_used": False, "reason": "market_greeting", "suggestions": suggestions},
         })
 
-    if is_list_intent(q) or is_marketplace_product_lookup_query(q, scope_shops) or any(token in norm_text(q) for token in ["buy", "find", "looking for", "need", "want"]):
+    if not marketplace_prefers_receptionist_llm(q, intent_profile) and (
+        is_list_intent(q)
+        or is_marketplace_product_lookup_query(q, scope_shops)
+        or any(token in norm_text(q) for token in ["buy", "find", "looking for", "need", "want"])
+    ):
         return respond(answer_marketplace_catalog_query(scope_shops, scope_prod_rows, q, scope_shop_map, currency))
 
     try:
@@ -8203,20 +8513,23 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
         flagged_terms = find_marketplace_out_of_scope_bold_terms(llm_res.get("content", ""), scope_shops, scope_prod_rows)
         if flagged_terms:
             print(f"[Atlantica Scope Guard] blocked out-of-scope terms: {flagged_terms}")
-            card_rows = take_chat_card_rows(picked) if product_card_query_intent(q, "", picked, focus_shop) else []
+            attach_cards = product_card_query_intent(q, "", picked, focus_shop) or marketplace_prefers_receptionist_llm(q, intent_profile)
+            card_rows = take_chat_card_rows(picked) if attach_cards else []
             return respond({
                 "answer": fallback_marketplace_answer(scope_shops, picked, q, scope_shop_map, focus_shop=focus_shop),
+                "businesses": semantic_business_cards,
                 "products": serialize_marketplace_products(card_rows, scope_shop_map, currency) if card_rows else [],
                 "meta": {"llm_used": False, "reason": "scope_guard", "suggestions": suggestions},
             })
         attached: List[Dict[str, Any]] = []
-        if product_card_query_intent(q, llm_res.get("content", ""), picked, focus_shop):
+        if product_card_query_intent(q, llm_res.get("content", ""), picked, focus_shop) or marketplace_prefers_receptionist_llm(q, intent_profile):
             attached = picked
             if wants_product_image(q):
                 attached = [row for row in picked if normalize_image_list(row.get("shop_id", ""), row.get("images", []))] or picked
             attached = take_chat_card_rows(attached)
         return respond({
             "answer": llm_res.get("content", "").strip() or fallback_marketplace_answer(scope_shops, picked, q, scope_shop_map, focus_shop=focus_shop),
+            "businesses": semantic_business_cards,
             "products": serialize_marketplace_products(attached, scope_shop_map, currency) if attached else [],
             "meta": {
                 "llm_used": True,
@@ -8230,9 +8543,11 @@ def global_chat_endpoint(request: Request, q: str = Query(...), currency: str = 
         if hasattr(e, "response") and getattr(e, "response") is not None:
             err_msg += f" | {e.response.text}"
         print(f"[Atlantica LLM Exception] Fallback triggered: {err_msg}")
-        card_rows = take_chat_card_rows(picked) if product_card_query_intent(q, "", picked, focus_shop) else []
+        attach_cards = product_card_query_intent(q, "", picked, focus_shop) or marketplace_prefers_receptionist_llm(q, intent_profile)
+        card_rows = take_chat_card_rows(picked) if attach_cards else []
         return respond({
             "answer": fallback_marketplace_answer(scope_shops, picked, q, scope_shop_map, focus_shop=focus_shop),
+            "businesses": semantic_business_cards,
             "products": serialize_marketplace_products(card_rows, scope_shop_map, currency) if card_rows else [],
             "meta": {"llm_used": False, "reason": "fallback_after_llm_error", "suggestions": suggestions},
         })

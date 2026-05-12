@@ -17962,7 +17962,7 @@ $('clearChatBtn').addEventListener('click',()=>{
    ADMIN
 ═════════════════════════════════════════════ */
 const BUSINESS_CHAT_DEFAULTS=()=>['What do you offer?','Show everything','What\'s available?','What do you recommend?'];
-const ATLANTICA_CHAT_DEFAULTS=()=>['What can I buy on this app?','Show me shoes','Find the cheapest shoes','Which businesses are open now?'];
+const ATLANTICA_CHAT_DEFAULTS=()=>['I want to eat something','What can I buy on this app?','Find the cheapest shoes','What shops are available?'];
 function currentChatMode(){return App.chatMode==='global'?'global':'business';}
 function currentChatDefaults(){return currentChatMode()==='global'?ATLANTICA_CHAT_DEFAULTS():BUSINESS_CHAT_DEFAULTS();}
 function chatInfoLabel(){return currentChatMode()==='global'?'Marketplace Info':'Business Info';}
@@ -18126,10 +18126,10 @@ ${coverage}
 Ask about products, cheapest options, business hours, locations, or which business is the best fit. If you ask about one shop, I will stay focused on that shop.
 
 Good starters:
+ - **I want to eat something**
  - **What can I buy on this app?**
- - **Show me shoes**
  - **Find the cheapest shoes**
- - **Which businesses are open now?**`;
+ - **What shops are available?**`;
 }
 function resetChatForAtlantica(summary={}){
   const nextSummary=updateAtlanticaSummary(summary||App.atlanticaSummary||{});

@@ -890,6 +890,57 @@ class BusinessOfferingRoutesTest(unittest.TestCase):
         self.assertIn("Banana Shake", names)
         self.assertIn("Premium Banana Shake", names)
 
+    def test_global_chat_food_intent_uses_semantic_grounding_and_followup(self):
+        with patch.object(server, "llm_chat", side_effect=RuntimeError("offline test")):
+            response = self.client.get("/chat/global", params={"q": "I want to eat something"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        answer = data["answer"].lower()
+        self.assertIn("help you find something to eat", answer)
+        self.assertIn("full meal", answer)
+        self.assertNotIn("keyword", answer)
+        names = {item["name"] for item in data.get("offerings", [])}
+        businesses = {item["name"] for item in data.get("businesses", [])}
+        self.assertIn("Mango Shake", names)
+        self.assertIn("Harbour Shakes", businesses)
+
+    def test_global_chat_receptionist_prompt_examples_stay_human_and_grounded(self):
+        prompts = [
+            "hi",
+            "hello",
+            "I want to eat something",
+            "I am hungry",
+            "show me food",
+            "do you have juice",
+            "I want something cheap",
+            "what can I buy here",
+            "recommend something",
+            "find restaurants near me",
+            "do you have mango shake",
+            "I need a phone charger",
+            "what shops are available",
+        ]
+
+        results = {}
+        with patch.object(server, "llm_chat", side_effect=RuntimeError("offline test")):
+            for prompt in prompts:
+                with self.subTest(prompt=prompt):
+                    response = self.client.get("/chat/global", params={"q": prompt})
+                    self.assertEqual(response.status_code, 200)
+                    data = response.json()
+                    self.assertTrue(str(data.get("answer", "")).strip())
+                    self.assertNotIn("keyword", str(data.get("answer", "")).lower())
+                    results[prompt] = data
+
+        self.assertIn("Atlantica", results["what can I buy here"]["answer"])
+        self.assertTrue(results["I want something cheap"].get("offerings"))
+        self.assertTrue(results["find restaurants near me"].get("businesses"))
+        self.assertEqual(results["do you have mango shake"]["offerings"][0]["name"], "Mango Shake")
+        self.assertIn("phone charger", results["I need a phone charger"]["answer"].lower())
+        self.assertEqual(results["I need a phone charger"].get("offerings"), [])
+        self.assertTrue(results["what shops are available"].get("businesses"))
+
     def test_global_chat_about_specific_shop_returns_only_that_shop_and_highlight(self):
         response = self.client.get("/chat/global", params={"q": "Tell me about Alpha Shoes"})
         self.assertEqual(response.status_code, 200)
