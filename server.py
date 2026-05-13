@@ -185,7 +185,7 @@ CITY_PULSE_GDELT_URL = os.environ.get("CITY_PULSE_GDELT_URL", "https://api.gdelt
 CITY_PULSE_GDELT_TIMESPAN = os.environ.get("CITY_PULSE_GDELT_TIMESPAN", "48h").strip() or "48h"
 CITY_PULSE_GDELT_TIMEOUT_SECONDS = int(os.environ.get("CITY_PULSE_GDELT_TIMEOUT_SECONDS", "24") or 24)
 CITY_PULSE_MAX_ARTICLES = max(8, min(int(os.environ.get("CITY_PULSE_MAX_ARTICLES", "40") or 40), 100))
-CITY_PULSE_MAX_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MAX_CARDS", "6") or 6), 10))
+CITY_PULSE_MAX_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MAX_CARDS", "8") or 8), 10))
 CITY_PULSE_MIN_PIN_CONFIDENCE = float(os.environ.get("CITY_PULSE_MIN_PIN_CONFIDENCE", "0.55") or 0.55)
 CITY_PULSE_IPINFO_TOKEN = (os.environ.get("CITY_PULSE_IPINFO_TOKEN", "").strip() or os.environ.get("IPINFO_TOKEN", "").strip())
 CITY_PULSE_MODEL = os.environ.get("CITY_PULSE_MODEL", OPENROUTER_MODEL).strip() or OPENROUTER_MODEL
@@ -4405,12 +4405,10 @@ def city_pulse_reverse_geocode(lat: Any, lng: Any) -> Dict[str, Any]:
     lng_val = city_pulse_float(lng)
     if lat_val is None or lng_val is None or not MAPBOX_TOKEN:
         return {}
-    url, params = mapbox_geocoding_request(
-        f"{lng_val},{lat_val}",
-        limit=5,
-        autocomplete=False,
-        types="place,locality,region,country",
-    )
+    # Mapbox reverse geocoding rejects limit with multiple type filters; request
+    # the full place stack and pick city/region/country from returned features.
+    url = MAPBOX_GEOCODING_URL.format(query=requests.utils.quote(f"{lng_val},{lat_val}"))
+    params = {"access_token": MAPBOX_TOKEN}
     try:
         res = requests.get(url, params=params, timeout=8)
         res.raise_for_status()
@@ -4421,7 +4419,9 @@ def city_pulse_reverse_geocode(lat: Any, lng: Any) -> Dict[str, Any]:
         country_name = ""
         for feature in features:
             place_types = set(feature.get("place_type") or [])
-            if not city and ({"place", "locality"} & place_types):
+            if "place" in place_types:
+                city = feature.get("text", "") or city
+            elif not city and "locality" in place_types:
                 city = feature.get("text", "") or city
             if not region and "region" in place_types:
                 region = feature.get("text", "") or region
@@ -9465,7 +9465,22 @@ def public_city_pulse(
     error_backoff = bool(error_until and error_until > now_dt and not batch)
     has_cards = bool(payload.get("cards"))
     refresh_queued = False
-    if schema_ready and refresh and (not is_fresh) and not error_backoff and not CITY_PULSE_REFRESHING.get(ctx["city_key"]):
+    refresh_inline = False
+    if schema_ready and refresh and not has_cards and not error_backoff and not CITY_PULSE_REFRESHING.get(ctx["city_key"]):
+        refresh_inline = True
+        refresh_city_pulse(dict(ctx))
+        try:
+            payload = city_pulse_latest_payload(ctx, limit=limit)
+            latest_batch = city_pulse_latest_batch_any(ctx)
+            batch = payload.get("batch") or {}
+            display_batch = batch or latest_batch or {}
+            fresh_until = parse_datetime_value(batch.get("fresh_until"))
+            stale_until = parse_datetime_value(display_batch.get("stale_until"))
+            is_fresh = bool(fresh_until and fresh_until > now_dt)
+            has_cards = bool(payload.get("cards"))
+        except Exception as e:
+            print(f"[City Pulse Inline Read Warning] {e}")
+    if schema_ready and refresh and has_cards and (not is_fresh) and not error_backoff and not CITY_PULSE_REFRESHING.get(ctx["city_key"]):
         background_tasks.add_task(refresh_city_pulse, dict(ctx))
         refresh_queued = True
     return {
@@ -9501,6 +9516,7 @@ def public_city_pulse(
             "stale": bool(stale_until and stale_until <= now_dt),
         },
         "refresh_queued": refresh_queued,
+        "refresh_inline": refresh_inline,
         "refreshing": bool(refresh_queued or CITY_PULSE_REFRESHING.get(ctx["city_key"])),
         "reason": "fresh" if is_fresh else ("stale_cache" if has_cards else ("refresh_error" if error_backoff else "building")),
     }

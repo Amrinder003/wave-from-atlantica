@@ -11880,39 +11880,25 @@ function cityPulsePrimaryViewportShop(candidates=[]){
 function cityPulseViewportScopeContext(){
   const map=App.mapSheet.map;
   const center=map?.getCenter?.()||null;
+  const bounds=map?.getBounds?.()||null;
   const zoom=Number(map?.getZoom?.()||0);
   const ctx={scope:'city'};
   if(center && Number.isFinite(Number(center.lat)) && Number.isFinite(Number(center.lng))){
     ctx.lat=Number(center.lat);
     ctx.lng=Number(center.lng);
   }
-  const visible=mapViewportVisibleShops(App.mapSheet.baseShops||[]).filter(shop=>shop?.country_code||shop?.city||shop?.region);
-  const candidates=visible.length ? visible : (App.mapSheet.baseShops||[]).filter(shop=>shop?.country_code||shop?.city||shop?.region);
-  const primary=cityPulsePrimaryViewportShop(visible.length?visible:candidates);
-  const countries=new Set(visible.map(shop=>String(shop.country_code||'').trim()).filter(Boolean));
-  const provinces=new Set(visible.map(shop=>`${shop.country_code||''}|${shop.region||''}`).filter(key=>key.replace('|','').trim()));
-  const cities=new Set(visible.map(shop=>`${shop.country_code||''}|${shop.region||''}|${shop.city||''}`).filter(key=>key.replaceAll('|','').trim()));
-  if(primary){
-    ctx.country_code=primary.country_code||'';
-    ctx.region=primary.region||'';
-    ctx.city=primary.city||'';
+  let latSpan=0,lngSpan=0;
+  if(bounds){
+    latSpan=Math.abs(bounds.getNorth()-bounds.getSouth());
+    lngSpan=Math.abs(bounds.getEast()-bounds.getWest());
   }
-  if(countries.size>1 || zoom<=5.8){
+  if(zoom<=6.2 || latSpan>=7 || lngSpan>=10){
     ctx.scope='country';
-    ctx.city='';
-    ctx.region='';
-  }else if(provinces.size>1 || zoom<=7.8){
-    ctx.scope='country';
-    ctx.city='';
-    ctx.region='';
-  }else if(cities.size>1 || zoom<=10.2){
+  }else if(zoom<=10.4 || latSpan>=.8 || lngSpan>=1.05){
     ctx.scope='province';
-    ctx.city='';
   }else{
     ctx.scope='city';
   }
-  if(ctx.scope==='province' && !ctx.region && zoom<=7.8) ctx.scope='country';
-  if(ctx.scope==='city' && !ctx.city && zoom<=10.2) ctx.scope=ctx.region?'province':'country';
   return ctx;
 }
 function bindCityPulseMarker(marker){
@@ -11934,7 +11920,7 @@ function bindCityPulseMarker(marker){
 function renderCityPulseMarkers(cards=[]){
   if(!App.mapSheet.map || !window.L) return;
   clearCityPulseMarkers();
-  const usable=(cards||[]).filter(card=>Number.isFinite(Number(card.latitude))&&Number.isFinite(Number(card.longitude))).slice(0,6);
+  const usable=(cards||[]).filter(card=>Number.isFinite(Number(card.latitude))&&Number.isFinite(Number(card.longitude))).slice(0,8);
   usable.forEach((card,idx)=>{
     const latLng=cityPulseMarkerLatLng(card,idx);
     if(!latLng) return;
@@ -11951,17 +11937,7 @@ function renderCityPulseMarkers(cards=[]){
   });
 }
 function inferCityPulseMapContext(){
-  const loc=hasExactUserLocation()?App.mapSheet.userLocation:null;
-  const ctx=cityPulseViewportScopeContext();
-  if(loc && Number.isFinite(Number(loc.lat)) && Number.isFinite(Number(loc.lng))){
-    const zoom=Number(App.mapSheet.map?.getZoom?.()||0);
-    if(zoom>10.2){
-      ctx.scope='city';
-    }
-    ctx.lat=Number(loc.lat);
-    ctx.lng=Number(loc.lng);
-  }
-  return ctx;
+  return cityPulseViewportScopeContext();
 }
 function cityPulseContextKey(ctx={}){
   return [ctx.scope||'city',ctx.city||'',ctx.region||'',ctx.country_code||'',ctx.lat?Number(ctx.lat).toFixed(2):'',ctx.lng?Number(ctx.lng).toFixed(2):''].join('|');
@@ -11980,9 +11956,9 @@ async function loadCityPulseForMap(opts={}){
   if(ctx.country_code) params.set('country_code',ctx.country_code);
   if(Number.isFinite(Number(ctx.lat))) params.set('lat',String(Number(ctx.lat)));
   if(Number.isFinite(Number(ctx.lng))) params.set('lng',String(Number(ctx.lng)));
-  params.set('limit','6');
+  params.set('limit','8');
   try{
-    const d=await api(`/public/city-pulse?${params.toString()}`,{timeout:22000});
+    const d=await api(`/public/city-pulse?${params.toString()}`,{timeout:70000});
     App.mapSheet.cityPulse.enabled=d.enabled!==false;
     App.mapSheet.cityPulse.loaded=true;
     App.mapSheet.cityPulse.cards=Array.isArray(d.cards)?d.cards:[];
