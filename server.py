@@ -189,7 +189,7 @@ CITY_PULSE_MAX_ARTICLES = max(8, min(int(os.environ.get("CITY_PULSE_MAX_ARTICLES
 CITY_PULSE_MAX_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MAX_CARDS", "8") or 8), 10))
 CITY_PULSE_MIN_READY_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MIN_READY_CARDS", "6") or 6), CITY_PULSE_MAX_CARDS))
 CITY_PULSE_CONTEXT_CARD_TARGET = max(0, min(int(os.environ.get("CITY_PULSE_CONTEXT_CARD_TARGET", "2") or 2), CITY_PULSE_MAX_CARDS))
-CITY_PULSE_QUALITY_VERSION = int(os.environ.get("CITY_PULSE_QUALITY_VERSION", "6") or 6)
+CITY_PULSE_QUALITY_VERSION = int(os.environ.get("CITY_PULSE_QUALITY_VERSION", "7") or 7)
 CITY_PULSE_MIN_PIN_CONFIDENCE = float(os.environ.get("CITY_PULSE_MIN_PIN_CONFIDENCE", "0.55") or 0.55)
 CITY_PULSE_IPINFO_TOKEN = (os.environ.get("CITY_PULSE_IPINFO_TOKEN", "").strip() or os.environ.get("IPINFO_TOKEN", "").strip())
 CITY_PULSE_MODEL = os.environ.get("CITY_PULSE_MODEL", OPENROUTER_MODEL).strip() or OPENROUTER_MODEL
@@ -224,7 +224,7 @@ CITY_PULSE_LOW_SIGNAL_TITLE_PATTERNS = (
     r"\bgame highlights?\b", r"\bobservations from\b", r"\bbetting odds\b",
     r"\blessons i learned\b", r"\bmoved to small-town\b", r"\bsmall-town life\b",
     r"\bthings to do\b", r"\bsuperfans?\b", r"\biihf\b", r"\bworld championship\b",
-    r"\bpower rankings?\b", r"\bfantasy\b", r"\bmock draft\b",
+    r"\bpower rankings?\b", r"\bfantasy\b", r"\bmock draft\b", r"\byour morning\b",
     r"^\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+schedule\b",
 )
 CITY_PULSE_HIGH_SIGNAL_SOURCE_TERMS = (
