@@ -3606,7 +3606,7 @@ def city_pulse_clean_summary(value: Any, max_len: int = 520) -> str:
     text = re.sub(r"<[^>]+>", " ", text)
     text = html_lib.unescape(text)
     text = re.sub(r"\s+([,.;:!?])", r"\1", text)
-    text = re.sub(r"\s+", " ", text).strip(" .")
+    text = re.sub(r"\s+", " ", text).strip()
     return city_pulse_clean_label(text, max_len)
 
 def city_pulse_html_attrs(tag: str) -> Dict[str, str]:
@@ -3984,12 +3984,40 @@ def city_pulse_specific_headline_from_story(ctx: Dict[str, Any], title: str, sum
         if match:
             people = f"{match.group(1)} people"
     if re.search(r"\b(drug|drugs|drug-related|cocaine|fentanyl|meth|narcotics|pills)\b", blob) and re.search(r"\b(charged|charges|arrest|search|searched)\b", blob):
-        subject = f"{people} face" if people else "People face"
-        return city_pulse_clean_headline(f"{subject} drug-related charges after {place}home and vehicle searches", 150)
+        subject = f"{people.replace(' people', '')} face" if people else "People face"
+        return city_pulse_clean_headline(f"{subject} drug charges after {place}home, vehicle searches", 118)
     if re.search(r"\b(weapon|firearm|gun)\b", blob) and re.search(r"\b(charged|charges|seized|found|search)\b", blob):
         subject = f"{people} face" if people else "Police report"
         return city_pulse_clean_headline(f"{subject} weapons-related charges after {place}searches", 150)
     return ""
+
+def city_pulse_sentence_count(value: str) -> int:
+    text = city_pulse_clean_summary(value, 600)
+    if not text:
+        return 0
+    return max(1, len(re.findall(r"[.!?](?:\s|$)", text)) or 1)
+
+def city_pulse_specific_brief_from_story(ctx: Dict[str, Any], title: str, summary: str) -> str:
+    blob = norm_text(f"{title} {summary}")
+    city = city_pulse_clean_label(ctx.get("city"), 50) or "the city"
+    if re.search(r"\b(drug|drugs|drug-related|cocaine|fentanyl|meth|narcotics|pills)\b", blob) and re.search(r"\b(search|searched|charges|charged)\b", blob):
+        people = "People"
+        if re.search(r"\btwo men and a woman\b", blob):
+            people = "Two men and a woman"
+        elif re.search(r"\btwo women and a man\b", blob):
+            people = "Two women and a man"
+        else:
+            match = re.search(r"\b(\d+)\s+people\b", blob)
+            if match:
+                people = f"{match.group(1)} people"
+        return city_pulse_clean_summary(f"Police searched a {city} home and vehicle earlier this week. {people} are facing drug-related charges.", 260)
+    return ""
+
+def city_pulse_sentence(value: str, max_len: int = 150) -> str:
+    text = city_pulse_clean_summary(value, max_len).strip()
+    if text and not re.search(r"[.!?]$", text):
+        text += "."
+    return text
 
 def city_pulse_make_brief_from_story(title: str, summary: str) -> str:
     summary_clean = city_pulse_clean_summary(summary, 220)
@@ -4081,8 +4109,8 @@ Return JSON only."""
         "schema": {
             "cards": [{
                 "hook_title": "2-5 words",
-                "headline": "compressed paraphrased headline with the key concrete detail",
-                "brief": "26 words or fewer, based only on the title and summary",
+                "headline": "one-line compressed paraphrase with the key concrete detail, ideally under 70 characters",
+                "brief": "2 or 3 short sentences, based only on the title and summary",
                 "category": "public_safety|traffic|event|alert|civic|news",
                 "importance_score": "0 to 1",
                 "location_label": "best place phrase or city",
@@ -4550,11 +4578,19 @@ def city_pulse_prepare_cards_for_storage(ctx: Dict[str, Any], cards: List[Dict[s
         headline = city_pulse_clean_headline(card.get("headline"), 180, publisher=sources[0].get("publisher", "")) or sources[0].get("title", "")
         if city_pulse_vague_card_text(headline) or city_pulse_headline_missing_story_detail(headline, source_story):
             headline = city_pulse_specific_headline_from_story(ctx, sources[0].get("title", ""), sources[0].get("summary", "")) or headline
+        brief = city_pulse_clean_label(card.get("brief"), 340) or city_pulse_make_brief_from_story(sources[0].get("title", ""), sources[0].get("summary", ""))
+        specific_brief = city_pulse_specific_brief_from_story(ctx, sources[0].get("title", ""), sources[0].get("summary", ""))
+        if specific_brief:
+            brief = specific_brief
+        if city_pulse_sentence_count(brief) < 2:
+            headline_sentence = city_pulse_sentence(headline, 150)
+            if headline_sentence and norm_text(headline_sentence) not in norm_text(brief):
+                brief = city_pulse_clean_label(f"{headline_sentence} {brief}", 340)
         out.append({
             **card,
             "hook_title": hook_title,
             "headline": headline,
-            "brief": city_pulse_clean_label(card.get("brief"), 340) or "Open the source links for the full details.",
+            "brief": brief or "Open the source links for the full details.",
             "category": category,
             "location_label": label or city_pulse_clean_label(ctx.get("city"), 80),
             "location_precision": city_pulse_clean_label(card.get("location_precision") or "city", 24).lower(),
