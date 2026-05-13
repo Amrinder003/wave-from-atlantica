@@ -513,26 +513,26 @@ a{color:inherit;text-decoration:none}
 .wave-map-cluster-item{font-size:12px;color:var(--ink2);line-height:1.45}
 .wave-map-popup-meta{display:flex;flex-wrap:wrap;gap:6px}
 .wave-map-popup-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:rgba(255,250,242,.88);border:1px solid rgba(191,174,149,.28);font-size:10px;font-weight:800;color:var(--ink2)}
-.city-pulse-marker{position:relative;width:262px;min-height:132px;pointer-events:auto;color:#24170f;--pulse:#0891b2;--pulse-bg:#ecfeff}
+.city-pulse-marker{position:relative;width:224px;min-height:86px;pointer-events:auto;color:#24170f;--pulse:#0891b2;--pulse-bg:#ecfeff}
 .city-pulse-marker[data-category="public_safety"]{--pulse:#dc2626;--pulse-bg:#fef2f2}
 .city-pulse-marker[data-category="traffic"]{--pulse:#2563eb;--pulse-bg:#eff6ff}
 .city-pulse-marker[data-category="event"]{--pulse:#16a34a;--pulse-bg:#f0fdf4}
 .city-pulse-marker[data-category="alert"]{--pulse:#b91c1c;--pulse-bg:#fff1f2}
 .city-pulse-marker[data-category="civic"]{--pulse:#7c3aed;--pulse-bg:#f5f3ff}
 .city-pulse-marker[data-category="news"]{--pulse:#0891b2;--pulse-bg:#ecfeff}
-.city-pulse-pin{position:absolute;left:16px;bottom:0;width:20px;height:20px;border-radius:999px;background:var(--pulse);border:3px solid #fffdf8;box-shadow:0 10px 20px rgba(32,24,17,.24)}
+.city-pulse-pin{position:absolute;left:14px;bottom:0;width:18px;height:18px;border-radius:999px;background:var(--pulse);border:3px solid #fffdf8;box-shadow:0 10px 20px rgba(32,24,17,.24)}
 .city-pulse-pin::before{content:'';position:absolute;inset:-9px;border-radius:999px;background:color-mix(in srgb,var(--pulse) 18%,transparent)}
 .city-pulse-pin::after{content:'';position:absolute;left:50%;top:50%;width:7px;height:7px;border-radius:999px;background:rgba(255,255,255,.94);transform:translate(-50%,-50%)}
-.city-pulse-card{position:absolute;left:0;bottom:27px;width:248px;display:grid;gap:7px;padding:10px 11px;border-radius:8px;background:rgba(255,253,248,.98);border:1px solid rgba(55,65,81,.16);box-shadow:0 18px 40px rgba(31,41,55,.18);overflow:hidden;max-height:78px;transition:max-height .18s ease,transform .18s ease,box-shadow .18s ease,border-color .18s ease;transform:translateY(0)}
+.city-pulse-card{position:absolute;left:0;bottom:24px;width:208px;display:grid;gap:4px;padding:8px 10px;border-radius:8px;background:rgba(255,253,248,.98);border:1px solid rgba(55,65,81,.16);box-shadow:0 14px 28px rgba(31,41,55,.15);overflow:hidden;max-height:56px;transition:max-height .18s ease,transform .18s ease,box-shadow .18s ease,border-color .18s ease,width .18s ease;transform:translateY(0)}
 .city-pulse-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pulse)}
-.city-pulse-marker:hover .city-pulse-card,.city-pulse-marker.open .city-pulse-card{max-height:360px;transform:translateY(-3px);border-color:color-mix(in srgb,var(--pulse) 32%,rgba(55,65,81,.16));box-shadow:0 24px 54px rgba(31,41,55,.24)}
+.city-pulse-marker:hover .city-pulse-card,.city-pulse-marker.open .city-pulse-card{width:274px;max-height:360px;transform:translateY(-3px);border-color:color-mix(in srgb,var(--pulse) 32%,rgba(55,65,81,.16));box-shadow:0 24px 54px rgba(31,41,55,.24)}
 .city-pulse-top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
-.city-pulse-badge{display:inline-flex;align-items:center;max-width:136px;height:20px;padding:0 7px;border-radius:999px;background:var(--pulse-bg);color:var(--pulse);font-size:9px;font-weight:900;letter-spacing:0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.city-pulse-time{font-size:10px;font-weight:850;color:#667085;white-space:nowrap}
+.city-pulse-badge{display:inline-flex;align-items:center;max-width:116px;height:17px;padding:0 6px;border-radius:999px;background:var(--pulse-bg);color:var(--pulse);font-size:8px;font-weight:900;letter-spacing:0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.city-pulse-time{font-size:9px;font-weight:850;color:#667085;white-space:nowrap}
 .city-pulse-close{display:none;position:absolute;top:8px;right:8px;z-index:2;appearance:none;width:22px;height:22px;border-radius:999px;border:1px solid rgba(55,65,81,.16);background:#fff;color:#334155;font-size:16px;font-weight:900;line-height:18px;cursor:pointer}
 .city-pulse-marker.open .city-pulse-close{display:grid;place-items:center}
 .city-pulse-close:hover{color:var(--pulse);background:var(--pulse-bg)}
-.city-pulse-hook{font-size:14px;font-weight:900;letter-spacing:0;color:#201813;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.city-pulse-hook{font-size:12px;font-weight:900;letter-spacing:0;color:#201813;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .city-pulse-expanded{display:none;gap:8px;padding-top:3px}
 .city-pulse-marker:hover .city-pulse-expanded,.city-pulse-marker.open .city-pulse-expanded{display:grid}
 .city-pulse-subline{display:flex;align-items:center;gap:6px;min-width:0;font-size:10px;font-weight:800;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -617,11 +617,13 @@ a{color:inherit;text-decoration:none}
   .map-spot-card-copy{font-size:10px}
   .map-spot-card-foot{display:grid;grid-template-columns:1fr;align-items:stretch}
   .map-spot-card-visit{width:100%;justify-content:center}
-  .city-pulse-marker{width:218px;min-height:118px}
-  .city-pulse-card{width:204px;padding:9px 10px;max-height:78px}
-  .city-pulse-marker:hover .city-pulse-card,.city-pulse-marker.open .city-pulse-card{max-height:390px}
-  .city-pulse-badge{max-width:104px}
-  .city-pulse-hook{font-size:13px}
+  .city-pulse-marker{width:168px;min-height:64px}
+  .city-pulse-pin{left:10px;width:16px;height:16px;border-width:2px}
+  .city-pulse-card{width:154px;bottom:20px;padding:7px 8px;gap:3px;max-height:46px}
+  .city-pulse-marker:hover .city-pulse-card,.city-pulse-marker.open .city-pulse-card{width:min(258px,calc(100vw - 32px));max-height:390px}
+  .city-pulse-badge{max-width:82px;height:15px;font-size:7px}
+  .city-pulse-time{font-size:8px}
+  .city-pulse-hook{font-size:11px}
   .city-pulse-headline{font-size:12px}
   .map-sheet-floating{left:10px;right:72px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-floating-bottom,126px));max-width:min(260px,calc(100% - 92px));gap:6px}
   .map-floating-chip{padding:6px 9px;font-size:10px;line-height:1.35;box-shadow:0 8px 18px rgba(48,33,15,.1)}
@@ -10225,7 +10227,7 @@ const App = {
     promptMode: 'intro',
     centerMapOnGrant: false
   },
-  mapSheet: {map:null,markers:[],userMarker:null,cityPulseMarkers:[],shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',previewMode:'',previewDismissedKey:'',previewTimer:null,moveRefreshTimer:null,cityPulseTimer:null,suppressPopupEvents:false,moving:false,compact:window.innerWidth<=560,responsiveCompact:window.innerWidth<=560,listHidden:false,floatingHidden:false,floatingTimer:null,viewportTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false,cityPulse:{cards:[],city:null,batch:null,loaded:false,loading:false,lastKey:'',enabled:true}},
+  mapSheet: {map:null,markers:[],userMarker:null,cityPulseMarkers:[],shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',previewMode:'',previewDismissedKey:'',previewTimer:null,moveRefreshTimer:null,cityPulseTimer:null,suppressPopupEvents:false,moving:false,compact:window.innerWidth<=560,responsiveCompact:window.innerWidth<=560,listHidden:false,floatingHidden:false,floatingTimer:null,viewportTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false,cityPulse:{cards:[],city:null,batch:null,loaded:false,loading:false,lastKey:'',pendingKey:'',requestSeq:0,abortController:null,enabled:true}},
   chatShopId: '',
   chatContextToken: 0,
   shopMobileSheet: '',
@@ -11853,16 +11855,31 @@ function cityPulseCardHtml(card={}){
     </div>
   </div>`;
 }
-function cityPulseMarkerLatLng(card={},idx=0){
+function cityPulseMarkerLatLng(card={},idx=0,total=1){
   let lat=Number(card.latitude),lng=Number(card.longitude);
   if(!Number.isFinite(lat)||!Number.isFinite(lng)) return null;
   const approximate=card.location_approximate===true || String(card.location_precision||'city')==='city' || Number(card.location_confidence||0)<0.55;
   if(approximate){
-    const angle=(idx*137.5)*(Math.PI/180);
-    const radius=.0028*(1+Math.floor(idx/8));
-    const lngScale=Math.max(.35,Math.cos(lat*Math.PI/180));
-    lat+=Math.sin(angle)*radius;
-    lng+=Math.cos(angle)*radius/lngScale;
+    const bounds=App.mapSheet.map?.getBounds?.();
+    const latSpan=bounds ? Math.abs(bounds.getNorth()-bounds.getSouth()) : 0;
+    const lngSpan=bounds ? Math.abs(bounds.getEast()-bounds.getWest()) : 0;
+    const scope=String(card.scope||'city').toLowerCase();
+    const mobile=shouldCompactMapSheet();
+    const minLat=scope==='city' ? (mobile ? .012 : .016) : (scope==='province' ? .35 : 1.4);
+    const minLng=scope==='city' ? (mobile ? .014 : .018) : (scope==='province' ? .5 : 2.2);
+    const radiusLat=Math.min(Math.max(latSpan*(mobile ? .22 : .18),minLat),latSpan ? latSpan*.42 : minLat);
+    const radiusLng=Math.min(Math.max(lngSpan*(mobile ? .22 : .18),minLng),lngSpan ? lngSpan*.42 : minLng);
+    const slots=Math.max(4,Math.min(8,Number(total)||1));
+    const ring=1+Math.floor(idx/slots)*.42;
+    const angle=((idx*137.5)+((idx%2)?18:0))*(Math.PI/180);
+    lat+=Math.sin(angle)*radiusLat*ring;
+    lng+=Math.cos(angle)*radiusLng*ring;
+    if(bounds){
+      const padLat=latSpan*.08;
+      const padLng=lngSpan*.08;
+      lat=Math.min(bounds.getNorth()-padLat,Math.max(bounds.getSouth()+padLat,lat));
+      lng=Math.min(bounds.getEast()-padLng,Math.max(bounds.getWest()+padLng,lng));
+    }
   }
   return [lat,lng];
 }
@@ -11892,9 +11909,9 @@ function cityPulseViewportScopeContext(){
     latSpan=Math.abs(bounds.getNorth()-bounds.getSouth());
     lngSpan=Math.abs(bounds.getEast()-bounds.getWest());
   }
-  if(zoom<=5.8 || latSpan>=9 || lngSpan>=14){
+  if(zoom<=5.4 || latSpan>=8 || lngSpan>=12){
     ctx.scope='country';
-  }else if(zoom<=8.2 || latSpan>=2.2 || lngSpan>=3.2){
+  }else if(zoom<=9.4 || latSpan>=.9 || lngSpan>=1.25){
     ctx.scope='province';
   }else{
     ctx.scope='city';
@@ -11906,49 +11923,75 @@ function bindCityPulseMarker(marker){
   if(!root || root.dataset.bound==='1') return;
   root.dataset.bound='1';
   const stop=e=>{ if(window.L?.DomEvent) L.DomEvent.stopPropagation(e); e.stopPropagation?.(); };
+  const open=()=>{
+    root.classList.add('open');
+    try{ marker.setZIndexOffset(1600); }catch{}
+  };
+  const close=()=>{
+    root.classList.remove('open');
+    try{ marker.setZIndexOffset(Number(root.dataset.baseZ||500)); }catch{}
+  };
   root.addEventListener('click',e=>{
     if(e.target.closest('button,a')) return;
     stop(e);
-    root.classList.add('open');
+    open();
   });
   root.querySelector('[data-city-pulse-close]')?.addEventListener('click',e=>{
     stop(e);
-    root.classList.remove('open');
+    close();
   });
   root.querySelectorAll('a').forEach(link=>link.addEventListener('click',e=>stop(e)));
 }
 function renderCityPulseMarkers(cards=[]){
   if(!App.mapSheet.map || !window.L) return;
   clearCityPulseMarkers();
-  const usable=(cards||[]).filter(card=>Number.isFinite(Number(card.latitude))&&Number.isFinite(Number(card.longitude))).slice(0,8);
+  const usable=(cards||[]).filter(card=>Number.isFinite(Number(card.latitude))&&Number.isFinite(Number(card.longitude))).slice(0,shouldCompactMapSheet()?6:8);
   usable.forEach((card,idx)=>{
-    const latLng=cityPulseMarkerLatLng(card,idx);
+    const latLng=cityPulseMarkerLatLng(card,idx,usable.length);
     if(!latLng) return;
+    const baseZ=520+(usable.length-idx)*8;
     const icon=L.divIcon({
       className:'',
       html:cityPulseCardHtml(card),
-      iconSize:[262,170],
-      iconAnchor:[26,162]
+      iconSize:shouldCompactMapSheet()?[168,88]:[224,112],
+      iconAnchor:shouldCompactMapSheet()?[18,82]:[24,106]
     });
-    const marker=L.marker(latLng,{icon,zIndexOffset:480+(usable.length-idx)*6}).addTo(App.mapSheet.map);
+    const marker=L.marker(latLng,{icon,zIndexOffset:baseZ}).addTo(App.mapSheet.map);
     marker.on('add',()=>bindCityPulseMarker(marker));
     App.mapSheet.cityPulseMarkers.push({card,marker});
-    setTimeout(()=>bindCityPulseMarker(marker),0);
+    setTimeout(()=>{
+      const root=marker?.getElement?.()?.querySelector?.('.city-pulse-marker');
+      if(root) root.dataset.baseZ=String(baseZ);
+      bindCityPulseMarker(marker);
+    },0);
   });
 }
 function inferCityPulseMapContext(){
   return cityPulseViewportScopeContext();
 }
 function cityPulseContextKey(ctx={}){
-  return [ctx.scope||'city',ctx.city||'',ctx.region||'',ctx.country_code||'',ctx.lat?Number(ctx.lat).toFixed(2):'',ctx.lng?Number(ctx.lng).toFixed(2):''].join('|');
+  const scope=ctx.scope||'city';
+  const step=scope==='country'?12:(scope==='province'?1.5:.18);
+  const lat=Number(ctx.lat),lng=Number(ctx.lng);
+  const latKey=Number.isFinite(lat)?String(Math.round(lat/step)*step):'';
+  const lngKey=Number.isFinite(lng)?String(Math.round(lng/step)*step):'';
+  return [scope,ctx.city||'',ctx.region||'',ctx.country_code||'',latKey,lngKey].join('|');
 }
 async function loadCityPulseForMap(opts={}){
-  if(!App.mapSheet.map || App.mapSheet.cityPulse.loading || App.mapSheet.cityPulse.enabled===false) return;
+  if(!App.mapSheet.map || App.mapSheet.cityPulse.enabled===false) return;
   const ctx=inferCityPulseMapContext();
   const key=cityPulseContextKey(ctx);
-  if(!opts.force && key && App.mapSheet.cityPulse.loaded && App.mapSheet.cityPulse.lastKey===key) return;
+  if(!opts.force && key && App.mapSheet.cityPulse.loaded && App.mapSheet.cityPulse.lastKey===key && (App.mapSheet.cityPulse.cards||[]).length) return;
+  if(App.mapSheet.cityPulse.abortController){
+    App.mapSheet.cityPulse.abortController.abort();
+    App.mapSheet.cityPulse.abortController=null;
+  }
+  const controller=new AbortController();
+  const seq=Number(App.mapSheet.cityPulse.requestSeq||0)+1;
+  App.mapSheet.cityPulse.requestSeq=seq;
   App.mapSheet.cityPulse.loading=true;
-  App.mapSheet.cityPulse.lastKey=key;
+  App.mapSheet.cityPulse.pendingKey=key;
+  App.mapSheet.cityPulse.abortController=controller;
   const params=new URLSearchParams();
   params.set('scope',ctx.scope||'city');
   if(ctx.city) params.set('city',ctx.city);
@@ -11958,24 +12001,34 @@ async function loadCityPulseForMap(opts={}){
   if(Number.isFinite(Number(ctx.lng))) params.set('lng',String(Number(ctx.lng)));
   params.set('limit','8');
   try{
-    const d=await api(`/public/city-pulse?${params.toString()}`,{timeout:70000});
+    const d=await api(`/public/city-pulse?${params.toString()}`,{timeout:90000,signal:controller.signal});
+    if(seq!==App.mapSheet.cityPulse.requestSeq || key!==App.mapSheet.cityPulse.pendingKey) return;
     App.mapSheet.cityPulse.enabled=d.enabled!==false;
     App.mapSheet.cityPulse.loaded=true;
-    App.mapSheet.cityPulse.cards=Array.isArray(d.cards)?d.cards:[];
+    App.mapSheet.cityPulse.lastKey=key;
+    const nextCards=Array.isArray(d.cards)?d.cards:[];
     App.mapSheet.cityPulse.city=d.city||null;
     App.mapSheet.cityPulse.batch=d.batch||null;
-    renderCityPulseMarkers(App.mapSheet.cityPulse.cards);
-    if(App.mapSheet.cityPulse.cards.length){
+    if(nextCards.length){
+      App.mapSheet.cityPulse.cards=nextCards;
+      renderCityPulseMarkers(nextCards);
       const areaName=d.city?.area_label||d.city?.city||d.city?.region||d.city?.country_name||'this area';
-      if($('mapSheetFloatingHint')) $('mapSheetFloatingHint').textContent=`City Pulse: ${App.mapSheet.cityPulse.cards.length} curated update${App.mapSheet.cityPulse.cards.length===1?'':'s'} for ${areaName}`;
+      if($('mapSheetFloatingHint')) $('mapSheetFloatingHint').textContent=`City Pulse: ${nextCards.length} curated update${nextCards.length===1?'':'s'} for ${areaName}`;
     }else if(d.refreshing && (d.city?.area_label||d.city?.city)){
       setMapSheetStatus(`Gathering City Pulse updates for ${d.city.area_label||d.city.city}.`);
-      setTimeout(()=>loadCityPulseForMap({force:true}),9000);
+      if(!(App.mapSheet.cityPulse.cards||[]).length) renderCityPulseMarkers([]);
+      setTimeout(()=>loadCityPulseForMap({force:true}),7000);
+    }else if(!(App.mapSheet.cityPulse.cards||[]).length){
+      renderCityPulseMarkers([]);
     }
   }catch(e){
+    if(controller.signal.aborted) return;
     App.mapSheet.cityPulse.enabled=true;
   }finally{
-    App.mapSheet.cityPulse.loading=false;
+    if(seq===App.mapSheet.cityPulse.requestSeq){
+      App.mapSheet.cityPulse.loading=false;
+      App.mapSheet.cityPulse.abortController=null;
+    }
   }
 }
 function scheduleCityPulseRefresh(delay=900){
@@ -12101,7 +12154,7 @@ function scheduleMapMoveRefresh(delay=90){
     App.mapSheet.moveRefreshTimer=null;
     if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map) return;
     syncMapShopPreview();
-    scheduleCityPulseRefresh(700);
+    scheduleCityPulseRefresh(950);
   },Math.max(0,Number(delay)||0));
 }
 function mapClusterCellSizePx(zoom=0){
@@ -12775,7 +12828,8 @@ async function openMapSheet(mode='home',focusRef=''){
   App.mapSheet.listHidden=false;
   App.mapSheet.focusScrollRequested=!!focusRef;
   App.mapSheet.preparedShops=[];
-  App.mapSheet.cityPulse={cards:[],city:null,batch:null,loaded:false,loading:false,lastKey:'',enabled:true};
+  if(App.mapSheet.cityPulse?.abortController) App.mapSheet.cityPulse.abortController.abort();
+  App.mapSheet.cityPulse={cards:[],city:null,batch:null,loaded:false,loading:false,lastKey:'',pendingKey:'',requestSeq:0,abortController:null,enabled:true};
   clearCityPulseMarkers();
   if($('mapSheetList')){
     $('mapSheetList').innerHTML='';
@@ -12821,6 +12875,7 @@ async function openMapSheet(mode='home',focusRef=''){
 }
 function closeMapSheet(){
   clearMapPreviewTimer();
+  if(App.mapSheet.cityPulse?.abortController) App.mapSheet.cityPulse.abortController.abort();
   clearCityPulseMarkers();
   if(App.mapSheet.cityPulseTimer){
     clearTimeout(App.mapSheet.cityPulseTimer);

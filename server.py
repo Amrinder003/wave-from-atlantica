@@ -188,7 +188,8 @@ CITY_PULSE_GDELT_TIMEOUT_SECONDS = int(os.environ.get("CITY_PULSE_GDELT_TIMEOUT_
 CITY_PULSE_MAX_ARTICLES = max(8, min(int(os.environ.get("CITY_PULSE_MAX_ARTICLES", "40") or 40), 100))
 CITY_PULSE_MAX_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MAX_CARDS", "8") or 8), 10))
 CITY_PULSE_MIN_READY_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MIN_READY_CARDS", "6") or 6), CITY_PULSE_MAX_CARDS))
-CITY_PULSE_QUALITY_VERSION = int(os.environ.get("CITY_PULSE_QUALITY_VERSION", "4") or 4)
+CITY_PULSE_CONTEXT_CARD_TARGET = max(0, min(int(os.environ.get("CITY_PULSE_CONTEXT_CARD_TARGET", "2") or 2), CITY_PULSE_MAX_CARDS))
+CITY_PULSE_QUALITY_VERSION = int(os.environ.get("CITY_PULSE_QUALITY_VERSION", "6") or 6)
 CITY_PULSE_MIN_PIN_CONFIDENCE = float(os.environ.get("CITY_PULSE_MIN_PIN_CONFIDENCE", "0.55") or 0.55)
 CITY_PULSE_IPINFO_TOKEN = (os.environ.get("CITY_PULSE_IPINFO_TOKEN", "").strip() or os.environ.get("IPINFO_TOKEN", "").strip())
 CITY_PULSE_MODEL = os.environ.get("CITY_PULSE_MODEL", OPENROUTER_MODEL).strip() or OPENROUTER_MODEL
@@ -209,8 +210,8 @@ CITY_PULSE_ENRICH_TOP_ARTICLES = max(0, min(int(os.environ.get("CITY_PULSE_ENRIC
 CITY_PULSE_MIN_ARTICLE_SCORE = int(os.environ.get("CITY_PULSE_MIN_ARTICLE_SCORE", "2") or 2)
 CITY_PULSE_MIN_CARD_SCORE = float(os.environ.get("CITY_PULSE_MIN_CARD_SCORE", "0.42") or 0.42)
 CITY_PULSE_HIGH_SIGNAL_TITLE_PATTERNS = (
-    r"\b(police|rcmp|charged|charges|arrest|stolen|theft|robbery|assault|missing|fire|crash|collision|closed|closure|warning|alert|evacuation|drug|drugs|cocaine|fentanyl|meth|narcotics|weapon|firearm)\b",
-    r"\b(council|mayor|budget|tax|housing|hospital|school|development|zoning|permit|water main|power outage|transit|roadwork)\b",
+    r"\b(police|rcmp|charged|charges|arrest|stolen|theft|robbery|assault|homicide|missing|fire|wildfire|crash|collision|closed|closure|warning|alert|emergency|evacuation|drug|drugs|cocaine|fentanyl|meth|narcotics|weapon|firearm)\b",
+    r"\b(council|mayor|budget|tax|housing|hospital|school|development|zoning|permit|water main|power outage|transit|roadwork|strike|public health|health emergency|recall|lawsuit|court|election|tariff|trade|jobs)\b",
     r"\b(festival|concert|market|parade|exhibition|fundraiser|community event|tournament|championship|final)\b",
 )
 CITY_PULSE_LOW_SIGNAL_TITLE_PATTERNS = (
@@ -222,6 +223,8 @@ CITY_PULSE_LOW_SIGNAL_TITLE_PATTERNS = (
     r"\bmedia advisory\b", r"\bpress release\b", r"\br\s*e\s*p\s*e\s*a\s*t\b",
     r"\bgame highlights?\b", r"\bobservations from\b", r"\bbetting odds\b",
     r"\blessons i learned\b", r"\bmoved to small-town\b", r"\bsmall-town life\b",
+    r"\bthings to do\b", r"\bsuperfans?\b", r"\biihf\b", r"\bworld championship\b",
+    r"\bpower rankings?\b", r"\bfantasy\b", r"\bmock draft\b",
     r"^\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+schedule\b",
 )
 CITY_PULSE_HIGH_SIGNAL_SOURCE_TERMS = (
@@ -3979,6 +3982,8 @@ def city_pulse_filter_articles(articles: List[Dict[str, Any]]) -> List[Dict[str,
 
 def city_pulse_article_matches_scope(ctx: Dict[str, Any], article: Dict[str, Any]) -> bool:
     scope = city_pulse_scope(ctx.get("scope"))
+    if scope == "country":
+        return city_pulse_country_article_relevant(ctx, article)
     if scope != "city":
         return True
     city = city_pulse_ascii_fingerprint(ctx.get("city"))
@@ -3994,6 +3999,24 @@ def city_pulse_article_matches_scope(ctx: Dict[str, Any], article: Dict[str, Any
     if city and re.search(rf"\b{re.escape(city)}\b", blob):
         return True
     return False
+
+def city_pulse_country_article_relevant(ctx: Dict[str, Any], article: Dict[str, Any]) -> bool:
+    country_name = city_pulse_ascii_fingerprint(ctx.get("country_name") or country_meta(ctx.get("country_code", "")).get("name", ""))
+    blob = city_pulse_ascii_fingerprint(" ".join([
+        str(article.get("title") or ""),
+        str(article.get("summary") or ""),
+        str(article.get("publisher") or ""),
+        str(article.get("location_label") or ""),
+    ]))
+    national_terms = (
+        r"\bcanada\b", r"\bcanadian\b", r"\bfederal\b", r"\bnational\b",
+        r"\bparliament\b", r"\bprime minister\b", r"\bbank of canada\b",
+        r"\bacross canada\b", r"\bcountrywide\b", r"\btariff\b", r"\btrade\b",
+        r"\bunited states\b", r"\bus\b", r"\bchina\b", r"\bnato\b",
+    )
+    if country_name and re.search(rf"\b{re.escape(country_name)}\b", blob):
+        return True
+    return any(re.search(pattern, blob) for pattern in national_terms)
 
 def city_pulse_specific_hook_from_story(text: str, category: str = "") -> str:
     blob = norm_text(text)
@@ -4103,6 +4126,30 @@ def city_pulse_sentence(value: str, max_len: int = 150) -> str:
         text += "."
     return text
 
+def city_pulse_text_similar(a: str, b: str, threshold: float = 0.82) -> bool:
+    a_fp = normalize_name_fingerprint(a)
+    b_fp = normalize_name_fingerprint(b)
+    if not a_fp or not b_fp:
+        return False
+    if a_fp == b_fp:
+        return True
+    shorter = min(len(a_fp), len(b_fp))
+    if shorter >= 28 and (a_fp in b_fp or b_fp in a_fp):
+        return True
+    return shorter >= 36 and SequenceMatcher(None, a_fp, b_fp).ratio() >= threshold
+
+def city_pulse_distinct_brief(ctx: Dict[str, Any], headline: str, sources: List[Dict[str, Any]]) -> str:
+    primary = (sources or [{}])[0] or {}
+    summary = city_pulse_clean_summary(primary.get("summary"), 260)
+    if summary and not city_pulse_text_similar(summary, headline, 0.76):
+        return summary
+    source_title = city_pulse_clean_headline(primary.get("title"), 160, publisher=primary.get("publisher", ""))
+    if source_title and not city_pulse_text_similar(source_title, headline, 0.76):
+        return city_pulse_sentence(source_title, 180)
+    area = city_pulse_area_label(ctx) or city_pulse_clean_label(ctx.get("region") or ctx.get("country_name"), 80) or "this area"
+    publisher = city_pulse_primary_source_label(sources)
+    return city_pulse_clean_summary(f"This is a developing update tied to {area}. {publisher} has the source report linked below.", 240)
+
 def city_pulse_make_brief_from_story(title: str, summary: str) -> str:
     summary_clean = city_pulse_clean_summary(summary, 220)
     if summary_clean:
@@ -4125,12 +4172,14 @@ def city_pulse_heuristic_cards(ctx: Dict[str, Any], articles: List[Dict[str, Any
         summary = city_pulse_clean_summary(article.get("summary"), 520)
         category = city_pulse_category_for_title(f"{title} {summary}")
         headline = city_pulse_specific_headline_from_story(ctx, title, summary) or city_pulse_clean_headline(title, 180, publisher=article.get("publisher", ""))
+        fallback_scope = str(article.get("scope_fallback") or "").lower()
+        importance = 0.62 if fallback_scope == "country" else (0.64 if fallback_scope == "province" else 0.55)
         cards.append({
             "hook_title": city_pulse_hook_from_title(title, category, summary),
             "headline": headline,
             "brief": city_pulse_make_brief_from_story(title, summary),
             "category": category,
-            "importance_score": 0.55,
+            "importance_score": importance,
             "location_label": city_pulse_clean_label(article.get("location_label") or ctx.get("city") or city_pulse_area_label(ctx), 90),
             "location_precision": "city",
             "location_confidence": 0.35,
@@ -4416,6 +4465,8 @@ def city_pulse_fetch_google_news_articles(ctx: Dict[str, Any]) -> Tuple[List[Dic
         return f'"{value}"' if value else ""
     if scope == "country":
         label = country_name or country_code
+        add_query(quoted(label), "government economy public health court emergency wildfire tariff safety", "when:7d")
+        add_query(quoted(label), "breaking politics business health safety", "when:7d")
         add_query(quoted(label), "when:7d")
         add_query(label, "top news", "when:7d")
     elif scope == "province":
@@ -4518,6 +4569,38 @@ def city_pulse_fetch_province_supplement_articles(ctx: Dict[str, Any], seen_urls
             break
     return out
 
+def city_pulse_fetch_country_supplement_articles(ctx: Dict[str, Any], seen_urls: set, limit: int = CITY_PULSE_CONTEXT_CARD_TARGET) -> List[Dict[str, Any]]:
+    if city_pulse_scope(ctx.get("scope")) == "country" or limit <= 0:
+        return []
+    sup_ctx = dict(ctx)
+    sup_ctx["scope"] = "country"
+    sup_ctx["city"] = ""
+    sup_ctx["region"] = ""
+    sup_ctx["country_code"] = clean_code(sup_ctx.get("country_code") or active_market_country_code())
+    sup_ctx["country_name"] = city_pulse_clean_label(sup_ctx.get("country_name") or country_meta(sup_ctx.get("country_code", "")).get("name", ""), 80)
+    sup_ctx["area_label"] = city_pulse_area_label(sup_ctx)
+    try:
+        articles, _meta = city_pulse_fetch_google_news_articles(sup_ctx)
+    except Exception as e:
+        print(f"[City Pulse Country Supplement Warning] {e}")
+        return []
+    out: List[Dict[str, Any]] = []
+    for article in city_pulse_filter_articles(articles):
+        if not city_pulse_country_article_relevant(sup_ctx, article):
+            continue
+        url = str(article.get("url") or "").strip().lower()
+        if url and url in seen_urls:
+            continue
+        if url:
+            seen_urls.add(url)
+        article["location_label"] = city_pulse_area_label(sup_ctx)
+        article["scope_fallback"] = "country"
+        article["quality_score"] = int(article.get("quality_score") or city_pulse_article_rank(article)) + 1
+        out.append(article)
+        if len(out) >= limit:
+            break
+    return out
+
 def city_pulse_fetch_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     errors: List[str] = []
     providers: List[str] = []
@@ -4564,7 +4647,15 @@ def city_pulse_fetch_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]]
         if city_pulse_scope(ctx.get("scope")) == "city" and len(scoped) < CITY_PULSE_MIN_READY_CARDS:
             seen_urls = {str(article.get("url") or "").strip().lower() for article in merged if str(article.get("url") or "").strip()}
             scoped.extend(city_pulse_fetch_province_supplement_articles(ctx, seen_urls))
-        if scoped:
+        if city_pulse_scope(ctx.get("scope")) != "country":
+            base = scoped if city_pulse_scope(ctx.get("scope")) == "city" and scoped else merged
+            seen_urls = {str(article.get("url") or "").strip().lower() for article in base if str(article.get("url") or "").strip()}
+            context_cards = city_pulse_fetch_country_supplement_articles(ctx, seen_urls, CITY_PULSE_CONTEXT_CARD_TARGET)
+            if scoped:
+                scoped.extend(context_cards)
+            else:
+                merged.extend(context_cards)
+        if scoped or city_pulse_scope(ctx.get("scope")) == "country":
             merged = scoped
         for article in merged:
             article["quality_score"] = city_pulse_article_rank(article)
@@ -4863,10 +4954,15 @@ def city_pulse_prepare_cards_for_storage(ctx: Dict[str, Any], cards: List[Dict[s
         specific_brief = city_pulse_specific_brief_from_story(ctx, sources[0].get("title", ""), sources[0].get("summary", ""))
         if specific_brief:
             brief = specific_brief
+        if city_pulse_text_similar(brief, headline, 0.76) or city_pulse_text_similar(brief, hook_title, 0.72):
+            brief = city_pulse_distinct_brief(ctx, headline, sources)
         if city_pulse_sentence_count(brief) < 2:
-            headline_sentence = city_pulse_sentence(headline, 150)
-            if headline_sentence and norm_text(headline_sentence) not in norm_text(brief):
-                brief = city_pulse_clean_label(f"{headline_sentence} {brief}", 340)
+            area_hint = city_pulse_clean_label(label or city_pulse_area_label(ctx), 90)
+            second_sentence = f"The source report is linked below for more detail{f' in {area_hint}' if area_hint else ''}."
+            if not city_pulse_text_similar(brief, second_sentence, 0.72):
+                brief = city_pulse_clean_label(f"{brief} {second_sentence}", 340)
+        if city_pulse_text_similar(hook_title, headline, 0.7):
+            hook_title = city_pulse_hook_from_title(sources[0].get("title", ""), category, sources[0].get("summary", "")) or city_pulse_category_label(category)
         story_signature = normalize_name_fingerprint(f"{headline} {source_story}")[:180]
         if city_pulse_similar_story_signature(story_signature, seen_signatures):
             continue
@@ -4914,6 +5010,17 @@ def city_pulse_store_batch(ctx: Dict[str, Any], cards: List[Dict[str, Any]], art
                 ctx,
                 city_pulse_top_up_cards(ctx, prepared_cards, supplement, CITY_PULSE_MIN_READY_CARDS),
             )
+    if not error and city_pulse_scope(ctx.get("scope")) != "country":
+        existing_context = sum(1 for card in prepared_cards if str(card.get("location_label") or "").strip().lower() in {"canada", str(ctx.get("country_name") or "").strip().lower()})
+        if existing_context < CITY_PULSE_CONTEXT_CARD_TARGET:
+            seen_urls = city_pulse_source_urls_from_cards(prepared_cards)
+            country_supplement = city_pulse_fetch_country_supplement_articles(ctx, {url.lower() for url in seen_urls}, CITY_PULSE_CONTEXT_CARD_TARGET - existing_context)
+            if country_supplement:
+                articles = list(articles or []) + country_supplement
+                prepared_cards = city_pulse_prepare_cards_for_storage(
+                    ctx,
+                    list(prepared_cards) + city_pulse_heuristic_cards(ctx, country_supplement),
+                )
     fresh_seconds = CITY_PULSE_REFRESH_SECONDS if prepared_cards else min(CITY_PULSE_REFRESH_SECONDS, CITY_PULSE_ERROR_BACKOFF_SECONDS)
     batch_payload = {
         "batch_id": batch_id,
@@ -5114,6 +5221,28 @@ def city_pulse_latest_batch_any(ctx: Dict[str, Any]) -> Optional[Dict[str, Any]]
         or []
     )
     return rows[0] if rows else None
+
+def city_pulse_scope_fallback_contexts(ctx: Dict[str, Any]) -> List[Dict[str, Any]]:
+    fallbacks: List[Dict[str, Any]] = []
+    scope = city_pulse_scope(ctx.get("scope"))
+    if scope == "city" and ctx.get("region"):
+        province_ctx = dict(ctx)
+        province_ctx["scope"] = "province"
+        province_ctx["city"] = ""
+        province_ctx["area_label"] = city_pulse_area_label(province_ctx)
+        province_ctx["city_key"] = city_pulse_key("", province_ctx.get("region", ""), province_ctx.get("country_code", ""), scope="province")
+        fallbacks.append(province_ctx)
+    if scope != "country":
+        country_ctx = dict(ctx)
+        country_ctx["scope"] = "country"
+        country_ctx["city"] = ""
+        country_ctx["region"] = ""
+        country_ctx["country_code"] = clean_code(country_ctx.get("country_code") or active_market_country_code())
+        country_ctx["country_name"] = city_pulse_clean_label(country_ctx.get("country_name") or country_meta(country_ctx.get("country_code", "")).get("name", ""), 80)
+        country_ctx["area_label"] = city_pulse_area_label(country_ctx)
+        country_ctx["city_key"] = city_pulse_key("", "", country_ctx.get("country_code", ""), scope="country")
+        fallbacks.append(country_ctx)
+    return [fallback for fallback in fallbacks if fallback.get("city_key")]
 
 def normalize_shop_record(row: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(row or {})
@@ -9703,6 +9832,8 @@ def public_city_pulse(
     quality_version = city_pulse_batch_quality_version(batch)
     needs_quality_upgrade = bool(batch and quality_version < CITY_PULSE_QUALITY_VERSION)
     needs_more_cards = bool(batch and quality_version < CITY_PULSE_QUALITY_VERSION and card_count < min_ready_cards)
+    response_ctx = ctx
+    fallback_area = ""
     refresh_queued = False
     refresh_inline = False
     if schema_ready and refresh and (not has_cards or needs_quality_upgrade or needs_more_cards) and not error_backoff and not CITY_PULSE_REFRESHING.get(ctx["city_key"]):
@@ -9724,6 +9855,38 @@ def public_city_pulse(
             needs_more_cards = bool(batch and quality_version < CITY_PULSE_QUALITY_VERSION and card_count < min_ready_cards)
         except Exception as e:
             print(f"[City Pulse Inline Read Warning] {e}")
+    if schema_ready and not payload.get("cards"):
+        for fallback_ctx in city_pulse_scope_fallback_contexts(ctx):
+            try:
+                fallback_payload = city_pulse_latest_payload(fallback_ctx, limit=limit)
+                fallback_latest = city_pulse_latest_batch_any(fallback_ctx)
+                fallback_batch = fallback_payload.get("batch") or {}
+                fallback_error_until = parse_datetime_value((fallback_latest or {}).get("fresh_until")) if (fallback_latest or {}).get("status") == "error" else None
+                fallback_error_backoff = bool(fallback_error_until and fallback_error_until > now_dt)
+                if refresh and not fallback_payload.get("cards") and not fallback_error_backoff and not CITY_PULSE_REFRESHING.get(fallback_ctx["city_key"]):
+                    refresh_inline = True
+                    refresh_city_pulse(dict(fallback_ctx))
+                    fallback_payload = city_pulse_latest_payload(fallback_ctx, limit=limit)
+                    fallback_latest = city_pulse_latest_batch_any(fallback_ctx)
+                    fallback_batch = fallback_payload.get("batch") or {}
+                if fallback_payload.get("cards"):
+                    payload = fallback_payload
+                    latest_batch = fallback_latest
+                    batch = fallback_batch
+                    display_batch = batch or latest_batch or {}
+                    fresh_until = parse_datetime_value(batch.get("fresh_until"))
+                    stale_until = parse_datetime_value(display_batch.get("stale_until"))
+                    is_fresh = bool(fresh_until and fresh_until > datetime.now(timezone.utc))
+                    has_cards = True
+                    card_count = len(payload.get("cards") or [])
+                    quality_version = city_pulse_batch_quality_version(batch)
+                    needs_quality_upgrade = bool(batch and quality_version < CITY_PULSE_QUALITY_VERSION)
+                    needs_more_cards = bool(batch and quality_version < CITY_PULSE_QUALITY_VERSION and card_count < min_ready_cards)
+                    response_ctx = fallback_ctx
+                    fallback_area = city_pulse_area_label(fallback_ctx)
+                    break
+            except Exception as e:
+                print(f"[City Pulse Fallback Warning] {fallback_ctx.get('city_key', '')}: {e}")
     if schema_ready and refresh and has_cards and (not is_fresh) and not error_backoff and not CITY_PULSE_REFRESHING.get(ctx["city_key"]):
         background_tasks.add_task(refresh_city_pulse, dict(ctx))
         refresh_queued = True
@@ -9733,16 +9896,18 @@ def public_city_pulse(
         "schema_ready": schema_ready,
         "city_resolved": True,
         "city": {
-            "city_key": ctx.get("city_key", ""),
-            "scope": city_pulse_scope(ctx.get("scope")),
-            "area_label": city_pulse_area_label(ctx),
-            "city": ctx.get("city", ""),
-            "region": ctx.get("region", ""),
-            "country_code": ctx.get("country_code", ""),
-            "country_name": ctx.get("country_name", ""),
-            "source": ctx.get("source", ""),
-            "center_lat": city_pulse_float(ctx.get("center_lat")),
-            "center_lng": city_pulse_float(ctx.get("center_lng")),
+            "city_key": response_ctx.get("city_key", ""),
+            "scope": city_pulse_scope(response_ctx.get("scope")),
+            "area_label": city_pulse_area_label(response_ctx),
+            "requested_area_label": city_pulse_area_label(ctx),
+            "fallback_area_label": fallback_area,
+            "city": response_ctx.get("city", ""),
+            "region": response_ctx.get("region", ""),
+            "country_code": response_ctx.get("country_code", ""),
+            "country_name": response_ctx.get("country_name", ""),
+            "source": response_ctx.get("source", ""),
+            "center_lat": city_pulse_float(response_ctx.get("center_lat")),
+            "center_lng": city_pulse_float(response_ctx.get("center_lng")),
         },
         "cards": payload.get("cards") or [],
         "batch": {
