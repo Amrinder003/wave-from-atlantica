@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 import os, re, json, time, uuid, shutil, math, base64, hashlib, hmac, secrets, copy
 import csv
 import html as html_lib
+import unicodedata
 from contextvars import ContextVar
 from datetime import datetime, timezone, timedelta
 from difflib import SequenceMatcher
@@ -3610,6 +3611,10 @@ def city_pulse_clean_summary(value: Any, max_len: int = 520) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     return city_pulse_clean_label(text, max_len)
 
+def city_pulse_ascii_fingerprint(value: Any) -> str:
+    text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", text.lower())).strip()
+
 def city_pulse_html_attrs(tag: str) -> Dict[str, str]:
     attrs: Dict[str, str] = {}
     for match in re.finditer(r"([a-zA-Z_:.-]+)\s*=\s*(['\"])(.*?)\2", tag or "", flags=re.DOTALL):
@@ -3939,6 +3944,24 @@ def city_pulse_filter_articles(articles: List[Dict[str, Any]]) -> List[Dict[str,
     out.sort(key=lambda item: int(item.get("quality_score") or city_pulse_article_rank(item)), reverse=True)
     return out
 
+def city_pulse_article_matches_scope(ctx: Dict[str, Any], article: Dict[str, Any]) -> bool:
+    scope = city_pulse_scope(ctx.get("scope"))
+    if scope != "city":
+        return True
+    city = city_pulse_ascii_fingerprint(ctx.get("city"))
+    if not city:
+        return True
+    blob = city_pulse_ascii_fingerprint(
+        " ".join([
+            str(article.get("title") or ""),
+            str(article.get("summary") or ""),
+            str(article.get("location_label") or ""),
+        ])
+    )
+    if city and re.search(rf"\b{re.escape(city)}\b", blob):
+        return True
+    return False
+
 def city_pulse_specific_hook_from_story(text: str, category: str = "") -> str:
     blob = norm_text(text)
     if re.search(r"\b(drug|drugs|cocaine|fentanyl|meth|narcotics|pills|drug-related)\b", blob):
@@ -4203,6 +4226,20 @@ Return JSON only."""
             if len(cards) >= CITY_PULSE_MAX_CARDS:
                 break
         if cards:
+            used_fps = set()
+            for card in cards:
+                used_fps.update(str(x) for x in card.get("article_fingerprints") or [])
+            if len(cards) < min(6, CITY_PULSE_MAX_CARDS) and len(articles) > len(cards):
+                for fallback in city_pulse_heuristic_cards(ctx, articles):
+                    fps = set(str(x) for x in fallback.get("article_fingerprints") or [])
+                    source_urls = {str(src.get("url") or "") for src in fallback.get("sources") or []}
+                    existing_urls = {str(src.get("url") or "") for card in cards for src in card.get("sources") or []}
+                    if (fps and fps & used_fps) or (source_urls and source_urls & existing_urls):
+                        continue
+                    cards.append(fallback)
+                    used_fps.update(fps)
+                    if len(cards) >= min(CITY_PULSE_MAX_CARDS, max(6, len(cards))):
+                        break
             return cards, llm_res.get("model") or OPENROUTER_MODEL
     except Exception as e:
         print(f"[City Pulse LLM Warning] {e}")
@@ -4333,8 +4370,7 @@ def city_pulse_fetch_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]]
     providers: List[str] = []
     merged: List[Dict[str, Any]] = []
     seen_urls: set = set()
-    scope = city_pulse_scope(ctx.get("scope"))
-    fetchers = (city_pulse_fetch_google_news_articles, city_pulse_fetch_gdelt_articles) if scope in {"province", "country"} else (city_pulse_fetch_gdelt_articles, city_pulse_fetch_google_news_articles)
+    fetchers = (city_pulse_fetch_google_news_articles, city_pulse_fetch_gdelt_articles)
     for fetcher in fetchers:
         try:
             articles, meta = fetcher(ctx)
@@ -4369,6 +4405,9 @@ def city_pulse_fetch_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]]
     if merged:
         merged = city_pulse_filter_articles(merged)[:CITY_PULSE_MAX_ARTICLES]
         merged = city_pulse_enrich_articles(merged)
+        scoped = [article for article in merged if city_pulse_article_matches_scope(ctx, article)]
+        if scoped:
+            merged = scoped
         for article in merged:
             article["quality_score"] = city_pulse_article_rank(article)
         merged.sort(key=lambda item: int(item.get("quality_score") or 0), reverse=True)
