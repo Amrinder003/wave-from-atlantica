@@ -11892,9 +11892,9 @@ function cityPulseViewportScopeContext(){
     latSpan=Math.abs(bounds.getNorth()-bounds.getSouth());
     lngSpan=Math.abs(bounds.getEast()-bounds.getWest());
   }
-  if(zoom<=6.2 || latSpan>=7 || lngSpan>=10){
+  if(zoom<=5.8 || latSpan>=9 || lngSpan>=14){
     ctx.scope='country';
-  }else if(zoom<=10.4 || latSpan>=.8 || lngSpan>=1.05){
+  }else if(zoom<=8.2 || latSpan>=2.2 || lngSpan>=3.2){
     ctx.scope='province';
   }else{
     ctx.scope='city';

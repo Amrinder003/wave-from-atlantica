@@ -183,16 +183,20 @@ CITY_PULSE_ENABLED = os.environ.get("CITY_PULSE_ENABLED", "true").strip().lower(
 CITY_PULSE_REFRESH_SECONDS = int(os.environ.get("CITY_PULSE_REFRESH_SECONDS", "43200") or 43200)
 CITY_PULSE_STALE_SECONDS = int(os.environ.get("CITY_PULSE_STALE_SECONDS", "86400") or 86400)
 CITY_PULSE_GDELT_URL = os.environ.get("CITY_PULSE_GDELT_URL", "https://api.gdeltproject.org/api/v2/doc/doc").strip()
-CITY_PULSE_GDELT_TIMESPAN = os.environ.get("CITY_PULSE_GDELT_TIMESPAN", "48h").strip() or "48h"
+CITY_PULSE_GDELT_TIMESPAN = os.environ.get("CITY_PULSE_GDELT_TIMESPAN", "7d").strip() or "7d"
 CITY_PULSE_GDELT_TIMEOUT_SECONDS = int(os.environ.get("CITY_PULSE_GDELT_TIMEOUT_SECONDS", "24") or 24)
 CITY_PULSE_MAX_ARTICLES = max(8, min(int(os.environ.get("CITY_PULSE_MAX_ARTICLES", "40") or 40), 100))
 CITY_PULSE_MAX_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MAX_CARDS", "8") or 8), 10))
+CITY_PULSE_MIN_READY_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MIN_READY_CARDS", "6") or 6), CITY_PULSE_MAX_CARDS))
+CITY_PULSE_QUALITY_VERSION = int(os.environ.get("CITY_PULSE_QUALITY_VERSION", "4") or 4)
 CITY_PULSE_MIN_PIN_CONFIDENCE = float(os.environ.get("CITY_PULSE_MIN_PIN_CONFIDENCE", "0.55") or 0.55)
 CITY_PULSE_IPINFO_TOKEN = (os.environ.get("CITY_PULSE_IPINFO_TOKEN", "").strip() or os.environ.get("IPINFO_TOKEN", "").strip())
 CITY_PULSE_MODEL = os.environ.get("CITY_PULSE_MODEL", OPENROUTER_MODEL).strip() or OPENROUTER_MODEL
 CITY_PULSE_ERROR_BACKOFF_SECONDS = int(os.environ.get("CITY_PULSE_ERROR_BACKOFF_SECONDS", "900") or 900)
 CITY_PULSE_GOOGLE_NEWS_ENABLED = os.environ.get("CITY_PULSE_GOOGLE_NEWS_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
 CITY_PULSE_GOOGLE_NEWS_URL = os.environ.get("CITY_PULSE_GOOGLE_NEWS_URL", "https://news.google.com/rss/search").strip()
+CITY_PULSE_GOOGLE_NEWS_CITY_WINDOW = os.environ.get("CITY_PULSE_GOOGLE_NEWS_CITY_WINDOW", "7d").strip() or "7d"
+CITY_PULSE_GOOGLE_NEWS_CITY_FALLBACK_WINDOW = os.environ.get("CITY_PULSE_GOOGLE_NEWS_CITY_FALLBACK_WINDOW", "30d").strip() or "30d"
 CITY_PULSE_HTTP_HEADERS = {"User-Agent": os.environ.get("CITY_PULSE_USER_AGENT", "AtlanticOrdinateCityPulse/1.0").strip() or "AtlanticOrdinateCityPulse/1.0"}
 CITY_PULSE_SCOPES = {"city", "province", "country"}
 CITY_PULSE_BROWSER_HEADERS = {
@@ -215,6 +219,9 @@ CITY_PULSE_LOW_SIGNAL_TITLE_PATTERNS = (
     r"\bjob listings?\b", r"\bsponsored\b", r"\bpromoted\b", r"\bopinion\b", r"\bcolumn\b",
     r"\bwhat'?s on tv\b", r"\bstreaming\b", r"\bhoroscope\b", r"\breview:?\b",
     r"\bsmall towns to retire\b", r"\bbest places to retire\b", r"\bmost affordable\b",
+    r"\bmedia advisory\b", r"\bpress release\b", r"\br\s*e\s*p\s*e\s*a\s*t\b",
+    r"\bgame highlights?\b", r"\bobservations from\b", r"\bbetting odds\b",
+    r"\blessons i learned\b", r"\bmoved to small-town\b", r"\bsmall-town life\b",
     r"^\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+schedule\b",
 )
 CITY_PULSE_HIGH_SIGNAL_SOURCE_TERMS = (
@@ -224,7 +231,8 @@ CITY_PULSE_HIGH_SIGNAL_SOURCE_TERMS = (
 )
 CITY_PULSE_LOW_SIGNAL_SOURCE_TERMS = (
     "tribute archive", "legacy.com", "weather", "accuweather", "the weather network",
-    "sportskeeda", "yardbarker", "msn", "yahoo entertainment",
+    "sportskeeda", "yardbarker", "msn", "yahoo entertainment", "pr newswire",
+    "ein presswire", "newswire", "travel and tour world",
 )
 FX_API_BASE       = os.environ.get("FX_API_BASE", "https://api.frankfurter.dev/v2").strip().rstrip("/")
 FX_CACHE_SECONDS  = int(os.environ.get("FX_CACHE_SECONDS", "21600") or 21600)
@@ -3615,6 +3623,10 @@ def city_pulse_ascii_fingerprint(value: Any) -> str:
     text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii")
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", text.lower())).strip()
 
+def city_pulse_ascii_label(value: Any, max_len: int = 120) -> str:
+    text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii")
+    return city_pulse_clean_label(text, max_len)
+
 def city_pulse_html_attrs(tag: str) -> Dict[str, str]:
     attrs: Dict[str, str] = {}
     for match in re.finditer(r"([a-zA-Z_:.-]+)\s*=\s*(['\"])(.*?)\2", tag or "", flags=re.DOTALL):
@@ -3757,9 +3769,9 @@ def city_pulse_key(city: str, region: str = "", country_code: str = "", scope: s
     if scope == "country":
         parts = ["country", clean_code(country_code)]
     elif scope == "province":
-        parts = ["province", clean_code(country_code), normalize_name_fingerprint(region)]
+        parts = ["province", clean_code(country_code), city_pulse_ascii_fingerprint(region)]
     else:
-        parts = ["city", clean_code(country_code), normalize_name_fingerprint(region), normalize_name_fingerprint(city)]
+        parts = ["city", clean_code(country_code), city_pulse_ascii_fingerprint(region), city_pulse_ascii_fingerprint(city)]
     return ":".join([part for part in parts if part])
 
 def city_pulse_area_label(ctx: Dict[str, Any]) -> str:
@@ -3771,6 +3783,27 @@ def city_pulse_area_label(ctx: Dict[str, Any]) -> str:
     city = city_pulse_clean_label(ctx.get("city"), 80)
     region = city_pulse_clean_label(ctx.get("region"), 80)
     return city_pulse_clean_label(", ".join([part for part in [city, region] if part]) or city or region or ctx.get("country_name"), 120)
+
+def city_pulse_batch_metadata(batch: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not isinstance(batch, dict):
+        return {}
+    metadata = batch.get("metadata")
+    if isinstance(metadata, dict):
+        return metadata
+    if isinstance(metadata, str):
+        try:
+            parsed = json.loads(metadata)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+def city_pulse_batch_quality_version(batch: Optional[Dict[str, Any]]) -> int:
+    metadata = city_pulse_batch_metadata(batch)
+    try:
+        return int(metadata.get("quality_version") or 0)
+    except Exception:
+        return 0
 
 def city_pulse_search_query(ctx: Dict[str, Any]) -> str:
     scope = city_pulse_scope(ctx.get("scope"))
@@ -4080,6 +4113,8 @@ def city_pulse_heuristic_cards(ctx: Dict[str, Any], articles: List[Dict[str, Any
     cards: List[Dict[str, Any]] = []
     seen: set = set()
     for article in articles:
+        if city_pulse_article_low_signal(article):
+            continue
         title = city_pulse_clean_label(article.get("title"), 180)
         if not title:
             continue
@@ -4096,7 +4131,7 @@ def city_pulse_heuristic_cards(ctx: Dict[str, Any], articles: List[Dict[str, Any
             "brief": city_pulse_make_brief_from_story(title, summary),
             "category": category,
             "importance_score": 0.55,
-            "location_label": city_pulse_clean_label(ctx.get("city"), 90),
+            "location_label": city_pulse_clean_label(article.get("location_label") or ctx.get("city") or city_pulse_area_label(ctx), 90),
             "location_precision": "city",
             "location_confidence": 0.35,
             "published_at": article.get("published_at") or article.get("seendate") or "",
@@ -4107,6 +4142,71 @@ def city_pulse_heuristic_cards(ctx: Dict[str, Any], articles: List[Dict[str, Any
         if len(cards) >= CITY_PULSE_MAX_CARDS:
             break
     return cards
+
+def city_pulse_source_urls_from_cards(cards: List[Dict[str, Any]]) -> set:
+    urls: set = set()
+    for card in cards or []:
+        for src in card.get("sources") or []:
+            url = str(src.get("url") or "").strip()
+            if url:
+                urls.add(url)
+    return urls
+
+def city_pulse_story_signature_from_card(card: Dict[str, Any]) -> str:
+    source_titles = " ".join([str(src.get("title") or "") for src in card.get("sources") or []])
+    return normalize_name_fingerprint(" ".join([
+        str(card.get("headline") or ""),
+        str(card.get("hook_title") or ""),
+        source_titles,
+    ]))[:180]
+
+def city_pulse_similar_story_signature(signature: str, existing: set) -> bool:
+    sig = str(signature or "").strip()
+    if not sig:
+        return False
+    stop_words = {
+        "after", "about", "from", "into", "over", "under", "with", "without", "this", "that",
+        "their", "there", "will", "would", "could", "should", "says", "said", "news", "canada",
+        "ontario", "quebec", "prince", "edward", "island",
+    }
+    sig_terms = {word for word in sig.split() if len(word) >= 4 and word not in stop_words}
+    for other in existing:
+        other = str(other or "").strip()
+        if not other:
+            continue
+        other_terms = {word for word in other.split() if len(word) >= 4 and word not in stop_words}
+        overlap = sig_terms & other_terms
+        if len(overlap) >= 3 and (len(overlap) / max(1, min(len(sig_terms), len(other_terms)))) >= 0.55:
+            return True
+        shorter = min(len(sig), len(other))
+        if shorter >= 36 and (sig in other or other in sig):
+            return True
+        if shorter >= 24 and SequenceMatcher(None, sig, other).ratio() >= 0.78:
+            return True
+        if shorter >= 48 and SequenceMatcher(None, sig, other).ratio() >= 0.72:
+            return True
+    return False
+
+def city_pulse_top_up_cards(ctx: Dict[str, Any], cards: List[Dict[str, Any]], articles: List[Dict[str, Any]], target: int) -> List[Dict[str, Any]]:
+    combined = list(cards or [])
+    if len(combined) >= target:
+        return combined
+    existing_urls = city_pulse_source_urls_from_cards(combined)
+    existing_signatures = {city_pulse_story_signature_from_card(card) for card in combined}
+    for fallback in city_pulse_heuristic_cards(ctx, articles):
+        source_urls = city_pulse_source_urls_from_cards([fallback])
+        if source_urls and source_urls & existing_urls:
+            continue
+        signature = city_pulse_story_signature_from_card(fallback)
+        if city_pulse_similar_story_signature(signature, existing_signatures):
+            continue
+        fallback["importance_score"] = max(city_pulse_float(fallback.get("importance_score")) or 0.0, 0.62)
+        combined.append(fallback)
+        existing_urls.update(source_urls)
+        existing_signatures.add(signature)
+        if len(combined) >= target or len(combined) >= CITY_PULSE_MAX_CARDS:
+            break
+    return combined
 
 def city_pulse_extract_json_object(text: str) -> Dict[str, Any]:
     raw = str(text or "").strip()
@@ -4132,6 +4232,7 @@ def city_pulse_synthesize_cards(ctx: Dict[str, Any], articles: List[Dict[str, An
             "published_at": article.get("published_at") or "",
             "source_country": article.get("source_country") or "",
             "summary": city_pulse_clean_summary(article.get("summary"), 520),
+            "location_hint": city_pulse_clean_label(article.get("location_label") or "", 120),
             "quality_score": int(article.get("quality_score") or city_pulse_article_rank(article)),
             "category_hint": city_pulse_category_for_title(f"{article.get('title', '')} {article.get('summary', '')}"),
             "url": article.get("url") or "",
@@ -4226,20 +4327,7 @@ Return JSON only."""
             if len(cards) >= CITY_PULSE_MAX_CARDS:
                 break
         if cards:
-            used_fps = set()
-            for card in cards:
-                used_fps.update(str(x) for x in card.get("article_fingerprints") or [])
-            if len(cards) < min(6, CITY_PULSE_MAX_CARDS) and len(articles) > len(cards):
-                for fallback in city_pulse_heuristic_cards(ctx, articles):
-                    fps = set(str(x) for x in fallback.get("article_fingerprints") or [])
-                    source_urls = {str(src.get("url") or "") for src in fallback.get("sources") or []}
-                    existing_urls = {str(src.get("url") or "") for card in cards for src in card.get("sources") or []}
-                    if (fps and fps & used_fps) or (source_urls and source_urls & existing_urls):
-                        continue
-                    cards.append(fallback)
-                    used_fps.update(fps)
-                    if len(cards) >= min(CITY_PULSE_MAX_CARDS, max(6, len(cards))):
-                        break
+            cards = city_pulse_top_up_cards(ctx, cards, articles, CITY_PULSE_MIN_READY_CARDS)
             return cards, llm_res.get("model") or OPENROUTER_MODEL
     except Exception as e:
         print(f"[City Pulse LLM Warning] {e}")
@@ -4315,55 +4403,120 @@ def city_pulse_fetch_google_news_articles(ctx: Dict[str, Any]) -> Tuple[List[Dic
     if scope == "city" and not city:
         return [], {"provider": "google_news_rss", "query": ""}
     country_name = city_pulse_clean_label(ctx.get("country_name") or country_meta(country_code).get("name", ""), 80)
+    queries: List[str] = []
+    seen_queries: set = set()
+    def add_query(*parts: str) -> None:
+        query = re.sub(r"\s+", " ", " ".join([str(part or "").strip() for part in parts if str(part or "").strip()])).strip()
+        key = query.lower()
+        if query and key not in seen_queries:
+            seen_queries.add(key)
+            queries.append(query)
+    def quoted(value: str) -> str:
+        value = city_pulse_clean_label(value, 120)
+        return f'"{value}"' if value else ""
     if scope == "country":
-        query = " ".join([part for part in [f'"{country_name or country_code}"', "when:7d"] if part]).strip()
+        label = country_name or country_code
+        add_query(quoted(label), "when:7d")
+        add_query(label, "top news", "when:7d")
     elif scope == "province":
         if not region:
             return [], {"provider": "google_news_rss", "query": ""}
-        query = " ".join([part for part in [f'"{region}"', f'"{country_name}"' if country_name else "", "when:7d"] if part]).strip()
+        add_query(quoted(region), quoted(country_name), "when:7d")
+        add_query(region, country_name, "news", "when:7d")
     else:
-        query = " ".join([part for part in [f'"{city}"', f'"{region}"' if region else "", "when:7d"] if part]).strip()
-    params = {
-        "q": query,
-        "hl": f"en-{country_code}",
-        "gl": country_code,
-        "ceid": f"{country_code}:en",
-    }
-    res = requests.get(CITY_PULSE_GOOGLE_NEWS_URL, params=params, timeout=18, headers=CITY_PULSE_HTTP_HEADERS)
-    res.raise_for_status()
-    root = ET.fromstring(res.content)
+        city_variants = [city, city_pulse_ascii_label(city, 80)]
+        region_variants = [region, city_pulse_ascii_label(region, 80)]
+        primary_window = f"when:{CITY_PULSE_GOOGLE_NEWS_CITY_WINDOW}"
+        fallback_window = f"when:{CITY_PULSE_GOOGLE_NEWS_CITY_FALLBACK_WINDOW}"
+        for city_variant in city_variants:
+            add_query(quoted(city_variant), quoted(region), primary_window)
+        for city_variant in city_variants:
+            add_query(quoted(city_variant), quoted(country_name), primary_window)
+        for city_variant in city_variants:
+            add_query(city_variant, region_variants[0] if region_variants else "", "news", primary_window)
+        for city_variant in city_variants:
+            add_query(quoted(city_variant), quoted(region), fallback_window)
+        for city_variant in city_variants:
+            add_query(quoted(city_variant), quoted(country_name), fallback_window)
+        for city_variant in city_variants:
+            add_query(city_variant, region_variants[0] if region_variants else "", "news", fallback_window)
+        for city_variant in city_variants:
+            add_query(city_variant, "police council housing fire road school hospital", fallback_window)
+        for city_variant in city_variants:
+            add_query(city_variant, "CBC CTV Global SaltWire", fallback_window)
+    if not queries:
+        return [], {"provider": "google_news_rss", "query": ""}
     articles: List[Dict[str, Any]] = []
     seen: set = set()
-    for idx, item in enumerate(root.findall(".//channel/item")):
-        link = str(item.findtext("link") or "").strip()
-        pub_date = city_pulse_parse_rss_datetime(item.findtext("pubDate"))
-        source_el = item.find("source")
-        publisher = city_pulse_clean_label(source_el.text if source_el is not None else "", 90)
-        publisher_url = str((source_el.attrib.get("url") if source_el is not None else "") or "").strip()
-        title = city_pulse_clean_headline(item.findtext("title"), 220, publisher=publisher)
-        description = city_pulse_clean_summary(item.findtext("description"), 420)
-        if not title or not link:
-            continue
-        signature = (link.lower(), normalize_name_fingerprint(title))
-        if signature in seen:
-            continue
-        seen.add(signature)
-        articles.append({
-            "id": f"rss{idx + 1}",
-            "url": link,
-            "title": title,
-            "publisher": publisher,
-            "domain": publisher,
-            "publisher_url": publisher_url,
-            "summary": "" if normalize_name_fingerprint(description) == normalize_name_fingerprint(title) else description,
-            "language": "en",
-            "source_country": country_code,
-            "published_at": pub_date,
-            "seendate": pub_date,
-        })
-        if len(articles) >= CITY_PULSE_MAX_ARTICLES:
+    target_articles = min(CITY_PULSE_MAX_ARTICLES, 24)
+    for query in queries[:12]:
+        params = {
+            "q": query,
+            "hl": f"en-{country_code}",
+            "gl": country_code,
+            "ceid": f"{country_code}:en",
+        }
+        res = requests.get(CITY_PULSE_GOOGLE_NEWS_URL, params=params, timeout=18, headers=CITY_PULSE_HTTP_HEADERS)
+        res.raise_for_status()
+        root = ET.fromstring(res.content)
+        for item in root.findall(".//channel/item"):
+            link = str(item.findtext("link") or "").strip()
+            pub_date = city_pulse_parse_rss_datetime(item.findtext("pubDate"))
+            source_el = item.find("source")
+            publisher = city_pulse_clean_label(source_el.text if source_el is not None else "", 90)
+            publisher_url = str((source_el.attrib.get("url") if source_el is not None else "") or "").strip()
+            title = city_pulse_clean_headline(item.findtext("title"), 220, publisher=publisher)
+            description = city_pulse_clean_summary(item.findtext("description"), 420)
+            if not title or not link:
+                continue
+            signature = (link.lower(), normalize_name_fingerprint(title))
+            if signature in seen:
+                continue
+            seen.add(signature)
+            articles.append({
+                "id": f"rss{len(articles) + 1}",
+                "url": link,
+                "title": title,
+                "publisher": publisher,
+                "domain": publisher,
+                "publisher_url": publisher_url,
+                "summary": "" if normalize_name_fingerprint(description) == normalize_name_fingerprint(title) else description,
+                "language": "en",
+                "source_country": country_code,
+                "published_at": pub_date,
+                "seendate": pub_date,
+            })
+            if len(articles) >= target_articles:
+                break
+        if len(articles) >= target_articles:
             break
-    return articles, {"provider": "google_news_rss", "query": query, "timespan": "7d", "scope": scope}
+    return articles, {"provider": "google_news_rss", "query": " | ".join(queries[:12]), "timespan": "7d/30d" if scope == "city" else "7d", "scope": scope}
+
+def city_pulse_fetch_province_supplement_articles(ctx: Dict[str, Any], seen_urls: set) -> List[Dict[str, Any]]:
+    if city_pulse_scope(ctx.get("scope")) != "city" or not ctx.get("region"):
+        return []
+    sup_ctx = dict(ctx)
+    sup_ctx["scope"] = "province"
+    sup_ctx["city"] = ""
+    sup_ctx["area_label"] = city_pulse_area_label(sup_ctx)
+    try:
+        articles, _meta = city_pulse_fetch_google_news_articles(sup_ctx)
+    except Exception as e:
+        print(f"[City Pulse Province Supplement Warning] {e}")
+        return []
+    out: List[Dict[str, Any]] = []
+    for article in city_pulse_filter_articles(articles):
+        url = str(article.get("url") or "").strip().lower()
+        if url and url in seen_urls:
+            continue
+        if url:
+            seen_urls.add(url)
+        article["location_label"] = city_pulse_area_label(sup_ctx)
+        article["scope_fallback"] = "province"
+        out.append(article)
+        if len(out) >= CITY_PULSE_MIN_READY_CARDS:
+            break
+    return out
 
 def city_pulse_fetch_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     errors: List[str] = []
@@ -4397,7 +4550,9 @@ def city_pulse_fetch_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]]
                 errors.append(f"{provider} returned no articles")
             elif not filtered:
                 errors.append(f"{provider} returned only low-signal articles")
-            if len(merged) >= max(4, min(CITY_PULSE_MAX_ARTICLES, 10)):
+            scoped_preview = [article for article in merged if city_pulse_article_matches_scope(ctx, article)]
+            enough_articles = len(scoped_preview if city_pulse_scope(ctx.get("scope")) == "city" else merged) >= max(CITY_PULSE_MIN_READY_CARDS, min(CITY_PULSE_MAX_ARTICLES, 12))
+            if enough_articles:
                 break
         except Exception as e:
             errors.append(f"{fetcher.__name__}: {str(e)[:220]}")
@@ -4406,6 +4561,9 @@ def city_pulse_fetch_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]]
         merged = city_pulse_filter_articles(merged)[:CITY_PULSE_MAX_ARTICLES]
         merged = city_pulse_enrich_articles(merged)
         scoped = [article for article in merged if city_pulse_article_matches_scope(ctx, article)]
+        if city_pulse_scope(ctx.get("scope")) == "city" and len(scoped) < CITY_PULSE_MIN_READY_CARDS:
+            seen_urls = {str(article.get("url") or "").strip().lower() for article in merged if str(article.get("url") or "").strip()}
+            scoped.extend(city_pulse_fetch_province_supplement_articles(ctx, seen_urls))
         if scoped:
             merged = scoped
         for article in merged:
@@ -4599,9 +4757,19 @@ def city_pulse_resolve_context(request: Request, city: str = "", region: str = "
         }
     elif lat_val is not None and lng_val is not None:
         ctx = city_pulse_reverse_geocode(lat_val, lng_val)
-    if not ctx.get("city"):
+    has_requested_scope = (
+        (scope_val == "country" and ctx.get("country_code")) or
+        (scope_val == "province" and ctx.get("region")) or
+        (scope_val == "city" and ctx.get("city"))
+    )
+    if not has_requested_scope:
         ctx = city_pulse_context_from_ip(request)
-    if not ctx.get("city"):
+    has_requested_scope = (
+        (scope_val == "country" and ctx.get("country_code")) or
+        (scope_val == "province" and ctx.get("region")) or
+        (scope_val == "city" and ctx.get("city"))
+    )
+    if not has_requested_scope:
         ctx = city_pulse_context_from_market()
     if lat_val is not None and lng_val is not None:
         ctx["center_lat"] = lat_val
@@ -4655,6 +4823,7 @@ def city_pulse_card_quality_score(card: Dict[str, Any], sources: List[Dict[str, 
 def city_pulse_prepare_cards_for_storage(ctx: Dict[str, Any], cards: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     ctx = city_pulse_ensure_center(ctx)
     out: List[Dict[str, Any]] = []
+    seen_signatures: set = set()
     for card in cards:
         if not isinstance(card, dict):
             continue
@@ -4698,6 +4867,10 @@ def city_pulse_prepare_cards_for_storage(ctx: Dict[str, Any], cards: List[Dict[s
             headline_sentence = city_pulse_sentence(headline, 150)
             if headline_sentence and norm_text(headline_sentence) not in norm_text(brief):
                 brief = city_pulse_clean_label(f"{headline_sentence} {brief}", 340)
+        story_signature = normalize_name_fingerprint(f"{headline} {source_story}")[:180]
+        if city_pulse_similar_story_signature(story_signature, seen_signatures):
+            continue
+        seen_signatures.add(story_signature)
         out.append({
             **card,
             "hook_title": hook_title,
@@ -4727,6 +4900,20 @@ def city_pulse_store_batch(ctx: Dict[str, Any], cards: List[Dict[str, Any]], art
     now_dt = datetime.now(timezone.utc)
     batch_id = f"pulse-{hashlib.sha1((ctx.get('city_key', '') + now_dt.isoformat()).encode('utf-8')).hexdigest()[:18]}"
     prepared_cards = city_pulse_prepare_cards_for_storage(ctx, cards) if not error else []
+    if not error and len(prepared_cards) < CITY_PULSE_MIN_READY_CARDS and articles:
+        prepared_cards = city_pulse_prepare_cards_for_storage(
+            ctx,
+            city_pulse_top_up_cards(ctx, prepared_cards, articles, CITY_PULSE_MIN_READY_CARDS),
+        )
+    if not error and len(prepared_cards) < CITY_PULSE_MIN_READY_CARDS and city_pulse_scope(ctx.get("scope")) == "city":
+        seen_urls = city_pulse_source_urls_from_cards(prepared_cards)
+        supplement = city_pulse_fetch_province_supplement_articles(ctx, {url.lower() for url in seen_urls})
+        if supplement:
+            articles = list(articles or []) + supplement
+            prepared_cards = city_pulse_prepare_cards_for_storage(
+                ctx,
+                city_pulse_top_up_cards(ctx, prepared_cards, supplement, CITY_PULSE_MIN_READY_CARDS),
+            )
     fresh_seconds = CITY_PULSE_REFRESH_SECONDS if prepared_cards else min(CITY_PULSE_REFRESH_SECONDS, CITY_PULSE_ERROR_BACKOFF_SECONDS)
     batch_payload = {
         "batch_id": batch_id,
@@ -4746,7 +4933,14 @@ def city_pulse_store_batch(ctx: Dict[str, Any], cards: List[Dict[str, Any]], art
         "card_count": len(prepared_cards),
         "model_used": model_used or "",
         "error_message": city_pulse_clean_label(error, 500),
-        "metadata": {**(provider_meta or {}), "scope": city_pulse_scope(ctx.get("scope")), "area_label": city_pulse_area_label(ctx), "refresh_seconds": CITY_PULSE_REFRESH_SECONDS},
+        "metadata": {
+            **(provider_meta or {}),
+            "scope": city_pulse_scope(ctx.get("scope")),
+            "area_label": city_pulse_area_label(ctx),
+            "refresh_seconds": CITY_PULSE_REFRESH_SECONDS,
+            "min_ready_cards": CITY_PULSE_MIN_READY_CARDS,
+            "quality_version": CITY_PULSE_QUALITY_VERSION,
+        },
         "updated_at": now_dt.isoformat(),
     }
     sb.table("city_pulse_batches").insert(batch_payload).execute()
@@ -4779,6 +4973,7 @@ def city_pulse_store_batch(ctx: Dict[str, Any], cards: List[Dict[str, Any]], art
                 "location_policy": "exact pins require confidence threshold; city fallback is approximate",
                 "scope": city_pulse_scope(ctx.get("scope")),
                 "area_label": city_pulse_area_label(ctx),
+                "quality_version": CITY_PULSE_QUALITY_VERSION,
                 "quality_score": card.get("quality_score", 0),
                 "source_authority": card.get("source_authority", 0),
                 "location_approximate": bool(card.get("location_approximate")),
@@ -9501,14 +9696,20 @@ def public_city_pulse(
     stale_until = parse_datetime_value(display_batch.get("stale_until"))
     is_fresh = bool(fresh_until and fresh_until > now_dt)
     error_until = parse_datetime_value((latest_batch or {}).get("fresh_until")) if (latest_batch or {}).get("status") == "error" else None
-    error_backoff = bool(error_until and error_until > now_dt and not batch)
+    error_backoff = bool(error_until and error_until > now_dt)
     has_cards = bool(payload.get("cards"))
+    card_count = len(payload.get("cards") or [])
+    min_ready_cards = min(max(1, int(limit or CITY_PULSE_MAX_CARDS)), CITY_PULSE_MIN_READY_CARDS)
+    quality_version = city_pulse_batch_quality_version(batch)
+    needs_quality_upgrade = bool(batch and quality_version < CITY_PULSE_QUALITY_VERSION)
+    needs_more_cards = bool(batch and quality_version < CITY_PULSE_QUALITY_VERSION and card_count < min_ready_cards)
     refresh_queued = False
     refresh_inline = False
-    if schema_ready and refresh and not has_cards and not error_backoff and not CITY_PULSE_REFRESHING.get(ctx["city_key"]):
+    if schema_ready and refresh and (not has_cards or needs_quality_upgrade or needs_more_cards) and not error_backoff and not CITY_PULSE_REFRESHING.get(ctx["city_key"]):
         refresh_inline = True
         refresh_city_pulse(dict(ctx))
         try:
+            now_dt = datetime.now(timezone.utc)
             payload = city_pulse_latest_payload(ctx, limit=limit)
             latest_batch = city_pulse_latest_batch_any(ctx)
             batch = payload.get("batch") or {}
@@ -9517,6 +9718,10 @@ def public_city_pulse(
             stale_until = parse_datetime_value(display_batch.get("stale_until"))
             is_fresh = bool(fresh_until and fresh_until > now_dt)
             has_cards = bool(payload.get("cards"))
+            card_count = len(payload.get("cards") or [])
+            quality_version = city_pulse_batch_quality_version(batch)
+            needs_quality_upgrade = bool(batch and quality_version < CITY_PULSE_QUALITY_VERSION)
+            needs_more_cards = bool(batch and quality_version < CITY_PULSE_QUALITY_VERSION and card_count < min_ready_cards)
         except Exception as e:
             print(f"[City Pulse Inline Read Warning] {e}")
     if schema_ready and refresh and has_cards and (not is_fresh) and not error_backoff and not CITY_PULSE_REFRESHING.get(ctx["city_key"]):
@@ -9551,6 +9756,10 @@ def public_city_pulse(
             "card_count": display_batch.get("card_count", 0) if display_batch else 0,
             "model_used": display_batch.get("model_used", "") if display_batch else "",
             "error_message": display_batch.get("error_message", "") if display_batch and display_batch.get("status") == "error" else "",
+            "quality_version": quality_version,
+            "target_quality_version": CITY_PULSE_QUALITY_VERSION,
+            "min_ready_cards": CITY_PULSE_MIN_READY_CARDS,
+            "needs_quality_upgrade": needs_quality_upgrade,
             "fresh": is_fresh,
             "stale": bool(stale_until and stale_until <= now_dt),
         },
