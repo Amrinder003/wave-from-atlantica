@@ -189,7 +189,7 @@ CITY_PULSE_MAX_ARTICLES = max(8, min(int(os.environ.get("CITY_PULSE_MAX_ARTICLES
 CITY_PULSE_MAX_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MAX_CARDS", "8") or 8), 10))
 CITY_PULSE_MIN_READY_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MIN_READY_CARDS", "6") or 6), CITY_PULSE_MAX_CARDS))
 CITY_PULSE_CONTEXT_CARD_TARGET = max(0, min(int(os.environ.get("CITY_PULSE_CONTEXT_CARD_TARGET", "2") or 2), CITY_PULSE_MAX_CARDS))
-CITY_PULSE_QUALITY_VERSION = int(os.environ.get("CITY_PULSE_QUALITY_VERSION", "10") or 10)
+CITY_PULSE_QUALITY_VERSION = int(os.environ.get("CITY_PULSE_QUALITY_VERSION", "11") or 11)
 CITY_PULSE_MIN_PIN_CONFIDENCE = float(os.environ.get("CITY_PULSE_MIN_PIN_CONFIDENCE", "0.55") or 0.55)
 CITY_PULSE_IPINFO_TOKEN = (os.environ.get("CITY_PULSE_IPINFO_TOKEN", "").strip() or os.environ.get("IPINFO_TOKEN", "").strip())
 CITY_PULSE_MODEL = os.environ.get("CITY_PULSE_MODEL", OPENROUTER_MODEL).strip() or OPENROUTER_MODEL
@@ -4020,30 +4020,76 @@ def city_pulse_country_article_relevant(ctx: Dict[str, Any], article: Dict[str, 
 
 def city_pulse_specific_hook_from_story(text: str, category: str = "") -> str:
     blob = norm_text(text)
+    rescue = re.search(r"\b(man|woman|teen|bystander|officer|firefighter|worker|neighbou?r|father|mother)\b.{0,80}\b(save|saves|saved|rescue|rescues|rescued|pulls|pulled)\b.{0,90}\b(kids|children|child|boy|girl|people|man|woman)\b", blob)
+    if rescue:
+        return city_pulse_clean_label(f"{rescue.group(1).capitalize()} saved {rescue.group(3)}", 42)
+    drowned = re.search(r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(kids|children|teens|teenagers|boys|girls|people|men|women)\b.{0,90}\b(drown|drowned|drowning)\b", blob)
+    if drowned:
+        return city_pulse_clean_label(f"{drowned.group(1)} {drowned.group(2)} drowned", 42)
+    if re.search(r"\bdog\b.{0,50}\b(attack|bite|maul)", blob):
+        return "Dog attack"
+    if re.search(r"\bbear\b.{0,50}\b(attack|encounter|maul|killed|dead)", blob):
+        return "Bear attack"
+    if re.search(r"\bonline luring\b|\bluring\b", blob):
+        return "Online luring"
+    if re.search(r"\b(worker|employee|clerk|staff)\b.{0,80}\b(assault|assaulted|assaults|attacked|attack|stabbed|shot)\b|\b(assault|assaulted|assaults|attacked|attack|stabbed|shot)\b.{0,80}\b(worker|employee|clerk|staff)\b", blob):
+        return "Worker attacked"
+    if re.search(r"\bshooting\b|\bshot\b", blob):
+        return "Shooting reported"
+    if re.search(r"\bstabbing\b|\bstabbed\b", blob):
+        return "Stabbing reported"
+    if re.search(r"\bassault\b|\bassaulted\b|\bassaults\b|\battacked\b", blob):
+        return "Assault reported"
+    if re.search(r"\bmissing\b.{0,50}\b(man|woman|person|child|teen|boy|girl)", blob):
+        return "Missing person"
     if re.search(r"\b(drug|drugs|cocaine|fentanyl|meth|narcotics|pills|drug-related)\b", blob):
         if re.search(r"\b(seized|found|search|searched)\b", blob):
+            return "Drugs found"
+        if re.search(r"\b(charged|charges|arrest|arrested)\b", blob):
             return "Drug charges"
         return "Drug case"
     if re.search(r"\b(weapon|firearm|gun|knife)\b", blob):
+        if re.search(r"\b(seized|found)\b", blob):
+            return "Weapons found"
         return "Weapons case"
     if re.search(r"\b(stolen|theft|robbery)\b", blob):
+        if re.search(r"\bmoney|cash\b", blob):
+            return "Money stolen"
+        if re.search(r"\bvehicle|car|truck|suv\b", blob):
+            return "Vehicle stolen"
+        if re.search(r"\brobbery\b", blob):
+            return "Robbery reported"
         return "Theft case"
+    if re.search(r"\bmulti[- ]vehicle\b|\bmultiple vehicles\b", blob) and re.search(r"\b(crash|collision|accident)\b", blob):
+        return "Multi-car crash"
+    if re.search(r"\b(rollover)\b", blob):
+        return "Vehicle rollover"
     if re.search(r"\b(crash|collision|accident)\b", blob):
         return "Crash alert"
     if re.search(r"\b(road|street|bridge).{0,24}\b(closed|closure|blocked)\b", blob):
         return "Road closed"
+    if re.search(r"\bhiv\b", blob):
+        return "HIV emergency"
+    if re.search(r"\bhospital\b.{0,80}\b(cancel|surgery|surgeries|beds|icu|closed|closure|delay|delays)\b", blob):
+        return "Hospital disruption"
     if re.search(r"\b(power outage|water main|boil water)\b", blob):
         return "Service alert"
     if re.search(r"\bprovincial administration\b|\bmunicipal administration\b", blob):
         return "Town oversight"
     if re.search(r"\beconomic development\b|\binvestment\b", blob):
         return "Investment push"
+    if re.search(r"\btax\b.{0,40}\b(hike|increase|rise|higher)\b|\b(hike|increase|rise|higher)\b.{0,40}\btax\b", blob):
+        return "Tax hike"
+    if re.search(r"\bbudget\b.{0,40}\b(approved|passed|adopted)\b", blob):
+        return "Budget approved"
     if re.search(r"\bbudget|tax\b", blob):
-        return "Budget decision"
+        return "Budget update"
     if re.search(r"\bhousing|apartment|zoning|development\b", blob):
-        return "Development plan"
+        return "Housing plan"
     if re.search(r"\bcouncil|mayor\b", blob):
         return "Council vote"
+    if re.search(r"\bchina\b.{0,80}\b(deal|deals|trade|tariff)\b|\b(deal|deals|trade|tariff)\b.{0,80}\bchina\b", blob):
+        return "China deal warning"
     return ""
 
 def city_pulse_hook_from_title(title: str, category: str = "", summary: str = "") -> str:
@@ -4057,7 +4103,7 @@ def city_pulse_hook_from_title(title: str, category: str = "", summary: str = ""
         (r"\bbear\b.{0,40}\b(attack|encounter|maul|killed|dead)", "Bear attack"),
         (r"\bonline luring\b|\bluring\b", "Online luring"),
         (r"\bopen drug use\b|\bdrug use\b", "Drug concerns"),
-        (r"\bcannabis store\b.{0,50}\bassault|\bassault\b.{0,50}\bcannabis", "Worker assault"),
+        (r"\bcannabis store\b.{0,50}\b(assault|assaulted|attacked)|\b(assault|assaulted|attacked)\b.{0,50}\bcannabis", "Worker attacked"),
         (r"\bmissing\b.{0,40}\b(man|woman|person|child|teen)", "Missing person"),
         (r"\bvehicle rollover\b|\brollover\b", "Vehicle rollover"),
         (r"\bmulti-vehicle crash\b|\bcrash\b|\bcollision\b", "Crash alert"),
@@ -4092,9 +4138,30 @@ def city_pulse_vague_card_text(value: str) -> bool:
     vague = (
         "charges after search", "charges after searches", "charged after",
         "facing charges after", "police search", "home vehicle searched", "local update", "safety update",
-        "city event", "local alert", "city decision",
+        "city event", "local alert", "city decision", "public safety", "workplace safety",
+        "community safety", "safety concerns", "major update", "breaking update",
+        "local news", "developing story", "police investigation",
     )
     return any(item in text for item in vague)
+
+def city_pulse_hook_is_headline_prefix(hook: str, headline: str) -> bool:
+    hook_words = re.findall(r"[a-z0-9']+", norm_text(hook))
+    headline_words = re.findall(r"[a-z0-9']+", norm_text(headline))
+    if len(hook_words) < 2 or len(headline_words) < len(hook_words) + 2:
+        return False
+    return all(headline_words[idx] == word for idx, word in enumerate(hook_words))
+
+def city_pulse_hook_needs_rewrite(hook: str, headline: str = "", story: str = "") -> bool:
+    text = norm_text(hook)
+    if city_pulse_vague_card_text(text):
+        return True
+    words = re.findall(r"[a-z0-9']+", text)
+    if len(words) < 2:
+        return True
+    if city_pulse_hook_is_headline_prefix(text, headline):
+        return True
+    generic_words = {"update", "alert", "issue", "story", "news", "event", "case", "decision"}
+    return len(words) <= 2 and all(word in generic_words for word in words)
 
 def city_pulse_headline_missing_story_detail(headline: str, story: str) -> bool:
     headline_text = norm_text(headline)
@@ -4325,7 +4392,7 @@ Merge duplicate coverage into one card. Prefer public safety, civic alerts, road
 Create fewer, stronger cards. Skip articles with weak local public interest even if there is room.
 Do not create cards for generic weather pages, obituaries, classifieds, generic sports schedules, opinion, lifestyle listicles, or articles with no clear public use.
 If the exact incident place is not clear from the titles, set location_precision to "city", location_label to the city, and location_confidence below 0.5.
-The hook_title must name the concrete subject of the story, not the process. Good: "Drug charges", "Road closed", "Budget approved". Bad: "Charges after search", "Local update".
+The hook_title is the click hook: write a concrete 2-5 word mini-headline with the event/outcome, not a category or headline prefix. Good: "2 kids drowned", "Worker attacked", "Drugs found", "Road closed", "Budget approved". Bad: "Workplace safety", "Charges after search", "Despite strained ties", "Local update".
 The headline must be a compressed paraphrase that tells the actual news in one line. Do not merely copy a vague source title if the summary reveals the real subject.
 The brief must say what happened and why it matters in 26 words or fewer.
 Return JSON only."""
@@ -4385,10 +4452,15 @@ Return JSON only."""
             hook = city_pulse_clean_label(raw.get("hook_title"), 42) or city_pulse_hook_from_title(headline, category)
             source_story = " ".join([f"{src.get('title', '')} {src.get('summary', '')}" for src in sources])
             specific_hook = city_pulse_specific_hook_from_story(source_story, category)
-            if city_pulse_vague_card_text(hook) or (specific_hook and norm_text(specific_hook) not in norm_text(hook)):
+            candidate_hook = city_pulse_hook_from_title(sources[0].get("title", "") or headline, category, sources[0].get("summary", "") or source_story)
+            if specific_hook and (city_pulse_hook_needs_rewrite(hook, headline, source_story) or norm_text(specific_hook) not in norm_text(hook)):
                 hook = specific_hook or hook
+            if city_pulse_hook_needs_rewrite(hook, headline, source_story):
+                hook = candidate_hook or specific_hook or hook
             if city_pulse_vague_card_text(headline) or city_pulse_headline_missing_story_detail(headline, source_story):
                 headline = city_pulse_specific_headline_from_story(ctx, sources[0].get("title", ""), sources[0].get("summary", "")) or headline
+            if city_pulse_hook_needs_rewrite(hook, headline, source_story):
+                hook = specific_hook or candidate_hook or city_pulse_hook_from_title(headline, category, source_story) or hook
             cards.append({
                 "hook_title": hook,
                 "headline": headline,
@@ -4991,8 +5063,12 @@ def city_pulse_prepare_cards_for_storage(ctx: Dict[str, Any], cards: List[Dict[s
             second_sentence = f"The source report is linked below for more detail{f' in {area_hint}' if area_hint else ''}."
             if not city_pulse_text_similar(brief, second_sentence, 0.72):
                 brief = city_pulse_clean_label(f"{brief} {second_sentence}", 340)
-        if city_pulse_text_similar(hook_title, headline, 0.7):
-            hook_title = city_pulse_hook_from_title(sources[0].get("title", ""), category, sources[0].get("summary", "")) or city_pulse_category_label(category)
+        if city_pulse_hook_needs_rewrite(hook_title, headline, source_story) or city_pulse_text_similar(hook_title, headline, 0.7):
+            candidate_hook = city_pulse_hook_from_title(sources[0].get("title", "") or headline, category, sources[0].get("summary", "") or source_story)
+            if candidate_hook and not city_pulse_hook_needs_rewrite(candidate_hook, headline, source_story):
+                hook_title = candidate_hook
+            else:
+                hook_title = specific_hook or candidate_hook or hook_title
         story_signature = normalize_name_fingerprint(f"{headline} {source_story}")[:180]
         if city_pulse_similar_story_signature(story_signature, seen_signatures):
             continue

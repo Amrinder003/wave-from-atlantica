@@ -645,24 +645,24 @@ a{color:inherit;text-decoration:none}
   .map-sheet-status{display:none}
   .map-sheet-list{width:calc(100% - 12px);left:6px;right:6px;transform:none;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);padding:6px;border-radius:20px;gap:6px}
   .map-sheet-locate-btn{right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 96px)}
-  .map-sheet-list-handle{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 12px)}
+  .map-sheet-list-handle{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 12px);z-index:9}
   .map-spot-card{min-width:min(78vw,214px);max-width:min(78vw,214px);padding:10px}
   .map-spot-card-mark{width:38px;height:38px;border-radius:14px;font-size:17px}
   .map-spot-card-name{font-size:14px}
   .map-spot-card-copy{font-size:10px}
   .map-spot-card-foot{display:grid;grid-template-columns:1fr;align-items:stretch}
   .map-spot-card-visit{width:100%;justify-content:center}
-  .city-pulse-dock{left:auto;right:7px;top:calc(env(safe-area-inset-top,0px) + 62px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 14px);width:min(244px,66vw);max-height:none;padding:7px;border-radius:15px 0 0 15px;gap:6px;z-index:7;transform:translateX(0);will-change:transform;touch-action:pan-y;overscroll-behavior:contain}
+  .city-pulse-dock{left:auto;right:7px;top:calc(env(safe-area-inset-top,0px) + 62px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 56px);width:min(228px,60vw);max-height:none;padding:7px;border-radius:15px 0 0 15px;gap:6px;z-index:7;transform:translateX(0);will-change:transform;touch-action:pan-y;overscroll-behavior:contain}
   .city-pulse-dock.is-dock-hidden{transform:translateX(calc(100% + 7px))}
   .city-pulse-dock-handle{display:flex;position:absolute;left:-31px;top:50%;transform:translateY(-50%);width:31px;height:58px;align-items:center;justify-content:center;border:1px solid rgba(191,174,149,.42);border-right:none;border-radius:14px 0 0 14px;background:linear-gradient(180deg,rgba(255,253,248,.98),rgba(246,239,227,.95));box-shadow:0 12px 24px rgba(31,41,55,.14);font-size:18px;font-weight:950;color:#3b2a1f;cursor:pointer;pointer-events:auto}
   .city-pulse-dock-head{gap:8px}
   .city-pulse-dock-title{font-size:12px}
   .city-pulse-dock-toggle{height:26px;font-size:9px;padding:0 8px}
   .city-pulse-dock-area{font-size:9px}
-  .city-pulse-feed{display:grid;gap:6px;overflow-x:hidden;overflow-y:auto;padding:1px 2px 3px 0;scrollbar-width:none}
+  .city-pulse-feed{display:grid;gap:6px;overflow-x:hidden;overflow-y:auto;padding:1px 2px 16px 0;scrollbar-width:none;scroll-padding:8px 0 18px}
   .city-pulse-feed::-webkit-scrollbar{display:none}
   .city-pulse-feed-card{min-width:0;max-width:none;gap:4px;padding:7px 8px 7px 10px;border-radius:11px}
-  .city-pulse-feed-card.open{padding:8px 9px 9px 11px}
+  .city-pulse-feed-card.open{padding:8px 9px 10px 11px;scroll-margin:8px 0 18px}
   .city-pulse-feed-card.open .city-pulse-feed-hook{white-space:normal;overflow:visible}
   .city-pulse-feed-badge{max-width:76px;height:15px;font-size:7px;padding:0 5px}
   .city-pulse-feed-time{font-size:8px}
@@ -11922,12 +11922,42 @@ function cityPulseCardHtml(card={}){
   </div>`;
 }
 function cityPulseGenericHook(value=''){
-  return /^(local update|city event|safety update|local alert|city decision|road update|news)$/i.test(String(value||'').trim());
+  return /^(local update|city event|safety update|local alert|city decision|road update|news|public safety|workplace safety|community safety|safety concerns|major update|breaking update)$/i.test(String(value||'').trim());
+}
+function cityPulseHookIsHeadlinePrefix(hook='',headline=''){
+  const hookWords=String(hook||'').toLowerCase().match(/[a-z0-9']+/g)||[];
+  const headlineWords=String(headline||'').toLowerCase().match(/[a-z0-9']+/g)||[];
+  if(hookWords.length<2 || headlineWords.length<hookWords.length+2) return false;
+  return hookWords.every((word,idx)=>headlineWords[idx]===word);
+}
+function cityPulseMiniHookFromText(card={}){
+  const text=`${card.headline||''} ${card.brief||''}`.toLowerCase();
+  const patterns=[
+    [/\b(drug|drugs|fentanyl|cocaine|meth|narcotics)\b.*\b(found|seized|search|searched)\b|\b(found|seized|search|searched)\b.*\b(drug|drugs|fentanyl|cocaine|meth|narcotics)\b/,'Drugs found'],
+    [/\b(drug|drugs|fentanyl|cocaine|meth|narcotics)\b.*\b(charge|charged|charges)\b|\b(charge|charged|charges)\b.*\b(drug|drugs|fentanyl|cocaine|meth|narcotics)\b/,'Drug charges'],
+    [/\b(worker|employee|clerk|staff)\b.*\b(assault|attacked|attack)\b|\b(assault|attacked|attack)\b.*\b(worker|employee|clerk|staff)\b/,'Worker attacked'],
+    [/\b(dog)\b.*\b(attack|bite|maul)\b/,'Dog attack'],
+    [/\b(online luring|luring)\b/,'Online luring'],
+    [/\b(missing)\b.*\b(child|teen|man|woman|person)\b/,'Missing person'],
+    [/\b(multi-vehicle|multiple vehicle|multi vehicle)\b.*\b(crash|collision)\b/,'Multi-car crash'],
+    [/\b(crash|collision|rollover)\b/,'Crash alert'],
+    [/\b(road|street|bridge)\b.*\b(closed|closure|blocked)\b/,'Road closed'],
+    [/\b(hospital)\b.*\b(cancel|surgery|surgeries|beds|icu|closed|closure)\b/,'Hospital disruption'],
+    [/\b(tax|budget)\b/,'Budget decision'],
+    [/\b(housing|rent|apartment|zoning)\b/,'Housing update']
+  ];
+  const found=patterns.find(([pattern])=>pattern.test(text));
+  if(found) return found[1];
+  const headline=String(card.headline||'').replace(/^(despite|amid|after|before|while)\b[^,;:]{0,60}[,;:]\s*/i,'').trim();
+  const words=headline.split(/\s+/).filter(Boolean);
+  return words.slice(0,Math.min(4,words.length)).join(' ') || 'Breaking update';
 }
 function cityPulseDisplayHook(card={}){
   const hook=String(card.hook_title||'').trim();
-  if(hook && !cityPulseGenericHook(hook)) return hook;
   const headline=String(card.headline||'').replace(/\s+/g,' ').trim();
+  if(hook && !cityPulseGenericHook(hook) && !cityPulseHookIsHeadlinePrefix(hook,headline)) return hook;
+  const mini=cityPulseMiniHookFromText(card);
+  if(mini) return mini;
   if(!headline) return 'Breaking update';
   const words=headline.split(/\s+/).filter(Boolean);
   return words.slice(0,Math.min(4,words.length)).join(' ');
@@ -12036,11 +12066,25 @@ function openCityPulseFeedCard(idx=0,opts={}){
   if(!card) return;
   feed.querySelectorAll('.city-pulse-feed-card.open').forEach(el=>{ if(el!==card) el.classList.remove('open'); });
   card.classList.add('open');
-  if(opts.scroll!==false) card.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'});
+  if(opts.scroll!==false) cityPulseEnsureFeedCardVisible(card,opts);
   App.mapSheet.cityPulseMarkers.forEach(entry=>{
     const pin=entry.marker?.getElement?.()?.querySelector?.('.city-pulse-map-pin');
     pin?.classList.toggle('active',Number(entry.idx)===Number(idx));
   });
+}
+function cityPulseEnsureFeedCardVisible(card,opts={}){
+  const feed=$('cityPulseFeed');
+  if(!feed || !card) return;
+  const behavior=opts.behavior||'smooth';
+  const adjust=()=>{
+    const feedBox=feed.getBoundingClientRect();
+    const cardBox=card.getBoundingClientRect();
+    const pad=12;
+    if(cardBox.bottom>feedBox.bottom-pad) feed.scrollTop+=cardBox.bottom-feedBox.bottom+pad;
+    if(cardBox.top<feedBox.top+pad) feed.scrollTop-=feedBox.top+pad-cardBox.top;
+  };
+  try{card.scrollIntoView({behavior,block:'nearest',inline:'nearest'});}catch{}
+  requestAnimationFrame(()=>{adjust(); setTimeout(adjust,180);});
 }
 function bindCityPulseFeed(){
   const feed=$('cityPulseFeed');
@@ -12059,14 +12103,14 @@ function bindCityPulseFeed(){
     if(!card) return;
     const idx=Number(card.dataset.cityPulseIndex||0);
     if(card.classList.contains('open')) card.classList.remove('open');
-    else openCityPulseFeedCard(idx,{scroll:false});
+    else openCityPulseFeedCard(idx);
   });
   feed.addEventListener('keydown',e=>{
     if(e.key!=='Enter' && e.key!==' ') return;
     const card=e.target.closest('.city-pulse-feed-card');
     if(!card) return;
     e.preventDefault();
-    openCityPulseFeedCard(Number(card.dataset.cityPulseIndex||0),{scroll:false});
+    openCityPulseFeedCard(Number(card.dataset.cityPulseIndex||0));
   });
 }
 function renderCityPulsePanel(cards=[]){
