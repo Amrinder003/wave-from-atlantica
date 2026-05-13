@@ -9,6 +9,7 @@ from starlette.datastructures import UploadFile as StarletteUploadFile
 from pydantic import BaseModel, Field
 import os, re, json, time, uuid, shutil, math, base64, hashlib, hmac, secrets, copy
 import csv
+import html as html_lib
 from contextvars import ContextVar
 from datetime import datetime, timezone, timedelta
 from difflib import SequenceMatcher
@@ -192,10 +193,17 @@ CITY_PULSE_ERROR_BACKOFF_SECONDS = int(os.environ.get("CITY_PULSE_ERROR_BACKOFF_
 CITY_PULSE_GOOGLE_NEWS_ENABLED = os.environ.get("CITY_PULSE_GOOGLE_NEWS_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
 CITY_PULSE_GOOGLE_NEWS_URL = os.environ.get("CITY_PULSE_GOOGLE_NEWS_URL", "https://news.google.com/rss/search").strip()
 CITY_PULSE_HTTP_HEADERS = {"User-Agent": os.environ.get("CITY_PULSE_USER_AGENT", "AtlanticOrdinateCityPulse/1.0").strip() or "AtlanticOrdinateCityPulse/1.0"}
+CITY_PULSE_BROWSER_HEADERS = {
+    "User-Agent": os.environ.get("CITY_PULSE_BROWSER_USER_AGENT", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 CityPulse/1.0").strip(),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+CITY_PULSE_ARTICLE_DETAIL_TIMEOUT_SECONDS = int(os.environ.get("CITY_PULSE_ARTICLE_DETAIL_TIMEOUT_SECONDS", "8") or 8)
+CITY_PULSE_ARTICLE_DETAIL_MAX_BYTES = int(os.environ.get("CITY_PULSE_ARTICLE_DETAIL_MAX_BYTES", "700000") or 700000)
+CITY_PULSE_ENRICH_TOP_ARTICLES = max(0, min(int(os.environ.get("CITY_PULSE_ENRICH_TOP_ARTICLES", "10") or 10), CITY_PULSE_MAX_ARTICLES))
 CITY_PULSE_MIN_ARTICLE_SCORE = int(os.environ.get("CITY_PULSE_MIN_ARTICLE_SCORE", "2") or 2)
 CITY_PULSE_MIN_CARD_SCORE = float(os.environ.get("CITY_PULSE_MIN_CARD_SCORE", "0.42") or 0.42)
 CITY_PULSE_HIGH_SIGNAL_TITLE_PATTERNS = (
-    r"\b(police|rcmp|charged|charges|arrest|stolen|theft|robbery|assault|missing|fire|crash|collision|closed|closure|warning|alert|evacuation)\b",
+    r"\b(police|rcmp|charged|charges|arrest|stolen|theft|robbery|assault|missing|fire|crash|collision|closed|closure|warning|alert|evacuation|drug|drugs|cocaine|fentanyl|meth|narcotics|weapon|firearm)\b",
     r"\b(council|mayor|budget|tax|housing|hospital|school|development|zoning|permit|water main|power outage|transit|roadwork)\b",
     r"\b(festival|concert|market|parade|exhibition|fundraiser|community event|tournament|championship|final)\b",
 )
@@ -3591,6 +3599,147 @@ def city_pulse_clean_headline(value: Any, max_len: int = 180, publisher: str = "
         text = re.sub(rf"\s+[-|]\s+{re.escape(pub)}$", "", text, flags=re.IGNORECASE).strip()
     return city_pulse_clean_label(text, max_len)
 
+def city_pulse_clean_summary(value: Any, max_len: int = 520) -> str:
+    text = str(value or "").replace("\x00", " ")
+    text = re.sub(r"(?is)<script\b.*?</script>|<style\b.*?</style>", " ", text)
+    text = re.sub(r"(?i)<br\s*/?>|</p>|</div>|</li>", ". ", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = html_lib.unescape(text)
+    text = re.sub(r"\s+([,.;:!?])", r"\1", text)
+    text = re.sub(r"\s+", " ", text).strip(" .")
+    return city_pulse_clean_label(text, max_len)
+
+def city_pulse_html_attrs(tag: str) -> Dict[str, str]:
+    attrs: Dict[str, str] = {}
+    for match in re.finditer(r"([a-zA-Z_:.-]+)\s*=\s*(['\"])(.*?)\2", tag or "", flags=re.DOTALL):
+        attrs[match.group(1).lower()] = html_lib.unescape(match.group(3))
+    return attrs
+
+def city_pulse_google_news_url(value: str) -> bool:
+    try:
+        host = urlparse(str(value or "")).netloc.lower()
+        path = urlparse(str(value or "")).path.lower()
+        return host.endswith("news.google.com") and ("/rss/articles/" in path or "/articles/" in path or "/read/" in path)
+    except Exception:
+        return False
+
+def city_pulse_decode_google_news_url(value: str) -> str:
+    url = str(value or "").strip()
+    if not city_pulse_google_news_url(url):
+        return url
+    try:
+        res = requests.get(url, timeout=CITY_PULSE_ARTICLE_DETAIL_TIMEOUT_SECONDS, headers=CITY_PULSE_BROWSER_HEADERS)
+        res.raise_for_status()
+        match = re.search(r"<c-wiz\b[^>]*\bdata-p=(['\"])(.*?)\1", res.text, flags=re.IGNORECASE | re.DOTALL)
+        if not match:
+            return url
+        data_p = html_lib.unescape(match.group(2))
+        req_obj = json.loads(data_p.replace("%.@.", "[\"garturlreq\","))
+        f_req = json.dumps([[["Fbv4je", json.dumps(req_obj[:-6] + req_obj[-2:]), None, "generic"]]])
+        post_res = requests.post(
+            "https://news.google.com/_/DotsSplashUi/data/batchexecute",
+            params={"rpcids": "Fbv4je"},
+            data={"f.req": f_req},
+            headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", **CITY_PULSE_BROWSER_HEADERS},
+            timeout=CITY_PULSE_ARTICLE_DETAIL_TIMEOUT_SECONDS,
+        )
+        post_res.raise_for_status()
+        text = post_res.text.strip()
+        prefix = ")]}" + chr(39)
+        if text.startswith(prefix):
+            text = text[len(prefix):].strip()
+        decoded = json.loads(json.loads(text)[0][2])[1]
+        if isinstance(decoded, str) and decoded.startswith(("http://", "https://")):
+            return decoded
+    except Exception as e:
+        print(f"[City Pulse Google Decode Warning] {str(e)[:180]}")
+    return url
+
+def city_pulse_jsonld_descriptions(value: str) -> List[str]:
+    found: List[str] = []
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            for key in ("description", "articleBody", "abstract"):
+                if node.get(key):
+                    found.append(city_pulse_clean_summary(node.get(key), 720))
+            for item in node.values():
+                walk(item)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+    for match in re.finditer(r"(?is)<script\b[^>]*application/ld\+json[^>]*>(.*?)</script>", value or ""):
+        raw = html_lib.unescape(match.group(1)).strip()
+        if not raw:
+            continue
+        try:
+            walk(json.loads(raw))
+        except Exception:
+            continue
+    return [item for item in found if item]
+
+def city_pulse_extract_article_summary(html_text: str) -> str:
+    candidates: List[str] = []
+    candidates.extend(city_pulse_jsonld_descriptions(html_text))
+    wanted = {"description", "og:description", "twitter:description", "sailthru.description"}
+    for tag in re.findall(r"(?is)<meta\b[^>]*>", html_text or ""):
+        attrs = city_pulse_html_attrs(tag)
+        key = (attrs.get("property") or attrs.get("name") or "").strip().lower()
+        if key in wanted and attrs.get("content"):
+            candidates.append(city_pulse_clean_summary(attrs.get("content"), 720))
+    for item in candidates:
+        clean = city_pulse_clean_summary(item, 520)
+        if clean and len(clean.split()) >= 7:
+            return clean
+    return ""
+
+def city_pulse_summary_informative(article: Dict[str, Any], summary: str) -> bool:
+    clean = city_pulse_clean_summary(summary, 520)
+    if len(clean.split()) < 8:
+        return False
+    title_fp = normalize_name_fingerprint(article.get("title", ""))
+    summary_fp = normalize_name_fingerprint(clean)
+    publisher_fp = normalize_name_fingerprint(article.get("publisher", "") or article.get("domain", ""))
+    summary_without_publisher = summary_fp.replace(publisher_fp, "").strip() if publisher_fp else summary_fp
+    if title_fp and (summary_without_publisher == title_fp or SequenceMatcher(None, title_fp, summary_without_publisher).ratio() > 0.86):
+        return False
+    return True
+
+def city_pulse_enrich_article(article: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(article or {})
+    url = str(out.get("url") or "").strip()
+    if not url:
+        return out
+    resolved_url = city_pulse_decode_google_news_url(url)
+    if resolved_url and resolved_url != url:
+        out["google_news_url"] = url
+        out["url"] = resolved_url
+    if out.get("summary") and city_pulse_summary_informative(out, out.get("summary")):
+        out["summary"] = city_pulse_clean_summary(out.get("summary"), 520)
+        return out
+    try:
+        res = requests.get(out.get("url"), timeout=CITY_PULSE_ARTICLE_DETAIL_TIMEOUT_SECONDS, headers=CITY_PULSE_BROWSER_HEADERS, stream=True)
+        res.raise_for_status()
+        content = res.raw.read(CITY_PULSE_ARTICLE_DETAIL_MAX_BYTES, decode_content=True)
+        encoding = res.encoding or "utf-8"
+        html_text = content.decode(encoding, errors="ignore")
+        summary = city_pulse_extract_article_summary(html_text)
+        if summary:
+            out["summary"] = summary
+    except Exception as e:
+        print(f"[City Pulse Article Summary Warning] {str(e)[:180]}")
+    return out
+
+def city_pulse_enrich_articles(articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    if not CITY_PULSE_ENRICH_TOP_ARTICLES:
+        return articles
+    enriched: List[Dict[str, Any]] = []
+    for idx, article in enumerate(articles or []):
+        if idx < CITY_PULSE_ENRICH_TOP_ARTICLES:
+            enriched.append(city_pulse_enrich_article(article))
+        else:
+            enriched.append(article)
+    return enriched
+
 def city_pulse_key(city: str, region: str = "", country_code: str = "") -> str:
     parts = [
         clean_code(country_code),
@@ -3648,6 +3797,7 @@ def city_pulse_safe_sources(raw_sources: Any) -> List[Dict[str, Any]]:
             "title": city_pulse_clean_headline(src.get("title"), 180, publisher=publisher),
             "publisher": publisher,
             "url": url,
+            "summary": city_pulse_clean_summary(src.get("summary") or src.get("description") or src.get("snippet"), 420),
             "published_at": city_pulse_parse_gdelt_datetime(src.get("published_at") or src.get("seendate") or ""),
             "language": city_pulse_clean_label(src.get("language"), 24),
             "source_country": city_pulse_clean_label(src.get("source_country") or src.get("sourcecountry"), 60),
@@ -3675,7 +3825,7 @@ def city_pulse_source_authority(article: Dict[str, Any]) -> int:
     return score
 
 def city_pulse_article_low_signal(article: Dict[str, Any]) -> bool:
-    title = norm_text(article.get("title", ""))
+    title = norm_text(f"{article.get('title', '')} {article.get('summary', '')}")
     publisher = norm_text(article.get("publisher", "") or article.get("domain", ""))
     if not title:
         return True
@@ -3687,7 +3837,7 @@ def city_pulse_article_low_signal(article: Dict[str, Any]) -> bool:
 
 def city_pulse_category_for_title(title: str) -> str:
     text = norm_text(title)
-    if re.search(r"\b(police|stolen|theft|robbery|assault|charged|arrest|crime|shooting)\b", text):
+    if re.search(r"\b(police|stolen|theft|robbery|assault|charged|arrest|crime|shooting|drug|drugs|cocaine|fentanyl|meth|narcotics|weapon|firearm)\b", text):
         return "public_safety"
     if re.search(r"\b(fire|flood|storm|weather|warning|alert|evacuation|power outage)\b", text):
         return "alert"
@@ -3725,7 +3875,7 @@ def city_pulse_article_useful(article: Dict[str, Any]) -> bool:
     return True
 
 def city_pulse_article_rank(article: Dict[str, Any]) -> int:
-    title = norm_text(article.get("title", ""))
+    title = norm_text(f"{article.get('title', '')} {article.get('summary', '')}")
     score = city_pulse_source_authority(article)
     if any(re.search(pattern, title) for pattern in CITY_PULSE_HIGH_SIGNAL_TITLE_PATTERNS):
         score += 6
@@ -3761,7 +3911,30 @@ def city_pulse_filter_articles(articles: List[Dict[str, Any]]) -> List[Dict[str,
     out.sort(key=lambda item: int(item.get("quality_score") or city_pulse_article_rank(item)), reverse=True)
     return out
 
-def city_pulse_hook_from_title(title: str, category: str = "") -> str:
+def city_pulse_specific_hook_from_story(text: str, category: str = "") -> str:
+    blob = norm_text(text)
+    if re.search(r"\b(drug|drugs|cocaine|fentanyl|meth|narcotics|pills|drug-related)\b", blob):
+        if re.search(r"\b(seized|found|search|searched)\b", blob):
+            return "Drug charges"
+        return "Drug case"
+    if re.search(r"\b(weapon|firearm|gun|knife)\b", blob):
+        return "Weapons case"
+    if re.search(r"\b(stolen|theft|robbery)\b", blob):
+        return "Theft case"
+    if re.search(r"\b(crash|collision|accident)\b", blob):
+        return "Crash alert"
+    if re.search(r"\b(road|street|bridge).{0,24}\b(closed|closure|blocked)\b", blob):
+        return "Road closed"
+    if re.search(r"\b(power outage|water main|boil water)\b", blob):
+        return "Service alert"
+    if re.search(r"\b(council|mayor|budget|housing|development|zoning)\b", blob):
+        return "City decision"
+    return ""
+
+def city_pulse_hook_from_title(title: str, category: str = "", summary: str = "") -> str:
+    specific = city_pulse_specific_hook_from_story(f"{title} {summary}", category)
+    if specific:
+        return specific
     clean = city_pulse_clean_headline(title, 120)
     words = [w for w in re.split(r"\s+", clean) if w]
     if len(words) <= 4:
@@ -3775,6 +3948,55 @@ def city_pulse_hook_from_title(title: str, category: str = "") -> str:
     }
     return category_hooks.get(category, "Local update")
 
+def city_pulse_vague_card_text(value: str) -> bool:
+    text = norm_text(value)
+    if not text:
+        return True
+    vague = (
+        "charges after search", "charges after searches", "charged after",
+        "facing charges after", "police search", "home vehicle searched", "local update", "safety update",
+        "city event", "local alert", "city decision",
+    )
+    return any(item in text for item in vague)
+
+def city_pulse_headline_missing_story_detail(headline: str, story: str) -> bool:
+    headline_text = norm_text(headline)
+    story_text = norm_text(story)
+    detail_groups = (
+        (r"\b(drug|drugs|drug-related|cocaine|fentanyl|meth|narcotics|pills)\b", r"\b(drug|drugs|drug-related|cocaine|fentanyl|meth|narcotics|pills)\b"),
+        (r"\b(weapon|firearm|gun)\b", r"\b(weapon|firearm|gun)\b"),
+        (r"\b(stolen|theft|robbery)\b", r"\b(stolen|theft|robbery)\b"),
+    )
+    for story_pattern, headline_pattern in detail_groups:
+        if re.search(story_pattern, story_text) and not re.search(headline_pattern, headline_text):
+            return True
+    return False
+
+def city_pulse_specific_headline_from_story(ctx: Dict[str, Any], title: str, summary: str) -> str:
+    blob = norm_text(f"{title} {summary}")
+    city = city_pulse_clean_label(ctx.get("city"), 50)
+    place = f"{city} " if city else ""
+    people = ""
+    if re.search(r"\btwo men and a woman\b|\btwo women and a man\b", blob):
+        people = "3 people"
+    else:
+        match = re.search(r"\b(\d+)\s+people\b", blob)
+        if match:
+            people = f"{match.group(1)} people"
+    if re.search(r"\b(drug|drugs|drug-related|cocaine|fentanyl|meth|narcotics|pills)\b", blob) and re.search(r"\b(charged|charges|arrest|search|searched)\b", blob):
+        subject = f"{people} face" if people else "People face"
+        return city_pulse_clean_headline(f"{subject} drug-related charges after {place}home and vehicle searches", 150)
+    if re.search(r"\b(weapon|firearm|gun)\b", blob) and re.search(r"\b(charged|charges|seized|found|search)\b", blob):
+        subject = f"{people} face" if people else "Police report"
+        return city_pulse_clean_headline(f"{subject} weapons-related charges after {place}searches", 150)
+    return ""
+
+def city_pulse_make_brief_from_story(title: str, summary: str) -> str:
+    summary_clean = city_pulse_clean_summary(summary, 220)
+    if summary_clean:
+        return summary_clean
+    return "A local source is reporting this story. Open the source links for the full details."
+
 def city_pulse_heuristic_cards(ctx: Dict[str, Any], articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     cards: List[Dict[str, Any]] = []
     seen: set = set()
@@ -3786,11 +4008,13 @@ def city_pulse_heuristic_cards(ctx: Dict[str, Any], articles: List[Dict[str, Any
         if fp in seen:
             continue
         seen.add(fp)
-        category = city_pulse_category_for_title(title)
+        summary = city_pulse_clean_summary(article.get("summary"), 520)
+        category = city_pulse_category_for_title(f"{title} {summary}")
+        headline = city_pulse_specific_headline_from_story(ctx, title, summary) or city_pulse_clean_headline(title, 180, publisher=article.get("publisher", ""))
         cards.append({
-            "hook_title": city_pulse_hook_from_title(title, category),
-            "headline": city_pulse_clean_headline(title, 180, publisher=article.get("publisher", "")),
-            "brief": "A local source is reporting this story. Open the source links for the full details.",
+            "hook_title": city_pulse_hook_from_title(title, category, summary),
+            "headline": headline,
+            "brief": city_pulse_make_brief_from_story(title, summary),
             "category": category,
             "importance_score": 0.55,
             "location_label": city_pulse_clean_label(ctx.get("city"), 90),
@@ -3828,21 +4052,23 @@ def city_pulse_synthesize_cards(ctx: Dict[str, Any], articles: List[Dict[str, An
             "publisher": city_pulse_clean_label(article.get("publisher") or article.get("domain"), 80),
             "published_at": article.get("published_at") or "",
             "source_country": article.get("source_country") or "",
+            "summary": city_pulse_clean_summary(article.get("summary"), 520),
             "quality_score": int(article.get("quality_score") or city_pulse_article_rank(article)),
-            "category_hint": city_pulse_category_for_title(article.get("title", "")),
+            "category_hint": city_pulse_category_for_title(f"{article.get('title', '')} {article.get('summary', '')}"),
             "url": article.get("url") or "",
         }
         for article in articles[:CITY_PULSE_MAX_ARTICLES]
         if article.get("title") and article.get("url")
     ]
-    system = """You create evidence-grounded City Pulse map cards from news article metadata.
-Use only the supplied article titles and metadata. Do not invent facts, locations, injuries, suspects, money amounts, or source claims.
+    system = """You create evidence-grounded City Pulse map cards from news article titles, source summaries, and metadata.
+Use only the supplied article titles, summaries, and metadata. Do not invent facts, locations, injuries, suspects, money amounts, or source claims.
 Merge duplicate coverage into one card. Prefer public safety, civic alerts, road/transit impacts, major events, and high-impact local civic news.
 Create fewer, stronger cards. Skip articles with weak local public interest even if there is room.
 Do not create cards for generic weather pages, obituaries, classifieds, generic sports schedules, opinion, lifestyle listicles, or articles with no clear public use.
 If the exact incident place is not clear from the titles, set location_precision to "city", location_label to the city, and location_confidence below 0.5.
-Keep hook_title 2-4 words, plain, and map-friendly. Avoid clickbait and avoid adding details not present in source titles.
-The brief must say what happened and why it matters in 24 words or fewer.
+The hook_title must name the concrete subject of the story, not the process. Good: "Drug charges", "Road closed", "Budget approved". Bad: "Charges after search", "Local update".
+The headline must be a compressed paraphrase that tells the actual news in one line. Do not merely copy a vague source title if the summary reveals the real subject.
+The brief must say what happened and why it matters in 26 words or fewer.
 Return JSON only."""
     user = json.dumps({
         "city_context": {
@@ -3855,8 +4081,8 @@ Return JSON only."""
         "schema": {
             "cards": [{
                 "hook_title": "2-5 words",
-                "headline": "full source-grounded heading",
-                "brief": "24 words or fewer, based only on the titles",
+                "headline": "compressed paraphrased headline with the key concrete detail",
+                "brief": "26 words or fewer, based only on the title and summary",
                 "category": "public_safety|traffic|event|alert|civic|news",
                 "importance_score": "0 to 1",
                 "location_label": "best place phrase or city",
@@ -3896,6 +4122,12 @@ Return JSON only."""
                 category = "news"
             headline = city_pulse_clean_headline(raw.get("headline"), 180, publisher=sources[0].get("publisher", "")) or sources[0].get("title", "")
             hook = city_pulse_clean_label(raw.get("hook_title"), 42) or city_pulse_hook_from_title(headline, category)
+            source_story = " ".join([f"{src.get('title', '')} {src.get('summary', '')}" for src in sources])
+            specific_hook = city_pulse_specific_hook_from_story(source_story, category)
+            if city_pulse_vague_card_text(hook) or (specific_hook and norm_text(specific_hook) not in norm_text(hook)):
+                hook = specific_hook or hook
+            if city_pulse_vague_card_text(headline) or city_pulse_headline_missing_story_detail(headline, source_story):
+                headline = city_pulse_specific_headline_from_story(ctx, sources[0].get("title", ""), sources[0].get("summary", "")) or headline
             cards.append({
                 "hook_title": hook,
                 "headline": headline,
@@ -3994,7 +4226,9 @@ def city_pulse_fetch_google_news_articles(ctx: Dict[str, Any]) -> Tuple[List[Dic
         pub_date = city_pulse_parse_rss_datetime(item.findtext("pubDate"))
         source_el = item.find("source")
         publisher = city_pulse_clean_label(source_el.text if source_el is not None else "", 90)
+        publisher_url = str((source_el.attrib.get("url") if source_el is not None else "") or "").strip()
         title = city_pulse_clean_headline(item.findtext("title"), 220, publisher=publisher)
+        description = city_pulse_clean_summary(item.findtext("description"), 420)
         if not title or not link:
             continue
         signature = (link.lower(), normalize_name_fingerprint(title))
@@ -4007,6 +4241,8 @@ def city_pulse_fetch_google_news_articles(ctx: Dict[str, Any]) -> Tuple[List[Dic
             "title": title,
             "publisher": publisher,
             "domain": publisher,
+            "publisher_url": publisher_url,
+            "summary": "" if normalize_name_fingerprint(description) == normalize_name_fingerprint(title) else description,
             "language": "en",
             "source_country": country_code,
             "published_at": pub_date,
@@ -4054,6 +4290,10 @@ def city_pulse_fetch_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]]
             print(f"[City Pulse Provider Warning] {errors[-1]}")
     if merged:
         merged = city_pulse_filter_articles(merged)[:CITY_PULSE_MAX_ARTICLES]
+        merged = city_pulse_enrich_articles(merged)
+        for article in merged:
+            article["quality_score"] = city_pulse_article_rank(article)
+        merged.sort(key=lambda item: int(item.get("quality_score") or 0), reverse=True)
         return merged, {"provider": "+".join(providers) if providers else "mixed", "errors": errors}
     return [], {"provider": "none", "errors": errors}
 
@@ -4302,10 +4542,18 @@ def city_pulse_prepare_cards_for_storage(ctx: Dict[str, Any], cards: List[Dict[s
         if category not in {"public_safety", "traffic", "event", "alert", "civic", "news"}:
             category = "news"
         approximate = str(card.get("location_precision") or "city").lower() == "city" or confidence < CITY_PULSE_MIN_PIN_CONFIDENCE
+        source_story = " ".join([f"{src.get('title', '')} {src.get('summary', '')}" for src in sources])
+        hook_title = city_pulse_clean_label(card.get("hook_title"), 42) or "Local update"
+        specific_hook = city_pulse_specific_hook_from_story(source_story, category)
+        if specific_hook and (city_pulse_vague_card_text(hook_title) or norm_text(specific_hook) not in norm_text(hook_title)):
+            hook_title = specific_hook
+        headline = city_pulse_clean_headline(card.get("headline"), 180, publisher=sources[0].get("publisher", "")) or sources[0].get("title", "")
+        if city_pulse_vague_card_text(headline) or city_pulse_headline_missing_story_detail(headline, source_story):
+            headline = city_pulse_specific_headline_from_story(ctx, sources[0].get("title", ""), sources[0].get("summary", "")) or headline
         out.append({
             **card,
-            "hook_title": city_pulse_clean_label(card.get("hook_title"), 42) or "Local update",
-            "headline": city_pulse_clean_headline(card.get("headline"), 180, publisher=sources[0].get("publisher", "")) or sources[0].get("title", ""),
+            "hook_title": hook_title,
+            "headline": headline,
             "brief": city_pulse_clean_label(card.get("brief"), 340) or "Open the source links for the full details.",
             "category": category,
             "location_label": label or city_pulse_clean_label(ctx.get("city"), 80),
