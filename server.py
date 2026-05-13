@@ -189,7 +189,7 @@ CITY_PULSE_MAX_ARTICLES = max(8, min(int(os.environ.get("CITY_PULSE_MAX_ARTICLES
 CITY_PULSE_MAX_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MAX_CARDS", "8") or 8), 10))
 CITY_PULSE_MIN_READY_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MIN_READY_CARDS", "6") or 6), CITY_PULSE_MAX_CARDS))
 CITY_PULSE_CONTEXT_CARD_TARGET = max(0, min(int(os.environ.get("CITY_PULSE_CONTEXT_CARD_TARGET", "2") or 2), CITY_PULSE_MAX_CARDS))
-CITY_PULSE_QUALITY_VERSION = int(os.environ.get("CITY_PULSE_QUALITY_VERSION", "11") or 11)
+CITY_PULSE_QUALITY_VERSION = int(os.environ.get("CITY_PULSE_QUALITY_VERSION", "12") or 12)
 CITY_PULSE_MIN_PIN_CONFIDENCE = float(os.environ.get("CITY_PULSE_MIN_PIN_CONFIDENCE", "0.55") or 0.55)
 CITY_PULSE_IPINFO_TOKEN = (os.environ.get("CITY_PULSE_IPINFO_TOKEN", "").strip() or os.environ.get("IPINFO_TOKEN", "").strip())
 CITY_PULSE_MODEL = os.environ.get("CITY_PULSE_MODEL", OPENROUTER_MODEL).strip() or OPENROUTER_MODEL
@@ -225,6 +225,7 @@ CITY_PULSE_LOW_SIGNAL_TITLE_PATTERNS = (
     r"\blessons i learned\b", r"\bmoved to small-town\b", r"\bsmall-town life\b",
     r"\bthings to do\b", r"\bsuperfans?\b", r"\biihf\b", r"\bworld championship\b",
     r"\bpower rankings?\b", r"\bfantasy\b", r"\bmock draft\b", r"\byour morning\b",
+    r"\bannual report\b", r"\bpresident'?s message\b", r"\bmessage from (?:the )?president\b",
     r"^\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+schedule\b",
 )
 CITY_PULSE_HIGH_SIGNAL_SOURCE_TERMS = (
@@ -4078,6 +4079,8 @@ def city_pulse_specific_hook_from_story(text: str, category: str = "") -> str:
         return "Town oversight"
     if re.search(r"\beconomic development\b|\binvestment\b", blob):
         return "Investment push"
+    if re.search(r"\bproperty tax\b|\btax bills?\b", blob):
+        return "Property tax bills"
     if re.search(r"\btax\b.{0,40}\b(hike|increase|rise|higher)\b|\b(hike|increase|rise|higher)\b.{0,40}\btax\b", blob):
         return "Tax hike"
     if re.search(r"\bbudget\b.{0,40}\b(approved|passed|adopted)\b", blob):
@@ -4140,7 +4143,7 @@ def city_pulse_vague_card_text(value: str) -> bool:
         "facing charges after", "police search", "home vehicle searched", "local update", "safety update",
         "city event", "local alert", "city decision", "public safety", "workplace safety",
         "community safety", "safety concerns", "major update", "breaking update",
-        "local news", "developing story", "police investigation",
+        "local news", "developing story", "police investigation", "budget update",
     )
     return any(item in text for item in vague)
 

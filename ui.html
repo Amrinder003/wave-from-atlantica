@@ -11922,7 +11922,7 @@ function cityPulseCardHtml(card={}){
   </div>`;
 }
 function cityPulseGenericHook(value=''){
-  return /^(local update|city event|safety update|local alert|city decision|road update|news|public safety|workplace safety|community safety|safety concerns|major update|breaking update)$/i.test(String(value||'').trim());
+  return /^(local update|city event|safety update|local alert|city decision|road update|news|public safety|workplace safety|community safety|safety concerns|major update|breaking update|budget update)$/i.test(String(value||'').trim());
 }
 function cityPulseHookIsHeadlinePrefix(hook='',headline=''){
   const hookWords=String(hook||'').toLowerCase().match(/[a-z0-9']+/g)||[];
@@ -11943,6 +11943,7 @@ function cityPulseMiniHookFromText(card={}){
     [/\b(crash|collision|rollover)\b/,'Crash alert'],
     [/\b(road|street|bridge)\b.*\b(closed|closure|blocked)\b/,'Road closed'],
     [/\b(hospital)\b.*\b(cancel|surgery|surgeries|beds|icu|closed|closure)\b/,'Hospital disruption'],
+    [/\b(property tax|tax bill|tax bills)\b/,'Property tax bills'],
     [/\b(tax|budget)\b/,'Budget decision'],
     [/\b(housing|rent|apartment|zoning)\b/,'Housing update']
   ];
