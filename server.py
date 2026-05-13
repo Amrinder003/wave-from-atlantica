@@ -179,7 +179,7 @@ MAPBOX_TOKEN      = os.environ.get("MAPBOX_TOKEN", "").strip()
 MAPBOX_GEOCODING_URL = "https://api.mapbox.com/geocoding/v5/mapbox.places/{query}.json"
 LEAFLET_REQUIRED_ASSETS = ("leaflet.js", "leaflet.css")
 CITY_PULSE_ENABLED = os.environ.get("CITY_PULSE_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
-CITY_PULSE_REFRESH_SECONDS = int(os.environ.get("CITY_PULSE_REFRESH_SECONDS", "18000") or 18000)
+CITY_PULSE_REFRESH_SECONDS = int(os.environ.get("CITY_PULSE_REFRESH_SECONDS", "43200") or 43200)
 CITY_PULSE_STALE_SECONDS = int(os.environ.get("CITY_PULSE_STALE_SECONDS", "86400") or 86400)
 CITY_PULSE_GDELT_URL = os.environ.get("CITY_PULSE_GDELT_URL", "https://api.gdeltproject.org/api/v2/doc/doc").strip()
 CITY_PULSE_GDELT_TIMESPAN = os.environ.get("CITY_PULSE_GDELT_TIMESPAN", "48h").strip() or "48h"
@@ -193,6 +193,7 @@ CITY_PULSE_ERROR_BACKOFF_SECONDS = int(os.environ.get("CITY_PULSE_ERROR_BACKOFF_
 CITY_PULSE_GOOGLE_NEWS_ENABLED = os.environ.get("CITY_PULSE_GOOGLE_NEWS_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
 CITY_PULSE_GOOGLE_NEWS_URL = os.environ.get("CITY_PULSE_GOOGLE_NEWS_URL", "https://news.google.com/rss/search").strip()
 CITY_PULSE_HTTP_HEADERS = {"User-Agent": os.environ.get("CITY_PULSE_USER_AGENT", "AtlanticOrdinateCityPulse/1.0").strip() or "AtlanticOrdinateCityPulse/1.0"}
+CITY_PULSE_SCOPES = {"city", "province", "country"}
 CITY_PULSE_BROWSER_HEADERS = {
     "User-Agent": os.environ.get("CITY_PULSE_BROWSER_USER_AGENT", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 CityPulse/1.0").strip(),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -3740,13 +3741,40 @@ def city_pulse_enrich_articles(articles: List[Dict[str, Any]]) -> List[Dict[str,
             enriched.append(article)
     return enriched
 
-def city_pulse_key(city: str, region: str = "", country_code: str = "") -> str:
-    parts = [
-        clean_code(country_code),
-        normalize_name_fingerprint(region),
-        normalize_name_fingerprint(city),
-    ]
+def city_pulse_scope(value: Any = "") -> str:
+    scope = str(value or "").strip().lower()
+    if scope in {"region", "province_state", "state"}:
+        scope = "province"
+    return scope if scope in CITY_PULSE_SCOPES else "city"
+
+def city_pulse_key(city: str, region: str = "", country_code: str = "", scope: str = "city") -> str:
+    scope = city_pulse_scope(scope)
+    if scope == "country":
+        parts = ["country", clean_code(country_code)]
+    elif scope == "province":
+        parts = ["province", clean_code(country_code), normalize_name_fingerprint(region)]
+    else:
+        parts = ["city", clean_code(country_code), normalize_name_fingerprint(region), normalize_name_fingerprint(city)]
     return ":".join([part for part in parts if part])
+
+def city_pulse_area_label(ctx: Dict[str, Any]) -> str:
+    scope = city_pulse_scope(ctx.get("scope"))
+    if scope == "country":
+        return city_pulse_clean_label(ctx.get("country_name") or country_meta(ctx.get("country_code", "")).get("name", "") or ctx.get("country_code"), 90)
+    if scope == "province":
+        return city_pulse_clean_label(ctx.get("region") or ctx.get("country_name") or ctx.get("country_code"), 90)
+    city = city_pulse_clean_label(ctx.get("city"), 80)
+    region = city_pulse_clean_label(ctx.get("region"), 80)
+    return city_pulse_clean_label(", ".join([part for part in [city, region] if part]) or city or region or ctx.get("country_name"), 120)
+
+def city_pulse_search_query(ctx: Dict[str, Any]) -> str:
+    scope = city_pulse_scope(ctx.get("scope"))
+    country_name = city_pulse_clean_label(ctx.get("country_name") or country_meta(ctx.get("country_code", "")).get("name", ""), 80)
+    if scope == "country":
+        return country_name or city_pulse_clean_label(ctx.get("country_code"), 20)
+    if scope == "province":
+        return " ".join([part for part in [city_pulse_clean_label(ctx.get("region"), 80), country_name] if part]).strip()
+    return " ".join([part for part in [city_pulse_clean_label(ctx.get("city"), 80), city_pulse_clean_label(ctx.get("region"), 80), country_name] if part]).strip()
 
 def city_pulse_float(value: Any) -> Optional[float]:
     try:
@@ -4100,6 +4128,8 @@ The brief must say what happened and why it matters in 26 words or fewer.
 Return JSON only."""
     user = json.dumps({
         "city_context": {
+            "scope": city_pulse_scope(ctx.get("scope")),
+            "area_label": city_pulse_area_label(ctx),
             "city": ctx.get("city", ""),
             "region": ctx.get("region", ""),
             "country_code": ctx.get("country_code", ""),
@@ -4182,14 +4212,23 @@ def city_pulse_fetch_gdelt_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str,
     city = city_pulse_clean_label(ctx.get("city"), 80)
     region = city_pulse_clean_label(ctx.get("region"), 80)
     country_name = city_pulse_clean_label(ctx.get("country_name"), 80)
-    if not city or not CITY_PULSE_GDELT_URL:
+    search_query = city_pulse_search_query(ctx)
+    if not search_query or not CITY_PULSE_GDELT_URL:
         return [], {"provider": "gdelt", "query": ""}
-    place_bits = [f'"{city}"']
-    if region:
-        place_bits.append(f'"{region}"')
-    elif country_name:
-        place_bits.append(f'"{country_name}"')
-    query = " ".join(place_bits)
+    scope = city_pulse_scope(ctx.get("scope"))
+    if scope == "city":
+        place_bits = [f'"{city}"']
+        if region:
+            place_bits.append(f'"{region}"')
+        elif country_name:
+            place_bits.append(f'"{country_name}"')
+    elif scope == "province":
+        place_bits = [f'"{region}"']
+        if country_name:
+            place_bits.append(f'"{country_name}"')
+    else:
+        place_bits = [f'"{country_name or ctx.get("country_code", "")}"']
+    query = " ".join([part for part in place_bits if part.strip('"')])
     params = {
         "query": query,
         "mode": "artlist",
@@ -4227,7 +4266,7 @@ def city_pulse_fetch_gdelt_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str,
             "published_at": city_pulse_parse_gdelt_datetime(raw.get("seendate")),
             "seendate": raw.get("seendate") or "",
         })
-    return articles, {"provider": "gdelt", "query": query, "timespan": CITY_PULSE_GDELT_TIMESPAN}
+    return articles, {"provider": "gdelt", "query": query, "timespan": CITY_PULSE_GDELT_TIMESPAN, "scope": scope}
 
 def city_pulse_fetch_google_news_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     if not CITY_PULSE_GOOGLE_NEWS_ENABLED or not CITY_PULSE_GOOGLE_NEWS_URL:
@@ -4235,9 +4274,18 @@ def city_pulse_fetch_google_news_articles(ctx: Dict[str, Any]) -> Tuple[List[Dic
     city = city_pulse_clean_label(ctx.get("city"), 80)
     region = city_pulse_clean_label(ctx.get("region"), 80)
     country_code = clean_code(ctx.get("country_code", "")) or "CA"
-    if not city:
+    scope = city_pulse_scope(ctx.get("scope"))
+    if scope == "city" and not city:
         return [], {"provider": "google_news_rss", "query": ""}
-    query = " ".join([part for part in [f'"{city}"', f'"{region}"' if region else "", "when:7d"] if part]).strip()
+    country_name = city_pulse_clean_label(ctx.get("country_name") or country_meta(country_code).get("name", ""), 80)
+    if scope == "country":
+        query = " ".join([part for part in [f'"{country_name or country_code}"', "when:7d"] if part]).strip()
+    elif scope == "province":
+        if not region:
+            return [], {"provider": "google_news_rss", "query": ""}
+        query = " ".join([part for part in [f'"{region}"', f'"{country_name}"' if country_name else "", "when:7d"] if part]).strip()
+    else:
+        query = " ".join([part for part in [f'"{city}"', f'"{region}"' if region else "", "when:7d"] if part]).strip()
     params = {
         "q": query,
         "hl": f"en-{country_code}",
@@ -4278,14 +4326,16 @@ def city_pulse_fetch_google_news_articles(ctx: Dict[str, Any]) -> Tuple[List[Dic
         })
         if len(articles) >= CITY_PULSE_MAX_ARTICLES:
             break
-    return articles, {"provider": "google_news_rss", "query": query, "timespan": "7d"}
+    return articles, {"provider": "google_news_rss", "query": query, "timespan": "7d", "scope": scope}
 
 def city_pulse_fetch_articles(ctx: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     errors: List[str] = []
     providers: List[str] = []
     merged: List[Dict[str, Any]] = []
     seen_urls: set = set()
-    for fetcher in (city_pulse_fetch_gdelt_articles, city_pulse_fetch_google_news_articles):
+    scope = city_pulse_scope(ctx.get("scope"))
+    fetchers = (city_pulse_fetch_google_news_articles, city_pulse_fetch_gdelt_articles) if scope in {"province", "country"} else (city_pulse_fetch_gdelt_articles, city_pulse_fetch_google_news_articles)
+    for fetcher in fetchers:
         try:
             articles, meta = fetcher(ctx)
             provider = meta.get("provider", "provider")
@@ -4454,7 +4504,7 @@ def city_pulse_context_from_market() -> Dict[str, Any]:
         shop = normalize_shop_record(row or {})
         if not shop_is_publicly_listable(shop) or not shop_matches_market_country(shop):
             continue
-        key = city_pulse_key(shop.get("city", ""), shop.get("region", ""), shop.get("country_code", ""))
+        key = city_pulse_key(shop.get("city", ""), shop.get("region", ""), shop.get("country_code", ""), scope="city")
         if not key:
             continue
         entry = grouped.setdefault(key, {
@@ -4485,11 +4535,23 @@ def city_pulse_context_from_market() -> Dict[str, Any]:
         "source": "market_fallback",
     }
 
-def city_pulse_resolve_context(request: Request, city: str = "", region: str = "", country_code: str = "", lat: Any = None, lng: Any = None) -> Dict[str, Any]:
+def city_pulse_resolve_context(request: Request, city: str = "", region: str = "", country_code: str = "", lat: Any = None, lng: Any = None, scope: str = "city") -> Dict[str, Any]:
     ctx: Dict[str, Any] = {}
     lat_val = city_pulse_float(lat)
     lng_val = city_pulse_float(lng)
-    if city:
+    scope_val = city_pulse_scope(scope)
+    if scope_val == "country" and country_code:
+        ctx = {
+            "country_code": clean_code(country_code) or active_market_country_code(),
+            "source": "query",
+        }
+    elif scope_val == "province" and region:
+        ctx = {
+            "region": city_pulse_clean_label(region, 80),
+            "country_code": clean_code(country_code) or active_market_country_code(),
+            "source": "query",
+        }
+    elif city:
         ctx = {
             "city": city_pulse_clean_label(city, 80),
             "region": city_pulse_clean_label(region, 80),
@@ -4509,13 +4571,24 @@ def city_pulse_resolve_context(request: Request, city: str = "", region: str = "
     ctx["country_name"] = city_pulse_clean_label(ctx.get("country_name") or country_meta(ctx.get("country_code", "")).get("name", ""), 80)
     ctx["region"] = city_pulse_clean_label(ctx.get("region"), 80)
     ctx["city"] = city_pulse_clean_label(ctx.get("city"), 80)
-    ctx["city_key"] = city_pulse_key(ctx.get("city", ""), ctx.get("region", ""), ctx.get("country_code", ""))
+    if scope_val == "country":
+        ctx["city"] = ""
+        ctx["region"] = ""
+    elif scope_val == "province":
+        ctx["city"] = ""
+        if not ctx.get("region"):
+            scope_val = "country"
+    elif not ctx.get("city") and ctx.get("region"):
+        scope_val = "province"
+    ctx["scope"] = scope_val
+    ctx["area_label"] = city_pulse_area_label(ctx)
+    ctx["city_key"] = city_pulse_key(ctx.get("city", ""), ctx.get("region", ""), ctx.get("country_code", ""), scope=scope_val)
     return ctx
 
 def city_pulse_ensure_center(ctx: Dict[str, Any]) -> Dict[str, Any]:
     if city_pulse_float(ctx.get("center_lat")) is not None and city_pulse_float(ctx.get("center_lng")) is not None:
         return ctx
-    query = ", ".join([part for part in [ctx.get("city", ""), ctx.get("region", ""), ctx.get("country_name", "")] if str(part or "").strip()])
+    query = ", ".join([part for part in [ctx.get("city", ""), ctx.get("region", ""), ctx.get("country_name", "")] if str(part or "").strip()]) or city_pulse_area_label(ctx)
     geo = city_pulse_geocode_place(query, ctx.get("country_code", ""))
     if geo.get("latitude") is not None and geo.get("longitude") is not None:
         ctx["center_lat"] = geo.get("latitude")
@@ -4553,7 +4626,7 @@ def city_pulse_prepare_cards_for_storage(ctx: Dict[str, Any], cards: List[Dict[s
         if quality_score < CITY_PULSE_MIN_CARD_SCORE:
             continue
         confidence = max(0.0, min(city_pulse_float(card.get("location_confidence")) or 0.0, 1.0))
-        label = city_pulse_clean_label(card.get("location_label") or ctx.get("city"), 120)
+        label = city_pulse_clean_label(card.get("location_label") or city_pulse_area_label(ctx), 120)
         lat = None
         lng = None
         if label and confidence >= CITY_PULSE_MIN_PIN_CONFIDENCE:
@@ -4592,7 +4665,7 @@ def city_pulse_prepare_cards_for_storage(ctx: Dict[str, Any], cards: List[Dict[s
             "headline": headline,
             "brief": brief or "Open the source links for the full details.",
             "category": category,
-            "location_label": label or city_pulse_clean_label(ctx.get("city"), 80),
+            "location_label": label or city_pulse_area_label(ctx),
             "location_precision": city_pulse_clean_label(card.get("location_precision") or "city", 24).lower(),
             "location_confidence": confidence,
             "importance_score": max(0.0, min(city_pulse_float(card.get("importance_score")) or 0.5, 1.0)),
@@ -4634,7 +4707,7 @@ def city_pulse_store_batch(ctx: Dict[str, Any], cards: List[Dict[str, Any]], art
         "card_count": len(prepared_cards),
         "model_used": model_used or "",
         "error_message": city_pulse_clean_label(error, 500),
-        "metadata": provider_meta or {},
+        "metadata": {**(provider_meta or {}), "scope": city_pulse_scope(ctx.get("scope")), "area_label": city_pulse_area_label(ctx), "refresh_seconds": CITY_PULSE_REFRESH_SECONDS},
         "updated_at": now_dt.isoformat(),
     }
     sb.table("city_pulse_batches").insert(batch_payload).execute()
@@ -4665,6 +4738,8 @@ def city_pulse_store_batch(ctx: Dict[str, Any], cards: List[Dict[str, Any]], art
             "metadata": {
                 "model_used": model_used or "",
                 "location_policy": "exact pins require confidence threshold; city fallback is approximate",
+                "scope": city_pulse_scope(ctx.get("scope")),
+                "area_label": city_pulse_area_label(ctx),
                 "quality_score": card.get("quality_score", 0),
                 "source_authority": card.get("source_authority", 0),
                 "location_approximate": bool(card.get("location_approximate")),
@@ -4750,6 +4825,8 @@ def city_pulse_serialize_card(row: Dict[str, Any], source_rows: Optional[List[Di
         "importance_score": city_pulse_float(row.get("importance_score")) or 0,
         "quality_score": city_pulse_float(metadata.get("quality_score")) or city_pulse_float(row.get("importance_score")) or 0,
         "source_label": metadata.get("primary_source") or city_pulse_primary_source_label(safe_sources),
+        "scope": metadata.get("scope") or "city",
+        "area_label": metadata.get("area_label") or row.get("location_label", ""),
         "published_at": row.get("published_at", ""),
         "source_count": row.get("source_count") or len(safe_sources),
         "sources": safe_sources,
@@ -9353,6 +9430,7 @@ def public_map_support():
 def public_city_pulse(
     request: Request,
     background_tasks: BackgroundTasks,
+    scope: str = Query("city"),
     city: str = Query(""),
     region: str = Query(""),
     country_code: str = Query(""),
@@ -9364,8 +9442,9 @@ def public_city_pulse(
     enforce_rate_limit(request, "public_city_pulse", limit=90, window_seconds=300)
     if not CITY_PULSE_ENABLED:
         return {"ok": True, "enabled": False, "cards": [], "reason": "disabled"}
-    ctx = city_pulse_resolve_context(request, city=city, region=region, country_code=country_code, lat=lat, lng=lng)
-    if not ctx.get("city") or not ctx.get("city_key"):
+    ctx = city_pulse_resolve_context(request, city=city, region=region, country_code=country_code, lat=lat, lng=lng, scope=scope)
+    ctx = city_pulse_ensure_center(ctx)
+    if not ctx.get("city_key") or (city_pulse_scope(ctx.get("scope")) == "city" and not ctx.get("city")):
         return {"ok": True, "enabled": True, "city_resolved": False, "cards": [], "reason": "city_unknown"}
     now_dt = datetime.now(timezone.utc)
     payload: Dict[str, Any] = {"batch": None, "cards": []}
@@ -9396,6 +9475,8 @@ def public_city_pulse(
         "city_resolved": True,
         "city": {
             "city_key": ctx.get("city_key", ""),
+            "scope": city_pulse_scope(ctx.get("scope")),
+            "area_label": city_pulse_area_label(ctx),
             "city": ctx.get("city", ""),
             "region": ctx.get("region", ""),
             "country_code": ctx.get("country_code", ""),
