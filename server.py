@@ -189,7 +189,7 @@ CITY_PULSE_MAX_ARTICLES = max(8, min(int(os.environ.get("CITY_PULSE_MAX_ARTICLES
 CITY_PULSE_MAX_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MAX_CARDS", "8") or 8), 10))
 CITY_PULSE_MIN_READY_CARDS = max(1, min(int(os.environ.get("CITY_PULSE_MIN_READY_CARDS", "6") or 6), CITY_PULSE_MAX_CARDS))
 CITY_PULSE_CONTEXT_CARD_TARGET = max(0, min(int(os.environ.get("CITY_PULSE_CONTEXT_CARD_TARGET", "2") or 2), CITY_PULSE_MAX_CARDS))
-CITY_PULSE_QUALITY_VERSION = int(os.environ.get("CITY_PULSE_QUALITY_VERSION", "7") or 7)
+CITY_PULSE_QUALITY_VERSION = int(os.environ.get("CITY_PULSE_QUALITY_VERSION", "9") or 9)
 CITY_PULSE_MIN_PIN_CONFIDENCE = float(os.environ.get("CITY_PULSE_MIN_PIN_CONFIDENCE", "0.55") or 0.55)
 CITY_PULSE_IPINFO_TOKEN = (os.environ.get("CITY_PULSE_IPINFO_TOKEN", "").strip() or os.environ.get("IPINFO_TOKEN", "").strip())
 CITY_PULSE_MODEL = os.environ.get("CITY_PULSE_MODEL", OPENROUTER_MODEL).strip() or OPENROUTER_MODEL
@@ -4034,8 +4034,16 @@ def city_pulse_specific_hook_from_story(text: str, category: str = "") -> str:
         return "Road closed"
     if re.search(r"\b(power outage|water main|boil water)\b", blob):
         return "Service alert"
-    if re.search(r"\b(council|mayor|budget|housing|development|zoning)\b", blob):
-        return "City decision"
+    if re.search(r"\bprovincial administration\b|\bmunicipal administration\b", blob):
+        return "Town oversight"
+    if re.search(r"\beconomic development\b|\binvestment\b", blob):
+        return "Investment push"
+    if re.search(r"\bbudget|tax\b", blob):
+        return "Budget decision"
+    if re.search(r"\bhousing|apartment|zoning|development\b", blob):
+        return "Development plan"
+    if re.search(r"\bcouncil|mayor\b", blob):
+        return "Council vote"
     return ""
 
 def city_pulse_hook_from_title(title: str, category: str = "", summary: str = "") -> str:
@@ -4043,17 +4051,39 @@ def city_pulse_hook_from_title(title: str, category: str = "", summary: str = ""
     if specific:
         return specific
     clean = city_pulse_clean_headline(title, 120)
+    blob = norm_text(f"{clean} {summary}")
+    hook_patterns = (
+        (r"\bdog\b.{0,40}\b(attack|bite|maul)", "Dog attack"),
+        (r"\bbear\b.{0,40}\b(attack|encounter|maul|killed|dead)", "Bear attack"),
+        (r"\bonline luring\b|\bluring\b", "Online luring"),
+        (r"\bopen drug use\b|\bdrug use\b", "Drug concerns"),
+        (r"\bcannabis store\b.{0,50}\bassault|\bassault\b.{0,50}\bcannabis", "Worker assault"),
+        (r"\bmissing\b.{0,40}\b(man|woman|person|child|teen)", "Missing person"),
+        (r"\bvehicle rollover\b|\brollover\b", "Vehicle rollover"),
+        (r"\bmulti-vehicle crash\b|\bcrash\b|\bcollision\b", "Crash alert"),
+        (r"\bwind warning\b|\bsevere wind\b|\bwildfire\b|\bflood\b", "Weather alert"),
+        (r"\bpublic health emergency\b|\bhiv\b.{0,40}\bemergency", "Health emergency"),
+        (r"\bhospital\b.{0,80}\b(cancel|surgery|surgeries|beds|icu)", "Hospital disruption"),
+        (r"\bproperty tax\b|\btax bill\b", "Tax bill"),
+        (r"\btiny homes?\b", "Tiny homes"),
+        (r"\bhousing\b|\bapartment\b|\brent\b", "Housing update"),
+        (r"\bteacher\b|\bschool\b|\bstudent\b", "School issue"),
+        (r"\bcourt\b|\blawsuit\b|\bsentencing\b|\bdefamation\b", "Court case"),
+        (r"\bbill c-?22\b|\blawful access\b", "Privacy bill"),
+        (r"\beconomy\b|\bjobs\b|\bunemployment\b", "Jobs update"),
+        (r"\btrade\b|\btariff\b", "Trade shift"),
+        (r"\bairport\b.{0,50}\brename", "Airport renamed"),
+        (r"\bport\b.{0,60}\b(cruise|power|energy|shipping)", "Port project"),
+    )
+    for pattern, hook in hook_patterns:
+        if re.search(pattern, blob):
+            return hook
     words = [w for w in re.split(r"\s+", clean) if w]
     if len(words) <= 4:
-        return clean or "Local update"
-    category_hooks = {
-        "public_safety": "Safety update",
-        "traffic": "Road update",
-        "event": "City event",
-        "alert": "Local alert",
-        "civic": "City decision",
-    }
-    return category_hooks.get(category, "Local update")
+        return clean or city_pulse_category_label(category)
+    stop = {"the", "a", "an", "to", "for", "in", "on", "of", "and", "or", "as", "with", "after", "before", "from", "this", "that", "your", "our"}
+    meaningful = [re.sub(r"[^A-Za-z0-9'-]", "", word) for word in words if re.sub(r"[^A-Za-z0-9'-]", "", word).lower() not in stop]
+    return city_pulse_clean_label(" ".join(meaningful[:3]), 42) or city_pulse_category_label(category)
 
 def city_pulse_vague_card_text(value: str) -> bool:
     text = norm_text(value)

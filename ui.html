@@ -543,6 +543,39 @@ a{color:inherit;text-decoration:none}
 .city-pulse-source-link{display:inline-flex;align-items:center;justify-content:center;max-width:100%;min-height:27px;padding:6px 8px;border-radius:7px;border:1px solid rgba(37,99,235,.2);background:#eff6ff;font-size:10px;font-weight:850;line-height:1;color:#2563eb;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .city-pulse-source-link:hover{background:#dbeafe;border-color:rgba(37,99,235,.34)}
 .city-pulse-meta{font-size:9px;font-weight:850;color:#667085;text-transform:uppercase;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.city-pulse-dock{position:absolute;right:16px;top:94px;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 24px);z-index:5;width:min(336px,calc(100% - 32px));display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:8px;padding:10px;border-radius:18px;background:linear-gradient(180deg,rgba(255,253,248,.96),rgba(246,239,227,.9));border:1px solid rgba(191,174,149,.34);box-shadow:0 18px 38px rgba(31,41,55,.14);backdrop-filter:blur(14px);pointer-events:auto;transition:opacity .16s ease,transform .16s ease}
+.city-pulse-dock.is-off{display:none}
+.city-pulse-dock-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.city-pulse-dock-title{font-family:'Sora',sans-serif;font-size:13px;font-weight:850;color:#24170f}
+.city-pulse-dock-toggle{height:28px;border-radius:999px;border:1px solid rgba(8,145,178,.24);background:#ecfeff;color:#0e7490;font-size:10px;font-weight:900;padding:0 10px;cursor:pointer}
+.city-pulse-dock-area{font-size:10px;font-weight:800;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.city-pulse-feed{min-height:0;display:grid;gap:8px;overflow:auto;padding-right:2px;scrollbar-width:thin}
+.city-pulse-feed-empty{padding:12px;border-radius:12px;background:rgba(255,255,255,.62);border:1px dashed rgba(100,116,139,.24);font-size:11px;font-weight:800;color:#667085}
+.city-pulse-feed-card{position:relative;display:grid;gap:6px;padding:9px 10px 9px 12px;border-radius:12px;background:rgba(255,255,255,.82);border:1px solid rgba(55,65,81,.12);box-shadow:0 10px 22px rgba(31,41,55,.08);overflow:hidden;cursor:pointer;--pulse:#0891b2;--pulse-bg:#ecfeff}
+.city-pulse-feed-card[data-category="public_safety"]{--pulse:#dc2626;--pulse-bg:#fef2f2}
+.city-pulse-feed-card[data-category="traffic"]{--pulse:#2563eb;--pulse-bg:#eff6ff}
+.city-pulse-feed-card[data-category="event"]{--pulse:#16a34a;--pulse-bg:#f0fdf4}
+.city-pulse-feed-card[data-category="alert"]{--pulse:#b91c1c;--pulse-bg:#fff1f2}
+.city-pulse-feed-card[data-category="civic"]{--pulse:#7c3aed;--pulse-bg:#f5f3ff}
+.city-pulse-feed-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pulse)}
+.city-pulse-feed-top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.city-pulse-feed-badge{display:inline-flex;align-items:center;max-width:130px;height:18px;padding:0 7px;border-radius:999px;background:var(--pulse-bg);color:var(--pulse);font-size:8px;font-weight:900;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.city-pulse-feed-time{font-size:9px;font-weight:850;color:#667085;white-space:nowrap}
+.city-pulse-feed-hook{font-size:13px;font-weight:900;line-height:1.18;color:#24170f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.city-pulse-feed-expanded{display:none;gap:7px}
+.city-pulse-feed-card.open .city-pulse-feed-expanded{display:grid}
+@media(hover:hover) and (pointer:fine){.city-pulse-feed-card:hover .city-pulse-feed-expanded{display:grid}}
+.city-pulse-feed-headline{font-size:12px;font-weight:850;line-height:1.28;color:#3b2a1f}
+.city-pulse-feed-brief{font-size:11px;line-height:1.45;color:#58483e}
+.city-pulse-feed-card .city-pulse-close{top:7px;right:7px}
+.city-pulse-feed-card.open .city-pulse-close{display:grid;place-items:center}
+.city-pulse-map-pin{width:28px;height:28px;border-radius:999px;display:grid;place-items:center;background:#fff;border:3px solid var(--pulse,#0891b2);box-shadow:0 10px 22px rgba(31,41,55,.2);color:var(--pulse,#0891b2);font-size:11px;font-weight:950;line-height:1}
+.city-pulse-map-pin[data-category="public_safety"]{--pulse:#dc2626}
+.city-pulse-map-pin[data-category="traffic"]{--pulse:#2563eb}
+.city-pulse-map-pin[data-category="event"]{--pulse:#16a34a}
+.city-pulse-map-pin[data-category="alert"]{--pulse:#b91c1c}
+.city-pulse-map-pin[data-category="civic"]{--pulse:#7c3aed}
+.city-pulse-map-pin.active{background:var(--pulse,#0891b2);color:#fff}
 .map-category-icon,.map-category-badge,.map-sheet-mini-icon{display:grid;place-items:center}
 .map-category-icon svg,.map-category-badge svg,.map-sheet-mini-icon svg,.wave-map-pin-badge svg{width:16px;height:16px;display:block;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;fill:none}
 .map-category-icon svg .fill,.map-category-badge svg .fill,.map-sheet-mini-icon svg .fill,.wave-map-pin-badge svg .fill{fill:currentColor;stroke:none}
@@ -606,6 +639,7 @@ a{color:inherit;text-decoration:none}
   .map-sheet-actions #mapSheetNearBtn{grid-column:1/-1;grid-row:2}
   .map-sheet-actions #mapSheetCompactBtn{grid-column:2;grid-row:1;display:grid!important;place-items:center;width:30px;min-width:30px;height:30px;min-height:30px;padding:0;border-radius:999px;font-size:18px;line-height:1}
   .map-sheet-actions #mapSheetRadiusBtn{grid-column:1/-1;grid-row:3}
+  .map-sheet-actions #mapSheetPulseBtn{grid-column:1/-1;grid-row:4}
   .map-sheet-actions .btn{width:100%;height:34px;min-height:34px;justify-content:center;padding-inline:9px;font-size:11px;border-radius:12px}
   .map-sheet-status{display:none}
   .map-sheet-list{width:calc(100% - 12px);left:6px;right:6px;transform:none;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);padding:6px;border-radius:20px;gap:6px}
@@ -617,6 +651,22 @@ a{color:inherit;text-decoration:none}
   .map-spot-card-copy{font-size:10px}
   .map-spot-card-foot{display:grid;grid-template-columns:1fr;align-items:stretch}
   .map-spot-card-visit{width:100%;justify-content:center}
+  .city-pulse-dock{left:8px;right:8px;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 48px);width:auto;max-height:32vh;padding:8px;border-radius:16px;gap:6px}
+  .city-pulse-dock-head{gap:8px}
+  .city-pulse-dock-title{font-size:12px}
+  .city-pulse-dock-toggle{height:26px;font-size:9px;padding:0 8px}
+  .city-pulse-dock-area{font-size:9px}
+  .city-pulse-feed{display:flex;gap:7px;overflow-x:auto;overflow-y:hidden;padding:1px 2px 3px;scrollbar-width:none}
+  .city-pulse-feed::-webkit-scrollbar{display:none}
+  .city-pulse-feed-card{min-width:142px;max-width:142px;gap:4px;padding:7px 8px 7px 10px;border-radius:11px}
+  .city-pulse-feed-card.open{min-width:min(260px,calc(100vw - 32px));max-width:min(260px,calc(100vw - 32px))}
+  .city-pulse-feed-badge{max-width:78px;height:15px;font-size:7px;padding:0 5px}
+  .city-pulse-feed-time{font-size:8px}
+  .city-pulse-feed-hook{font-size:11px}
+  .city-pulse-feed-headline{font-size:12px}
+  .city-pulse-feed-brief{font-size:10px}
+  .city-pulse-map-pin{width:22px;height:22px;border-width:2px;font-size:9px}
+  .map-sheet.list-hidden .city-pulse-dock{bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-mini-height,46px) + 52px)}
   .city-pulse-marker{width:168px;min-height:64px}
   .city-pulse-pin{left:10px;width:16px;height:16px;border-width:2px}
   .city-pulse-card{width:154px;bottom:20px;padding:7px 8px;gap:3px;max-height:46px}
@@ -10002,6 +10052,7 @@ select.btn{
           <button id="mapSheetCompactBtn" class="btn btn-g btn-sm" type="button" aria-expanded="true">Hide Info</button>
           <button id="mapSheetNearBtn" class="btn btn-o btn-sm" type="button">Near Me</button>
           <button id="mapSheetRadiusBtn" class="btn btn-o btn-sm" type="button">Radius: Any</button>
+          <button id="mapSheetPulseBtn" class="btn btn-A btn-sm" type="button" aria-pressed="true">City Pulse Active</button>
           <button id="mapSheetCloseBtn" class="btn btn-g btn-sm" type="button">Close</button>
         </div>
       </div>
@@ -10011,6 +10062,14 @@ select.btn{
       <div class="map-sheet-floating">
         <div id="mapSheetFloatingMeta" class="map-floating-chip">Businesses with map pins</div>
         <div id="mapSheetFloatingHint" class="map-floating-chip">Tap a pin to preview the business</div>
+      </div>
+      <div id="cityPulseDock" class="city-pulse-dock" aria-live="polite">
+        <div class="city-pulse-dock-head">
+          <div class="city-pulse-dock-title">City Pulse</div>
+          <button id="cityPulseDockToggle" class="city-pulse-dock-toggle" type="button" aria-pressed="true">Active</button>
+        </div>
+        <div id="cityPulseDockArea" class="city-pulse-dock-area">Loading local updates</div>
+        <div id="cityPulseFeed" class="city-pulse-feed"></div>
       </div>
       <button id="mapSheetLocateBtn" class="map-sheet-locate-btn" type="button" aria-label="Go to my location" title="Go to my location">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -10227,7 +10286,7 @@ const App = {
     promptMode: 'intro',
     centerMapOnGrant: false
   },
-  mapSheet: {map:null,markers:[],userMarker:null,cityPulseMarkers:[],shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',previewMode:'',previewDismissedKey:'',previewTimer:null,moveRefreshTimer:null,cityPulseTimer:null,suppressPopupEvents:false,moving:false,compact:window.innerWidth<=560,responsiveCompact:window.innerWidth<=560,listHidden:false,floatingHidden:false,floatingTimer:null,viewportTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false,cityPulse:{cards:[],city:null,batch:null,loaded:false,loading:false,lastKey:'',pendingKey:'',requestSeq:0,abortController:null,enabled:true}},
+  mapSheet: {map:null,markers:[],userMarker:null,cityPulseMarkers:[],shopLookup:{},mode:'home',focusShopId:'',userLocation:null,loaded:false,pinnedPopupKey:'',previewMode:'',previewDismissedKey:'',previewTimer:null,moveRefreshTimer:null,cityPulseTimer:null,suppressPopupEvents:false,moving:false,compact:window.innerWidth<=560,responsiveCompact:window.innerWidth<=560,listHidden:false,floatingHidden:false,floatingTimer:null,viewportTimer:null,sort:'nearest',radiusKm:0,baseShops:[],preparedShops:[],listFocusId:'',focusScrollRequested:false,cityPulse:{cards:[],city:null,batch:null,loaded:false,loading:false,lastKey:'',pendingKey:'',requestSeq:0,abortController:null,enabled:true,active:true}},
   chatShopId: '',
   chatContextToken: 0,
   shopMobileSheet: '',
@@ -11391,6 +11450,7 @@ function syncMapSheetChrome(){
     miniRail.style.display=hasCards && compactViewport && App.mapSheet.listHidden ? 'flex' : 'none';
     miniRail.setAttribute('aria-hidden',hasCards && compactViewport && App.mapSheet.listHidden ? 'false' : 'true');
   }
+  syncCityPulseControls();
 }
 function setMapSheetCompact(nextCompact=false){
   App.mapSheet.compact=!!nextCompact;
@@ -11501,6 +11561,7 @@ function syncMapSheetChrome(){
     miniRail.style.display=hasCards && compactViewport && App.mapSheet.listHidden ? 'flex' : 'none';
     miniRail.setAttribute('aria-hidden',hasCards && compactViewport && App.mapSheet.listHidden ? 'false' : 'true');
   }
+  syncCityPulseControls();
   requestAnimationFrame(syncMapSheetListMetrics);
 }
 function mapPopupHtml(shop={}){
@@ -11855,6 +11916,143 @@ function cityPulseCardHtml(card={}){
     </div>
   </div>`;
 }
+function cityPulseGenericHook(value=''){
+  return /^(local update|city event|safety update|local alert|city decision|road update|news)$/i.test(String(value||'').trim());
+}
+function cityPulseDisplayHook(card={}){
+  const hook=String(card.hook_title||'').trim();
+  if(hook && !cityPulseGenericHook(hook)) return hook;
+  const headline=String(card.headline||'').replace(/\s+/g,' ').trim();
+  if(!headline) return 'Breaking update';
+  const words=headline.split(/\s+/).filter(Boolean);
+  return words.slice(0,Math.min(4,words.length)).join(' ');
+}
+function cityPulseFeedCardHtml(card={},idx=0){
+  const sources=Array.isArray(card.sources)?card.sources:[];
+  const sourceLinks=sources.slice(0,3).map(src=>{
+    const label=src.publisher||src.title||'Source';
+    return `<a class="city-pulse-source-link" href="${esc(src.url||'#')}" target="_blank" rel="noopener noreferrer" title="${esc(src.title||label)}">${esc(label)}</a>`;
+  }).join('');
+  const confidence=Number(card.location_confidence||0);
+  const approx=card.location_approximate===true || String(card.location_precision||'city')==='city' || confidence<0.55;
+  const categoryLabel=card.category_label||cityPulseCategoryLabel(card.category);
+  const locationLabel=card.location_label||card.area_label||'';
+  const meta=[categoryLabel,locationLabel,approx?'Area-level':'' ].filter(Boolean).join(' | ');
+  return `<article class="city-pulse-feed-card" data-city-pulse-index="${idx}" data-category="${esc(card.category||'news')}" tabindex="0">
+    <button class="city-pulse-close" type="button" data-city-pulse-close aria-label="Collapse news card">&times;</button>
+    <div class="city-pulse-feed-top">
+      <div class="city-pulse-feed-badge">${esc(locationLabel||'Pulse')}</div>
+      <div class="city-pulse-feed-time">${esc(cityPulseTimeLabel(card.published_at))}</div>
+    </div>
+    <div class="city-pulse-feed-hook">${esc(cityPulseDisplayHook(card))}</div>
+    <div class="city-pulse-feed-expanded">
+      <div class="city-pulse-feed-headline">${esc(card.headline||card.hook_title||'Local update')}</div>
+      <div class="city-pulse-feed-brief">${esc(card.brief||'Open the source links for the full details.')}</div>
+      <div class="city-pulse-source-list">${sourceLinks}</div>
+      <div class="city-pulse-meta">${esc(meta)}</div>
+    </div>
+  </article>`;
+}
+function cityPulseMapPinHtml(card={},idx=0){
+  return `<button class="city-pulse-map-pin" data-city-pulse-index="${idx}" data-category="${esc(card.category||'news')}" type="button" title="${esc(card.headline||card.hook_title||'City Pulse')}">${idx+1}</button>`;
+}
+function cityPulseShouldMapPin(card={}){
+  const lat=Number(card.latitude),lng=Number(card.longitude);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)) return false;
+  const precision=String(card.location_precision||'city').toLowerCase();
+  const confidence=Number(card.location_confidence||0);
+  if(card.location_approximate===true || confidence<0.72) return false;
+  return /^(address|street|poi|venue|neighborhood|locality)$/.test(precision);
+}
+function syncCityPulseControls(){
+  const active=App.mapSheet.cityPulse?.active!==false;
+  const sheet=$('mapSheetBg')?.querySelector('.map-sheet');
+  sheet?.classList.toggle('city-pulse-off',!active);
+  const dock=$('cityPulseDock');
+  dock?.classList.toggle('is-off',!active);
+  const pulseBtn=$('mapSheetPulseBtn');
+  if(pulseBtn){
+    pulseBtn.textContent=active?'City Pulse Active':'City Pulse Off';
+    pulseBtn.setAttribute('aria-pressed',active?'true':'false');
+    pulseBtn.classList.toggle('btn-A',active);
+    pulseBtn.classList.toggle('btn-o',!active);
+  }
+  const dockToggle=$('cityPulseDockToggle');
+  if(dockToggle){
+    dockToggle.textContent=active?'Active':'Off';
+    dockToggle.setAttribute('aria-pressed',active?'true':'false');
+  }
+}
+function openCityPulseFeedCard(idx=0,opts={}){
+  const feed=$('cityPulseFeed');
+  const card=feed?.querySelector?.(`[data-city-pulse-index="${idx}"]`);
+  if(!card) return;
+  feed.querySelectorAll('.city-pulse-feed-card.open').forEach(el=>{ if(el!==card) el.classList.remove('open'); });
+  card.classList.add('open');
+  if(opts.scroll!==false) card.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'});
+  App.mapSheet.cityPulseMarkers.forEach(entry=>{
+    const pin=entry.marker?.getElement?.()?.querySelector?.('.city-pulse-map-pin');
+    pin?.classList.toggle('active',Number(entry.idx)===Number(idx));
+  });
+}
+function bindCityPulseFeed(){
+  const feed=$('cityPulseFeed');
+  if(!feed || feed.dataset.bound==='1') return;
+  feed.dataset.bound='1';
+  feed.addEventListener('click',e=>{
+    const close=e.target.closest('[data-city-pulse-close]');
+    const card=e.target.closest('.city-pulse-feed-card');
+    if(close && card){
+      e.preventDefault();
+      e.stopPropagation();
+      card.classList.remove('open');
+      return;
+    }
+    if(e.target.closest('a')) return;
+    if(!card) return;
+    const idx=Number(card.dataset.cityPulseIndex||0);
+    if(card.classList.contains('open')) card.classList.remove('open');
+    else openCityPulseFeedCard(idx,{scroll:false});
+  });
+  feed.addEventListener('keydown',e=>{
+    if(e.key!=='Enter' && e.key!==' ') return;
+    const card=e.target.closest('.city-pulse-feed-card');
+    if(!card) return;
+    e.preventDefault();
+    openCityPulseFeedCard(Number(card.dataset.cityPulseIndex||0),{scroll:false});
+  });
+}
+function renderCityPulsePanel(cards=[]){
+  syncCityPulseControls();
+  const feed=$('cityPulseFeed');
+  if(!feed) return;
+  bindCityPulseFeed();
+  const area=$('cityPulseDockArea');
+  const areaName=App.mapSheet.cityPulse?.city?.area_label || App.mapSheet.cityPulse?.city?.requested_area_label || 'this map area';
+  if(area) area.textContent=(cards||[]).length ? `${(cards||[]).length} updates for ${areaName}` : `No active updates for ${areaName}`;
+  if(App.mapSheet.cityPulse?.active===false){
+    feed.innerHTML='';
+    return;
+  }
+  if(!(cards||[]).length){
+    feed.innerHTML='<div class="city-pulse-feed-empty">City Pulse is gathering updates for this area.</div>';
+    return;
+  }
+  feed.innerHTML=(cards||[]).slice(0,8).map((card,idx)=>cityPulseFeedCardHtml(card,idx)).join('');
+}
+function setCityPulseActive(active=true){
+  App.mapSheet.cityPulse.active=!!active;
+  if(!active){
+    if(App.mapSheet.cityPulse.abortController) App.mapSheet.cityPulse.abortController.abort();
+    clearCityPulseMarkers();
+  }
+  syncCityPulseControls();
+  renderCityPulsePanel(App.mapSheet.cityPulse.cards||[]);
+  if(active){
+    renderCityPulseMarkers(App.mapSheet.cityPulse.cards||[]);
+    if(!(App.mapSheet.cityPulse.cards||[]).length) scheduleCityPulseRefresh(100);
+  }
+}
 function cityPulseMarkerLatLng(card={},idx=0,total=1){
   let lat=Number(card.latitude),lng=Number(card.longitude);
   if(!Number.isFinite(lat)||!Number.isFinite(lng)) return null;
@@ -11945,24 +12143,28 @@ function bindCityPulseMarker(marker){
 function renderCityPulseMarkers(cards=[]){
   if(!App.mapSheet.map || !window.L) return;
   clearCityPulseMarkers();
-  const usable=(cards||[]).filter(card=>Number.isFinite(Number(card.latitude))&&Number.isFinite(Number(card.longitude))).slice(0,shouldCompactMapSheet()?6:8);
-  usable.forEach((card,idx)=>{
-    const latLng=cityPulseMarkerLatLng(card,idx,usable.length);
+  if(App.mapSheet.cityPulse?.active===false) return;
+  const usable=(cards||[]).map((card,idx)=>({card,idx})).filter(entry=>cityPulseShouldMapPin(entry.card)).slice(0,4);
+  usable.forEach(({card,idx},pinIdx)=>{
+    const latLng=[Number(card.latitude),Number(card.longitude)];
     if(!latLng) return;
-    const baseZ=520+(usable.length-idx)*8;
+    const baseZ=560+(usable.length-pinIdx)*8;
     const icon=L.divIcon({
-      className:'',
-      html:cityPulseCardHtml(card),
-      iconSize:shouldCompactMapSheet()?[168,88]:[224,112],
-      iconAnchor:shouldCompactMapSheet()?[18,82]:[24,106]
+      className:'city-pulse-map-pin-shell',
+      html:cityPulseMapPinHtml(card,idx),
+      iconSize:[28,28],
+      iconAnchor:[14,14]
     });
     const marker=L.marker(latLng,{icon,zIndexOffset:baseZ}).addTo(App.mapSheet.map);
-    marker.on('add',()=>bindCityPulseMarker(marker));
-    App.mapSheet.cityPulseMarkers.push({card,marker});
+    marker.on('click',()=>openCityPulseFeedCard(idx));
+    App.mapSheet.cityPulseMarkers.push({card,marker,idx});
     setTimeout(()=>{
-      const root=marker?.getElement?.()?.querySelector?.('.city-pulse-marker');
-      if(root) root.dataset.baseZ=String(baseZ);
-      bindCityPulseMarker(marker);
+      const pin=marker?.getElement?.()?.querySelector?.('.city-pulse-map-pin');
+      pin?.addEventListener('click',e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        openCityPulseFeedCard(idx);
+      });
     },0);
   });
 }
@@ -11978,7 +12180,7 @@ function cityPulseContextKey(ctx={}){
   return [scope,ctx.city||'',ctx.region||'',ctx.country_code||'',latKey,lngKey].join('|');
 }
 async function loadCityPulseForMap(opts={}){
-  if(!App.mapSheet.map || App.mapSheet.cityPulse.enabled===false) return;
+  if(!App.mapSheet.map || App.mapSheet.cityPulse.enabled===false || App.mapSheet.cityPulse.active===false) return;
   const ctx=inferCityPulseMapContext();
   const key=cityPulseContextKey(ctx);
   if(!opts.force && key && App.mapSheet.cityPulse.loaded && App.mapSheet.cityPulse.lastKey===key && (App.mapSheet.cityPulse.cards||[]).length) return;
@@ -12011,14 +12213,19 @@ async function loadCityPulseForMap(opts={}){
     App.mapSheet.cityPulse.batch=d.batch||null;
     if(nextCards.length){
       App.mapSheet.cityPulse.cards=nextCards;
+      renderCityPulsePanel(nextCards);
       renderCityPulseMarkers(nextCards);
       const areaName=d.city?.area_label||d.city?.city||d.city?.region||d.city?.country_name||'this area';
       if($('mapSheetFloatingHint')) $('mapSheetFloatingHint').textContent=`City Pulse: ${nextCards.length} curated update${nextCards.length===1?'':'s'} for ${areaName}`;
     }else if(d.refreshing && (d.city?.area_label||d.city?.city)){
       setMapSheetStatus(`Gathering City Pulse updates for ${d.city.area_label||d.city.city}.`);
-      if(!(App.mapSheet.cityPulse.cards||[]).length) renderCityPulseMarkers([]);
+      if(!(App.mapSheet.cityPulse.cards||[]).length){
+        renderCityPulsePanel([]);
+        renderCityPulseMarkers([]);
+      }
       setTimeout(()=>loadCityPulseForMap({force:true}),7000);
     }else if(!(App.mapSheet.cityPulse.cards||[]).length){
+      renderCityPulsePanel([]);
       renderCityPulseMarkers([]);
     }
   }catch(e){
@@ -12036,7 +12243,7 @@ function scheduleCityPulseRefresh(delay=900){
     clearTimeout(App.mapSheet.cityPulseTimer);
     App.mapSheet.cityPulseTimer=null;
   }
-  if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map) return;
+  if(!$('mapSheetBg')?.classList.contains('on') || !App.mapSheet.map || App.mapSheet.cityPulse.active===false) return;
   App.mapSheet.cityPulseTimer=setTimeout(()=>{
     App.mapSheet.cityPulseTimer=null;
     loadCityPulseForMap().catch(()=>{});
@@ -12829,8 +13036,9 @@ async function openMapSheet(mode='home',focusRef=''){
   App.mapSheet.focusScrollRequested=!!focusRef;
   App.mapSheet.preparedShops=[];
   if(App.mapSheet.cityPulse?.abortController) App.mapSheet.cityPulse.abortController.abort();
-  App.mapSheet.cityPulse={cards:[],city:null,batch:null,loaded:false,loading:false,lastKey:'',pendingKey:'',requestSeq:0,abortController:null,enabled:true};
+  App.mapSheet.cityPulse={cards:[],city:null,batch:null,loaded:false,loading:false,lastKey:'',pendingKey:'',requestSeq:0,abortController:null,enabled:true,active:true};
   clearCityPulseMarkers();
+  renderCityPulsePanel([]);
   if($('mapSheetList')){
     $('mapSheetList').innerHTML='';
     $('mapSheetList').classList.remove('on');
@@ -12893,6 +13101,8 @@ function closeMapSheet(){
 $('homeMapToggleBtn')?.addEventListener('click',()=>openMapSheet('home'));
 $('mapSheetCompactBtn')?.addEventListener('click',()=>setMapSheetCompact(!App.mapSheet.compact));
 $('mapSheetToolsBtn')?.addEventListener('click',()=>setMapSheetCompact(!App.mapSheet.compact));
+$('mapSheetPulseBtn')?.addEventListener('click',()=>setCityPulseActive(App.mapSheet.cityPulse.active===false));
+$('cityPulseDockToggle')?.addEventListener('click',()=>setCityPulseActive(App.mapSheet.cityPulse.active===false));
 $('mapSheetLocateBtn')?.addEventListener('click',async()=>{
   if(hasExactUserLocation()){
     focusMapOnUserLocation(App.mapSheet.userLocation,14);
