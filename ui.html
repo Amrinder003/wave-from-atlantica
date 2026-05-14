@@ -550,7 +550,18 @@ a{color:inherit;text-decoration:none}
 .city-pulse-dock-toggle{height:28px;border-radius:999px;border:1px solid rgba(8,145,178,.24);background:#ecfeff;color:#0e7490;font-size:10px;font-weight:900;padding:0 10px;cursor:pointer}
 .city-pulse-dock-area{font-size:10px;font-weight:800;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .city-pulse-dock-handle{display:none}
-.city-pulse-detail{display:none}
+.city-pulse-detail{position:absolute;right:368px;top:94px;bottom:auto;z-index:10;width:min(360px,calc(100% - 408px));max-height:min(66dvh,520px);display:none;grid-template-rows:auto auto;gap:8px;padding:11px 12px 12px;border-radius:16px;background:rgba(255,253,248,.98);border:1px solid rgba(191,174,149,.38);box-shadow:0 20px 44px rgba(31,41,55,.2);overflow:auto;overscroll-behavior:contain;backdrop-filter:blur(10px)}
+.city-pulse-detail.on{display:grid}
+.city-pulse-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;position:sticky;top:0;background:rgba(255,253,248,.98);padding-bottom:3px;z-index:2}
+.city-pulse-detail-kicker{font-size:9px;font-weight:900;color:#667085;text-transform:uppercase;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:270px}
+.city-pulse-detail-title{font-size:16px;font-weight:950;line-height:1.14;color:#24170f}
+.city-pulse-detail-close{width:30px;height:30px;border-radius:999px;border:1px solid rgba(55,65,81,.16);background:#fff;color:#334155;font-size:18px;font-weight:900;line-height:1;display:grid;place-items:center;flex:0 0 auto;cursor:pointer}
+.city-pulse-detail-body{display:grid;gap:8px;min-height:0}
+.city-pulse-detail-headline{font-size:13px;font-weight:850;line-height:1.3;color:#3b2a1f}
+.city-pulse-detail-brief{font-size:12px;line-height:1.5;color:#58483e}
+.city-pulse-detail .city-pulse-source-list{gap:6px;padding-top:0}
+.city-pulse-detail .city-pulse-source-link{min-height:25px;padding:5px 7px;border-radius:7px;font-size:10px;max-width:160px}
+.city-pulse-detail .city-pulse-meta{font-size:9px}
 .city-pulse-feed{min-height:0;display:grid;gap:8px;overflow:auto;padding-right:2px;scrollbar-width:thin}
 .city-pulse-feed-empty{padding:12px;border-radius:12px;background:rgba(255,255,255,.62);border:1px dashed rgba(100,116,139,.24);font-size:11px;font-weight:800;color:#667085}
 .city-pulse-feed-card{position:relative;display:grid;gap:6px;padding:9px 10px 9px 12px;border-radius:12px;background:rgba(255,255,255,.82);border:1px solid rgba(55,65,81,.12);box-shadow:0 10px 22px rgba(31,41,55,.08);overflow:hidden;cursor:pointer;--pulse:#0891b2;--pulse-bg:#ecfeff}
@@ -688,7 +699,7 @@ a{color:inherit;text-decoration:none}
   .city-pulse-detail .city-pulse-source-link{min-height:22px;padding:4px 6px;border-radius:6px;font-size:9px;max-width:132px}
   .city-pulse-detail .city-pulse-meta{font-size:8px}
   .map-sheet.list-hidden .city-pulse-detail{top:calc(env(safe-area-inset-top,0px) + 76px);bottom:auto}
-  .map-sheet.list-hidden .city-pulse-dock{height:min(58dvh,400px)}
+  .map-sheet.list-hidden .city-pulse-dock{height:min(72dvh,520px);max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 96px)}
   .city-pulse-marker{width:168px;min-height:64px}
   .city-pulse-pin{left:10px;width:16px;height:16px;border-width:2px}
   .city-pulse-card{width:154px;bottom:20px;padding:7px 8px;gap:3px;max-height:46px}
@@ -12159,7 +12170,7 @@ function openCityPulseFeedCard(idx=0,opts={}){
   const feed=$('cityPulseFeed');
   const card=feed?.querySelector?.(`[data-city-pulse-index="${idx}"]`);
   if(!card) return;
-  if(shouldCompactMapSheet() && opts.inline!==true){
+  if(opts.inline!==true){
     feed.querySelectorAll('.city-pulse-feed-card.open').forEach(el=>el.classList.remove('open'));
     openCityPulseDetail(idx);
     return;
