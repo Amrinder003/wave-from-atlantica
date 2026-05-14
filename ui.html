@@ -653,7 +653,7 @@ a{color:inherit;text-decoration:none}
   .map-spot-card-copy{font-size:10px}
   .map-spot-card-foot{display:grid;grid-template-columns:1fr;align-items:stretch}
   .map-spot-card-visit{width:100%;justify-content:center}
-  .city-pulse-dock{left:auto;right:7px;top:calc(env(safe-area-inset-top,0px) + 62px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-list-height,86px) + 56px);width:min(184px,48vw);max-height:none;padding:7px;border-radius:15px 0 0 15px;gap:6px;z-index:7;transform:translateX(0);will-change:transform;touch-action:pan-y;overscroll-behavior:contain}
+  .city-pulse-dock{left:auto;right:7px;top:calc(env(safe-area-inset-top,0px) + 62px);bottom:auto;height:min(52dvh,360px);max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 132px);width:min(184px,48vw);padding:7px;border-radius:15px 0 0 15px;gap:6px;z-index:7;transform:translateX(0);will-change:transform;touch-action:pan-y;overscroll-behavior:contain}
   .city-pulse-dock.is-dock-hidden{transform:translateX(calc(100% + 7px))}
   .map-sheet.city-pulse-reading .city-pulse-dock{opacity:.28;pointer-events:none}
   .map-sheet.map-moving .city-pulse-dock:not(.is-dock-hidden){opacity:.42;transform:translateX(calc(100% - 32px));pointer-events:none;box-shadow:none;backdrop-filter:none}
@@ -664,7 +664,7 @@ a{color:inherit;text-decoration:none}
   .city-pulse-dock-area{font-size:9px}
   .city-pulse-feed{display:grid;gap:6px;overflow-x:hidden;overflow-y:auto;padding:1px 2px 16px 0;scrollbar-width:none;scroll-padding:8px 0 18px}
   .city-pulse-feed::-webkit-scrollbar{display:none}
-  .city-pulse-feed-card{min-width:0;max-width:none;gap:4px;padding:7px 8px 7px 10px;border-radius:11px}
+  .city-pulse-feed-card{min-width:0;max-width:none;min-height:54px;gap:4px;padding:7px 8px 7px 10px;border-radius:11px;flex:0 0 auto}
   .city-pulse-feed-card.open{padding:8px 9px 10px 11px;scroll-margin:8px 0 18px}
   .city-pulse-feed-card.open .city-pulse-feed-hook{white-space:normal;overflow:visible}
   .city-pulse-feed-card.open .city-pulse-feed-expanded{display:none}
@@ -688,7 +688,7 @@ a{color:inherit;text-decoration:none}
   .city-pulse-detail .city-pulse-source-link{min-height:22px;padding:4px 6px;border-radius:6px;font-size:9px;max-width:132px}
   .city-pulse-detail .city-pulse-meta{font-size:8px}
   .map-sheet.list-hidden .city-pulse-detail{top:calc(env(safe-area-inset-top,0px) + 76px);bottom:auto}
-  .map-sheet.list-hidden .city-pulse-dock{bottom:calc(env(safe-area-inset-bottom,0px) + var(--map-sheet-mini-height,46px) + 14px)}
+  .map-sheet.list-hidden .city-pulse-dock{height:min(58dvh,400px)}
   .city-pulse-marker{width:168px;min-height:64px}
   .city-pulse-pin{left:10px;width:16px;height:16px;border-width:2px}
   .city-pulse-card{width:154px;bottom:20px;padding:7px 8px;gap:3px;max-height:46px}
@@ -12111,6 +12111,21 @@ function bindCityPulseDock(){
     setCityPulseDockHidden(dx>0);
   },{passive:true});
 }
+function bindCityPulseOutsideClose(){
+  const sheet=$('mapSheetBg')?.querySelector('.map-sheet');
+  if(!sheet || sheet.dataset.cityPulseOutsideBound==='1') return;
+  sheet.dataset.cityPulseOutsideBound='1';
+  sheet.addEventListener('pointerdown',e=>{
+    if(App.mapSheet.cityPulse?.detailIndex==null) return;
+    if(e.target.closest('#cityPulseDetail')) return;
+    if(e.target.closest('#cityPulseDock')) return;
+    if(e.target.closest('.city-pulse-map-pin')) return;
+    closeCityPulseDetail();
+  },true);
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape' && App.mapSheet.cityPulse?.detailIndex!=null) closeCityPulseDetail();
+  });
+}
 function syncCityPulseControls(){
   const active=App.mapSheet.cityPulse?.active!==false;
   const dockHidden=!!App.mapSheet.cityPulse?.dockHidden;
@@ -12120,6 +12135,7 @@ function syncCityPulseControls(){
   dock?.classList.toggle('is-off',!active);
   dock?.classList.toggle('is-dock-hidden',active && dockHidden);
   bindCityPulseDock();
+  bindCityPulseOutsideClose();
   const dockHandle=$('cityPulseDockHandle');
   if(dockHandle){
     dockHandle.textContent=dockHidden?'<':'>';
